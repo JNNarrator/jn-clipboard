@@ -9,6 +9,8 @@ export interface QuickPasteHint {
 
 export interface ClipboardItemProps {
   item: ClipboardEntry;
+  /** Current position in the combined pinned + history list. */
+  navigationIndex: number;
   isSelected: boolean;
   windowPinned: boolean;
   isSensitiveHidden: boolean;
@@ -76,6 +78,8 @@ export interface VirtualClipboardListProps {
   onScroll?: (offset: number) => void;
   compactMode: boolean;
   header?: ReactNode;
+  loadingLabel: string;
+  loadMoreLabel: string;
 }
 
 export interface VirtualClipboardListHandle {

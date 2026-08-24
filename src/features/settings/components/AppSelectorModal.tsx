@@ -21,6 +21,7 @@ const AppSelectorModal = ({ show, installedApps, theme, colorMode, t, onClose, o
         onClose={onClose}
         theme={theme}
         panelClassName="modal-panel modal-panel-form modal-panel-wide modal-panel-app-selector"
+        ariaLabel={t("select_app_title")}
     >
         <div className="modal-panel-header">
             <h3 className="modal-title">{t("select_app_title")}</h3>

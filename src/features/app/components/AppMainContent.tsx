@@ -1,16 +1,18 @@
-import type { ComponentProps, RefObject, ReactNode } from "react";
+import { lazy, Suspense, type ComponentProps, type RefObject, type ReactNode } from "react";
 import { motion, Reorder, useDragControls } from "framer-motion";
 import type { DragControls } from "framer-motion";
 import { ArrowUp, Clipboard } from "lucide-react";
-import FileTransferChatView from "../../file-transfer/components/FileTransferChatView";
-import SettingsPanel from "../../settings/components/SettingsPanel";
-import TagManager from "../../tag/components/TagManager";
-import EmojiPanel from "../../emoji/components/EmojiPanel";
+import type SettingsPanelComponent from "../../settings/components/SettingsPanel";
 import { VirtualClipboardList } from "../../clipboard/components/VirtualClipboardList";
 import type { ClipboardEntry } from "../../../shared/types";
 import type { VirtualClipboardListHandle } from "../../clipboard/types";
 
-type SettingsPanelProps = ComponentProps<typeof SettingsPanel>;
+const FileTransferChatView = lazy(() => import("../../file-transfer/components/FileTransferChatView"));
+const SettingsPanel = lazy(() => import("../../settings/components/SettingsPanel"));
+const TagManager = lazy(() => import("../../tag/components/TagManager"));
+const EmojiPanel = lazy(() => import("../../emoji/components/EmojiPanel"));
+
+type SettingsPanelProps = ComponentProps<typeof SettingsPanelComponent>;
 type RenderItem = (
   item: ClipboardEntry,
   index: number,
@@ -96,6 +98,12 @@ const SortableItem = ({
   );
 };
 
+const ViewLoading = ({ label }: { label: string }) => (
+  <div className="view-loading" role="status" aria-live="polite">
+    {label}
+  </div>
+);
+
 const AppMainContent = ({
   t,
   theme,
@@ -143,7 +151,9 @@ const AppMainContent = ({
         animate={{ opacity: 1, x: 0 }}
         style={{ height: "100%", overflow: "hidden", boxSizing: "border-box" }}
       >
-        <TagManager t={t} theme={theme} />
+        <Suspense fallback={<ViewLoading label={t("loading")} />}>
+          <TagManager t={t} theme={theme} />
+        </Suspense>
       </motion.div>
     );
   }
@@ -155,14 +165,16 @@ const AppMainContent = ({
         animate={{ opacity: 1, x: 0 }}
         style={{ height: "100%", overflow: "hidden" }}
       >
-        <EmojiPanel
-          t={t}
-          favorites={emojiFavorites}
-          setFavorites={setEmojiFavorites}
-          activeTab={emojiPanelTab}
-          setActiveTab={setEmojiPanelTab}
-          saveSetting={saveSetting}
-        />
+        <Suspense fallback={<ViewLoading label={t("loading")} />}>
+          <EmojiPanel
+            t={t}
+            favorites={emojiFavorites}
+            setFavorites={setEmojiFavorites}
+            activeTab={emojiPanelTab}
+            setActiveTab={setEmojiPanelTab}
+            saveSetting={saveSetting}
+          />
+        </Suspense>
       </motion.div>
     );
   }
@@ -175,12 +187,14 @@ const AppMainContent = ({
           animate={{ opacity: 1 }}
           style={{ height: "100%", overflow: "hidden" }}
         >
-          <FileTransferChatView
-            t={t}
-            localIp={localIp}
-            actualPort={actualPort}
-            accessToken={fileTransferAccessToken}
-          />
+          <Suspense fallback={<ViewLoading label={t("loading")} />}>
+            <FileTransferChatView
+              t={t}
+              localIp={localIp}
+              actualPort={actualPort}
+              accessToken={fileTransferAccessToken}
+            />
+          </Suspense>
         </motion.div>
       );
     }
@@ -195,7 +209,9 @@ const AppMainContent = ({
           maxWidth: settingsPanelProps.settingsSubpage === "advanced" ? "min(1120px, 100%)" : undefined
         }}
       >
-        <SettingsPanel {...settingsPanelProps} />
+        <Suspense fallback={<ViewLoading label={t("loading")} />}>
+          <SettingsPanel {...settingsPanelProps} />
+        </Suspense>
       </motion.div>
     );
   }
@@ -274,6 +290,8 @@ const AppMainContent = ({
             onScroll={handleListScroll}
             hasMore={hasMore}
             isLoading={isLoadingMore}
+            loadingLabel={t("loading")}
+            loadMoreLabel={t("theme_store_load_more")}
           />
           {showScrollTop && (
             <button

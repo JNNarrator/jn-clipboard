@@ -67,7 +67,7 @@ const SyncSettingsGroup = ({
     setMqttNotificationEnabled
 }: SyncSettingsGroupProps) => (
     <div className={`settings-group ${collapsed ? 'collapsed' : ''}`}>
-        <div className="group-header" onClick={onToggle}>
+        <button type="button" className="group-header" aria-expanded={!collapsed} onClick={onToggle}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <h3 style={{ margin: 0 }}>{t('sync_settings')}</h3>
                 {mqttEnabled && (
@@ -84,7 +84,7 @@ const SyncSettingsGroup = ({
                 )}
             </div>
             {collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
-        </div>
+        </button>
         {!collapsed && (
             <div className="group-content">
                 <div style={{

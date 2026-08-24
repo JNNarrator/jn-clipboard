@@ -1,5 +1,5 @@
 import type { ComponentProps } from "react";
-import SettingsPanel from "../components/SettingsPanel";
+import type SettingsPanel from "../components/SettingsPanel";
 import type { AppState } from "../../app/types";
 import type { Locale } from "../../../shared/types";
 

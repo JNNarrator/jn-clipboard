@@ -14,6 +14,7 @@ const AiProfileModal = ({ editingProfile, t, onClose, onSave, setEditingProfile 
         open={Boolean(editingProfile)}
         onClose={onClose}
         panelClassName="modal-panel modal-panel-form"
+        ariaLabel={editingProfile?.isNew ? t("ai_add_model") : t("ai_edit_model")}
     >
         {editingProfile && (
             <>

@@ -412,10 +412,10 @@ const DataSettingsGroup = ({
     return (
         <>
             <div className={`settings-group ${collapsed ? "collapsed" : ""}`}>
-                <div className="group-header" onClick={onToggle}>
+                <button type="button" className="group-header" aria-expanded={!collapsed} onClick={onToggle}>
                     <h3 style={{ margin: 0 }}>{t("data_management")}</h3>
                     {collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
-                </div>
+                </button>
                 {!collapsed && (
                     <div className="group-content">
                         <div className="setting-item column no-border">
@@ -513,6 +513,7 @@ const DataSettingsGroup = ({
                 theme={theme}
                 panelClassName="modal-panel clipboard-import-modal"
                 closeOnOverlayClick={!importing}
+                ariaLabel={t("third_party_import_modal_title")}
             >
                 <div className="clipboard-import-modal-header">
                     <div>

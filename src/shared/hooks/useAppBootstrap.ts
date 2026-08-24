@@ -75,21 +75,23 @@ export const useAppBootstrap = ({
       }
     });
 
-    const setupServerListener = async () => {
-      const unlisten = await listen<FileServerStatusPayload>("file-server-status-changed", (event) => {
+    let disposed = false;
+    let unlistenServer: (() => void) | undefined;
+    listen<FileServerStatusPayload>("file-server-status-changed", (event) => {
         const payload = event.payload;
         setFileServerEnabled(payload.enabled);
         setActualPort(payload.port === 0 ? "" : payload.port.toString());
         setLocalIp(payload.ip);
         setFileTransferAccessToken(payload.access_token || "");
-      });
-      return unlisten;
-    };
-
-    let unlistenServer: (() => void) | undefined;
-    setupServerListener().then((u) => {
-      unlistenServer = u;
-    });
+      })
+      .then((unlisten) => {
+        if (disposed) {
+          unlisten();
+          return;
+        }
+        unlistenServer = unlisten;
+      })
+      .catch(console.error);
 
     invoke<FileServerStatusPayload>("get_file_server_status")
       .then((status) => {
@@ -107,6 +109,7 @@ export const useAppBootstrap = ({
       .catch(console.error);
 
     return () => {
+      disposed = true;
       if (unlistenServer) unlistenServer();
     };
   }, [

@@ -21,7 +21,13 @@ const ConfirmDialog = ({
   onConfirm,
   onClose
 }: ConfirmDialogProps) => (
-  <AppModal open={open} onClose={onClose} theme={theme} panelClassName="modal-panel confirm-dialog">
+  <AppModal
+    open={open}
+    onClose={onClose}
+    theme={theme}
+    panelClassName="modal-panel confirm-dialog"
+    ariaLabel={title}
+  >
     <h3 className="confirm-dialog-title">{title}</h3>
     <p className="confirm-dialog-message">{message}</p>
     <div className="confirm-dialog-buttons">

@@ -1209,7 +1209,7 @@ const ClipboardItem = ({
         }
         if (!useSnapshotPreviewImage) return;
 
-        // Safety net: some WebView failures do not reliably fire <img onError>.
+        // Safety net: some WebView failures do not reliably fire the image error event.
         richSnapshotFallbackTimerRef.current = setTimeout(() => {
             const img = richSnapshotImgRef.current;
             if (!img || !img.complete || img.naturalWidth <= 0 || img.naturalHeight <= 0) {
@@ -1615,6 +1615,8 @@ const ClipboardItem = ({
             id={id}
             data-test-clipboard-item
             data-clipboard-item-id={String(item.id)}
+            role="listitem"
+            aria-current={isSelected ? "true" : undefined}
             layout={!disableLayout}
             initial={false}
             animate={{ marginBottom: 0 }}
@@ -1661,7 +1663,7 @@ const ClipboardItem = ({
                 if (target.closest('a')) {
                     return;
                 }
-                // Capture phase + preventDefault so clicks on <img>/<video> still paste:
+                // Capture phase + preventDefault so clicks on image/video media still paste:
                 // WebKit handles media mousedown defaults before bubble reaches this node.
                 e.preventDefault();
                 void hideCompactPreview();
@@ -2152,9 +2154,15 @@ const ClipboardItem = ({
 
 export default memo(ClipboardItem, (prevProps, nextProps) => {
     return prevProps.isSelected === nextProps.isSelected &&
+        prevProps.navigationIndex === nextProps.navigationIndex &&
         prevProps.item.id === nextProps.item.id &&
         prevProps.item.content_type === nextProps.item.content_type &&
         prevProps.item.timestamp === nextProps.item.timestamp &&
+        prevProps.item.created_at === nextProps.item.created_at &&
+        prevProps.item.last_used_at === nextProps.item.last_used_at &&
+        prevProps.item.sort_at === nextProps.item.sort_at &&
+        prevProps.item.use_count === nextProps.item.use_count &&
+        prevProps.item.pinned_order === nextProps.item.pinned_order &&
         prevProps.item.content === nextProps.item.content &&
         prevProps.item.preview === nextProps.item.preview &&
         prevProps.item.html_content === nextProps.item.html_content &&
@@ -2165,6 +2173,7 @@ export default memo(ClipboardItem, (prevProps, nextProps) => {
         prevProps.item.file_preview_exists === nextProps.item.file_preview_exists &&
         prevProps.item.tags === nextProps.item.tags &&
         prevProps.item.note === nextProps.item.note &&
+        prevProps.isSensitiveHidden === nextProps.isSensitiveHidden &&
         prevProps.isRevealed === nextProps.isRevealed &&
         prevProps.isEditingTags === nextProps.isEditingTags &&
         prevProps.isEditingNote === nextProps.isEditingNote &&
@@ -2173,6 +2182,10 @@ export default memo(ClipboardItem, (prevProps, nextProps) => {
         prevProps.aiEnabled === nextProps.aiEnabled &&
         prevProps.richTextSnapshotPreview === nextProps.richTextSnapshotPreview &&
         prevProps.showSourceAppIcon === nextProps.showSourceAppIcon &&
+        prevProps.sensitiveMaskPrefixVisible === nextProps.sensitiveMaskPrefixVisible &&
+        prevProps.sensitiveMaskSuffixVisible === nextProps.sensitiveMaskSuffixVisible &&
+        prevProps.sensitiveMaskEmailDomain === nextProps.sensitiveMaskEmailDomain &&
+        prevProps.tagColors === nextProps.tagColors &&
         prevProps.quickPasteHint?.slot === nextProps.quickPasteHint?.slot &&
         prevProps.quickPasteHint?.combo === nextProps.quickPasteHint?.combo &&
         prevProps.compactMode === nextProps.compactMode &&

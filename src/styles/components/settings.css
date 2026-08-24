@@ -57,8 +57,22 @@
   justify-content: space-between !important;
   align-items: center !important;
   cursor: pointer;
+  width: 100%;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
   transition: background 0.2s ease, border-color 0.2s ease;
   border-radius: inherit; /* Inherit rounded corners from .settings-group */
+}
+
+.group-header:hover {
+  background: color-mix(in srgb, var(--panel-header-background) 70%, var(--bg-input)) !important;
+}
+
+.group-header:focus-visible {
+  outline: 2px solid rgba(var(--accent-color-rgb), 0.58);
+  outline-offset: -3px;
 }
 
 .settings-group.collapsed {
@@ -142,6 +156,15 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-group .group-header,
+  .settings-group .group-content,
+  .settings-view .open-browser-btn {
+    animation: none !important;
+    transition: none !important;
   }
 }
 
@@ -253,6 +276,8 @@
   cursor: pointer;
   display: flex;
   align-items: center;
+  width: 100%;
+  text-align: left;
 }
 
 .data-panel:hover {
@@ -506,6 +531,12 @@
 
 .settings-view .open-browser-btn:active {
   transform: translateY(0);
+}
+
+.data-panel:focus-visible,
+.settings-view .open-browser-btn:focus-visible {
+  outline: 2px solid rgba(var(--accent-color-rgb), 0.58);
+  outline-offset: 2px;
 }
 
 @media (max-width: 360px) {

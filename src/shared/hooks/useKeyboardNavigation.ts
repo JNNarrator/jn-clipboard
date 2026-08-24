@@ -199,10 +199,12 @@ export const useKeyboardNavigation = ({
   };
 
   useEffect(() => {
+    if (!isTauriRuntime()) return;
     invoke("set_navigation_mode", { active: isKeyboardMode }).catch(console.error);
   }, [isKeyboardMode]);
 
   useEffect(() => {
+    if (!isTauriRuntime()) return;
     const appWindow = getCurrentWindow();
     const resetKeyboardNavigation = () => {
       resetSelectionToTop();
@@ -249,7 +251,9 @@ export const useKeyboardNavigation = ({
           const isClipboardAtTop = !isKeyboardModeRef.current || selectedIndexRef.current <= 0;
           if (isClipboardAtTop) {
             resetSelectionToTop();
-            invoke("hide_window_cmd").catch(console.error);
+            if (isTauriRuntime()) {
+              invoke("hide_window_cmd").catch(console.error);
+            }
           } else {
             applySelection(0);
           }
@@ -334,6 +338,7 @@ export const useKeyboardNavigation = ({
   }, [searchInputRef, setIsKeyboardMode, setSelectedIndex, setSelectedItemId]);
 
   useEffect(() => {
+    if (!isTauriRuntime()) return;
     const unlisten = listen<string>("navigation-action", async (event) => {
       // Prefer document focus over Tauri isVisible — NSPanel visibility can lag.
       let windowLooksOpen = document.hasFocus() || document.visibilityState === "visible";

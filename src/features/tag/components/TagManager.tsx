@@ -475,17 +475,21 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                                 }}
                                 title={tag.name}
                             >
-                                <div className="tag-color-wrapper" onClick={(e) => e.stopPropagation()}>
-                                    <div
+                                <div className="tag-color-wrapper">
+                                    <button
+                                        type="button"
                                         className="tag-color-dot"
                                         style={{ background: tagColors[tag.name] || getTagColor(tag.name, theme) }}
                                         onClick={() => document.getElementById(`color-picker-${tag.name}`)?.click()}
+                                        aria-label={`${tag.name}: ${t("color_mode")}`}
+                                        title={`${tag.name}: ${t("color_mode")}`}
                                     />
                                     <input
                                         type="color"
                                         id={`color-picker-${tag.name}`}
                                         style={{ display: "none" }}
                                         value={tagColors[tag.name] || "#888888"}
+                                        onClick={(e) => e.stopPropagation()}
                                         onChange={async (e) => {
                                             const newColor = e.target.value;
                                             setTagColors((prev) => ({ ...prev, [tag.name]: newColor }));
@@ -911,6 +915,7 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                 onClose={() => setDeleteConfirmation({ show: false, tagName: null })}
                 theme={theme}
                 panelClassName="modal-panel confirm-dialog"
+                ariaLabel={t("confirm_delete")}
             >
                 <h3 className="confirm-dialog-title">{t("confirm_delete")}</h3>
                 <p className="confirm-dialog-message">
@@ -944,6 +949,7 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                 onClose={() => setItemDeleteConfirmation({ show: false, id: null })}
                 theme={theme}
                 panelClassName="modal-panel confirm-dialog"
+                ariaLabel={t("confirm_delete")}
             >
                 <h3 className="confirm-dialog-title">{t("confirm_delete")}</h3>
                 <p className="confirm-dialog-message">{t("confirm_delete_desc") || "确定要删除这条记录吗？"}</p>
@@ -985,6 +991,7 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                 onClose={() => setIsCreatingItem(false)}
                 theme={theme}
                 panelClassName="modal-panel confirm-dialog"
+                ariaLabel={t("add_item")}
             >
                 <h3 className="confirm-dialog-title">{t("add_item")}</h3>
                 <textarea
@@ -1009,6 +1016,7 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                 onClose={() => setEditingItem(null)}
                 theme={theme}
                 panelClassName="modal-panel confirm-dialog"
+                ariaLabel={t("edit_item")}
             >
                 {editingItem && (
                     <>

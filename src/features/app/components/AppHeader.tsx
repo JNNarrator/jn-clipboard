@@ -197,7 +197,7 @@ const AppHeader = ({
             </div>
           )}
           {(showSettings || showTagManager || showEmojiPanel) && (
-            <button className="btn-icon header-back-btn" onClick={onBack}>
+            <button className="btn-icon header-back-btn" onClick={onBack} aria-label={t("back")} title={t("back")}>
               <ChevronLeft size={16} />
             </button>
           )}
@@ -213,6 +213,7 @@ const AppHeader = ({
           <button
             className={`btn-icon header-pin-btn ${isWindowPinned ? 'active' : ''}`}
             title={t('pin')}
+            aria-label={t('pin')}
             onClick={() => {
               const newVal = !isWindowPinned;
               setIsWindowPinned(newVal);
@@ -224,20 +225,20 @@ const AppHeader = ({
 
           {!showSettings && !showTagManager && !showEmojiPanel && (
             <>
-              <button className="btn-icon" title={t('clear_history')} onClick={clearHistory}>
+              <button className="btn-icon" title={t('clear_history')} aria-label={t('clear_history')} onClick={clearHistory}>
                 <Trash2 size={16} />
               </button>
               {tagManagerEnabled && (
-                <button className="btn-icon" title={t('tag_manager') || '标签管理'} onClick={() => setShowTagManager(true)}>
+                <button className="btn-icon" title={t('tag_manager') || '标签管理'} aria-label={t('tag_manager') || '标签管理'} onClick={() => setShowTagManager(true)}>
                   <Tag size={16} />
                 </button>
               )}
               {emojiPanelEnabled && (
-                <button className="btn-icon" title={t('emoji_panel') || '表情包'} onClick={() => setShowEmojiPanel(true)}>
+                <button className="btn-icon" title={t('emoji_panel') || '表情包'} aria-label={t('emoji_panel') || '表情包'} onClick={() => setShowEmojiPanel(true)}>
                   <Smile size={16} />
                 </button>
               )}
-              <button className="btn-icon" title={t('settings')} onClick={() => setShowSettings(true)}>
+              <button className="btn-icon" title={t('settings')} aria-label={t('settings')} onClick={() => setShowSettings(true)}>
                 <SettingsIcon size={16} />
               </button>
             </>
@@ -246,6 +247,7 @@ const AppHeader = ({
             <button
               className={`btn-icon header-chat-btn ${chatMode && showSettings ? 'active' : ''}`}
               title={t('file_transfer')}
+              aria-label={t('file_transfer')}
               onClick={onToggleChat}
             >
               <MessageSquare size={16} />
@@ -370,7 +372,8 @@ const AppHeader = ({
                           const tagBackground = tagColors[tag] || getTagColor(tag, theme);
                           const tagTextColor = getTagTextColor(tagBackground, theme);
                           return (
-                            <span
+                            <button
+                              type="button"
                               className="tag-chip"
                               key={tag}
                               onMouseDown={(e) => {
@@ -387,7 +390,7 @@ const AppHeader = ({
                               } as CSSProperties}
                             >
                               {tag}
-                            </span>
+                            </button>
                           );
                         })}
                       </div>

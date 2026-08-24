@@ -98,10 +98,10 @@ const GeneralSettingsGroup = ({
     saveAppSetting
 }: GeneralSettingsGroupProps) => (
     <div className={`settings-group ${collapsed ? 'collapsed' : ''}`}>
-        <div className="group-header" onClick={onToggle}>
+        <button type="button" className="group-header" aria-expanded={!collapsed} onClick={onToggle}>
             <h3 style={{ margin: 0 }}>{t('general_settings')}</h3>
             {collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
-        </div>
+        </button>
         {!collapsed && (
             <div className="group-content">
                 <div className="setting-item">

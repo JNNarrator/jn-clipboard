@@ -61,10 +61,10 @@ const FileTransferSettingsGroup = ({
     fetchEffectiveTransferPath
 }: FileTransferSettingsGroupProps) => (
     <div className={`settings-group ${collapsed ? 'collapsed' : ''}`}>
-        <div className="group-header" onClick={onToggle}>
+        <button type="button" className="group-header" aria-expanded={!collapsed} onClick={onToggle}>
             <h3 style={{ margin: 0 }}>{t('file_transfer')}</h3>
             {collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
-        </div>
+        </button>
         {!collapsed && (
             <div className="group-content">
                 <div className="setting-item">
@@ -237,11 +237,15 @@ const FileTransferSettingsGroup = ({
                                             <span className="info-label">{t('port')}</span>
                                             <span className="info-value">{actualPort}</span>
                                         </div>
-                                        <div className="open-browser-btn" onClick={() => {
-                                            if (onOpenChat) onOpenChat();
-                                        }}>
+                                        <button
+                                            type="button"
+                                            className="open-browser-btn"
+                                            onClick={() => {
+                                                if (onOpenChat) onOpenChat();
+                                            }}
+                                        >
                                             {t('open_page')}
-                                        </div>
+                                        </button>
                                     </div>
                                 </div>
                             </motion.div>

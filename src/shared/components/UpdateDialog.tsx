@@ -35,6 +35,7 @@ const UpdateDialog = ({
       onClose={onClose}
       panelClassName="modal-panel modal-panel-update"
       closeOnOverlayClick={status !== "downloading"}
+      ariaLabel="发现新版本"
     >
       <div className="modal-update-header">
         <div className="modal-update-header-info">

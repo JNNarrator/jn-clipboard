@@ -1,8 +1,5 @@
-import React from "react";
+import React, { lazy, Suspense } from "react";
 import ReactDOM from "react-dom/client";
-import App from "./App";
-import CompactPreviewWindow from "./features/clipboard/components/CompactPreviewWindow";
-import AdvancedSettingsWindow from "./features/settings/components/AdvancedSettingsWindow";
 import "./index.css";
 import "./styles/components/index.css";
 import "./styles/themes/load";
@@ -10,6 +7,11 @@ import "./styles/themes/load";
 const params = new URLSearchParams(window.location.search);
 const isCompactPreview = params.get("window") === "compact-preview";
 const isAdvancedSettingsWindow = params.get("window") === "advanced-settings";
+const RootComponent = isCompactPreview
+  ? lazy(() => import("./features/clipboard/components/CompactPreviewWindow"))
+  : isAdvancedSettingsWindow
+    ? lazy(() => import("./features/settings/components/AdvancedSettingsWindow"))
+    : lazy(() => import("./App"));
 const isMacPlatform =
   /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent) || /Mac/i.test(navigator.platform);
 
@@ -23,10 +25,8 @@ if (isMacPlatform) {
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    {isCompactPreview
-      ? <CompactPreviewWindow />
-      : isAdvancedSettingsWindow
-        ? <AdvancedSettingsWindow />
-        : <App />}
+    <Suspense fallback={null}>
+      <RootComponent />
+    </Suspense>
   </React.StrictMode>,
 );

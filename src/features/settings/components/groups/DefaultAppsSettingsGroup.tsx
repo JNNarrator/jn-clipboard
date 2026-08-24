@@ -41,10 +41,10 @@ const DefaultAppsSettingsGroup = ({
 
     return (
         <div className={`settings-group ${collapsed ? 'collapsed' : ''}`}>
-            <div className="group-header" onClick={onToggle}>
+            <button type="button" className="group-header" aria-expanded={!collapsed} onClick={onToggle}>
                 <h3 style={{ margin: 0 }}>{t('default_apps')}</h3>
                 {collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
-            </div>
+            </button>
             {!collapsed && (
                 <div className="group-content">
                     {APP_TYPES.map((type, idx, arr) => (
@@ -61,7 +61,12 @@ const DefaultAppsSettingsGroup = ({
                                 </button>
                             </div>
 
-                            <div onClick={() => setShowAppSelector(type)} className="data-panel" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <button
+                                type="button"
+                                onClick={() => setShowAppSelector(type)}
+                                className="data-panel"
+                                style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                            >
                                 {appSettings[`app.${type}`]
                                     ? (() => {
                                         const path = appSettings[`app.${type}`];
@@ -72,7 +77,7 @@ const DefaultAppsSettingsGroup = ({
                                         return getAppDisplayName(path);
                                     })()
                                     : (defaultApps[type] ? `${t('system_default')} (${getAppDisplayName(defaultApps[type])})` : t('not_configured'))}
-                            </div>
+                            </button>
                         </div>
                     ))}
                 </div>

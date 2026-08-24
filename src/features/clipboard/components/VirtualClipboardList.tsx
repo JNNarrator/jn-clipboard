@@ -8,6 +8,8 @@ type VirtuosoListContext = {
     header?: React.ReactNode;
     hasMore: boolean;
     isLoading: boolean;
+    loadingLabel: string;
+    loadMoreLabel: string;
 };
 
 const ListHeader = ({ context }: { context?: VirtuosoListContext }) => {
@@ -28,7 +30,9 @@ const ListFooter = ({ context }: { context?: VirtuosoListContext }) => {
             fontSize: '12px',
             color: 'var(--text-secondary)'
         }}>
-            {isLoading ? '加载中...' : '加载更多...'}
+            <span role="status" aria-live="polite">
+                {isLoading ? context.loadingLabel : context.loadMoreLabel}
+            </span>
         </div>
     );
 };
@@ -45,7 +49,9 @@ const VirtualClipboardList = React.forwardRef<VirtualClipboardListHandle, Virtua
             isKeyboardMode,
             onScroll,
             compactMode,
-            header
+            header,
+            loadingLabel,
+            loadMoreLabel
         } = props;
 
         const virtuosoRef = useRef<VirtuosoHandle>(null);
@@ -137,8 +143,10 @@ const VirtualClipboardList = React.forwardRef<VirtualClipboardListHandle, Virtua
         const context = useMemo(() => ({
             header,
             hasMore,
-            isLoading
-        }), [header, hasMore, isLoading]);
+            isLoading,
+            loadingLabel,
+            loadMoreLabel
+        }), [header, hasMore, isLoading, loadingLabel, loadMoreLabel]);
 
         return (
             <div className="virtual-list-wrapper" style={{ height: '100%', width: '100%' }}>
@@ -163,5 +171,4 @@ VirtualClipboardList.displayName = 'VirtualClipboardList';
 
 export { VirtualClipboardList };
 export default VirtualClipboardList;
-
 

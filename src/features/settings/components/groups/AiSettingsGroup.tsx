@@ -50,12 +50,12 @@ const AiSettingsGroup = ({
     setAiThinkingBudget
 }: AiSettingsGroupProps) => (
     <div className={`settings-group ${collapsed ? 'collapsed' : ''}`}>
-        <div className="group-header" onClick={onToggle}>
+        <button type="button" className="group-header" aria-expanded={!collapsed} onClick={onToggle}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <h3 style={{ margin: 0 }}>{t('ai_settings')}</h3>
             </div>
             {collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
-        </div>
+        </button>
         {!collapsed && (
             <div className="group-content">
                 <div className="setting-item">

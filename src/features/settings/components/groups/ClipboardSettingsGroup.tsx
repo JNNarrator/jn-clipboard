@@ -193,10 +193,10 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
 
     return (
         <div className={`settings-group ${props.collapsed ? 'collapsed' : ''}`}>
-            <div className="group-header" onClick={props.onToggle}>
+            <button type="button" className="group-header" aria-expanded={!props.collapsed} onClick={props.onToggle}>
                 <h3 style={{ margin: 0 }}>{props.t('clipboard_settings')}</h3>
                 {props.collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
-            </div>
+            </button>
             {!props.collapsed && (
                 <div className="group-content">
                     <div className="setting-item">

@@ -390,8 +390,9 @@ const App = () => {
   const virtualListRef = useRef<VirtualClipboardListHandle | null>(null);
   const appContainerRef = useRef<HTMLDivElement | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
-  const [quickPasteHintsById, setQuickPasteHintsById] = useState<Record<number, QuickPasteHint>>(
-    {}
+  const quickPasteHintsById = useMemo(
+    () => buildQuickPasteHintsById(history, quickPasteModifier),
+    [history, quickPasteModifier]
   );
   const PAGE_SIZE = 80;
   const { fetchHistory, loadMoreHistory } = useHistoryFetch({
@@ -825,39 +826,6 @@ const App = () => {
   useEffect(() => {
     fetchHistory();
   }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    const seededHints = buildQuickPasteHintsById(history, quickPasteModifier);
-    setQuickPasteHintsById(seededHints);
-
-    if (quickPasteModifier === "disabled") {
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    invoke<ClipboardEntry[]>("get_clipboard_history", {
-      limit: 256,
-      offset: 0,
-      contentType: null
-    })
-      .then((items) => {
-        if (!cancelled) {
-          setQuickPasteHintsById(buildQuickPasteHintsById(items, quickPasteModifier));
-        }
-      })
-      .catch((error) => {
-        console.error("Failed to refresh quick paste hints:", error);
-        if (!cancelled) {
-          setQuickPasteHintsById(seededHints);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [history, quickPasteModifier]);
 
   useToastListener({ pushToast });
 
