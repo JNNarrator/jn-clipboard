@@ -170,25 +170,26 @@ const sanitizeHTML = (html: string, preview?: boolean) => {
   });
   doc.querySelectorAll("meta, link, xml").forEach((el) => el.remove());
 
-  // Truncate tables for preview to save performance
+  // Truncate tables for preview to save performance & normalize widths
   if (preview) {
-    doc.querySelectorAll("table").forEach(table => {
+    doc.querySelectorAll("table").forEach((table) => {
+      table.removeAttribute("width");
+      table.removeAttribute("height");
+      table.querySelectorAll("col, colgroup").forEach((col) => {
+        col.removeAttribute("width");
+        col.removeAttribute("style");
+      });
+      table.querySelectorAll("tr, th, td").forEach((cell) => {
+        cell.removeAttribute("width");
+        cell.removeAttribute("height");
+      });
+
       const rows = table.querySelectorAll("tr");
-      if (rows.length > 5) {
-        // Keep first 3 rows
-        for (let i = 4; i < rows.length; i++) {
+      if (rows.length > 6) {
+        // Keep first 5 rows for preview
+        for (let i = 5; i < rows.length; i++) {
           rows[i].remove();
         }
-        // Add a "..." indicator
-        const moreRow = doc.createElement("tr");
-        const moreCell = doc.createElement("td");
-        moreCell.colSpan = 10;
-        moreCell.style.textAlign = "center";
-        moreCell.style.fontSize = "10px";
-        moreCell.style.opacity = "0.5";
-        moreCell.innerText = "... content truncated for preview ...";
-        moreRow.appendChild(moreCell);
-        table.appendChild(moreRow);
       }
     });
   }
@@ -220,6 +221,10 @@ const sanitizeHTML = (html: string, preview?: boolean) => {
         if (preview) {
           cleanedStyle = stripPreviewColorFromCssText(cleanedStyle);
           cleanedStyle = stripFontSizeFromCssText(cleanedStyle);
+          cleanedStyle = cleanedStyle
+            .replace(/(?:^|[;{])\s*(?:width|height|min-width|max-width)\s*:[^;}]+;?/gi, "")
+            .replace(/;\s*;/g, ";")
+            .trim();
         }
         if (cleanedStyle) {
           el.setAttribute("style", cleanedStyle);
@@ -248,25 +253,22 @@ const sanitizeHTML = (html: string, preview?: boolean) => {
           el.setAttribute("src", normalizedSrc);
         }
 
-        const mappedSrc = toTauriLocalImageSrc(normalizedSrc);
-        if (mappedSrc) {
-          el.setAttribute('src', mappedSrc);
-          (el as HTMLElement).style.maxWidth = '100%';
-          (el as HTMLElement).style.height = 'auto';
-        } else if (/^https?:\/\//i.test(normalizedSrc)) {
-          // Some hosts reject unknown referrers; no-referrer is more broadly accepted.
-          el.setAttribute("referrerpolicy", "no-referrer");
+        const localSrc = toTauriLocalImageSrc(normalizedSrc);
+        if (localSrc && localSrc !== normalizedSrc) {
+          el.setAttribute("src", localSrc);
         }
       }
     }
   });
 
-  const bodyClone = doc.body.cloneNode(true) as HTMLElement;
-  bodyClone.querySelectorAll("style, script").forEach(el => el.remove());
-  const hasRenderableText = (bodyClone.textContent || "").trim().length > 0;
-  const hasRenderableElement = !!bodyClone.querySelector("*");
+  const bodyHtml = (doc.body.innerHTML || "").trim();
+  const textContent = (doc.body.textContent || "").trim();
+  const hasRenderable = !!(
+    doc.body.querySelector("img, video, audio, canvas, table, hr, blockquote, pre, code") ||
+    textContent
+  );
 
-  const result = { html: doc.body.innerHTML, hasRenderable: hasRenderableText || hasRenderableElement };
+  const result = { html: bodyHtml, hasRenderable };
   if (sanitizeCache.size >= SANITIZE_CACHE_LIMIT) {
     const firstKey = sanitizeCache.keys().next().value;
     if (firstKey) sanitizeCache.delete(firstKey);
@@ -291,13 +293,45 @@ const SHADOW_BASE_STYLE = `
     font-size: var(--clipboard-item-font-size);
     line-height: 1.4;
   }
-  .tiez-rich-root { color: inherit; font: inherit; line-height: inherit; min-width: 0; }
-  .tiez-rich-root *, .tiez-rich-root *::before, .tiez-rich-root *::after {
+  .tiez-rich-root {
+    color: inherit;
+    font: inherit;
+    line-height: inherit;
+    min-width: 0;
+    width: 100%;
+  }
+  .tiez-rich-root *:not(table):not(thead):not(tbody):not(tfoot):not(tr):not(th):not(td):not(colgroup):not(col) {
     box-sizing: border-box;
     max-width: 100%;
   }
   .tiez-rich-root img, .tiez-rich-root video { max-width: 100%; height: auto; }
-  .tiez-rich-root table { border-collapse: collapse; max-width: 100%; }
+  .tiez-rich-root table {
+    border-collapse: collapse !important;
+    border-spacing: 0;
+    width: 100%;
+    margin: 4px 0;
+    font-size: inherit;
+    border: 1px solid var(--line-strong, var(--border-dark, rgba(128, 128, 128, 0.25)));
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .tiez-rich-root th, .tiez-rich-root td {
+    border: 1px solid var(--line-soft, rgba(128, 128, 128, 0.2));
+    padding: 3px 6px;
+    vertical-align: top;
+    word-break: break-word;
+    box-sizing: border-box;
+  }
+  .tiez-rich-root th {
+    background-color: var(--bg-button, rgba(128, 128, 128, 0.15));
+    font-weight: 600;
+  }
+  .tiez-rich-root td {
+    background-color: var(--bg-element, transparent);
+  }
+  .tiez-rich-root tr:nth-child(even) td {
+    background-color: color-mix(in srgb, var(--bg-element) 60%, transparent);
+  }
 `;
 
 const SHADOW_PREVIEW_STYLE = `
@@ -305,14 +339,31 @@ const SHADOW_PREVIEW_STYLE = `
     font-size: inherit !important;
     line-height: inherit;
     color: var(--text-primary) !important;
-    background-color: transparent !important;
   }
-  .tiez-rich-root table { width: 100%; margin: 4px 0; }
+  .tiez-rich-root table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    margin: 4px 0;
+    border: 1px solid var(--line-strong, rgba(128, 128, 128, 0.3)) !important;
+    border-radius: 4px;
+    overflow: hidden;
+  }
   .tiez-rich-root td, .tiez-rich-root th {
-    border: 1px solid var(--border-dark);
-    padding: 2px 4px;
-    background-color: var(--bg-element) !important;
+    border: 1px solid var(--line-soft, rgba(128, 128, 128, 0.2)) !important;
+    padding: 2px 5px !important;
     color: var(--text-primary) !important;
+    font-size: 0.92em !important;
+    word-break: break-word;
+  }
+  .tiez-rich-root th {
+    background-color: var(--bg-button, rgba(128, 128, 128, 0.18)) !important;
+    font-weight: 600 !important;
+  }
+  .tiez-rich-root td {
+    background-color: var(--bg-element, transparent) !important;
+  }
+  .tiez-rich-root tr:nth-child(even) td {
+    background-color: color-mix(in srgb, var(--bg-element) 60%, transparent) !important;
   }
   .tiez-rich-root img { max-height: 80px; object-fit: contain; }
   .tiez-rich-root p { margin: 0; padding: 0; }

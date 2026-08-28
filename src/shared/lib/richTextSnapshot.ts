@@ -412,14 +412,28 @@ export const getRichTextSnapshotDataUrl = (
         font-size: inherit !important;
         line-height: inherit;
         color: ${snapshotText} !important;
+      }
+      *:not(td):not(th) {
         background-color: transparent !important;
       }
-      table { border-collapse: collapse; border-spacing: 0; }
+      table {
+        border-collapse: collapse !important;
+        border-spacing: 0;
+        width: 100% !important;
+        margin: 4px 0;
+        border: 1px solid ${snapshotBorder} !important;
+      }
       img, video { max-width: 100%; height: auto; }
       td, th {
         vertical-align: top;
-        border-color: ${snapshotBorder} !important;
+        border: 1px solid ${snapshotBorder} !important;
+        padding: 3px 6px;
         background-color: ${snapshotBackground} !important;
+        word-break: break-word;
+      }
+      th {
+        font-weight: bold;
+        background-color: rgba(128, 128, 128, 0.15) !important;
       }
       a { color: ${snapshotAccent} !important; }
     </style>`,

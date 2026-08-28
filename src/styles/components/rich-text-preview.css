@@ -13,7 +13,7 @@
  * in the clipboard list. Force preview text to follow the app item font size.
  * Paste still uses the original HTML — this only affects display.
  */
-.rich-text-preview *:not(style):not(script) {
+.rich-text-preview *:not(style):not(script):not(td):not(th) {
   font-size: inherit !important;
   line-height: inherit;
   color: inherit !important;
@@ -21,22 +21,37 @@
 }
 
 .rich-text-preview table {
-  border-collapse: collapse;
-  width: 100%;
+  border-collapse: collapse !important;
+  border-spacing: 0;
+  width: 100% !important;
   margin: 4px 0;
   font-size: inherit;
+  border: 1px solid var(--line-strong, var(--border-dark, rgba(128, 128, 128, 0.28))) !important;
+  border-radius: 4px;
+  overflow: hidden;
 }
 
 .rich-text-preview td,
 .rich-text-preview th {
-  border: 1px solid var(--border-dark);
-  padding: 2px 4px;
+  border: 1px solid var(--line-soft, rgba(128, 128, 128, 0.2)) !important;
+  padding: 3px 6px;
   background-color: var(--bg-element) !important;
   color: var(--text-primary) !important;
-  opacity: 0.9;
+  vertical-align: top;
+  word-break: break-word;
+  font-size: 0.94em;
 }
 
-.rich-text-preview * {
+.rich-text-preview th {
+  background-color: var(--bg-button, rgba(128, 128, 128, 0.18)) !important;
+  font-weight: 600;
+}
+
+.rich-text-preview tr:nth-child(even) td {
+  background-color: color-mix(in srgb, var(--bg-element) 60%, transparent) !important;
+}
+
+.rich-text-preview *:not(table):not(thead):not(tbody):not(tfoot):not(tr):not(th):not(td):not(colgroup):not(col) {
   max-width: 100% !important;
 }
 

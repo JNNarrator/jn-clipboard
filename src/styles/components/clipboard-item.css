@@ -60,6 +60,9 @@
   -webkit-box-orient: vertical;
   word-break: break-word;
   overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  tab-size: 4;
+  -moz-tab-size: 4;
   margin-top: 0;
   padding-top: 0;
 }
