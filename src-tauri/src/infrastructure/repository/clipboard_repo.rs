@@ -737,6 +737,54 @@ impl SqliteClipboardRepository {
         }
     }
 
+    fn is_attachment_in_use_by_other_entries(
+        &self,
+        conn: &Connection,
+        deleting_id: i64,
+        target_path: &std::path::Path,
+    ) -> bool {
+        let path_str = target_path.to_string_lossy().to_string();
+        let file_name = match target_path.file_name().and_then(|f| f.to_str()) {
+            Some(name) => name,
+            None => return false,
+        };
+
+        let mut stmt = match conn.prepare(
+            "SELECT id, content, html_content, is_external FROM clipboard_history WHERE id != ?"
+        ) {
+            Ok(s) => s,
+            Err(_) => return true,
+        };
+
+        let rows = match stmt.query_map([deleting_id], |row| {
+            let id: i64 = row.get(0)?;
+            let content_raw: String = row.get(1)?;
+            let html_raw: Option<String> = row.get(2).ok();
+            let is_ext: i32 = row.get(3).unwrap_or(0);
+            Ok((id, content_raw, html_raw, is_ext == 1))
+        }) {
+            Ok(r) => r,
+            Err(_) => return true,
+        };
+
+        for row in rows.flatten() {
+            if row.3 {
+                let decrypted_content = self.maybe_decrypt_text(&row.1);
+                if decrypted_content == path_str || decrypted_content.ends_with(file_name) {
+                    return true;
+                }
+            }
+            if let Some(html_raw_value) = row.2 {
+                let decrypted_html = self.maybe_decrypt_text(&html_raw_value);
+                if decrypted_html.contains(file_name) || decrypted_html.contains(&path_str) {
+                    return true;
+                }
+            }
+        }
+
+        false
+    }
+
     pub fn delete_with_conn(
         &self,
         conn: &Connection,
@@ -770,7 +818,7 @@ impl SqliteClipboardRepository {
                 let content = self.maybe_decrypt_text(&entry.0);
                 tombstone = Some((entry.3.clone(), calc_sync_content_hash(&entry.3, &content)));
                 for path in files_to_remove {
-                    if path.exists() {
+                    if path.exists() && !self.is_attachment_in_use_by_other_entries(conn, id, &path) {
                         let _ = std::fs::remove_file(path);
                     }
                 }

@@ -228,7 +228,15 @@ impl TagRepository for SqliteTagRepository {
                         let content_path = self.maybe_decrypt_text(&entry.0);
                         let path = std::path::Path::new(&content_path);
                         if path.starts_with(&attachments_dir) && path.exists() {
-                            let _ = std::fs::remove_file(path);
+                            let file_name = path.file_name().and_then(|f| f.to_str()).unwrap_or("");
+                            let other_use: i64 = conn.query_row(
+                                "SELECT COUNT(*) FROM clipboard_history WHERE id != ?1 AND (content = ?2 OR content LIKE ?3)",
+                                params![id, content_path, format!("%{}%", file_name)],
+                                |r| r.get(0)
+                            ).unwrap_or(0);
+                            if other_use == 0 {
+                                let _ = std::fs::remove_file(path);
+                            }
                         }
                     }
                 }

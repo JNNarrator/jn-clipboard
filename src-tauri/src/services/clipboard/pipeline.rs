@@ -213,6 +213,35 @@ impl PipelineStage for TransformationStage {
                 entry.content = path;
                 entry.is_external = true;
             }
+        } else if entry.content_type == "image" && entry.is_external && !entry.content.starts_with("data:") {
+            // If the image was captured as an external file (e.g. from WeChat, QQ, Snipping Tool, or browser temp folder),
+            // copy its bytes into TieZ's permanent attachments folder so it doesn't turn empty when the external temp file is cleaned up!
+            let src_path = std::path::Path::new(&entry.content);
+            let app_data_dir = ctx.app_handle.state::<AppDataDir>();
+            let data_dir = app_data_dir.0.lock().unwrap().clone();
+            let attachments_dir = data_dir.join("attachments");
+
+            if !src_path.starts_with(&attachments_dir) && src_path.exists() {
+                if let Ok(metadata) = std::fs::metadata(src_path) {
+                    if metadata.len() > 0 && metadata.len() <= 30 * 1024 * 1024 {
+                        if let Ok(image_bytes) = std::fs::read(src_path) {
+                            let extension = src_path
+                                .extension()
+                                .and_then(|e| e.to_str())
+                                .unwrap_or("png");
+                            if let Some(path) = save_image_bytes_to_file_with_extension(
+                                &image_bytes,
+                                &data_dir,
+                                extension,
+                            ) {
+                                entry.content = path;
+                                entry.is_external = true;
+                                ctx.image_content_hash = calc_image_hash_from_bytes(&image_bytes);
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         let app_cleanup_policies_raw = settings.app_cleanup_policies.lock().unwrap().clone();
