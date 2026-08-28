@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useCallback, useState } from "react";
+import { useEffect, useMemo, useRef, useCallback, useState, useDeferredValue } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import ToastContainer from "./shared/components/ToastContainer";
@@ -368,7 +368,8 @@ const App = () => {
   const [fileTransferSourceView, setFileTransferSourceView] =
     useState<FileTransferSourceView>("clipboard");
 
-  const debouncedSearch = useDebounce(search, 400);
+  const debouncedSearch = useDebounce(search, 200);
+  const deferredSearch = useDeferredValue(search);
   const searchInputRef = useInputFocus<HTMLInputElement>();
   const showTagFilterRef = useRef(showTagFilter);
   showTagFilterRef.current = showTagFilter;
@@ -971,7 +972,7 @@ const App = () => {
 
   const filteredHistory = useFilteredHistory({
     history,
-    search,
+    search: deferredSearch,
     typeFilter,
     sortMode: clipboardSortMode
   });

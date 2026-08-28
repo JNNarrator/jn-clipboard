@@ -160,7 +160,7 @@ const VirtualClipboardList = React.forwardRef<VirtualClipboardListHandle, Virtua
                     onScroll={(e) => handleScroll((e.currentTarget as HTMLElement).scrollTop)}
                     endReached={handleEndReached}
                     rangeChanged={handleRangeChanged}
-                    overscan={200} // Pre-render 200px of content for smoother scrolling
+                    overscan={400} // Pre-render 400px of content for smoother scrolling
                 />
             </div>
         );

@@ -1,4 +1,4 @@
-import { lazy, Suspense, type ComponentProps, type RefObject, type ReactNode } from "react";
+import { lazy, Suspense, memo, useCallback, type ComponentProps, type RefObject, type ReactNode } from "react";
 import { motion, Reorder, useDragControls } from "framer-motion";
 import type { DragControls } from "framer-motion";
 import { ArrowUp, Clipboard } from "lucide-react";
@@ -59,7 +59,7 @@ interface AppMainContentProps {
   onScrollTop: () => void;
 }
 
-const SortableItem = ({
+const SortableItem = memo(({
   item,
   index,
   renderItem,
@@ -96,7 +96,7 @@ const SortableItem = ({
       </div>
     </Reorder.Item>
   );
-};
+});
 
 const ViewLoading = ({ label }: { label: string }) => (
   <div className="view-loading" role="status" aria-live="polite">
@@ -241,6 +241,18 @@ const AppMainContent = ({
     );
   }
 
+  const renderVirtualItem = useCallback((item: ClipboardEntry, index: number, isFirst?: boolean) => {
+    const el = renderItemContent(item, pinnedItems.length + index, undefined, true);
+    if (isFirst && pinnedItems.length === 0) {
+      return (
+        <div className="first-virtual-item" style={{ height: "100%", paddingTop: "4px" }}>
+          {el}
+        </div>
+      );
+    }
+    return el;
+  }, [renderItemContent, pinnedItems.length]);
+
   return (
     <>
       {filteredHistory.length > 0 && (
@@ -275,17 +287,7 @@ const AppMainContent = ({
                 </Reorder.Group>
               ) : null
             }
-            renderItem={(item, index, isFirst?: boolean) => {
-              const el = renderItemContent(item, pinnedItems.length + index, undefined, true);
-              if (isFirst && pinnedItems.length === 0) {
-                return (
-                  <div className="first-virtual-item" style={{ height: "100%", paddingTop: "4px" }}>
-                    {el}
-                  </div>
-                );
-              }
-              return el;
-            }}
+            renderItem={renderVirtualItem}
             onLoadMore={loadMoreHistory}
             onScroll={handleListScroll}
             hasMore={hasMore}

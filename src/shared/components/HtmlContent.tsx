@@ -85,7 +85,24 @@ const resolveImgSource = (el: Element): string | null => {
   return src;
 };
 
+const SANITIZE_CACHE_LIMIT = 100;
+const sanitizeCache = new Map<string, { html: string; hasRenderable: boolean }>();
+
+const hashSanitizeKey = (html: string, preview?: boolean): string => {
+  let hash = 2166136261;
+  const str = (preview ? "p:" : "f:") + html;
+  for (let i = 0; i < str.length; i++) {
+    hash ^= str.charCodeAt(i);
+    hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+  }
+  return (hash >>> 0).toString(16) + ":" + html.length;
+};
+
 const sanitizeHTML = (html: string, preview?: boolean) => {
+  const cacheKey = hashSanitizeKey(html, preview);
+  const cached = sanitizeCache.get(cacheKey);
+  if (cached) return cached;
+
   const parser = new DOMParser();
 
   const stripLeadingPreviewNoise = (container: HTMLElement) => {
@@ -249,7 +266,13 @@ const sanitizeHTML = (html: string, preview?: boolean) => {
   const hasRenderableText = (bodyClone.textContent || "").trim().length > 0;
   const hasRenderableElement = !!bodyClone.querySelector("*");
 
-  return { html: doc.body.innerHTML, hasRenderable: hasRenderableText || hasRenderableElement };
+  const result = { html: doc.body.innerHTML, hasRenderable: hasRenderableText || hasRenderableElement };
+  if (sanitizeCache.size >= SANITIZE_CACHE_LIMIT) {
+    const firstKey = sanitizeCache.keys().next().value;
+    if (firstKey) sanitizeCache.delete(firstKey);
+  }
+  sanitizeCache.set(cacheKey, result);
+  return result;
 };
 
 type HtmlContentProps = {

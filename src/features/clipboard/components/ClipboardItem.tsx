@@ -732,7 +732,7 @@ const ClipboardItem = ({
     id,
     compactMode,
     className,
-    disableLayout
+    disableLayout: _disableLayout
 }: ClipboardItemProps & { compactMode?: boolean, className?: string }) => {
     const itemRef = useRef<HTMLDivElement | null>(null);
     const tagInputRef = useRef<HTMLInputElement>(null);
@@ -1617,7 +1617,6 @@ const ClipboardItem = ({
             data-clipboard-item-id={String(item.id)}
             role="listitem"
             aria-current={isSelected ? "true" : undefined}
-            layout={!disableLayout}
             initial={false}
             animate={{ marginBottom: 0 }}
             exit={{ opacity: 0, scale: 0.95 }}

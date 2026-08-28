@@ -625,6 +625,7 @@ select.search-input option {
 
 .history-item {
   position: relative;
+  contain: content;
   padding: var(--layout-item-padding);
   background: var(--layout-item-background);
   border-bottom: var(--layout-item-divider);

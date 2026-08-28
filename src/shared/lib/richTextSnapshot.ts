@@ -297,6 +297,35 @@ const getSvgParseError = (svg: string): string | null => {
   return raw.slice(0, 360) || "unknown svg parse error";
 };
 
+let cachedThemeSignature = "";
+let cachedThemeValues = {
+  background: "#ffffff",
+  text: "#111827",
+  accent: "#1d4ed8",
+  border: "rgba(128,128,128,.25)"
+};
+let lastThemeCheckTime = 0;
+
+const getThemeSnapshotStyles = () => {
+  const now = Date.now();
+  if (now - lastThemeCheckTime < 1000 && cachedThemeSignature) {
+    return { ...cachedThemeValues, signature: cachedThemeSignature };
+  }
+  lastThemeCheckTime = now;
+  try {
+    const themeStyles = getComputedStyle(document.body);
+    const background = themeStyles.getPropertyValue("--bg-element").trim() || "#ffffff";
+    const text = themeStyles.getPropertyValue("--text-primary").trim() || "#111827";
+    const accent = themeStyles.getPropertyValue("--accent-color").trim() || "#1d4ed8";
+    const border = themeStyles.getPropertyValue("--border-dark").trim() || "rgba(128,128,128,.25)";
+    cachedThemeValues = { background, text, accent, border };
+    cachedThemeSignature = [background, text, accent, border].join("|");
+    return { ...cachedThemeValues, signature: cachedThemeSignature };
+  } catch {
+    return { ...cachedThemeValues, signature: cachedThemeSignature || "default" };
+  }
+};
+
 export const getRichTextSnapshotDataUrl = (
   html: string,
   options: SnapshotOptions = {}
@@ -306,21 +335,12 @@ export const getRichTextSnapshotDataUrl = (
   const maxHeight = Math.max(220, Math.min(3200, Math.round(options.maxHeight ?? 1600)));
 
   try {
-    const themeStyles = getComputedStyle(document.body);
-    const snapshotBackground =
-      themeStyles.getPropertyValue("--bg-element").trim() || "#ffffff";
-    const snapshotText =
-      themeStyles.getPropertyValue("--text-primary").trim() || "#111827";
-    const snapshotAccent =
-      themeStyles.getPropertyValue("--accent-color").trim() || "#1d4ed8";
-    const snapshotBorder =
-      themeStyles.getPropertyValue("--border-dark").trim() || "rgba(128,128,128,.25)";
-    const themeSignature = [
-      snapshotBackground,
-      snapshotText,
-      snapshotAccent,
-      snapshotBorder
-    ].join("|");
+    const theme = getThemeSnapshotStyles();
+    const snapshotBackground = theme.background;
+    const snapshotText = theme.text;
+    const snapshotAccent = theme.accent;
+    const snapshotBorder = theme.border;
+    const themeSignature = theme.signature;
     const trimmedLength = sourceHtml.trim().length;
     if (!trimmedLength) {
       logSnapshotFailure("empty_html", {

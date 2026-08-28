@@ -1,5 +1,4 @@
 import { useEffect, useRef } from "react";
-import { flushSync } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -106,33 +105,14 @@ export const useKeyboardNavigation = ({
     selectedItemIdRef.current = item?.id ?? null;
     selectedItemSnapshotRef.current = item ?? null;
 
-    // Keyboard nav needs flushSync so Enter immediately sees the new selection.
-    // Mouse hover should stay cheap — avoid synchronous full-tree flush on every enter.
     if (enableKeyboard) {
-      flushSync(() => {
-        setIsKeyboardMode(true);
-        setSelectedIndex(nextIndex);
-        setSelectedItemId(item?.id ?? null);
-      });
-      return;
+      setIsKeyboardMode(true);
     }
-
     setSelectedIndex(nextIndex);
     setSelectedItemId(item?.id ?? null);
   };
 
   const resolveSelectedItem = (history: ClipboardEntry[]) => {
-    const selectedElement = document.querySelector<HTMLElement>(
-      ".history-item.selected[id^='clipboard-item-']"
-    );
-    const visualItemId = selectedElement
-      ? Number(selectedElement.id.replace("clipboard-item-", ""))
-      : NaN;
-    if (!Number.isNaN(visualItemId)) {
-      const visualItem = history.find((entry) => entry.id === visualItemId);
-      if (visualItem) return visualItem;
-    }
-
     const snapshot = selectedItemSnapshotRef.current;
     if (snapshot) {
       const bySnapshotId = history.find((entry) => entry.id === snapshot.id);
@@ -150,6 +130,17 @@ export const useKeyboardNavigation = ({
       return history[currentIndex];
     }
 
+    const selectedElement = document.querySelector<HTMLElement>(
+      ".history-item.selected[id^='clipboard-item-']"
+    );
+    const visualItemId = selectedElement
+      ? Number(selectedElement.id.replace("clipboard-item-", ""))
+      : NaN;
+    if (!Number.isNaN(visualItemId)) {
+      const visualItem = history.find((entry) => entry.id === visualItemId);
+      if (visualItem) return visualItem;
+    }
+
     return null;
   };
 
@@ -161,11 +152,9 @@ export const useKeyboardNavigation = ({
     selectedItemSnapshotRef.current = history[0] ?? null;
     isKeyboardModeRef.current = false;
 
-    flushSync(() => {
-      setIsKeyboardMode(false);
-      setSelectedIndex(0);
-      setSelectedItemId(firstId);
-    });
+    setIsKeyboardMode(false);
+    setSelectedIndex(0);
+    setSelectedItemId(firstId);
   };
 
   const pasteSelectedItem = async (isRich: boolean, explicitItem?: ClipboardEntry) => {
