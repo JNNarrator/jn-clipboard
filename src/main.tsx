@@ -7,11 +7,14 @@ import "./styles/themes/load";
 const params = new URLSearchParams(window.location.search);
 const isCompactPreview = params.get("window") === "compact-preview";
 const isAdvancedSettingsWindow = params.get("window") === "advanced-settings";
+const isPinSticker = params.get("window") === "pin-sticker";
 const RootComponent = isCompactPreview
   ? lazy(() => import("./features/clipboard/components/CompactPreviewWindow"))
   : isAdvancedSettingsWindow
     ? lazy(() => import("./features/settings/components/AdvancedSettingsWindow"))
-    : lazy(() => import("./App"));
+    : isPinSticker
+      ? lazy(() => import("./features/clipboard/components/PinStickerWindow"))
+      : lazy(() => import("./App"));
 const isMacPlatform =
   /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent) || /Mac/i.test(navigator.platform);
 

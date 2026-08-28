@@ -29,7 +29,8 @@ import {
     Files,
     ImageOff,
     FileQuestion,
-    GripVertical
+    GripVertical,
+    PictureInPicture2
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { ClipboardItemProps } from "../types";
@@ -46,6 +47,7 @@ import { getFileIcon as getSystemFileIcon, peekFileIcon } from "../../../shared/
 import { getSourceAppIcon, peekSourceAppIcon } from "../../../shared/lib/sourceAppIcon";
 import { stripRichStorageMarkers } from "../../../shared/lib/repairHtmlFragment";
 import { registerCompactPreviewControls } from "../lib/compactPreviewControls";
+import { openPinStickerWindow } from "../lib/pinStickerControls";
 import { acquireBlurGuard, activateForInput, releaseBlurGuard } from "../../../shared/lib/focus";
 
 const COMPACT_PREVIEW_LABEL = "compact-preview";
@@ -1796,6 +1798,18 @@ const ClipboardItem = ({
                         >
                             <ExternalLink size={12} />
                         </button>
+                        {item.content_type === 'image' && (
+                            <button
+                                className="btn-icon"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    openPinStickerWindow(item);
+                                }}
+                                title={t('pin_sticker') || '贴图到桌面'}
+                            >
+                                <PictureInPicture2 size={12} />
+                            </button>
+                        )}
                         <button
                             className={`btn-icon ${item.is_pinned ? "active" : ""}`}
                             onClick={onTogglePin}
