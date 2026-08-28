@@ -85,7 +85,7 @@ export const PinStickerWindow: React.FC = () => {
 
       try {
         const win = getCurrentWebviewWindow();
-        await win.setSize(new LogicalSize(w + 24, h + 56));
+        await win.setSize(new LogicalSize(w + 16, h + 16));
       } catch (err) {
         console.warn("Could not auto-resize sticker window:", err);
       }
@@ -307,6 +307,76 @@ export const PinStickerWindow: React.FC = () => {
         {/* Floating Toast Notification */}
         {toastMessage && <div className="pin-sticker-toast">{toastMessage}</div>}
 
+        {/* Floating Action Toolbar on TOP of Image (Upper Layer) */}
+        <div className="pin-sticker-toolbar" onMouseDown={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            className="pin-sticker-btn"
+            onClick={handleCopyImage}
+            title={t("copy") || "复制图片 (Ctrl+C)"}
+          >
+            {copied ? <Check size={14} style={{ color: "#10b981" }} /> : <Copy size={14} />}
+          </button>
+
+          <button
+            type="button"
+            className="pin-sticker-btn"
+            onClick={handleSaveImage}
+            title={t("save_image") || "保存图片 (Ctrl+S)"}
+          >
+            <Download size={14} />
+          </button>
+
+          <div className="pin-sticker-divider" />
+
+          <button
+            type="button"
+            className="pin-sticker-btn"
+            onClick={() => setRotation((r) => (r + 90) % 360)}
+            title={t("rotate_image") || "顺时针旋转 90° (R)"}
+          >
+            <RotateCw size={14} />
+          </button>
+
+          <button
+            type="button"
+            className={`pin-sticker-btn ${flipped ? "active" : ""}`}
+            onClick={() => setFlipped((f) => !f)}
+            title={t("flip_image") || "水平镜像翻转"}
+          >
+            <FlipHorizontal size={14} />
+          </button>
+
+          <button
+            type="button"
+            className={`pin-sticker-btn ${isAlwaysOnTop ? "active" : ""}`}
+            onClick={handleToggleAlwaysOnTop}
+            title={t("always_on_top") || "切换始终置顶"}
+          >
+            {isAlwaysOnTop ? <Pin size={14} /> : <PinOff size={14} />}
+          </button>
+
+          <button
+            type="button"
+            className="pin-sticker-btn"
+            onClick={handleReset}
+            title={t("reset_view") || "重置缩放与角度 (Space)"}
+          >
+            <RotateCcw size={14} />
+          </button>
+
+          <div className="pin-sticker-divider" />
+
+          <button
+            type="button"
+            className="pin-sticker-btn danger"
+            onClick={handleClose}
+            title={t("close_sticker") || "关闭贴图 (Esc / 双击)"}
+          >
+            <X size={14} />
+          </button>
+        </div>
+
         {/* Sticker Image Viewport */}
         <div className="pin-sticker-image-wrapper">
           {imageError ? (
@@ -327,78 +397,6 @@ export const PinStickerWindow: React.FC = () => {
               onError={() => setImageError(true)}
             />
           )}
-        </div>
-
-        {/* Floating Action Toolbar (Outside / Under the Image) */}
-        <div className="pin-sticker-toolbar-container" onMouseDown={(e) => e.stopPropagation()}>
-          <div className="pin-sticker-toolbar">
-            <button
-              type="button"
-              className="pin-sticker-btn"
-              onClick={handleCopyImage}
-              title={t("copy") || "复制图片 (Ctrl+C)"}
-            >
-              {copied ? <Check size={14} style={{ color: "#10b981" }} /> : <Copy size={14} />}
-            </button>
-
-            <button
-              type="button"
-              className="pin-sticker-btn"
-              onClick={handleSaveImage}
-              title={t("save_image") || "保存图片 (Ctrl+S)"}
-            >
-              <Download size={14} />
-            </button>
-
-            <div className="pin-sticker-divider" />
-
-            <button
-              type="button"
-              className="pin-sticker-btn"
-              onClick={() => setRotation((r) => (r + 90) % 360)}
-              title={t("rotate_image") || "顺时针旋转 90° (R)"}
-            >
-              <RotateCw size={14} />
-            </button>
-
-            <button
-              type="button"
-              className={`pin-sticker-btn ${flipped ? "active" : ""}`}
-              onClick={() => setFlipped((f) => !f)}
-              title={t("flip_image") || "水平镜像翻转"}
-            >
-              <FlipHorizontal size={14} />
-            </button>
-
-            <button
-              type="button"
-              className={`pin-sticker-btn ${isAlwaysOnTop ? "active" : ""}`}
-              onClick={handleToggleAlwaysOnTop}
-              title={t("always_on_top") || "切换始终置顶"}
-            >
-              {isAlwaysOnTop ? <Pin size={14} /> : <PinOff size={14} />}
-            </button>
-
-            <button
-              type="button"
-              className="pin-sticker-btn"
-              onClick={handleReset}
-              title={t("reset_view") || "重置缩放与角度 (Space)"}
-            >
-              <RotateCcw size={14} />
-            </button>
-
-            <div className="pin-sticker-divider" />
-
-            <button
-              type="button"
-              className="pin-sticker-btn danger"
-              onClick={handleClose}
-              title={t("close_sticker") || "关闭贴图 (Esc / 双击)"}
-            >
-              <X size={14} />
-            </button>
-          </div>
         </div>
       </div>
     </div>
