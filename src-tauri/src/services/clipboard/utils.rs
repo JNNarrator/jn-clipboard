@@ -854,7 +854,10 @@ pub fn should_use_rich_image_clipboard_fallback(
     if app_likely_word_processor(target_app, target_app_path) {
         return false;
     }
-    if html_has_renderable_rich_body(html) && !app_likely_spreadsheet(target_app, target_app_path) {
+    if app_likely_spreadsheet(target_app, target_app_path) {
+        return false;
+    }
+    if html_has_renderable_rich_body(html) {
         return false;
     }
     true
@@ -1975,9 +1978,9 @@ mod tests {
     }
 
     #[test]
-    fn should_use_image_fallback_for_excel_without_renderable_html() {
-        let html = "<table><tr><td></td></tr></table>";
-        assert!(super::should_use_rich_image_clipboard_fallback(
+    fn should_not_use_image_fallback_for_excel_tables() {
+        let html = "<table><tr><td>Header</td><td>Value</td></tr></table>";
+        assert!(!super::should_use_rich_image_clipboard_fallback(
             "Microsoft Excel",
             None,
             html
