@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { LogicalSize } from "@tauri-apps/api/window";
 import { save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import {
@@ -38,6 +39,35 @@ export const PinStickerWindow: React.FC = () => {
 
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
+  const hasResizedRef = useRef<boolean>(false);
+
+  const handleImageLoad = useCallback(async (e: React.SyntheticEvent<HTMLImageElement>) => {
+    if (hasResizedRef.current) return;
+    const img = e.currentTarget;
+    const natW = img.naturalWidth;
+    const natH = img.naturalHeight;
+    if (natW > 0 && natH > 0) {
+      hasResizedRef.current = true;
+      const maxW = 960;
+      const maxH = 720;
+      let w = natW;
+      let h = natH;
+      if (w > maxW || h > maxH) {
+        const scale = Math.min(maxW / w, maxH / h);
+        w = Math.round(w * scale);
+        h = Math.round(h * scale);
+      }
+      w = Math.max(w, 200);
+      h = Math.max(h, 120);
+
+      try {
+        const win = getCurrentWebviewWindow();
+        await win.setSize(new LogicalSize(w + 24, h + 56));
+      } catch (err) {
+        console.warn("Could not auto-resize sticker window:", err);
+      }
+    }
+  }, []);
 
   const showToast = useCallback((msg: string) => {
     if (toastTimerRef.current) {
@@ -270,79 +300,82 @@ export const PinStickerWindow: React.FC = () => {
                 transform: `scale(${zoom}) rotate(${rotation}deg) scaleX(${flipped ? -1 : 1})`,
               }}
               draggable={false}
+              onLoad={handleImageLoad}
               onError={() => setImageError(true)}
             />
           )}
         </div>
 
-        {/* Floating Action Toolbar on Hover */}
-        <div className="pin-sticker-toolbar" onMouseDown={(e) => e.stopPropagation()}>
-          <button
-            type="button"
-            className="pin-sticker-btn"
-            onClick={handleCopyImage}
-            title={t("copy") || "复制图片 (Ctrl+C)"}
-          >
-            {copied ? <Check size={14} style={{ color: "#10b981" }} /> : <Copy size={14} />}
-          </button>
+        {/* Floating Action Toolbar (Outside / Under the Image) */}
+        <div className="pin-sticker-toolbar-container" onMouseDown={(e) => e.stopPropagation()}>
+          <div className="pin-sticker-toolbar">
+            <button
+              type="button"
+              className="pin-sticker-btn"
+              onClick={handleCopyImage}
+              title={t("copy") || "复制图片 (Ctrl+C)"}
+            >
+              {copied ? <Check size={14} style={{ color: "#10b981" }} /> : <Copy size={14} />}
+            </button>
 
-          <button
-            type="button"
-            className="pin-sticker-btn"
-            onClick={handleSaveImage}
-            title={t("save_image") || "保存图片 (Ctrl+S)"}
-          >
-            <Download size={14} />
-          </button>
+            <button
+              type="button"
+              className="pin-sticker-btn"
+              onClick={handleSaveImage}
+              title={t("save_image") || "保存图片 (Ctrl+S)"}
+            >
+              <Download size={14} />
+            </button>
 
-          <div className="pin-sticker-divider" />
+            <div className="pin-sticker-divider" />
 
-          <button
-            type="button"
-            className="pin-sticker-btn"
-            onClick={() => setRotation((r) => (r + 90) % 360)}
-            title={t("rotate_image") || "顺时针旋转 90° (R)"}
-          >
-            <RotateCw size={14} />
-          </button>
+            <button
+              type="button"
+              className="pin-sticker-btn"
+              onClick={() => setRotation((r) => (r + 90) % 360)}
+              title={t("rotate_image") || "顺时针旋转 90° (R)"}
+            >
+              <RotateCw size={14} />
+            </button>
 
-          <button
-            type="button"
-            className={`pin-sticker-btn ${flipped ? "active" : ""}`}
-            onClick={() => setFlipped((f) => !f)}
-            title={t("flip_image") || "水平镜像翻转"}
-          >
-            <FlipHorizontal size={14} />
-          </button>
+            <button
+              type="button"
+              className={`pin-sticker-btn ${flipped ? "active" : ""}`}
+              onClick={() => setFlipped((f) => !f)}
+              title={t("flip_image") || "水平镜像翻转"}
+            >
+              <FlipHorizontal size={14} />
+            </button>
 
-          <button
-            type="button"
-            className={`pin-sticker-btn ${isAlwaysOnTop ? "active" : ""}`}
-            onClick={handleToggleAlwaysOnTop}
-            title={t("always_on_top") || "切换始终置顶"}
-          >
-            {isAlwaysOnTop ? <Pin size={14} /> : <PinOff size={14} />}
-          </button>
+            <button
+              type="button"
+              className={`pin-sticker-btn ${isAlwaysOnTop ? "active" : ""}`}
+              onClick={handleToggleAlwaysOnTop}
+              title={t("always_on_top") || "切换始终置顶"}
+            >
+              {isAlwaysOnTop ? <Pin size={14} /> : <PinOff size={14} />}
+            </button>
 
-          <button
-            type="button"
-            className="pin-sticker-btn"
-            onClick={handleReset}
-            title={t("reset_view") || "重置缩放与角度 (Space)"}
-          >
-            <RotateCcw size={14} />
-          </button>
+            <button
+              type="button"
+              className="pin-sticker-btn"
+              onClick={handleReset}
+              title={t("reset_view") || "重置缩放与角度 (Space)"}
+            >
+              <RotateCcw size={14} />
+            </button>
 
-          <div className="pin-sticker-divider" />
+            <div className="pin-sticker-divider" />
 
-          <button
-            type="button"
-            className="pin-sticker-btn danger"
-            onClick={handleClose}
-            title={t("close_sticker") || "关闭贴图 (Esc / 双击)"}
-          >
-            <X size={14} />
-          </button>
+            <button
+              type="button"
+              className="pin-sticker-btn danger"
+              onClick={handleClose}
+              title={t("close_sticker") || "关闭贴图 (Esc / 双击)"}
+            >
+              <X size={14} />
+            </button>
+          </div>
         </div>
       </div>
     </div>
