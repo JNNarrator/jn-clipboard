@@ -15,9 +15,32 @@ import {
   Check,
 } from "lucide-react";
 import { translations } from "../../../locales";
+import { applyThemeClasses, DEFAULT_THEME, normalizeThemeId } from "../../../shared/config/themes";
 import type { Locale } from "../../../shared/types";
 
 export const PinStickerWindow: React.FC = () => {
+  useEffect(() => {
+    try {
+      const theme = localStorage.getItem("tiez_theme") || DEFAULT_THEME;
+      const colorMode = localStorage.getItem("tiez_color_mode") || "system";
+      applyThemeClasses(normalizeThemeId(theme), document.documentElement, document.body);
+
+      if (
+        colorMode === "dark" ||
+        (colorMode === "system" &&
+          window.matchMedia("(prefers-color-scheme: dark)").matches)
+      ) {
+        document.documentElement.classList.add("dark-mode");
+        document.documentElement.classList.remove("light-mode");
+      } else {
+        document.documentElement.classList.add("light-mode");
+        document.documentElement.classList.remove("dark-mode");
+      }
+    } catch (e) {
+      console.warn("Failed to apply theme in pin sticker:", e);
+    }
+  }, []);
+
   const language = (localStorage.getItem("tiez_language") || "zh") as Locale;
   const t = useCallback(
     (key: keyof (typeof translations)["zh"]) => {
