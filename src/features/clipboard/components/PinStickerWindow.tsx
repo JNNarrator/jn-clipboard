@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { LogicalSize } from "@tauri-apps/api/window";
+import { LogicalSize, PhysicalPosition } from "@tauri-apps/api/window";
 import { save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import {
@@ -51,7 +51,6 @@ export const PinStickerWindow: React.FC = () => {
   const params = new URLSearchParams(window.location.search);
   const rawSrc = params.get("src") || "";
 
-  const [zoom, setZoom] = useState<number>(1.0);
   const [rotation, setRotation] = useState<number>(0);
   const [flipped, setFlipped] = useState<boolean>(false);
   const [opacity, setOpacity] = useState<number>(1.0);
@@ -62,35 +61,9 @@ export const PinStickerWindow: React.FC = () => {
 
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
+  const naturalDimsRef = useRef<{ w: number; h: number }>({ w: 400, h: 300 });
+  const currentLogicalSizeRef = useRef<{ w: number; h: number }>({ w: 400, h: 300 });
   const hasResizedRef = useRef<boolean>(false);
-
-  const handleImageLoad = useCallback(async (e: React.SyntheticEvent<HTMLImageElement>) => {
-    if (hasResizedRef.current) return;
-    const img = e.currentTarget;
-    const natW = img.naturalWidth;
-    const natH = img.naturalHeight;
-    if (natW > 0 && natH > 0) {
-      hasResizedRef.current = true;
-      const maxW = 960;
-      const maxH = 720;
-      let w = natW;
-      let h = natH;
-      if (w > maxW || h > maxH) {
-        const scale = Math.min(maxW / w, maxH / h);
-        w = Math.round(w * scale);
-        h = Math.round(h * scale);
-      }
-      w = Math.max(w, 200);
-      h = Math.max(h, 120);
-
-      try {
-        const win = getCurrentWebviewWindow();
-        await win.setSize(new LogicalSize(w + 16, h + 16));
-      } catch (err) {
-        console.warn("Could not auto-resize sticker window:", err);
-      }
-    }
-  }, []);
 
   const showToast = useCallback((msg: string) => {
     if (toastTimerRef.current) {
@@ -100,6 +73,40 @@ export const PinStickerWindow: React.FC = () => {
     toastTimerRef.current = setTimeout(() => {
       setToastMessage(null);
     }, 1200);
+  }, []);
+
+  // Initial load: Set window size to match image aspect ratio exactly
+  const handleImageLoad = useCallback(async (e: React.SyntheticEvent<HTMLImageElement>) => {
+    if (hasResizedRef.current) return;
+    const img = e.currentTarget;
+    const natW = img.naturalWidth;
+    const natH = img.naturalHeight;
+    if (natW > 0 && natH > 0) {
+      hasResizedRef.current = true;
+      naturalDimsRef.current = { w: natW, h: natH };
+
+      // Fit nicely on screen if larger than max bounds
+      const maxW = 960;
+      const maxH = 720;
+      let targetW = natW;
+      let targetH = natH;
+      if (targetW > maxW || targetH > maxH) {
+        const scale = Math.min(maxW / targetW, maxH / targetH);
+        targetW = Math.round(targetW * scale);
+        targetH = Math.round(targetH * scale);
+      }
+      targetW = Math.max(targetW, 100);
+      targetH = Math.max(targetH, 80);
+
+      currentLogicalSizeRef.current = { w: targetW, h: targetH };
+
+      try {
+        const win = getCurrentWebviewWindow();
+        await win.setSize(new LogicalSize(targetW, targetH));
+      } catch (err) {
+        console.warn("Could not auto-resize sticker window:", err);
+      }
+    }
   }, []);
 
   const handleClose = useCallback(async () => {
@@ -123,13 +130,46 @@ export const PinStickerWindow: React.FC = () => {
     }
   }, [isAlwaysOnTop, showToast]);
 
-  const handleReset = useCallback(() => {
-    setZoom(1.0);
+  const handleReset = useCallback(async () => {
     setRotation(0);
     setFlipped(false);
     setOpacity(1.0);
+    const { w, h } = naturalDimsRef.current;
+    if (w > 0 && h > 0) {
+      const maxW = 960;
+      const maxH = 720;
+      let targetW = w;
+      let targetH = h;
+      if (targetW > maxW || targetH > maxH) {
+        const scale = Math.min(maxW / targetW, maxH / targetH);
+        targetW = Math.round(targetW * scale);
+        targetH = Math.round(targetH * scale);
+      }
+      currentLogicalSizeRef.current = { w: targetW, h: targetH };
+      try {
+        const win = getCurrentWebviewWindow();
+        await win.setSize(new LogicalSize(targetW, targetH));
+      } catch (err) {
+        console.warn("Failed to reset window size:", err);
+      }
+    }
     showToast("1:1 Reset");
   }, [showToast]);
+
+  const handleRotate = useCallback(async () => {
+    setRotation((prev) => (prev + 90) % 360);
+    try {
+      const win = getCurrentWebviewWindow();
+      const { w, h } = currentLogicalSizeRef.current;
+      // Swap width and height for 90-degree rotations
+      const newW = h;
+      const newH = w;
+      currentLogicalSizeRef.current = { w: newW, h: newH };
+      await win.setSize(new LogicalSize(newW, newH));
+    } catch (err) {
+      console.warn("Failed to rotate window:", err);
+    }
+  }, []);
 
   const handleCopyImage = useCallback(async () => {
     if (!imgRef.current) return;
@@ -167,7 +207,6 @@ export const PinStickerWindow: React.FC = () => {
 
       if (!targetPath) return;
 
-      // If rawSrc is a local file path (asset:// or /...), copy the file
       if (rawSrc.startsWith("asset://") || rawSrc.startsWith("/")) {
         let cleanSource = rawSrc;
         if (cleanSource.startsWith("asset://localhost/")) {
@@ -183,7 +222,6 @@ export const PinStickerWindow: React.FC = () => {
         return;
       }
 
-      // If data URI or blob, write via canvas
       if (imgRef.current) {
         const canvas = document.createElement("canvas");
         const img = imgRef.current;
@@ -197,7 +235,6 @@ export const PinStickerWindow: React.FC = () => {
               const arrayBuffer = await blob.arrayBuffer();
               const bytes = Array.from(new Uint8Array(arrayBuffer));
               await invoke("write_binary_file", { path: targetPath, contents: bytes }).catch(async () => {
-                // Fallback to fetch / standard write
                 const a = document.createElement("a");
                 a.href = canvas.toDataURL("image/png");
                 a.download = defaultFileName;
@@ -214,8 +251,8 @@ export const PinStickerWindow: React.FC = () => {
     }
   }, [rawSrc, showToast, t]);
 
-  // Handle Wheel: Zoom or Opacity
-  const handleWheel = (e: React.WheelEvent) => {
+  // Handle Wheel: Shift+Wheel for Opacity, Wheel for Proportional Window Zoom
+  const handleWheel = useCallback(async (e: React.WheelEvent) => {
     e.preventDefault();
     if (e.shiftKey) {
       // Shift + Scroll: Opacity
@@ -225,20 +262,48 @@ export const PinStickerWindow: React.FC = () => {
         showToast(`🌓 ${Math.round(next * 100)}%`);
         return next;
       });
-    } else {
-      // Normal Scroll: Zoom
-      const delta = e.deltaY > 0 ? -0.08 : 0.08;
-      setZoom((prev) => {
-        const next = Math.min(Math.max(Number((prev + delta).toFixed(2)), 0.2), 5.0);
-        showToast(`🔍 ${Math.round(next * 100)}%`);
-        return next;
-      });
+      return;
     }
-  };
+
+    // Normal Scroll: Strict Proportional Window Scale (Centered)
+    const factor = e.deltaY < 0 ? 1.08 : 0.925;
+    const { w: curW, h: curH } = currentLogicalSizeRef.current;
+    const natW = naturalDimsRef.current.w || 400;
+    const natH = naturalDimsRef.current.h || 300;
+    const isRotated90 = (rotation / 90) % 2 !== 0;
+    const ar = isRotated90 ? natH / natW : natW / natH;
+
+    let newW = Math.round(curW * factor);
+    newW = Math.min(Math.max(newW, 80), 2560);
+    const newH = Math.round(newW / ar);
+
+    if (newW === curW && newH === curH) return;
+
+    currentLogicalSizeRef.current = { w: newW, h: newH };
+
+    try {
+      const win = getCurrentWebviewWindow();
+      const currentPos = await win.innerPosition();
+      const scaleFactor = await win.scaleFactor();
+
+      const deltaPixelW = Math.round((newW - curW) * scaleFactor);
+      const deltaPixelH = Math.round((newH - curH) * scaleFactor);
+
+      const newX = currentPos.x - Math.round(deltaPixelW / 2);
+      const newY = currentPos.y - Math.round(deltaPixelH / 2);
+
+      await win.setSize(new LogicalSize(newW, newH));
+      await win.setPosition(new PhysicalPosition(newX, newY));
+
+      const zoomPercent = Math.round((newW / (isRotated90 ? natH : natW)) * 100);
+      showToast(`🔍 ${zoomPercent}%`);
+    } catch (err) {
+      console.warn("Failed to proportionally resize window on wheel:", err);
+    }
+  }, [rotation, showToast]);
 
   // Window drag handler
   const handleMouseDown = async (e: React.MouseEvent) => {
-    // Only drag on left click and not on interactive buttons
     if (e.button !== 0) return;
     const target = e.target as HTMLElement;
     if (target.closest("button") || target.closest(".pin-sticker-toolbar")) {
@@ -280,13 +345,13 @@ export const PinStickerWindow: React.FC = () => {
         setOpacity(1.0);
         showToast("🌓 100%");
       } else if (e.key === "r" || e.key === "R") {
-        setRotation((prev) => (prev + 90) % 360);
+        handleRotate();
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleClose, handleCopyImage, handleReset, handleSaveImage, showToast]);
+  }, [handleClose, handleCopyImage, handleReset, handleRotate, handleSaveImage, showToast]);
 
   return (
     <div
@@ -332,7 +397,7 @@ export const PinStickerWindow: React.FC = () => {
           <button
             type="button"
             className="pin-sticker-btn"
-            onClick={() => setRotation((r) => (r + 90) % 360)}
+            onClick={handleRotate}
             title={t("rotate_image") || "顺时针旋转 90° (R)"}
           >
             <RotateCw size={14} />
@@ -380,7 +445,7 @@ export const PinStickerWindow: React.FC = () => {
         {/* Sticker Image Viewport */}
         <div className="pin-sticker-image-wrapper">
           {imageError ? (
-            <div style={{ color: "rgba(255,255,255,0.7)", fontSize: "12px", textAlign: "center", padding: "16px" }}>
+            <div style={{ color: "var(--text-primary, #ffffff)", fontSize: "12px", textAlign: "center", padding: "16px" }}>
               图片无法加载
             </div>
           ) : (
@@ -390,7 +455,7 @@ export const PinStickerWindow: React.FC = () => {
               alt="Pinned Sticker"
               className="pin-sticker-img"
               style={{
-                transform: `scale(${zoom}) rotate(${rotation}deg) scaleX(${flipped ? -1 : 1})`,
+                transform: `rotate(${rotation}deg) scaleX(${flipped ? -1 : 1})`,
               }}
               draggable={false}
               onLoad={handleImageLoad}

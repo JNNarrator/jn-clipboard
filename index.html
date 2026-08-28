@@ -13,6 +13,10 @@
           var colorMode = localStorage.getItem('tiez_color_mode') || 'system';
           var compactMode = localStorage.getItem('tiez_compact_mode') === 'true';
           
+          if (window.location.search.indexOf('window=pin-sticker') !== -1) {
+            document.documentElement.classList.add('window-pin-sticker', 'pin-sticker');
+          }
+          
           // Apply theme class
           if (theme !== 'retro') {
             document.documentElement.classList.add('theme-' + theme);
