@@ -90,7 +90,7 @@ body.pin-sticker #root::before {
   filter: drop-shadow(0 4px 18px rgba(0, 0, 0, 0.35));
 }
 
-/* Floating Action Toolbar on BOTTOM Center of Image (Upper Layer) */
+/* Floating Action Toolbar on BOTTOM Center of Image (Theme-Integrated) */
 .pin-sticker-toolbar {
   position: absolute;
   bottom: 12px;
@@ -99,14 +99,14 @@ body.pin-sticker #root::before {
   transform: translateX(-50%) translateY(6px);
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 5px 10px;
-  background: var(--popover-background, var(--bg-panel, rgba(20, 24, 33, 0.8)));
+  gap: 4px;
+  padding: 4px 8px;
+  background: var(--popover-background, var(--bg-panel, rgba(20, 24, 33, 0.85)));
   color: var(--popover-color, var(--text-primary, #ffffff));
   backdrop-filter: var(--popover-backdrop-filter, blur(24px) saturate(180%));
   -webkit-backdrop-filter: var(--popover-backdrop-filter, blur(24px) saturate(180%));
   border: var(--popover-border, 1px solid rgba(255, 255, 255, 0.2));
-  border-radius: var(--popover-radius, 24px);
+  border-radius: var(--popover-radius, var(--radius-panel, 12px));
   box-shadow: var(--popover-shadow, 0 8px 32px rgba(0, 0, 0, 0.35));
   opacity: 0;
   pointer-events: none;
@@ -124,10 +124,10 @@ body.pin-sticker #root::before {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   padding: 0;
-  border-radius: 50%;
+  border-radius: max(calc(var(--popover-radius, var(--radius-panel, 12px)) - 4px), 4px);
   border: 1px solid transparent;
   background: transparent;
   color: var(--popover-color, var(--text-primary, #ffffff));
@@ -141,7 +141,7 @@ body.pin-sticker #root::before {
   border-color: var(--button-border, rgba(128, 128, 128, 0.2));
   color: var(--text-primary, #ffffff);
   opacity: 1;
-  transform: scale(1.08);
+  transform: scale(1.06);
 }
 
 .pin-sticker-btn:active {
@@ -153,7 +153,7 @@ body.pin-sticker #root::before {
   border-color: var(--accent-color, #2f6fed);
   color: #ffffff;
   opacity: 1;
-  box-shadow: 0 0 12px rgba(var(--accent-color-rgb, 47, 111, 237), 0.5);
+  box-shadow: 0 0 10px rgba(var(--accent-color-rgb, 47, 111, 237), 0.5);
 }
 
 .pin-sticker-btn.danger:hover {
@@ -165,7 +165,7 @@ body.pin-sticker #root::before {
 
 .pin-sticker-divider {
   width: 1px;
-  height: 14px;
+  height: 12px;
   background: var(--line-soft, rgba(128, 128, 128, 0.25));
   margin: 0 2px;
 }
@@ -177,11 +177,11 @@ body.pin-sticker #root::before {
   bottom: auto;
   left: 50%;
   transform: translateX(-50%);
-  padding: 4px 12px;
+  padding: 3px 10px;
   background: var(--popover-background, var(--bg-panel, rgba(20, 24, 33, 0.85)));
   color: var(--popover-color, var(--text-primary, #ffffff));
   border: var(--popover-border, 1px solid rgba(255, 255, 255, 0.2));
-  border-radius: var(--popover-radius, 14px);
+  border-radius: var(--popover-radius, var(--radius-panel, 8px));
   box-shadow: var(--popover-shadow, 0 6px 20px rgba(0, 0, 0, 0.25));
   backdrop-filter: var(--popover-backdrop-filter, blur(20px) saturate(180%));
   -webkit-backdrop-filter: var(--popover-backdrop-filter, blur(20px) saturate(180%));

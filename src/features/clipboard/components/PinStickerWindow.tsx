@@ -124,11 +124,11 @@ export const PinStickerWindow: React.FC = () => {
       const nextState = !isAlwaysOnTop;
       await currentWindow.setAlwaysOnTop(nextState);
       setIsAlwaysOnTop(nextState);
-      showToast(nextState ? "📌 Always On Top" : "📌 Normal Layer");
+      showToast(nextState ? (t("always_on_top") || "始终置顶") : (t("unpin") || "取消置顶"));
     } catch (err) {
       console.error("Failed to set always on top:", err);
     }
-  }, [isAlwaysOnTop, showToast]);
+  }, [isAlwaysOnTop, showToast, t]);
 
   const handleReset = useCallback(async () => {
     setRotation(0);
@@ -153,7 +153,7 @@ export const PinStickerWindow: React.FC = () => {
         console.warn("Failed to reset window size:", err);
       }
     }
-    showToast("1:1 Reset");
+    showToast("100%");
   }, [showToast]);
 
   const handleRotate = useCallback(async () => {
@@ -259,7 +259,7 @@ export const PinStickerWindow: React.FC = () => {
       const delta = e.deltaY > 0 ? -0.05 : 0.05;
       setOpacity((prev) => {
         const next = Math.min(Math.max(Number((prev + delta).toFixed(2)), 0.2), 1.0);
-        showToast(`🌓 ${Math.round(next * 100)}%`);
+        showToast(`${Math.round(next * 100)}%`);
         return next;
       });
       return;
@@ -296,7 +296,7 @@ export const PinStickerWindow: React.FC = () => {
       await win.setPosition(new PhysicalPosition(newX, newY));
 
       const zoomPercent = Math.round((newW / (isRotated90 ? natH : natW)) * 100);
-      showToast(`🔍 ${zoomPercent}%`);
+      showToast(`${zoomPercent}%`);
     } catch (err) {
       console.warn("Failed to proportionally resize window on wheel:", err);
     }
@@ -334,16 +334,16 @@ export const PinStickerWindow: React.FC = () => {
         handleSaveImage();
       } else if (e.key === "1") {
         setOpacity(0.25);
-        showToast("🌓 25%");
+        showToast("25%");
       } else if (e.key === "2") {
         setOpacity(0.5);
-        showToast("🌓 50%");
+        showToast("50%");
       } else if (e.key === "3") {
         setOpacity(0.75);
-        showToast("🌓 75%");
+        showToast("75%");
       } else if (e.key === "4") {
         setOpacity(1.0);
-        showToast("🌓 100%");
+        showToast("100%");
       } else if (e.key === "r" || e.key === "R") {
         handleRotate();
       }
