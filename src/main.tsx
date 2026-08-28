@@ -18,6 +18,11 @@ const RootComponent = isCompactPreview
 const isMacPlatform =
   /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent) || /Mac/i.test(navigator.platform);
 
+if (isPinSticker) {
+  document.documentElement.classList.add("window-pin-sticker");
+  document.body.classList.add("window-pin-sticker");
+}
+
 if (isMacPlatform) {
   document.documentElement.classList.add("platform-macos");
   document.body.classList.add("platform-macos");

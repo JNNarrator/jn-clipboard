@@ -1,5 +1,15 @@
 /* Desktop Pin Sticker (贴图) Window Styles */
 
+html.window-pin-sticker,
+body.window-pin-sticker,
+body.window-pin-sticker #root {
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  overflow: hidden !important;
+}
+
 .pin-sticker-root {
   width: 100vw;
   height: 100vh;
@@ -22,19 +32,15 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  border-radius: 8px;
-  background: rgba(18, 22, 30, 0.45);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.15);
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
   cursor: grab;
-  transition: box-shadow 0.2s ease, opacity 0.15s ease;
+  transition: opacity 0.15s ease;
 }
 
 .pin-sticker-shell:active {
   cursor: grabbing;
-}
-
-.pin-sticker-shell.always-on-top {
-  box-shadow: 0 10px 36px rgba(0, 0, 0, 0.45), 0 0 0 1.5px var(--accent-color, #2f6fed);
 }
 
 .pin-sticker-image-wrapper {
@@ -45,6 +51,7 @@
   justify-content: center;
   overflow: hidden;
   pointer-events: none;
+  background: transparent !important;
 }
 
 .pin-sticker-img {
@@ -56,27 +63,28 @@
   pointer-events: auto;
   -webkit-user-drag: none;
   user-select: none;
+  filter: drop-shadow(0 4px 20px rgba(0, 0, 0, 0.32));
 }
 
-/* Floating Action Toolbar on Hover */
+/* Floating Action Toolbar on Hover (Ultra-modern Frosted Glass / 毛玻璃) */
 .pin-sticker-toolbar {
   position: absolute;
-  bottom: 10px;
+  bottom: 12px;
   left: 50%;
   transform: translateX(-50%) translateY(8px);
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  background: rgba(20, 24, 33, 0.88);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 20px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  gap: 5px;
+  padding: 5px 9px;
+  background: rgba(18, 22, 32, 0.45);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.32), inset 0 1px 1px rgba(255, 255, 255, 0.22);
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.2, 0, 0, 1);
+  transition: opacity 0.2s cubic-bezier(0.2, 0, 0, 1), transform 0.2s cubic-bezier(0.2, 0, 0, 1);
   z-index: 1000;
 }
 
@@ -94,15 +102,18 @@
   height: 28px;
   padding: 0;
   border-radius: 50%;
-  border: none;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.92);
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, transform 0.12s ease;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: background 0.15s ease, color 0.15s ease, transform 0.12s ease, border-color 0.15s ease;
 }
 
 .pin-sticker-btn:hover {
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.28);
+  border-color: rgba(255, 255, 255, 0.35);
   color: #ffffff;
   transform: scale(1.08);
 }
@@ -113,38 +124,41 @@
 
 .pin-sticker-btn.active {
   background: var(--accent-color, #2f6fed);
+  border-color: var(--accent-color, #2f6fed);
   color: #ffffff;
+  box-shadow: 0 0 12px rgba(47, 111, 237, 0.6);
 }
 
 .pin-sticker-btn.danger:hover {
-  background: #ef4444;
+  background: rgba(239, 68, 68, 0.88);
+  border-color: rgba(239, 68, 68, 0.95);
   color: #ffffff;
 }
 
 .pin-sticker-divider {
   width: 1px;
   height: 14px;
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.25);
   margin: 0 2px;
 }
 
-/* Floating Status Indicator (Zoom / Opacity Toast) */
+/* Floating Status Indicator Toast (毛玻璃提示框) */
 .pin-sticker-toast {
   position: absolute;
   top: 12px;
   left: 50%;
   transform: translateX(-50%);
-  padding: 4px 10px;
-  background: rgba(0, 0, 0, 0.78);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  padding: 4px 12px;
+  background: rgba(18, 22, 32, 0.55);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
   color: #ffffff;
   font-size: 11px;
   font-weight: 600;
   font-family: var(--font-mono, monospace);
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28), inset 0 1px 1px rgba(255, 255, 255, 0.18);
   pointer-events: none;
   animation: stickerFadeInOut 1.2s ease forwards;
   z-index: 1001;
