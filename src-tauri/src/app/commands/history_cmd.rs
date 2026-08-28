@@ -4,9 +4,7 @@ use crate::domain::models::ClipboardEntry;
 use crate::error::{AppError, AppResult};
 use crate::infrastructure::repository::clipboard_repo::{ClipboardRepository, ClipboardSortMode};
 use crate::infrastructure::repository::tag_repo::TagRepository;
-use crate::services::clipboard::{
-    build_entry_preview, derive_rich_text_content, entry_matches_search, truncate_html_for_preview,
-};
+use crate::services::clipboard::{entry_matches_search, truncate_html_for_preview};
 use tauri::{AppHandle, Emitter, State};
 
 #[derive(Clone, serde::Serialize)]
@@ -76,16 +74,66 @@ pub async fn import_clipboard_data(
     Ok(report)
 }
 
+fn validate_and_repair_external_media(item: &mut ClipboardEntry, data_dir: &std::path::Path) {
+    if item.content_type == "image"
+        || item.content_type == "video"
+        || item.content_type == "file"
+        || item.is_external
+    {
+        if item.content.starts_with("data:") {
+            item.file_preview_exists = true;
+            return;
+        }
+
+        let raw_path = item.content.trim();
+        if raw_path.is_empty() {
+            item.file_preview_exists = false;
+            return;
+        }
+
+        // For multi-file entries
+        if item.content_type == "file" && raw_path.contains('\n') {
+            let all_exist = raw_path
+                .lines()
+                .map(|line| line.trim())
+                .filter(|line| !line.is_empty())
+                .all(|p| std::path::Path::new(p).exists());
+            item.file_preview_exists = all_exist;
+            return;
+        }
+
+        let path = std::path::Path::new(raw_path);
+        if path.exists() {
+            item.file_preview_exists = true;
+            return;
+        }
+
+        // Auto-repair if attachment path was relocated or relative
+        if let Some(file_name) = path.file_name().and_then(|f| f.to_str()) {
+            let candidate = data_dir.join("attachments").join(file_name);
+            if candidate.exists() {
+                item.content = candidate.to_string_lossy().to_string();
+                item.file_preview_exists = true;
+                return;
+            }
+        }
+
+        item.file_preview_exists = false;
+    }
+}
+
 #[tauri::command]
 pub fn get_clipboard_history(
     state: State<'_, DbState>,
     session: State<'_, SessionHistory>,
+    app_data: State<'_, AppDataDir>,
     limit: i32,
     offset: i32,
     content_type: Option<String>,
     sort_mode: Option<String>,
 ) -> AppResult<Vec<ClipboardEntry>> {
     let sort_mode = ClipboardSortMode::from_setting(sort_mode.as_deref());
+    let data_dir = app_data.0.lock().map(|d| d.clone()).unwrap_or_default();
 
     // 1. Get history from repository
     let mut history =
@@ -118,8 +166,10 @@ pub fn get_clipboard_history(
         history.truncate(limit as usize);
     }
 
-    // 5. Truncate content for UI performance
+    // 5. Truncate content for UI performance and validate media
     for item in &mut history {
+        validate_and_repair_external_media(item, &data_dir);
+
         if (item.content_type == "text"
             || item.content_type == "code"
             || item.content_type == "url"
@@ -158,6 +208,7 @@ pub fn get_clipboard_history(
 pub fn search_clipboard_history(
     state: State<'_, DbState>,
     session: State<'_, SessionHistory>,
+    app_data: State<'_, AppDataDir>,
     search_term: String,
     limit: i32,
     tag_only: Option<bool>,
@@ -165,6 +216,7 @@ pub fn search_clipboard_history(
 ) -> AppResult<Vec<ClipboardEntry>> {
     let is_tag_only = tag_only.unwrap_or(false);
     let is_note_only = note_only.unwrap_or(false);
+    let data_dir = app_data.0.lock().map(|d| d.clone()).unwrap_or_default();
     let mut history = state
         .repo
         .search(&search_term, limit, is_tag_only, is_note_only)?;
@@ -184,6 +236,7 @@ pub fn search_clipboard_history(
     }
 
     for item in &mut history {
+        validate_and_repair_external_media(item, &data_dir);
         if (item.content_type == "text"
             || item.content_type == "code"
             || item.content_type == "url"

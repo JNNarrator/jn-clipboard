@@ -40,7 +40,7 @@ import {
     getTagTextColor
 } from "../../../shared/lib/utils";
 import HtmlContent from "../../../shared/components/HtmlContent";
-import { toTauriLocalImageSrc, withImageCacheBust } from "../../../shared/lib/localImageSrc";
+import { toTauriLocalImageSrc } from "../../../shared/lib/localImageSrc";
 import { getRichTextSnapshotDataUrl } from "../../../shared/lib/richTextSnapshot";
 import { getFileIcon as getSystemFileIcon, peekFileIcon } from "../../../shared/lib/fileIcon";
 import { getSourceAppIcon, peekSourceAppIcon } from "../../../shared/lib/sourceAppIcon";
@@ -743,6 +743,7 @@ const ClipboardItem = ({
     const [localAiOptionsOpen, setLocalAiOptionsOpen] = useState(!!aiOptionsOpen);
     const [snapshotFailed, setSnapshotFailed] = useState(false);
     const [richImageFallbackFailed, setRichImageFallbackFailed] = useState(false);
+    const [imageLoadFailed, setImageLoadFailed] = useState(false);
     const [sourceAppIcon, setSourceAppIcon] = useState<string | null>(() => peekSourceAppIcon(item.source_app_path) ?? null);
     const filePaths = useMemo(
         () => item.content_type === "file" ? item.content.split('\n').filter((p) => p.trim()) : [],
@@ -1200,7 +1201,8 @@ const ClipboardItem = ({
     useEffect(() => {
         setSnapshotFailed(false);
         setRichImageFallbackFailed(false);
-    }, [item.id, item.html_content, richTextSnapshotPreview, compactMode]);
+        setImageLoadFailed(false);
+    }, [item.id, item.html_content, richTextSnapshotPreview, compactMode, item.content]);
 
     useEffect(() => {
         if (richSnapshotFallbackTimerRef.current) {
@@ -1871,7 +1873,7 @@ const ClipboardItem = ({
                 <div data-content-type={item.content_type} className={`content-preview ${item.content_type === 'rich_text' ? 'rich-text' : ''} ${item.content_type === 'file' ? 'file-preview' : ''} ${isSensitiveHidden ? 'sensitive-blur' : ''}`}>
                 {item.content_type === "image" ? (
                     <div style={{ position: 'relative' }}>
-                        {item.is_external && item.file_preview_exists === false ? (
+                        {(item.is_external && item.file_preview_exists === false) || imageLoadFailed ? (
                             <div className="image-preview error-placeholder" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-element)', color: 'var(--text-secondary)', height: '100px', fontSize: '12px' }}>
                                 <ImageOff size={24} style={{ marginBottom: '8px', opacity: 0.5 }} />
                                 <span>{t('image_deleted') || 'Image Deleted'}</span>
@@ -1879,25 +1881,20 @@ const ClipboardItem = ({
                         ) : (
                             <img
                                 src={
-                                    withImageCacheBust(
-                                        item.content.startsWith("data:")
-                                            ? item.content
-                                            : (
-                                                toTauriLocalImageSrc(item.content) ||
-                                                (item.is_external ? convertFileSrc(item.content) : item.content)
-                                            ),
-                                        item.timestamp
-                                    ) || ""
+                                    item.content.startsWith("data:")
+                                        ? item.content
+                                        : (
+                                            toTauriLocalImageSrc(item.content) ||
+                                            (item.is_external ? convertFileSrc(item.content) : item.content)
+                                        )
                                 }
                                 alt={t('image_preview')}
                                 className="image-preview"
                                 draggable={false}
                                 loading="lazy"
                                 style={isSensitiveHidden ? { filter: 'blur(8px)' } : {}}
-                                onError={(e) => {
-                                    // Fallback for load errors even if backend said it exists (e.g. deleted after fetch)
-                                    e.currentTarget.style.display = 'none';
-                                    e.currentTarget.parentElement?.classList.add('image-load-error');
+                                onError={() => {
+                                    setImageLoadFailed(true);
                                 }}
                             />
                         )}

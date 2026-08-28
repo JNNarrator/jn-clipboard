@@ -1816,6 +1816,7 @@ pub fn paste_latest_rich(app_handle: tauri::AppHandle) {
         let history = crate::app::commands::history_cmd::get_clipboard_history(
             app_handle_clone.state::<DbState>(),
             app_handle_clone.state::<SessionHistory>(),
+            app_handle_clone.state::<crate::app_state::AppDataDir>(),
             1,
             0, // offset
             None,

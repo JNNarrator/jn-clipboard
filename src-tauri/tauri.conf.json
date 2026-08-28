@@ -47,6 +47,7 @@
       "assetProtocol": {
         "enable": true,
         "scope": [
+          "**",
           "$HOME/**",
           "$APPDATA/**",
           "$APPLOCALDATA/**",
@@ -92,6 +93,9 @@
             {
               "identifier": "fs:allow-read",
               "allow": [
+                {
+                  "path": "**"
+                },
                 {
                   "path": "$HOME/**"
                 },
