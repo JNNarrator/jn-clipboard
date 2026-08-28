@@ -400,6 +400,7 @@ const AppHeader = ({
                 <div
                   className="search-type-filters hide-scrollbar"
                   onWheel={(e) => {
+                    e.stopPropagation();
                     if (e.deltaY !== 0) {
                       e.currentTarget.scrollLeft += e.deltaY;
                     }

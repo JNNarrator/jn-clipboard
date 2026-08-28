@@ -330,6 +330,7 @@ header {
   min-width: 0;
   scrollbar-width: none;
   -ms-overflow-style: none;
+  overscroll-behavior: contain;
 }
 
 .search-type-filters::-webkit-scrollbar {

@@ -101,6 +101,12 @@ export const useSearchScroll = ({
     const isAtTop = () => listScrollTopRef.current <= AT_TOP_EPSILON;
 
     const onWheel = (e: WheelEvent) => {
+      // If the scroll happened inside the header, search container, or category filter tabs, ignore it
+      const target = e.target as HTMLElement | null;
+      if (target?.closest("header, .search-reveal, .search-container, .search-type-filters, .tags-dropdown")) {
+        return;
+      }
+
       const deltaY = e.deltaY;
       const atTop = isAtTop();
       const scrollingDown = deltaY > 0;
