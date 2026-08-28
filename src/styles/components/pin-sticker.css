@@ -90,12 +90,13 @@ body.pin-sticker #root::before {
   filter: drop-shadow(0 4px 18px rgba(0, 0, 0, 0.35));
 }
 
-/* Floating Action Toolbar on TOP of Image (Upper Layer) */
+/* Floating Action Toolbar on BOTTOM Center of Image (Upper Layer) */
 .pin-sticker-toolbar {
   position: absolute;
-  top: 10px;
+  bottom: 12px;
+  top: auto;
   left: 50%;
-  transform: translateX(-50%) translateY(-6px);
+  transform: translateX(-50%) translateY(6px);
   display: flex;
   align-items: center;
   gap: 5px;
@@ -169,10 +170,11 @@ body.pin-sticker #root::before {
   margin: 0 2px;
 }
 
-/* Floating Status Indicator Toast (Theme-Integrated) */
+/* Floating Status Indicator Toast (Top Center) */
 .pin-sticker-toast {
   position: absolute;
-  bottom: 12px;
+  top: 12px;
+  bottom: auto;
   left: 50%;
   transform: translateX(-50%);
   padding: 4px 12px;
@@ -194,7 +196,7 @@ body.pin-sticker #root::before {
 @keyframes stickerFadeInOut {
   0% {
     opacity: 0;
-    transform: translateX(-50%) translateY(4px);
+    transform: translateX(-50%) translateY(-4px);
   }
   15% {
     opacity: 1;
@@ -205,6 +207,6 @@ body.pin-sticker #root::before {
   }
   100% {
     opacity: 0;
-    transform: translateX(-50%) translateY(4px);
+    transform: translateX(-50%) translateY(-4px);
   }
 }
