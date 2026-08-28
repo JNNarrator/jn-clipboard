@@ -4,6 +4,13 @@
   scrollbar-color: transparent transparent;
 }
 
+.history-list-container,
+.virtuoso-grid,
+.scrollable-panel,
+.settings-content-body {
+  scrollbar-gutter: stable;
+}
+
 *:hover,
 *:focus-within,
 *:active {

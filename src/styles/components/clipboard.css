@@ -1,21 +1,5 @@
-/* Clipboard Item Selection */
+/* Clipboard Item Selection (Keyboard Focus & Active Target) */
 .history-item.selected {
-  outline: var(--card-selected-outline) !important;
-  outline-offset: var(--card-selected-outline-offset) !important;
-  border-color: var(--card-selected-border-color) !important;
-  box-shadow: var(--card-selected-shadow) !important;
-  z-index: 10;
-}
-
-.history-item.selected {
-  background: var(--card-selected-background);
-  color: inherit;
-  transform: none !important;
-}
-
-/* Mouse hover uses the same selected treatment so non-key panels still show a
-   clear "active item" affordance while the previous app keeps keyboard focus. */
-.history-item:hover {
   outline: var(--card-selected-outline) !important;
   outline-offset: var(--card-selected-outline-offset) !important;
   border-color: var(--card-selected-border-color) !important;
@@ -24,4 +8,14 @@
   color: inherit;
   transform: none !important;
   z-index: 10;
+}
+
+/* Mouse hover provides a gentle tint without clashing with the active keyboard selection */
+.history-item:hover:not(.selected) {
+  background: var(--layout-item-hover-background, var(--bg-input));
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow-xs);
+  color: inherit;
+  transform: none !important;
+  z-index: 5;
 }

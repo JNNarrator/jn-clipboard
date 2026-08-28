@@ -58,6 +58,8 @@
   -webkit-line-clamp: 4;
   line-clamp: 4;
   -webkit-box-orient: vertical;
+  word-break: break-word;
+  overflow-wrap: anywhere;
   margin-top: 0;
   padding-top: 0;
 }

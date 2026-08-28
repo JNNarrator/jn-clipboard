@@ -91,8 +91,8 @@
   --tag-chip-text-transform: none;
   --tag-chip-letter-spacing: 0;
 
-  --font-main: "Segoe UI", "Inter", "Microsoft YaHei", sans-serif;
-  --font-mono: "Cascadia Code", "Consolas", monospace;
+  --font-main: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Inter", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "Segoe UI Mono", "Menlo", "Consolas", monospace;
   --font-size-xs: 11px;
   --font-size-sm: 12px;
   --font-size-md: 14px;
