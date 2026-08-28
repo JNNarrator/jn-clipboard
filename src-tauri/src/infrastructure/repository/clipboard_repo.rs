@@ -1,6 +1,6 @@
 use crate::database::{
-    calc_image_hash, calc_sync_content_hash, calc_text_hash, has_sensitive_tag, is_text_type,
-    save_image_to_file, ENCRYPT_PREFIX,
+    calc_image_hash, calc_image_hash_from_bytes, calc_sync_content_hash, calc_text_hash,
+    has_sensitive_tag, is_text_type, save_image_to_file, ENCRYPT_PREFIX,
 };
 use crate::domain::models::ClipboardEntry;
 use crate::infrastructure::encryption;
@@ -604,13 +604,8 @@ impl SqliteClipboardRepository {
             if entry.content_type == "image" {
                 if entry.content.starts_with("data:") {
                     calc_image_hash(&entry.content).unwrap_or(0)
-                } else if let Ok(img) = image::open(&entry.content) {
-                    let thumb = img.resize_exact(32, 32, image::imageops::FilterType::Nearest);
-                    use std::collections::hash_map::DefaultHasher;
-                    use std::hash::{Hash, Hasher};
-                    let mut hasher = DefaultHasher::new();
-                    thumb.as_bytes().hash(&mut hasher);
-                    hasher.finish() as i64
+                } else if let Ok(bytes) = std::fs::read(&entry.content) {
+                    calc_image_hash_from_bytes(&bytes).unwrap_or(0)
                 } else {
                     0
                 }

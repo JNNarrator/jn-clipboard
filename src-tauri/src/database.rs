@@ -87,43 +87,33 @@ pub fn calc_sync_content_hash(content_type: &str, content: &str) -> i64 {
     i64::from(if hash == 0 { 1 } else { hash })
 }
 
-fn calc_visual_hash(img: &image::DynamicImage) -> i64 {
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
-    let mut hasher = DefaultHasher::new();
-    img.as_bytes().hash(&mut hasher);
-    hasher.finish() as i64
-}
-
-pub fn calc_image_hash(base64_data: &str) -> Option<i64> {
-    let trimmed = base64_data.trim();
-    let bytes =
-        if !trimmed.starts_with("data:") && (trimmed.starts_with('/') || trimmed.contains(":\\")) {
-            std::fs::read(trimmed).ok()?
-        } else {
-            let parts: Vec<&str> = trimmed.splitn(2, ',').collect();
-            let payload = if parts.len() == 2 { parts[1] } else { trimmed };
-            let payload_clean = payload.replace("\r", "").replace("\n", "");
-            if payload_clean.trim().is_empty() {
-                return None;
-            }
-
-            use base64::Engine;
-            base64::engine::general_purpose::STANDARD
-                .decode(payload_clean.trim())
-                .ok()?
-        };
-
-    if let Ok(img) = image::load_from_memory(&bytes) {
-        let thumb = img.resize_exact(32, 32, image::imageops::FilterType::Nearest);
-        return Some(calc_visual_hash(&thumb));
-    }
-
+pub fn calc_image_hash_from_bytes(bytes: &[u8]) -> Option<i64> {
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};
     let mut hasher = DefaultHasher::new();
     bytes.hash(&mut hasher);
     Some(hasher.finish() as i64)
+}
+
+pub fn calc_image_hash(base64_data: &str) -> Option<i64> {
+    let trimmed = base64_data.trim();
+    if !trimmed.starts_with("data:") && (trimmed.starts_with('/') || trimmed.contains(":\\")) {
+        let bytes = std::fs::read(trimmed).ok()?;
+        return calc_image_hash_from_bytes(&bytes);
+    }
+    let parts: Vec<&str> = trimmed.splitn(2, ',').collect();
+    let payload = if parts.len() == 2 { parts[1] } else { trimmed };
+    let payload_clean = payload.replace("\r", "").replace("\n", "");
+    if payload_clean.trim().is_empty() {
+        return None;
+    }
+
+    use base64::Engine;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(payload_clean.trim())
+        .ok()?;
+
+    calc_image_hash_from_bytes(&bytes)
 }
 
 pub fn init_db(path: &str) -> Result<Connection> {
@@ -135,6 +125,10 @@ pub fn init_db(path: &str) -> Result<Connection> {
         PRAGMA journal_mode = WAL;
         PRAGMA synchronous = NORMAL;
         PRAGMA auto_vacuum = FULL;
+        PRAGMA busy_timeout = 5000;
+        PRAGMA mmap_size = 268435456;
+        PRAGMA temp_store = MEMORY;
+        PRAGMA cache_size = -64000;
     ",
     )?;
 
@@ -198,19 +192,6 @@ pub fn save_image_to_file(data_url: &str, data_dir: &std::path::Path) -> Option<
         .ok()?;
 
     save_image_bytes_to_file(&decoded, data_dir)
-}
-
-pub fn calc_image_hash_from_bytes(bytes: &[u8]) -> Option<i64> {
-    if let Ok(img) = image::load_from_memory(bytes) {
-        let thumb = img.resize_exact(32, 32, image::imageops::FilterType::Nearest);
-        return Some(calc_visual_hash(&thumb));
-    }
-
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
-    let mut hasher = DefaultHasher::new();
-    bytes.hash(&mut hasher);
-    Some(hasher.finish() as i64)
 }
 
 // get_history removed (migrated to repository)
