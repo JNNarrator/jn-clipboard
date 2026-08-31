@@ -1,0 +1,396 @@
+/*
+ * Minecraft (我的世界) Theme — Pixel GUI & Voxel Inventory Style
+ * Authentic 3D pixel bevels, sunken item slots, 0px border radius, XP green & diamond accents.
+ */
+
+:root.theme-minecraft,
+body.theme-minecraft {
+  --font-main: "Minecraft", "Press Start 2P", "Courier New", Courier, monospace, sans-serif;
+  --font-mono: "Minecraft", "Consolas", "Courier New", monospace;
+  --font-size-md: 13px;
+
+  --radius-window: 0;
+  --radius-panel: 0;
+  --radius-card: 0;
+  --radius-control: 0;
+  --radius-pill: 0;
+
+  --spacing-md: 14px;
+  --spacing-sm: 8px;
+
+  /* Minecraft Classic Inventory (Light Mode) */
+  --bg-body: #c6c6c6;
+  --bg-window: #c6c6c6;
+  --bg-content: #c6c6c6;
+  --bg-toolbar: #d4d4d4;
+  --bg-panel: #b8b8b8;
+  --bg-input: #8b8b8b;
+  --bg-element: #8b8b8b;
+  --bg-button: #c6c6c6;
+
+  --text-primary: #212121;
+  --text-secondary: #4a4a4a;
+  --text-muted: #666666;
+
+  --accent-color: #2e8b57;
+  --accent-color-rgb: 46, 139, 87;
+  --accent-hover: #247346;
+  --on-accent: #ffffff;
+
+  --status-success: #3cb371;
+  --status-success-rgb: 60, 179, 113;
+  --status-warning: #ffaa00;
+  --status-warning-rgb: 255, 170, 0;
+  --status-danger: #d32f2f;
+  --status-danger-rgb: 211, 47, 47;
+  --status-info: #00aaaa;
+  --status-info-rgb: 0, 170, 170;
+
+  --border-dark: #373737;
+  --border-light: #ffffff;
+  --border-shadow: #555555;
+  --shadow-color: #373737;
+
+  --line-soft: #8b8b8b;
+  --line-strong: #373737;
+
+  /* Minecraft 3D Bevel Shadows */
+  --shadow-xs: 2px 2px 0 0 var(--border-dark);
+  --shadow-sm: 3px 3px 0 0 var(--border-dark);
+  --shadow-md: 4px 4px 0 0 var(--border-dark);
+  --shadow-lg: 6px 6px 0 0 var(--border-dark);
+  --shadow-inset: inset 2px 2px 0 #373737, inset -2px -2px 0 #ffffff;
+
+  --shell-background: var(--bg-window);
+  --shell-border: 3px solid;
+  --shell-border-color: var(--border-light) var(--border-dark) var(--border-dark) var(--border-light);
+  --shell-shadow: 4px 4px 0 0 rgba(0, 0, 0, 0.4);
+  --shell-radius: 0;
+  --shell-backdrop-filter: none;
+
+  --toolbar-border: 2px solid var(--border-dark);
+
+  --title-font-family: var(--font-main);
+  --title-font-weight: 700;
+  --title-font-size: 13px;
+  --title-letter-spacing: 1px;
+  --title-transform: uppercase;
+  --title-color: var(--text-primary);
+  --title-background: transparent;
+
+  --meta-text-transform: uppercase;
+  --meta-letter-spacing: 0.5px;
+  --content-font-family: var(--font-main);
+  --content-line-height: 1.4;
+  --empty-state-font-family: var(--font-main);
+  --empty-state-text-transform: uppercase;
+
+  /* Input (Sunken Item Slot style) */
+  --input-border: 2px solid;
+  --input-border-color: var(--border-dark) var(--border-light) var(--border-light) var(--border-dark);
+  --input-radius: 0;
+  --input-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.25);
+  --input-focus-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.35);
+  --input-font-weight: 600;
+
+  /* Button (Raised MC GUI Button style) */
+  --button-border: 2px solid;
+  --button-border-color: var(--border-light) var(--border-dark) var(--border-dark) var(--border-light);
+  --button-radius: 0;
+  --button-shadow: 1px 1px 0 0 rgba(0, 0, 0, 0.3);
+  --button-hover-border-color: #ffffff #373737 #373737 #ffffff;
+  --button-hover-shadow: 2px 2px 0 0 rgba(0, 0, 0, 0.4);
+  --button-hover-transform: none;
+  --button-active-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.35);
+  --button-active-transform: translate(1px, 1px);
+  --button-active-filled-background: var(--accent-color);
+  --button-active-filled-color: #ffffff;
+  --button-active-filled-border-color: var(--border-dark) var(--border-light) var(--border-light) var(--border-dark);
+
+  /* Card (Inventory Slot style) */
+  --card-border: 2px solid;
+  --card-border-color: var(--border-dark) var(--border-light) var(--border-light) var(--border-dark);
+  --card-radius: 0;
+  --card-shadow: inset 1px 1px 0 rgba(0, 0, 0, 0.2);
+  --card-hover-border-color: #ffffff;
+  --card-hover-shadow: inset 1px 1px 0 rgba(0, 0, 0, 0.25), 0 0 0 2px #ffffff;
+  --card-hover-transform: none;
+  --card-active-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.4);
+  --card-active-transform: translate(1px, 1px);
+  --card-selected-background: rgba(46, 139, 87, 0.15);
+  --card-selected-border-color: var(--accent-color);
+  --card-selected-shadow: 0 0 0 2px var(--accent-color);
+  --card-selected-outline: 2px solid var(--accent-color);
+
+  --panel-border: 2px solid var(--border-dark);
+  --panel-radius: 0;
+  --panel-shadow: 2px 2px 0 0 var(--border-dark);
+  --panel-header-background: var(--bg-toolbar);
+  --panel-divider-color: var(--border-dark);
+
+  --data-panel-border: 2px solid;
+  --data-panel-border-color: var(--border-dark) var(--border-light) var(--border-light) var(--border-dark);
+  --data-panel-radius: 0;
+  --data-panel-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.2);
+  --data-panel-hover-background: #999999;
+
+  /* Range Track (XP Bar Style) */
+  --range-track-border: 2px solid var(--border-dark);
+  --range-track-radius: 0;
+  --range-track-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.3);
+  --range-thumb-border: 2px solid;
+  --range-thumb-border-color: var(--border-light) var(--border-dark) var(--border-dark) var(--border-light);
+  --range-thumb-radius: 0;
+  --range-thumb-shadow: 1px 1px 0 var(--border-dark);
+
+  --keycap-border: 2px solid;
+  --keycap-border-color: var(--border-light) var(--border-dark) var(--border-dark) var(--border-light);
+  --keycap-radius: 0;
+  --keycap-shadow: 1px 1px 0 var(--border-dark);
+
+  --segmented-border: 2px solid var(--border-dark);
+  --segmented-radius: 0;
+  --segmented-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.2);
+  --segment-radius: 0;
+  --segment-font-weight: 700;
+  --segment-text-transform: uppercase;
+  --segment-active-background: var(--text-primary);
+  --segment-active-color: var(--bg-window);
+  --segment-active-shadow: none;
+
+  --modal-border: 3px solid;
+  --modal-border-color: var(--border-light) var(--border-dark) var(--border-dark) var(--border-light);
+  --modal-radius: 0;
+  --modal-shadow: 6px 6px 0 0 rgba(0, 0, 0, 0.5);
+  --modal-title-background: var(--bg-toolbar);
+  --modal-title-color: var(--text-primary);
+  --modal-title-padding: 4px 8px;
+  --modal-title-transform: uppercase;
+  --modal-title-letter-spacing: 1px;
+  --modal-title-font-weight: 700;
+
+  --dialog-button-border: 2px solid;
+  --dialog-button-border-color: var(--border-light) var(--border-dark) var(--border-dark) var(--border-light);
+  --dialog-button-radius: 0;
+  --dialog-button-shadow: 2px 2px 0 var(--border-dark);
+  --dialog-button-hover-shadow: 3px 3px 0 var(--border-dark);
+  --dialog-button-hover-transform: none;
+  --dialog-button-active-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.35);
+  --dialog-button-active-transform: translate(1px, 1px);
+
+  --tags-border: 2px solid var(--border-dark);
+  --tags-radius: 0;
+  --tags-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.2);
+  --tag-chip-border: 2px solid;
+  --tag-chip-border-color: var(--border-light) var(--border-dark) var(--border-dark) var(--border-light);
+  --tag-chip-radius: 0;
+  --tag-chip-shadow: 1px 1px 0 var(--border-dark);
+  --tag-chip-font-weight: 700;
+  --tag-chip-font-family: var(--font-main);
+  --tag-chip-text-transform: uppercase;
+
+  --menu-border: 2px solid;
+  --menu-border-color: var(--border-light) var(--border-dark) var(--border-dark) var(--border-light);
+  --menu-radius: 0;
+  --menu-shadow: 4px 4px 0 0 rgba(0, 0, 0, 0.4);
+
+  --scrollbar-size: 10px;
+  --scrollbar-size-thin: 6px;
+  --scrollbar-radius: 0;
+  --scrollbar-track-background: var(--bg-element);
+  --scrollbar-track-border-start: 1px solid var(--border-dark);
+  --scrollbar-thumb-color: #555555;
+  --scrollbar-thumb-hover-color: #373737;
+  --scrollbar-thumb-border: 1px solid var(--border-light);
+  --scrollbar-chat-thumb-border: 1px solid var(--border-dark);
+
+  --popover-background: var(--bg-window);
+  --popover-color: var(--text-primary);
+  --popover-border: 2px solid;
+  --popover-border-color: var(--border-light) var(--border-dark) var(--border-dark) var(--border-light);
+  --popover-radius: 0;
+  --popover-shadow: 4px 4px 0 0 rgba(0, 0, 0, 0.4);
+  --popover-backdrop-filter: none;
+}
+
+/* =========================================================
+ * Minecraft Dark Mode (Deepslate / Netherite GUI)
+ * ========================================================= */
+:root.dark-mode.theme-minecraft,
+body.dark-mode.theme-minecraft,
+body.theme-minecraft.dark-mode {
+  --bg-body: #18191c;
+  --bg-window: #222428;
+  --bg-content: #18191c;
+  --bg-toolbar: #2b2d33;
+  --bg-panel: #26282e;
+  --bg-input: #121316;
+  --bg-element: #141518;
+  --bg-button: #31343c;
+
+  --text-primary: #e2e4ea;
+  --text-secondary: #9a9ca6;
+  --text-muted: #676974;
+
+  --accent-color: #55ff55;
+  --accent-color-rgb: 85, 255, 85;
+  --accent-hover: #44dd44;
+  --on-accent: #000000;
+
+  --status-success: #55ff55;
+  --status-warning: #ffaa00;
+  --status-danger: #ff5555;
+  --status-info: #55ffff;
+
+  --border-dark: #0d0e10;
+  --border-light: #484b54;
+  --border-shadow: #000000;
+  --shadow-color: #0d0e10;
+
+  --line-soft: #2e3037;
+  --line-strong: #0d0e10;
+
+  --shell-border-color: var(--border-light) var(--border-dark) var(--border-dark) var(--border-light);
+  --shell-shadow: 6px 6px 0 0 rgba(0, 0, 0, 0.7);
+
+  --input-border-color: var(--border-dark) var(--border-light) var(--border-light) var(--border-dark);
+  --button-border-color: var(--border-light) var(--border-dark) var(--border-dark) var(--border-light);
+  --card-border-color: var(--border-dark) var(--border-light) var(--border-light) var(--border-dark);
+
+  --card-hover-border-color: #55ffff;
+  --card-hover-shadow: inset 1px 1px 0 rgba(0, 0, 0, 0.4), 0 0 0 2px #55ffff;
+  --card-selected-background: rgba(85, 255, 85, 0.12);
+  --card-selected-border-color: #55ff55;
+  --card-selected-shadow: 0 0 0 2px #55ff55;
+  --card-selected-outline: 2px solid #55ff55;
+
+  --data-panel-border-color: var(--border-dark) var(--border-light) var(--border-light) var(--border-dark);
+  --data-panel-hover-background: #1e2025;
+
+  --scrollbar-thumb-color: #484b54;
+  --scrollbar-thumb-hover-color: #5d616c;
+  --scrollbar-thumb-border: 1px solid #121316;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root.theme-minecraft:not(.light-mode),
+  body.theme-minecraft:not(.light-mode) {
+    --bg-body: #18191c;
+    --bg-window: #222428;
+    --bg-content: #18191c;
+    --bg-toolbar: #2b2d33;
+    --bg-panel: #26282e;
+    --bg-input: #121316;
+    --bg-element: #141518;
+    --bg-button: #31343c;
+
+    --text-primary: #e2e4ea;
+    --text-secondary: #9a9ca6;
+    --text-muted: #676974;
+
+    --accent-color: #55ff55;
+    --accent-color-rgb: 85, 255, 85;
+    --accent-hover: #44dd44;
+    --on-accent: #000000;
+
+    --status-success: #55ff55;
+    --status-warning: #ffaa00;
+    --status-danger: #ff5555;
+    --status-info: #55ffff;
+
+    --border-dark: #0d0e10;
+    --border-light: #484b54;
+    --border-shadow: #000000;
+    --shadow-color: #0d0e10;
+
+    --line-soft: #2e3037;
+    --line-strong: #0d0e10;
+
+    --shell-border-color: var(--border-light) var(--border-dark) var(--border-dark) var(--border-light);
+    --shell-shadow: 6px 6px 0 0 rgba(0, 0, 0, 0.7);
+
+    --input-border-color: var(--border-dark) var(--border-light) var(--border-light) var(--border-dark);
+    --button-border-color: var(--border-light) var(--border-dark) var(--border-dark) var(--border-light);
+    --card-border-color: var(--border-dark) var(--border-light) var(--border-light) var(--border-dark);
+
+    --card-hover-border-color: #55ffff;
+    --card-hover-shadow: inset 1px 1px 0 rgba(0, 0, 0, 0.4), 0 0 0 2px #55ffff;
+    --card-selected-background: rgba(85, 255, 85, 0.12);
+    --card-selected-border-color: #55ff55;
+    --card-selected-shadow: 0 0 0 2px #55ff55;
+    --card-selected-outline: 2px solid #55ff55;
+
+    --data-panel-border-color: var(--border-dark) var(--border-light) var(--border-light) var(--border-dark);
+    --data-panel-hover-background: #1e2025;
+
+    --scrollbar-thumb-color: #484b54;
+    --scrollbar-thumb-hover-color: #5d616c;
+    --scrollbar-thumb-border: 1px solid #121316;
+  }
+}
+
+/* Specific Component Enhancements for Minecraft Theme */
+.theme-minecraft * {
+  border-radius: 0 !important;
+}
+
+.theme-minecraft .search-input {
+  border: 2px solid !important;
+  border-color: var(--border-dark) var(--border-light) var(--border-light) var(--border-dark) !important;
+  background: var(--bg-input) !important;
+  color: var(--text-primary) !important;
+  box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.3) !important;
+}
+
+.theme-minecraft .history-item {
+  border: 2px solid !important;
+  border-color: var(--border-dark) var(--border-light) var(--border-light) var(--border-dark) !important;
+  background: var(--bg-element) !important;
+  box-shadow: inset 1px 1px 0 rgba(0, 0, 0, 0.25) !important;
+  margin-bottom: 6px !important;
+  transition: transform 0.05s ease, box-shadow 0.05s ease;
+}
+
+.theme-minecraft .history-item:hover {
+  outline: 2px solid #ffffff !important;
+  outline-offset: -2px;
+}
+
+.theme-minecraft .history-item.active,
+.theme-minecraft .history-item.selected {
+  outline: 2px solid var(--accent-color) !important;
+  outline-offset: -2px;
+  background: var(--card-selected-background) !important;
+}
+
+.theme-minecraft .btn,
+.theme-minecraft button:not(.btn-plain) {
+  border: 2px solid !important;
+  border-color: var(--border-light) var(--border-dark) var(--border-dark) var(--border-light) !important;
+  background: var(--bg-button) !important;
+  color: var(--text-primary) !important;
+  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.3) !important;
+}
+
+.theme-minecraft .btn:active,
+.theme-minecraft button:not(.btn-plain):active {
+  border-color: var(--border-dark) var(--border-light) var(--border-light) var(--border-dark) !important;
+  transform: translate(1px, 1px) !important;
+  box-shadow: inset 1px 1px 0 rgba(0, 0, 0, 0.35) !important;
+}
+
+.theme-minecraft .tag-chip {
+  border: 1px solid !important;
+  border-color: var(--border-light) var(--border-dark) var(--border-dark) var(--border-light) !important;
+  background: var(--bg-button) !important;
+  color: var(--text-primary) !important;
+  font-weight: bold;
+}
+
+.theme-minecraft .key-cap {
+  border: 2px solid !important;
+  border-color: var(--border-light) var(--border-dark) var(--border-dark) var(--border-light) !important;
+  background: var(--bg-panel) !important;
+  color: var(--text-primary) !important;
+  font-family: var(--font-mono) !important;
+}
