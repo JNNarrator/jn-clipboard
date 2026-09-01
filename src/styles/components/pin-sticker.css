@@ -73,9 +73,36 @@ body.pin-sticker #root::before {
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: visible;
-  pointer-events: none;
+  overflow: hidden;
+  pointer-events: auto;
+  border-radius: 4px;
+  box-sizing: border-box;
   background: transparent !important;
+  /* Crisp 1px boundary ring + subtle ambient light GPU shadow */
+  box-shadow: 0 0 0 1px rgba(128, 128, 128, 0.18), 0 3px 12px rgba(0, 0, 0, 0.06);
+  transition: box-shadow 0.15s ease;
+}
+
+html.light-mode .pin-sticker-image-wrapper,
+body.light-mode .pin-sticker-image-wrapper {
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08), 0 3px 12px rgba(0, 0, 0, 0.06);
+}
+
+html.dark-mode .pin-sticker-image-wrapper,
+body.dark-mode .pin-sticker-image-wrapper {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12), 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+
+.pin-sticker-shell:hover .pin-sticker-image-wrapper {
+  box-shadow: 0 0 0 1px rgba(128, 128, 128, 0.28), 0 4px 16px rgba(0, 0, 0, 0.10);
+}
+
+html.light-mode .pin-sticker-shell:hover .pin-sticker-image-wrapper {
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.14), 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+html.dark-mode .pin-sticker-shell:hover .pin-sticker-image-wrapper {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.22), 0 5px 20px rgba(0, 0, 0, 0.32);
 }
 
 .pin-sticker-img {
@@ -83,36 +110,13 @@ body.pin-sticker #root::before {
   height: 100%;
   object-fit: fill;
   transform-origin: center center;
-  transition: transform 0.12s ease-out, outline-color 0.15s ease;
+  transition: transform 0.12s ease-out;
   pointer-events: auto;
   -webkit-user-drag: none;
   user-select: none;
-  border-radius: 5px;
-  /* macOS Natural Key-Light + Multi-Stage Ambient Occlusion Shadow */
-  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.05)) drop-shadow(0 5px 12px rgba(0, 0, 0, 0.07)) drop-shadow(0 12px 24px rgba(0, 0, 0, 0.09));
-  outline: 1px solid rgba(128, 128, 128, 0.16);
-}
-
-html.dark-mode .pin-sticker-img,
-body.dark-mode .pin-sticker-img {
-  outline-color: rgba(255, 255, 255, 0.14);
-}
-
-html.light-mode .pin-sticker-img,
-body.light-mode .pin-sticker-img {
-  outline-color: rgba(0, 0, 0, 0.08);
-}
-
-.pin-sticker-shell:hover .pin-sticker-img {
-  outline-color: rgba(128, 128, 128, 0.28);
-}
-
-html.dark-mode .pin-sticker-shell:hover .pin-sticker-img {
-  outline-color: rgba(255, 255, 255, 0.24);
-}
-
-html.light-mode .pin-sticker-shell:hover .pin-sticker-img {
-  outline-color: rgba(0, 0, 0, 0.16);
+  border-radius: 0;
+  filter: none !important;
+  outline: none !important;
 }
 
 /* Floating Action Toolbar on BOTTOM Center of Image (Theme-Integrated) */
