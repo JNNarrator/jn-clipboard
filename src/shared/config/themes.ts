@@ -108,7 +108,7 @@ export const getThemeDefinition = (themeId: string): ThemeDefinition =>
   THEME_BY_ID.get(themeId) ?? THEME_BY_ID.get(DEFAULT_THEME)!;
 
 export const normalizeThemeId = (themeId: string): string => {
-  if (themeId.startsWith("store-")) return DEFAULT_THEME;
+  if (/^store-[a-z0-9-]{3,50}$/.test(themeId)) return themeId;
   return getThemeDefinition(themeId).id;
 };
 

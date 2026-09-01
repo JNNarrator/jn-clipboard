@@ -2,6 +2,8 @@ import { useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { applyThemeClasses, normalizeThemeId } from "../config/themes";
+import { DEFAULT_THEME } from "../config/themes";
+import { ensureInstalledThemeStyle } from "../lib/themePackages";
 
 interface UseSettingsApplyOptions {
   theme: string;
@@ -63,7 +65,19 @@ export const useSettingsApply = ({
       }
     };
 
-    applyThemeClasses(normalizedTheme, root, body);
+    const applySelectedTheme = async () => {
+      const installedThemeReady = await ensureInstalledThemeStyle(normalizedTheme);
+      if (disposed) return;
+      const effectiveTheme = installedThemeReady ? normalizedTheme : DEFAULT_THEME;
+      applyThemeClasses(effectiveTheme, root, body);
+      invoke("set_theme", {
+        theme: effectiveTheme,
+        color_mode: colorMode,
+        show_app_border: showAppBorder,
+      }).catch(console.error);
+    };
+
+    void applySelectedTheme();
 
     if (compactMode) {
       body.classList.add("compact-mode");
@@ -81,12 +95,6 @@ export const useSettingsApply = ({
       applySystemMode();
     }
 
-    invoke("set_theme", {
-      theme: normalizedTheme,
-      color_mode: colorMode,
-      show_app_border: showAppBorder,
-    }).catch(console.error);
-
     let unlisten: (() => void) | null = null;
     let cleanupMedia: (() => void) | null = null;
 
@@ -96,11 +104,7 @@ export const useSettingsApply = ({
           if (disposed) return;
           const next = event?.payload === "dark" ? "dark" : "light";
           applyExplicitMode(next);
-          invoke("set_theme", {
-            theme: normalizedTheme,
-            color_mode: "system",
-            show_app_border: showAppBorder,
-          }).catch(console.error);
+          void applySelectedTheme();
         })
         .then((f) => {
           if (disposed) {

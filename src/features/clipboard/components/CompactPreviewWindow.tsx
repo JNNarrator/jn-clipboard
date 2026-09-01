@@ -22,6 +22,7 @@ import type { Locale } from "../../../shared/types";
 import { toTauriLocalImageSrc } from "../../../shared/lib/localImageSrc";
 import { stripRichStorageMarkers } from "../../../shared/lib/repairHtmlFragment";
 import { getRichTextSnapshotDataUrl } from "../../../shared/lib/richTextSnapshot";
+import { ensureInstalledThemeStyle } from "../../../shared/lib/themePackages";
 
 type PreviewPayload = {
     contentType: string;
@@ -107,14 +108,15 @@ const seekVideoPreviewFrame = (video: HTMLVideoElement | null) => {
     }
 };
 
-const applyTheme = (payload: PreviewPayload) => {
+const applyTheme = async (payload: PreviewPayload) => {
     const theme = normalizeThemeId(payload.theme || DEFAULT_THEME);
     const colorMode = payload.colorMode || "light";
 
     const root = document.documentElement;
     const body = document.body;
 
-    applyThemeClasses(theme, root, body);
+    const installedThemeReady = await ensureInstalledThemeStyle(theme);
+    applyThemeClasses(installedThemeReady ? theme : DEFAULT_THEME, root, body);
 
     root.classList.remove("light-mode", "dark-mode");
     body.classList.remove("light-mode", "dark-mode");
@@ -243,7 +245,7 @@ const CompactPreviewWindow = () => {
                 sourceApp: event.payload.sourceApp
             });
             setPayload(event.payload);
-            applyTheme(event.payload);
+            void applyTheme(event.payload);
         });
         emitTo("main", "compact-preview-mounted", true)
             .then(() => compactPreviewLog("emit compact-preview-mounted"))

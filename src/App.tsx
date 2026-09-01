@@ -1128,7 +1128,13 @@ const App = () => {
         setEditingTagsId={setEditingTagsId}
         theme={theme}
         colorMode={colorMode}
-        settingsTitle={showSettings && settingsSubpage === "advanced" ? t("advanced_settings") : t("settings")}
+        settingsTitle={
+          showSettings && settingsSubpage === "advanced"
+            ? t("advanced_settings")
+            : showSettings && settingsSubpage === "themes"
+              ? t("theme_store")
+              : t("settings")
+        }
         typeFilter={typeFilter}
         setTypeFilter={setTypeFilter}
         clipboardSortMode={clipboardSortMode}

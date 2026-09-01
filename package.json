@@ -12,6 +12,7 @@
     "apply-version:win": "node scripts/apply-app-version.mjs windows",
     "validate-release": "node scripts/validate-release.mjs",
     "validate-release-matrix": "node scripts/validate-release-matrix.mjs",
+    "build:theme:retro": "node scripts/build-retro-theme-package.mjs",
     "release:stable:win": "node scripts/build-release.mjs windows stable",
     "release:stable:mac": "node scripts/build-release.mjs macos stable",
     "release:beta:win": "node scripts/build-release.mjs windows beta",

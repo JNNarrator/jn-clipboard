@@ -1,6 +1,7 @@
-import type { ComponentType, ReactNode, CSSProperties } from "react";
+import { useEffect, useState, type ComponentType, type ReactNode, type CSSProperties } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { open, message } from "@tauri-apps/plugin-dialog";
+import { ask, open, message } from "@tauri-apps/plugin-dialog";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { withNativeDialog } from "../../../../shared/lib/focus";
 import { ChevronDown, ChevronRight, X } from "lucide-react";
 import {
@@ -11,6 +12,13 @@ import {
 } from "../../../../shared/config/themes";
 import { isWindowsPlatform } from "../../../../shared/lib/platform";
 import type { Locale } from "../../../../shared/types";
+import {
+    ensureInstalledThemeStyle,
+    getInstalledThemeLabel,
+    listInstalledThemes,
+    removeInstalledThemeStyle,
+    type InstalledThemeDefinition
+} from "../../../../shared/lib/themePackages";
 interface LabelWithHintProps {
     label: string;
     hint?: string | ReactNode;
@@ -49,6 +57,8 @@ interface AppearanceSettingsGroupProps {
     setSurfaceOpacity: (val: number) => void;
     saveAppSetting: (key: string, val: string) => void;
 }
+
+const THEME_STORE_URL = "http://localhost:3000/";
 
 const clampProgress = (value: number, min: number, max: number) => {
     if (max <= min) return "0%";
@@ -96,8 +106,87 @@ const AppearanceSettingsGroup = ({
     setSurfaceOpacity,
     saveAppSetting
 }: AppearanceSettingsGroupProps) => {
-    const showCustomBackgroundControls = supportsCustomBackground(theme);
-    const showSurfaceOpacityControls = supportsSurfaceOpacity(theme);
+    const [installedThemes, setInstalledThemes] = useState<InstalledThemeDefinition[]>([]);
+    const selectedInstalledTheme = installedThemes.find(item => item.id === theme);
+    const showCustomBackgroundControls = selectedInstalledTheme
+        ? selectedInstalledTheme.supportsCustomBackground
+        : supportsCustomBackground(theme);
+    const showSurfaceOpacityControls = selectedInstalledTheme
+        ? selectedInstalledTheme.supportsSurfaceOpacity
+        : supportsSurfaceOpacity(theme);
+
+    useEffect(() => {
+        let disposed = false;
+        listInstalledThemes()
+            .then(items => {
+                if (!disposed) setInstalledThemes(items);
+            })
+            .catch(error => console.error("Failed to list installed themes:", error));
+        return () => {
+            disposed = true;
+        };
+    }, []);
+
+    const installTheme = async () => {
+        try {
+            const selected = await withNativeDialog(async () => open({
+                multiple: false,
+                title: t('theme_package_import'),
+                filters: [{
+                    name: t('theme_package_file'),
+                    extensions: ['zip', 'tiez-theme']
+                }]
+            }), "settings:import-theme");
+            if (!selected || typeof selected !== 'string') return;
+
+            const installed = await invoke<InstalledThemeDefinition>('install_theme_package', {
+                packagePath: selected
+            });
+            const loaded = await ensureInstalledThemeStyle(installed.id, { force: true });
+            if (!loaded) throw new Error(t('theme_package_load_failed'));
+
+            setInstalledThemes(current => [
+                ...current.filter(item => item.id !== installed.id),
+                installed
+            ].sort((a, b) => a.id.localeCompare(b.id)));
+            setTheme(installed.id);
+            saveAppSetting('theme', installed.id);
+            await message(t('theme_package_install_success'), {
+                title: t('theme_store'),
+                kind: 'info'
+            });
+        } catch (error) {
+            console.error("Failed to install theme package:", error);
+            await message(`${t('theme_package_install_failed')}\n${String(error)}`, {
+                title: t('error'),
+                kind: 'error'
+            });
+        }
+    };
+
+    const uninstallTheme = async (item: InstalledThemeDefinition) => {
+        try {
+            const confirmed = await withNativeDialog(async () => ask(
+                t('theme_store_confirm_delete'),
+                { title: t('theme_store'), kind: 'warning' }
+            ), "settings:uninstall-theme");
+            if (!confirmed) return;
+
+            await invoke('uninstall_theme_package', { themeId: item.id });
+            removeInstalledThemeStyle(item.id);
+            setInstalledThemes(current => current.filter(themeItem => themeItem.id !== item.id));
+            if (theme === item.id) {
+                setTheme('mica');
+                saveAppSetting('theme', 'mica');
+            }
+        } catch (error) {
+            console.error("Failed to uninstall theme package:", error);
+            await message(`${t('theme_package_uninstall_failed')}\n${String(error)}`, {
+                title: t('error'),
+                kind: 'error'
+            });
+        }
+    };
 
     return (
     <div className={`settings-group ${collapsed ? 'collapsed' : ''}`}>
@@ -128,6 +217,55 @@ const AppearanceSettingsGroup = ({
                             </button>
                         ))}
                     </div>
+                    {installedThemes.length > 0 && (
+                        <>
+                            <div className="item-label-group installed-theme-label">
+                                <span className="item-label">{t('installed_themes')}</span>
+                            </div>
+                            <div className="settings-choice-grid theme-choice-grid">
+                                {installedThemes.map(themeItem => (
+                                    <div className="installed-theme-choice" key={themeItem.id}>
+                                        <button
+                                            onClick={() => {
+                                                setTheme(themeItem.id);
+                                                saveAppSetting('theme', themeItem.id);
+                                            }}
+                                            className={`btn-icon theme-choice-btn ${theme === themeItem.id ? 'active' : ''}`}
+                                            type="button"
+                                        >
+                                            <span className="theme-choice-title">
+                                                {getInstalledThemeLabel(themeItem, language)}
+                                            </span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="btn-icon installed-theme-remove"
+                                            aria-label={t('theme_store_delete')}
+                                            title={t('theme_store_delete')}
+                                            onClick={() => void uninstallTheme(themeItem)}
+                                        >
+                                            <X size={14} />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        </>
+                    )}
+                    <button
+                        type="button"
+                        className="btn-icon theme-store-open-btn"
+                        onClick={() => void openUrl(THEME_STORE_URL)}
+                    >
+                        {t('browse_theme_store')}
+                        <ChevronRight size={15} />
+                    </button>
+                    <button
+                        type="button"
+                        className="btn-icon theme-package-import-btn"
+                        onClick={() => void installTheme()}
+                    >
+                        {t('theme_package_import')}
+                    </button>
                 </div>
 
                 <div className="setting-item column">

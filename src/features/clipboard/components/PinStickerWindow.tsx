@@ -18,6 +18,8 @@ import { translations } from "../../../locales";
 import { applyThemeClasses, DEFAULT_THEME, normalizeThemeId } from "../../../shared/config/themes";
 import type { Locale } from "../../../shared/types";
 
+const STICKER_PADDING = 12; // 12px outer reserve padding to let shadow spread smoothly without clipping
+
 export const PinStickerWindow: React.FC = () => {
   useEffect(() => {
     try {
@@ -75,7 +77,7 @@ export const PinStickerWindow: React.FC = () => {
     }, 1200);
   }, []);
 
-  // Initial load: Set window size to match image aspect ratio exactly
+  // Initial load: Set window size to match image aspect ratio + shadow padding
   const handleImageLoad = useCallback(async (e: React.SyntheticEvent<HTMLImageElement>) => {
     if (hasResizedRef.current) return;
     const img = e.currentTarget;
@@ -102,7 +104,7 @@ export const PinStickerWindow: React.FC = () => {
 
       try {
         const win = getCurrentWebviewWindow();
-        await win.setSize(new LogicalSize(targetW, targetH));
+        await win.setSize(new LogicalSize(targetW + STICKER_PADDING * 2, targetH + STICKER_PADDING * 2));
       } catch (err) {
         console.warn("Could not auto-resize sticker window:", err);
       }
@@ -148,7 +150,7 @@ export const PinStickerWindow: React.FC = () => {
       currentLogicalSizeRef.current = { w: targetW, h: targetH };
       try {
         const win = getCurrentWebviewWindow();
-        await win.setSize(new LogicalSize(targetW, targetH));
+        await win.setSize(new LogicalSize(targetW + STICKER_PADDING * 2, targetH + STICKER_PADDING * 2));
       } catch (err) {
         console.warn("Failed to reset window size:", err);
       }
@@ -165,7 +167,7 @@ export const PinStickerWindow: React.FC = () => {
       const newW = h;
       const newH = w;
       currentLogicalSizeRef.current = { w: newW, h: newH };
-      await win.setSize(new LogicalSize(newW, newH));
+      await win.setSize(new LogicalSize(newW + STICKER_PADDING * 2, newH + STICKER_PADDING * 2));
     } catch (err) {
       console.warn("Failed to rotate window:", err);
     }
@@ -292,7 +294,7 @@ export const PinStickerWindow: React.FC = () => {
       const newX = currentPos.x - Math.round(deltaPixelW / 2);
       const newY = currentPos.y - Math.round(deltaPixelH / 2);
 
-      await win.setSize(new LogicalSize(newW, newH));
+      await win.setSize(new LogicalSize(newW + STICKER_PADDING * 2, newH + STICKER_PADDING * 2));
       await win.setPosition(new PhysicalPosition(newX, newY));
 
       const zoomPercent = Math.round((newW / (isRotated90 ? natH : natW)) * 100);
@@ -351,7 +353,7 @@ export const PinStickerWindow: React.FC = () => {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleClose, handleCopyImage, handleReset, handleRotate, handleSaveImage, showToast]);
+  }, [handleClose, handleCopyImage, handleReset, handleRotate, handleSaveImage, showToast, handleRotate]);
 
   return (
     <div
@@ -372,7 +374,7 @@ export const PinStickerWindow: React.FC = () => {
         {/* Floating Toast Notification */}
         {toastMessage && <div className="pin-sticker-toast">{toastMessage}</div>}
 
-        {/* Floating Action Toolbar on TOP of Image (Upper Layer) */}
+        {/* Floating Action Toolbar on BOTTOM Center of Image (Upper Layer) */}
         <div className="pin-sticker-toolbar" onMouseDown={(e) => e.stopPropagation()}>
           <button
             type="button"

@@ -6,6 +6,7 @@ pub mod hotkey_cmd;
 pub mod settings_cmd;
 pub mod system_cmd;
 pub mod tag_color_cmd;
+pub mod theme_cmd;
 pub mod ui_cmd;
 pub mod update_cmd;
 
@@ -19,5 +20,6 @@ pub use hotkey_cmd::*;
 pub use settings_cmd::*;
 pub use system_cmd::*;
 pub use tag_color_cmd::*;
+pub use theme_cmd::*;
 pub use ui_cmd::*;
 pub use update_cmd::*;
