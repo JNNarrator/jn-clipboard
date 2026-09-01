@@ -2085,70 +2085,24 @@ const ClipboardItem = ({
             <AnimatePresence>
                 {showAIOptions && (
                     <motion.div
-                        className={compactMode ? "ai-options-dropdown" : ""}
+                        className={compactMode ? "ai-options-dropdown" : "ai-options-inline"}
                         initial={compactMode ? { opacity: 0, y: -10 } : "collapsed"}
                         animate={compactMode ? { opacity: 1, y: 0 } : "open"}
                         exit={compactMode ? { opacity: 0, y: -10 } : "collapsed"}
                         variants={compactMode ? undefined : inlineAiVariants}
                         transition={compactMode ? { duration: 0.16 } : { duration: 0.18 }}
-                        style={compactMode ? {
-                            position: 'absolute',
-                            top: '100%',
-                            right: '4px',
-                            zIndex: 100000,
-                            marginTop: '4px',
-                            background: 'var(--popover-background)',
-                            color: 'var(--popover-color)',
-                            border: 'var(--popover-border)',
-                            borderRadius: 'var(--popover-radius)',
-                            boxShadow: 'var(--popover-shadow)',
-                            padding: '6px',
-                            minWidth: '140px',
-                            maxHeight: '200px',
-                            overflowY: 'auto'
-                        } : { overflow: 'hidden' }}
                     >
-                        <div style={compactMode ? {
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '4px'
-                        } : {
-                            padding: '8px 10px',
-                            background: 'rgba(var(--accent-color-rgb), 0.05)',
-                            border: '1.5px dashed var(--accent-color)',
-                            borderRadius: '4px',
-                            display: 'flex',
-                            flexWrap: 'wrap',
-                            gap: '6px',
-                            alignItems: 'center'
-                        }}>
+                        <div className={`ai-actions-group ${compactMode ? 'compact' : ''}`}>
                             {['task', 'mouthpiece', 'translate'].map(actionType => (
                                 <button
                                     key={actionType}
+                                    type="button"
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         onAIAction?.(actionType);
                                         onAIOptionsToggle?.();
                                     }}
-                                    className="btn-icon"
-                                    style={compactMode ? {
-                                        width: '100%',
-                                        fontSize: '11px',
-                                        height: '32px',
-                                        boxShadow: 'var(--button-shadow)',
-                                        textTransform: 'none',
-                                        justifyContent: 'flex-start',
-                                        paddingLeft: '10px'
-                                    } : {
-                                        flex: 1,
-                                        minWidth: '90px',
-                                        fontSize: '11px',
-                                        height: '32px',
-                                        padding: '0 12px',
-                                        boxShadow: '2px 2px 0 0 var(--shadow-color)',
-                                        textTransform: 'none',
-                                        whiteSpace: 'nowrap'
-                                    }}
+                                    className="ai-action-btn"
                                 >
                                     {t(`ai_${actionType}`)}
                                 </button>

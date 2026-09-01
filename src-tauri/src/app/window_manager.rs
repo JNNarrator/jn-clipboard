@@ -644,24 +644,6 @@ pub fn set_navigation_mode(active: bool) -> Result<(), String> {
 pub fn activate_window_focus(app_handle: AppHandle) -> Result<(), String> {
     if let Some(window) = app_handle.get_webview_window("main") {
         #[cfg(target_os = "macos")]
-        {
-            use objc2::MainThreadMarker;
-            use objc2_app_kit::NSApplication;
-
-            // A non-activating NSPanel can become key without making the process
-            // active. Native dialogs then remain hidden/no-op, especially in a
-            // debug binary that is not launched from an .app bundle.
-            if let Some(mtm) = MainThreadMarker::new() {
-                #[allow(deprecated)]
-                NSApplication::sharedApplication(mtm).activateIgnoringOtherApps(true);
-            } else {
-                crate::infrastructure::macos_api::apps::activate_app_by_pid(
-                    std::process::id() as i32,
-                );
-            }
-        }
-
-        #[cfg(target_os = "macos")]
         crate::infrastructure::macos_api::window::set_window_focusable(&window, true);
 
         #[cfg(windows)]
@@ -691,6 +673,27 @@ pub fn activate_window_focus(app_handle: AppHandle) -> Result<(), String> {
         let _ = window.set_focus();
     }
     Ok(())
+}
+
+/// Native dialogs require TieZ to be the active application on macOS. Keep
+/// this separate from editable WebView focus: activating the whole process for
+/// an input click can make the non-activating panel resign key mid-keystroke.
+#[tauri::command]
+pub fn activate_app_focus(app_handle: AppHandle) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        use objc2::MainThreadMarker;
+        use objc2_app_kit::NSApplication;
+
+        if let Some(mtm) = MainThreadMarker::new() {
+            #[allow(deprecated)]
+            NSApplication::sharedApplication(mtm).activateIgnoringOtherApps(true);
+        } else {
+            crate::infrastructure::macos_api::apps::activate_app_by_pid(std::process::id() as i32);
+        }
+    }
+
+    activate_window_focus(app_handle)
 }
 
 fn hide_window(app_handle: AppHandle, restore_focus: bool) -> Result<(), String> {

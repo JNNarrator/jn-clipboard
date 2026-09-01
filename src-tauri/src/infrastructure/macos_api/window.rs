@@ -141,6 +141,12 @@ pub fn setup_clipboard_panel(window: &tauri::WebviewWindow) -> Result<(), String
     // StyleMask::empty().nonactivating_panel() alone wiped the resize bit and
     // made the undecorated window edges undraggable.
     panel.set_style_mask(StyleMask::empty().nonactivating_panel().resizable().into());
+    // Keep visibility under our resign-key state machine. NSPanel defaults can
+    // otherwise order the panel out when TieZ is activated/deactivated without
+    // updating `clipboard_panel_visible`, leaving the next hotkey invocation in
+    // a visible-but-not-key (or internally-visible-but-actually-hidden) state.
+    panel.set_hides_on_deactivate(false);
+    panel.set_works_when_modal(true);
     // Idle/hidden: move_to_active_space so the next show lands on the current Space
     // (including another app's fullscreen desktop).
     panel.set_collection_behavior(
@@ -299,7 +305,12 @@ pub fn show_clipboard_panel(app: &AppHandle) -> bool {
 
             if let Ok(panel) = app_for_panel.get_webview_panel("main") {
                 panel.set_level(PanelLevel::Dock.value());
-                panel.show_and_make_key();
+                // Do not use `show_and_make_key`: tauri-nspanel first assigns
+                // the panel content view as first responder, which can detach
+                // the caret from an already-focused WebView input. Ordering the
+                // panel and making it key preserves the WebView responder.
+                panel.order_front_regardless();
+                panel.make_key_window();
                 panel.set_collection_behavior(
                     CollectionBehavior::new()
                         .full_screen_auxiliary()
@@ -311,7 +322,7 @@ pub fn show_clipboard_panel(app: &AppHandle) -> bool {
                 crate::global_state::NAVIGATION_ENABLED.store(true, Ordering::SeqCst);
                 use tauri::Emitter;
                 let _ = app_for_panel.emit("clipboard-shown", ());
-                eprintln!("[macos-overlay] panel.show_and_make_key() gen={gen}");
+                eprintln!("[macos-overlay] panel ordered front + key gen={gen}");
             } else if overlay_show_generation().load(AtomicOrdering::SeqCst) == gen {
                 clipboard_panel_visible().store(false, AtomicOrdering::SeqCst);
                 overlay_presented_generation().store(0, AtomicOrdering::SeqCst);
@@ -336,6 +347,7 @@ pub fn make_clipboard_panel_key(app: &AppHandle) -> bool {
     handle
         .run_on_main_thread(move || {
             if let Ok(panel) = app_for_panel.get_webview_panel("main") {
+                panel.order_front_regardless();
                 panel.make_key_window();
             }
         })

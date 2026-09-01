@@ -1,4 +1,218 @@
-/* AI Assistant Styles */
+/* AI Assistant Styles — Fully Integrated with TieZ Theme System */
+
+.ai-options-inline {
+  overflow: hidden;
+  margin-top: 6px;
+}
+
+.ai-options-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 4px;
+  z-index: 100000;
+  margin-top: 4px;
+  background: var(--popover-background, var(--bg-panel));
+  color: var(--popover-color, var(--text-primary));
+  border: var(--popover-border, 1px solid var(--line-soft));
+  border-radius: var(--popover-radius, var(--radius-panel, 8px));
+  box-shadow: var(--popover-shadow, 0 8px 24px rgba(0, 0, 0, 0.25));
+  backdrop-filter: var(--popover-backdrop-filter, blur(20px));
+  -webkit-backdrop-filter: var(--popover-backdrop-filter, blur(20px));
+  padding: 6px;
+  min-width: 140px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.ai-actions-group {
+  padding: 8px 10px;
+  background: var(--bg-element, rgba(var(--accent-color-rgb), 0.04));
+  border: 1px dashed var(--line-soft, var(--accent-color));
+  border-radius: var(--radius-control, 4px);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.ai-actions-group.compact {
+  padding: 0;
+  background: transparent;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ai-action-btn {
+  flex: 1 1 auto;
+  min-width: 80px;
+  height: 30px;
+  padding: 0 12px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--font-main);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  white-space: nowrap;
+  background: var(--bg-button, var(--btn-ghost-bg, rgba(128, 128, 128, 0.12)));
+  color: var(--text-primary);
+  border: var(--button-border, 1px solid var(--line-soft, rgba(128, 128, 128, 0.2)));
+  border-radius: var(--button-radius, var(--radius-control, 4px));
+  box-shadow: var(--button-shadow, none);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.12s ease, color 0.12s ease, transform 0.1s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.ai-actions-group.compact .ai-action-btn {
+  width: 100%;
+  height: 30px;
+  justify-content: flex-start;
+  padding-left: 10px;
+}
+
+.ai-action-btn:hover {
+  background: var(--accent-color);
+  color: var(--on-accent, #ffffff);
+  border-color: var(--button-hover-border-color, var(--accent-color));
+  transform: var(--button-hover-transform, translateY(-1px));
+  box-shadow: var(--button-hover-shadow, var(--button-shadow, none));
+}
+
+.ai-action-btn:active {
+  transform: var(--button-active-transform, translateY(1px));
+  box-shadow: var(--button-active-shadow, none);
+}
+
+/* =========================================================
+ * Theme-Specific Adapters for AI Actions
+ * ========================================================= */
+
+/* Minecraft Theme: 3D Bevel, zero radius, XP green hover */
+.theme-minecraft .ai-actions-group {
+  border: 2px solid !important;
+  border-color: var(--border-dark) var(--border-light) var(--border-light) var(--border-dark) !important;
+  border-radius: 0 !important;
+  background: var(--bg-input) !important;
+}
+
+.theme-minecraft .ai-action-btn {
+  border: 2px solid !important;
+  border-color: var(--border-light) var(--border-dark) var(--border-dark) var(--border-light) !important;
+  border-radius: 0 !important;
+  background: var(--bg-button) !important;
+  color: var(--text-primary) !important;
+  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.3) !important;
+}
+
+.theme-minecraft .ai-action-btn:hover {
+  outline: 2px solid var(--accent-color) !important;
+  outline-offset: -2px;
+}
+
+.theme-minecraft .ai-action-btn:active {
+  border-color: var(--border-dark) var(--border-light) var(--border-light) var(--border-dark) !important;
+  transform: translate(1px, 1px) !important;
+  box-shadow: inset 1px 1px 0 rgba(0, 0, 0, 0.35) !important;
+}
+
+/* Retro 3D Theme: Bevel borders, uppercase label, retro drop shadow */
+.theme-retro .ai-actions-group {
+  border: 2px solid var(--border-dark);
+  border-radius: 0;
+  background: var(--bg-panel);
+}
+
+.theme-retro .ai-action-btn {
+  border: 2px solid var(--border-dark);
+  border-radius: 0;
+  box-shadow: 2px 2px 0 0 var(--shadow-color);
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.theme-retro .ai-action-btn:hover {
+  box-shadow: 3px 3px 0 0 var(--shadow-color);
+  transform: translate(-1px, -1px);
+}
+
+.theme-retro .ai-action-btn:active {
+  box-shadow: 0 0 0 0 var(--shadow-color);
+  transform: translate(2px, 2px);
+}
+
+/* Terminal Theme: Monospace, ANSI prompt colors, crisp borders */
+.theme-terminal .ai-actions-group {
+  border: 1px solid var(--term-border);
+  border-radius: 0;
+  background: var(--term-bg-elevated);
+}
+
+.theme-terminal .ai-action-btn {
+  border: 1px solid var(--term-border);
+  border-radius: 0;
+  background: var(--term-bg);
+  color: var(--term-fg);
+  font-family: var(--font-mono);
+}
+
+.theme-terminal .ai-action-btn:hover {
+  background: var(--term-prompt, #3fb950);
+  color: var(--term-bg, #0d1117);
+  border-color: var(--term-prompt, #3fb950);
+}
+
+/* Paper & Quill Theme: Hand-crafted borders, subtle paper tone */
+.theme-paper .ai-actions-group {
+  border: 1px dashed var(--border-dark, #5c4033);
+  border-radius: 2px;
+  background: var(--bg-element);
+}
+
+.theme-paper .ai-action-btn {
+  border: 1px solid var(--border-dark);
+  border-radius: 2px;
+  font-family: var(--font-serif, serif);
+}
+
+/* Receipt Theme: Thermal ticket dashed border, monochrome */
+.theme-receipt .ai-actions-group {
+  border: 1px dashed var(--border-dark);
+  border-radius: 0;
+  background: var(--bg-content);
+}
+
+.theme-receipt .ai-action-btn {
+  border: 1px solid var(--border-dark);
+  border-radius: 0;
+}
+
+/* Sticky Note Theme: Casual sketch border */
+.theme-sticky-note .ai-actions-group {
+  border: 1.5px dashed var(--border-dark);
+  border-radius: 4px;
+}
+
+.theme-sticky-note .ai-action-btn {
+  border: 1.5px solid var(--border-dark);
+  border-radius: 4px;
+}
+
+/* Ink Wash Theme */
+.theme-ink .ai-actions-group {
+  border: 1px solid var(--border-dark);
+  border-radius: 3px;
+}
+
+.theme-ink .ai-action-btn {
+  border: 1px solid var(--border-dark);
+  border-radius: 3px;
+}
+
+/* General Popover Menu */
 .ai-options-menu {
   background: var(--popover-background) !important;
   color: var(--popover-color);

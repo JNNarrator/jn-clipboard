@@ -59,6 +59,7 @@ fn main() -> AppResult<()> {
             app::window_manager::toggle_window_cmd,
             app::window_manager::hide_window_cmd,
             app::window_manager::activate_window_focus,
+            app::window_manager::activate_app_focus,
             app::window_manager::focus_clipboard_window,
             app::window_manager::set_navigation_enabled,
             app::window_manager::set_navigation_mode,

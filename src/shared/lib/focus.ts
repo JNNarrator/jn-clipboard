@@ -20,6 +20,10 @@ export async function activateForInput(): Promise<void> {
   await invoke("activate_window_focus");
 }
 
+export async function activateForNativeDialog(): Promise<void> {
+  await invoke("activate_app_focus");
+}
+
 export async function focusClipboardWindow(): Promise<void> {
   await invoke("focus_clipboard_window");
 }
@@ -51,7 +55,7 @@ export async function withNativeDialog<T>(
       await currentWindow.setAlwaysOnTop(false).catch(() => {});
     }
 
-    await activateForInput().catch(() => {});
+    await activateForNativeDialog().catch(() => {});
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
     return await action();
   } finally {
