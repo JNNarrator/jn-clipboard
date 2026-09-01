@@ -18,7 +18,7 @@ import { translations } from "../../../locales";
 import { applyThemeClasses, DEFAULT_THEME, normalizeThemeId } from "../../../shared/config/themes";
 import type { Locale } from "../../../shared/types";
 
-const STICKER_PADDING = 12; // 12px outer reserve padding to let shadow spread smoothly without clipping
+const STICKER_PADDING = 8; // 8px subtle reserve padding for lightweight shadow
 
 export const PinStickerWindow: React.FC = () => {
   useEffect(() => {

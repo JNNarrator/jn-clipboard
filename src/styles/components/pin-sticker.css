@@ -38,7 +38,7 @@ body.pin-sticker #root::before {
   width: 100vw;
   height: 100vh;
   margin: 0;
-  padding: 12px;
+  padding: 8px;
   overflow: visible;
   background: transparent !important;
   user-select: none;
@@ -87,16 +87,16 @@ body.pin-sticker #root::before {
   pointer-events: auto;
   -webkit-user-drag: none;
   user-select: none;
-  border-radius: 3px;
-  /* Dual-layer soft elevation shadow + subtle boundary line for light/dark background separation */
-  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.22)) drop-shadow(0 8px 22px rgba(0, 0, 0, 0.38));
-  outline: 1px solid rgba(128, 128, 128, 0.22);
+  border-radius: 2px;
+  /* Ultra-light, natural separation shadow */
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.12)) drop-shadow(0 1px 3px rgba(0, 0, 0, 0.08));
+  outline: 1px solid rgba(128, 128, 128, 0.12);
 }
 
 /* Floating Action Toolbar on BOTTOM Center of Image (Theme-Integrated) */
 .pin-sticker-toolbar {
   position: absolute;
-  bottom: 18px;
+  bottom: 14px;
   top: auto;
   left: 50%;
   transform: translateX(-50%) translateY(6px);
@@ -171,7 +171,7 @@ body.pin-sticker #root::before {
 /* Floating Status Indicator (Center/Top Toast) */
 .pin-sticker-toast {
   position: absolute;
-  top: 18px;
+  top: 14px;
   left: 50%;
   transform: translateX(-50%);
   padding: 4px 10px;
