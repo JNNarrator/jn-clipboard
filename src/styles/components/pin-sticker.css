@@ -38,7 +38,7 @@ body.pin-sticker #root::before {
   width: 100vw;
   height: 100vh;
   margin: 0;
-  padding: 8px;
+  padding: 10px;
   overflow: visible;
   background: transparent !important;
   user-select: none;
@@ -83,20 +83,42 @@ body.pin-sticker #root::before {
   height: 100%;
   object-fit: fill;
   transform-origin: center center;
-  transition: transform 0.12s ease-out;
+  transition: transform 0.12s ease-out, outline-color 0.15s ease;
   pointer-events: auto;
   -webkit-user-drag: none;
   user-select: none;
-  border-radius: 2px;
-  /* Ultra-light, natural separation shadow */
-  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.12)) drop-shadow(0 1px 3px rgba(0, 0, 0, 0.08));
-  outline: 1px solid rgba(128, 128, 128, 0.12);
+  border-radius: 5px;
+  /* macOS Natural Key-Light + Multi-Stage Ambient Occlusion Shadow */
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.05)) drop-shadow(0 5px 12px rgba(0, 0, 0, 0.07)) drop-shadow(0 12px 24px rgba(0, 0, 0, 0.09));
+  outline: 1px solid rgba(128, 128, 128, 0.16);
+}
+
+html.dark-mode .pin-sticker-img,
+body.dark-mode .pin-sticker-img {
+  outline-color: rgba(255, 255, 255, 0.14);
+}
+
+html.light-mode .pin-sticker-img,
+body.light-mode .pin-sticker-img {
+  outline-color: rgba(0, 0, 0, 0.08);
+}
+
+.pin-sticker-shell:hover .pin-sticker-img {
+  outline-color: rgba(128, 128, 128, 0.28);
+}
+
+html.dark-mode .pin-sticker-shell:hover .pin-sticker-img {
+  outline-color: rgba(255, 255, 255, 0.24);
+}
+
+html.light-mode .pin-sticker-shell:hover .pin-sticker-img {
+  outline-color: rgba(0, 0, 0, 0.16);
 }
 
 /* Floating Action Toolbar on BOTTOM Center of Image (Theme-Integrated) */
 .pin-sticker-toolbar {
   position: absolute;
-  bottom: 14px;
+  bottom: 16px;
   top: auto;
   left: 50%;
   transform: translateX(-50%) translateY(6px);
@@ -171,7 +193,7 @@ body.pin-sticker #root::before {
 /* Floating Status Indicator (Center/Top Toast) */
 .pin-sticker-toast {
   position: absolute;
-  top: 14px;
+  top: 16px;
   left: 50%;
   transform: translateX(-50%);
   padding: 4px 10px;
