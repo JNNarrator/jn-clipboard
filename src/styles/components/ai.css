@@ -1,8 +1,9 @@
-/* AI Assistant Styles — Fully Integrated with TieZ Theme System */
+/* AI Assistant Styles — Clean, Direct Buttons Without Extra Nested Box */
 
 .ai-options-inline {
   overflow: hidden;
   margin-top: 6px;
+  width: 100%;
 }
 
 .ai-options-dropdown {
@@ -24,21 +25,22 @@
   overflow-y: auto;
 }
 
+/* Direct flat buttons layout (zero outer box / zero border) */
 .ai-actions-group {
-  padding: 8px 10px;
-  background: var(--bg-element, rgba(var(--accent-color-rgb), 0.04));
-  border: 1px dashed var(--line-soft, var(--accent-color));
-  border-radius: var(--radius-control, 4px);
+  padding: 0;
+  margin: 0;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   align-items: center;
+  width: 100%;
 }
 
 .ai-actions-group.compact {
-  padding: 0;
-  background: transparent;
-  border: none;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -47,7 +49,7 @@
 .ai-action-btn {
   flex: 1 1 auto;
   min-width: 80px;
-  height: 30px;
+  height: 28px;
   padding: 0 12px;
   font-size: 11px;
   font-weight: 600;
@@ -88,17 +90,10 @@
 }
 
 /* =========================================================
- * Theme-Specific Adapters for AI Actions
+ * Theme-Specific Adapters for AI Buttons Directly
  * ========================================================= */
 
 /* Minecraft Theme: 3D Bevel, zero radius, XP green hover */
-.theme-minecraft .ai-actions-group {
-  border: 2px solid !important;
-  border-color: var(--border-dark) var(--border-light) var(--border-light) var(--border-dark) !important;
-  border-radius: 0 !important;
-  background: var(--bg-input) !important;
-}
-
 .theme-minecraft .ai-action-btn {
   border: 2px solid !important;
   border-color: var(--border-light) var(--border-dark) var(--border-dark) var(--border-light) !important;
@@ -120,12 +115,6 @@
 }
 
 /* Retro 3D Theme: Bevel borders, uppercase label, retro drop shadow */
-.theme-retro .ai-actions-group {
-  border: 2px solid var(--border-dark);
-  border-radius: 0;
-  background: var(--bg-panel);
-}
-
 .theme-retro .ai-action-btn {
   border: 2px solid var(--border-dark);
   border-radius: 0;
@@ -145,12 +134,6 @@
 }
 
 /* Terminal Theme: Monospace, ANSI prompt colors, crisp borders */
-.theme-terminal .ai-actions-group {
-  border: 1px solid var(--term-border);
-  border-radius: 0;
-  background: var(--term-bg-elevated);
-}
-
 .theme-terminal .ai-action-btn {
   border: 1px solid var(--term-border);
   border-radius: 0;
@@ -166,47 +149,25 @@
 }
 
 /* Paper & Quill Theme: Hand-crafted borders, subtle paper tone */
-.theme-paper .ai-actions-group {
-  border: 1px dashed var(--border-dark, #5c4033);
-  border-radius: 2px;
-  background: var(--bg-element);
-}
-
 .theme-paper .ai-action-btn {
   border: 1px solid var(--border-dark);
   border-radius: 2px;
   font-family: var(--font-serif, serif);
 }
 
-/* Receipt Theme: Thermal ticket dashed border, monochrome */
-.theme-receipt .ai-actions-group {
-  border: 1px dashed var(--border-dark);
-  border-radius: 0;
-  background: var(--bg-content);
-}
-
+/* Receipt Theme: Thermal ticket border, monochrome */
 .theme-receipt .ai-action-btn {
   border: 1px solid var(--border-dark);
   border-radius: 0;
 }
 
 /* Sticky Note Theme: Casual sketch border */
-.theme-sticky-note .ai-actions-group {
-  border: 1.5px dashed var(--border-dark);
-  border-radius: 4px;
-}
-
 .theme-sticky-note .ai-action-btn {
   border: 1.5px solid var(--border-dark);
   border-radius: 4px;
 }
 
 /* Ink Wash Theme */
-.theme-ink .ai-actions-group {
-  border: 1px solid var(--border-dark);
-  border-radius: 3px;
-}
-
 .theme-ink .ai-action-btn {
   border: 1px solid var(--border-dark);
   border-radius: 3px;
