@@ -397,8 +397,6 @@ body.hide-unselected-item-actions .history-item.compact.selected .item-actions {
     line-height: 1.5;
     white-space: pre-wrap;
     word-break: break-all;
-    max-height: 300px;
-    overflow: hidden;
     font-family: var(--font-main);
 }
 

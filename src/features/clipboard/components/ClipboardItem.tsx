@@ -298,7 +298,7 @@ const placeAndShowPendingCompactPreview = async (
     requestId: number,
     widthLogical: number,
     heightLogical: number,
-    options?: { keepPending?: boolean }
+    _options?: { keepPending?: boolean }
 ) => {
     const previewWindow = compactPreviewWindow;
     const isCurrentRequest = () =>
@@ -402,11 +402,13 @@ const placeAndShowPendingCompactPreview = async (
         compactPreviewLog("preview show failed", err);
         throw err;
     }
-    if (options?.keepPending) {
-        compactPreviewLog("keep pending state after place/show", { widthLogical, heightLogical });
-    } else {
-        clearCompactPreviewPendingState();
+    // Stop fallback timers since we successfully placed/shown the preview window
+    if (compactPreviewPendingTimer) {
+        clearTimeout(compactPreviewPendingTimer);
+        compactPreviewPendingTimer = null;
     }
+    for (const timer of compactPreviewRetryTimers) clearTimeout(timer);
+    compactPreviewRetryTimers = [];
 };
 
 const hideCompactPreviewGlobal = async () => {

@@ -311,20 +311,21 @@ const CompactPreviewWindow = () => {
                 const bounds = previewBoundsRef.current;
                 const maxWidth = bounds.width;
                 const maxHeight = bounds.height;
+                const style = getComputedStyle(container);
+                const pixels = (value: string) => Number.parseFloat(value) || 0;
+                const outerHeight = (element: HTMLElement | null) => {
+                    if (!element || getComputedStyle(element).display === "none") return 0;
+                    const elementStyle = getComputedStyle(element);
+                    return element.getBoundingClientRect().height
+                        + pixels(elementStyle.marginTop) + pixels(elementStyle.marginBottom);
+                };
+                const chromeHeight = pixels(style.paddingTop) + pixels(style.paddingBottom)
+                    + pixels(style.borderTopWidth) + pixels(style.borderBottomWidth)
+                    + outerHeight(metaRef.current) + outerHeight(dividerRef.current);
+                const chromeWidth = pixels(style.paddingLeft) + pixels(style.paddingRight)
+                    + pixels(style.borderLeftWidth) + pixels(style.borderRightWidth);
+
                 if (container.classList.contains("compact-preview-media")) {
-                    // Reserve the actual chrome height, including wrapped metadata
-                    // and theme padding, before measuring the fitted image/video.
-                    const style = getComputedStyle(container);
-                    const pixels = (value: string) => Number.parseFloat(value) || 0;
-                    const outerHeight = (element: HTMLElement | null) => {
-                        if (!element || getComputedStyle(element).display === "none") return 0;
-                        const elementStyle = getComputedStyle(element);
-                        return element.getBoundingClientRect().height
-                            + pixels(elementStyle.marginTop) + pixels(elementStyle.marginBottom);
-                    };
-                    const chromeHeight = pixels(style.paddingTop) + pixels(style.paddingBottom)
-                        + pixels(style.borderTopWidth) + pixels(style.borderBottomWidth)
-                        + outerHeight(metaRef.current) + outerHeight(dividerRef.current);
                     const availableMediaHeight = Math.max(120, Math.floor(maxHeight - chromeHeight - 4));
                     container.style.setProperty("--preview-media-fit-height", `${availableMediaHeight}px`);
                 }
@@ -333,8 +334,16 @@ const CompactPreviewWindow = () => {
                         ? 260
                         : Math.min(bounds.width, 320);
 
-                const measuredWidth = Math.max(container.offsetWidth, container.scrollWidth);
-                const measuredHeight = Math.max(container.offsetHeight, container.scrollHeight);
+                let measuredWidth = Math.max(container.offsetWidth, container.scrollWidth, Math.ceil(container.getBoundingClientRect().width));
+                let measuredHeight = Math.max(container.offsetHeight, container.scrollHeight, Math.ceil(container.getBoundingClientRect().height));
+
+                const mediaEl = contentRef.current?.querySelector<HTMLImageElement | HTMLVideoElement>("img, video");
+                if (mediaEl && mediaEl.getBoundingClientRect().height > 0) {
+                    const mediaRect = mediaEl.getBoundingClientRect();
+                    measuredHeight = Math.max(measuredHeight, Math.ceil(mediaRect.height + chromeHeight));
+                    measuredWidth = Math.max(measuredWidth, Math.ceil(mediaRect.width + chromeWidth));
+                }
+
                 const width = Math.min(Math.max(Math.ceil(measuredWidth), minWidth), maxWidth);
                 const height = Math.min(Math.max(Math.ceil(measuredHeight), 80), maxHeight);
                 if (width < 40 || height < 40) {
