@@ -101,6 +101,7 @@ body.compact-preview #root > * {
     margin-inline: auto;
     object-fit: contain;
     border-radius: 4px;
+    transition: opacity 0.16s ease-out, transform 0.16s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .compact-preview-root .popover-content {

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import { emit, emitTo, listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { motion } from "framer-motion";
 import {
     FileText,
     Image as ImageIcon,
@@ -657,12 +658,21 @@ const CompactPreviewWindow = () => {
 
     return (
         <div className="compact-preview-root">
-            <div
+            <motion.div
                 ref={containerRef}
                 className={`compact-popover-portal compact-preview-window theme-${normalizeThemeId(payload?.theme || DEFAULT_THEME)} ${payload?.contentType === "image" ? "compact-preview-image" : ""} ${payload?.contentType === "image" || payload?.contentType === "video" || !!effectiveRichImageFallbackSrc || useSnapshotPreviewImage ? "compact-preview-media" : ""} ${payload?.colorMode === "dark" ? "dark-mode" : ""}`}
+                initial={{ opacity: 0, scale: 0.95, y: 3 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                transition={{
+                    type: "spring",
+                    damping: 26,
+                    stiffness: 360,
+                    mass: 0.8
+                }}
                 style={{
                     display: "flex",
-                    flexDirection: "column"
+                    flexDirection: "column",
+                    transformOrigin: "center center"
                 }}
             >
                 <div ref={metaRef} className="popover-meta">
@@ -686,13 +696,17 @@ const CompactPreviewWindow = () => {
                     </div>
                 </div>
                 <div ref={dividerRef} className="popover-divider" />
-                <div
+                <motion.div
+                    key={payload?.requestId}
                     ref={contentRef}
+                    initial={{ opacity: 0.4 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
                     className={`popover-content${payload?.contentType === "code" ? " compact-preview-code" : ""}`}
                 >
                     {content}
-                </div>
-            </div>
+                </motion.div>
+            </motion.div>
         </div>
     );
 };
