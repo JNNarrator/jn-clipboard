@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useRef } from "react";
-import { emitTo, listen } from "@tauri-apps/api/event";
+import { emit, emitTo, listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
     FileText,
@@ -327,7 +327,9 @@ const CompactPreviewWindow = () => {
 
                 if (container.classList.contains("compact-preview-media")) {
                     const availableMediaHeight = Math.max(120, Math.floor(maxHeight - chromeHeight - 4));
+                    const availableMediaWidth = Math.max(160, Math.floor(maxWidth - chromeWidth - 4));
                     container.style.setProperty("--preview-media-fit-height", `${availableMediaHeight}px`);
+                    container.style.setProperty("--preview-media-fit-width", `${availableMediaWidth}px`);
                 }
                 const minWidth =
                     payload.contentType === "image" || payload.contentType === "video"
@@ -338,7 +340,21 @@ const CompactPreviewWindow = () => {
                 let measuredHeight = Math.max(container.offsetHeight, container.scrollHeight, Math.ceil(container.getBoundingClientRect().height));
 
                 const mediaEl = contentRef.current?.querySelector<HTMLImageElement | HTMLVideoElement>("img, video");
-                if (mediaEl && mediaEl.getBoundingClientRect().height > 0) {
+                if (mediaEl instanceof HTMLImageElement && mediaEl.naturalWidth > 0 && mediaEl.naturalHeight > 0) {
+                    const nw = mediaEl.naturalWidth;
+                    const nh = mediaEl.naturalHeight;
+                    const availableMediaHeight = Math.max(120, Math.floor(maxHeight - chromeHeight - 4));
+                    const availableMediaWidth = Math.max(160, Math.floor(maxWidth - chromeWidth - 4));
+                    const scaleFactor = Math.min(
+                        1,
+                        availableMediaWidth / nw,
+                        availableMediaHeight / nh
+                    );
+                    const fitW = Math.round(nw * scaleFactor);
+                    const fitH = Math.round(nh * scaleFactor);
+                    measuredWidth = Math.max(measuredWidth, fitW + chromeWidth);
+                    measuredHeight = Math.max(measuredHeight, fitH + chromeHeight);
+                } else if (mediaEl && mediaEl.getBoundingClientRect().height > 0) {
                     const mediaRect = mediaEl.getBoundingClientRect();
                     measuredHeight = Math.max(measuredHeight, Math.ceil(mediaRect.height + chromeHeight));
                     measuredWidth = Math.max(measuredWidth, Math.ceil(mediaRect.width + chromeWidth));
@@ -379,6 +395,7 @@ const CompactPreviewWindow = () => {
                     maxHeight
                 });
 
+                emit("compact-preview-resize", { requestId, width, height }).catch(() => {});
                 emitTo("main", "compact-preview-resize", { requestId, width, height }).catch((err) => {
                     console.error(err);
                     compactPreviewLog("emit compact-preview-resize failed", err);

@@ -3,7 +3,7 @@ import type { CSSProperties } from "react";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import type { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { currentMonitor, getCurrentWindow, LogicalSize, PhysicalPosition, PhysicalSize } from "@tauri-apps/api/window";
-import { listen } from "@tauri-apps/api/event";
+import { emit, listen } from "@tauri-apps/api/event";
 import {
     Pin,
     PinOff,
@@ -536,6 +536,9 @@ const tryReuseExistingCompactPreviewWindow = async (): Promise<WebviewWindow | n
         try {
             await existing.setAlwaysOnTop(true);
         } catch { }
+        try {
+            await existing.setResizable(true);
+        } catch { }
         await invoke("configure_compact_preview_window").catch(() => false);
         void waitForCompactPreviewReady(existing);
         return existing;
@@ -567,7 +570,7 @@ const ensureCompactPreviewWindow = async (): Promise<WebviewWindow | null> => {
                 url: "index.html?window=compact-preview",
                 decorations: false,
                 transparent: true,
-                resizable: false,
+                resizable: true,
                 skipTaskbar: true,
                 alwaysOnTop: true,
                 visible: false,
@@ -1159,7 +1162,10 @@ const ClipboardItem = ({
                 clipboardTagFontSize,
                 ...bounds
             };
-            await targetWindow.emit("compact-preview-update", previewPayload);
+            await Promise.allSettled([
+                targetWindow.emit("compact-preview-update", previewPayload),
+                emit("compact-preview-update", previewPayload)
+            ]);
             for (const delay of [60, 150]) {
                 const retryTimer = setTimeout(() => {
                     if (
@@ -1168,6 +1174,7 @@ const ClipboardItem = ({
                         compactPreviewWindow === targetWindow
                     ) {
                         void targetWindow.emit("compact-preview-update", previewPayload);
+                        void emit("compact-preview-update", previewPayload);
                     }
                 }, delay);
                 compactPreviewRetryTimers.push(retryTimer);
