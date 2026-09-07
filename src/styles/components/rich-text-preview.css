@@ -1,88 +1,61 @@
-/* Rich Text Preview Specific Styles */
+/*
+ * Host-level rich-text preview tokens.
+ *
+ * HtmlContent renders the captured document inside a ShadowRoot, so content
+ * typography belongs in HtmlContent.tsx. Keep this file limited to inheritable
+ * tokens and outer snapshot framing to avoid two style sources drifting apart.
+ */
 .rich-text-preview {
+  --rich-preview-line-height: 1.5;
+  --rich-preview-block-gap: 0.5em;
+  --rich-preview-image-max-height: 96px;
+  --rich-preview-radius: 6px;
+
+  display: block;
+  min-width: 0;
+  margin-top: 2px;
+  color: var(--text-primary);
+  color-scheme: light dark;
   font-family: var(--font-main);
   font-size: var(--clipboard-item-font-size);
-  line-height: 1.4;
-  color: var(--text-primary);
-  margin-top: 4px;
-  color-scheme: light dark;
+  line-height: var(--rich-preview-line-height);
+  overflow-wrap: anywhere;
+}
+
+/* Hover preview has room to show document media at a useful size. */
+body.compact-preview .rich-text-preview {
+  --rich-preview-block-gap: 0.62em;
+  --rich-preview-image-max-height: min(
+    280px,
+    calc(var(--preview-max-height, 560px) - 112px)
+  );
+
+  margin: 0;
 }
 
 /*
- * Source HTML (Word/web) often ships 9–10pt inline fonts that are hard to read
- * in the clipboard list. Force preview text to follow the app item font size.
- * Paste still uses the original HTML — this only affects display.
+ * Snapshot thumbnails are clipped from the top at readable scale. Previously
+ * max-height was applied directly to the image, shrinking an entire document
+ * (and its text) into a 40/64px strip.
  */
-.rich-text-preview *:not(style):not(script):not(td):not(th) {
-  font-size: inherit !important;
-  line-height: inherit;
-  color: inherit !important;
-  background-color: transparent !important;
-}
-
-.rich-text-preview table {
-  border-collapse: collapse !important;
-  border-spacing: 0;
-  width: 100% !important;
-  margin: 4px 0;
-  font-size: inherit;
-  border: 1px solid var(--line-strong, var(--border-dark, rgba(128, 128, 128, 0.28))) !important;
-  border-radius: 4px;
+.rich-text-snapshot-viewport {
+  width: 100%;
+  max-height: 64px;
   overflow: hidden;
+  border-radius: var(--rich-preview-radius, 6px);
 }
 
-.rich-text-preview td,
-.rich-text-preview th {
-  border: 1px solid var(--line-soft, rgba(128, 128, 128, 0.2)) !important;
-  padding: 3px 6px;
-  background-color: var(--bg-element) !important;
-  color: var(--text-primary) !important;
-  vertical-align: top;
-  word-break: break-word;
-  font-size: 0.94em;
+.history-item.compact .rich-text-snapshot-viewport {
+  max-height: 40px;
 }
 
-.rich-text-preview th {
-  background-color: var(--bg-button, rgba(128, 128, 128, 0.18)) !important;
-  font-weight: 600;
-}
-
-.rich-text-preview tr:nth-child(even) td {
-  background-color: color-mix(in srgb, var(--bg-element) 60%, transparent) !important;
-}
-
-.rich-text-preview *:not(table):not(thead):not(tbody):not(tfoot):not(tr):not(th):not(td):not(colgroup):not(col) {
-  max-width: 100% !important;
-}
-
-.rich-text-preview img {
-  max-height: 80px;
-  object-fit: contain;
-  border-radius: 0;
-}
-
-.rich-text-preview p {
+.rich-text-snapshot-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 100%;
   margin: 0;
-  padding: 0;
-}
-
-/* Ensure headings aren't too huge in preview */
-.rich-text-preview h1,
-.rich-text-preview h2,
-.rich-text-preview h3,
-.rich-text-preview h4 {
-  font-size: 1em;
-  font-weight: bold;
-  margin: 2px 0;
-}
-
-.rich-text-preview ul,
-.rich-text-preview ol {
-  padding-left: 16px;
-  margin: 0;
-}
-
-.rich-text-preview a {
-  color: var(--accent-color) !important;
-  text-decoration: underline;
+  border-radius: inherit;
+  object-position: top left;
+  pointer-events: none;
 }

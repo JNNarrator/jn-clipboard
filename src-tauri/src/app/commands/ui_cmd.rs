@@ -71,6 +71,11 @@ pub fn get_platform_info() -> PlatformInfo {
 }
 
 #[tauri::command]
+pub fn configure_compact_preview_window(app: AppHandle) -> bool {
+    crate::infrastructure::macos_api::window::configure_compact_preview_window(&app)
+}
+
+#[tauri::command]
 pub fn send_system_notification(app: AppHandle, title: String, body: String) -> AppResult<()> {
     app.notification()
         .builder()

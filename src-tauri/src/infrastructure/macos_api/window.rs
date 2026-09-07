@@ -147,6 +147,7 @@ pub fn setup_clipboard_panel(window: &tauri::WebviewWindow) -> Result<(), String
     // a visible-but-not-key (or internally-visible-but-actually-hidden) state.
     panel.set_hides_on_deactivate(false);
     panel.set_works_when_modal(true);
+    panel.set_becomes_key_only_if_needed(false);
     // Idle/hidden: move_to_active_space so the next show lands on the current Space
     // (including another app's fullscreen desktop).
     panel.set_collection_behavior(
@@ -305,12 +306,11 @@ pub fn show_clipboard_panel(app: &AppHandle) -> bool {
 
             if let Ok(panel) = app_for_panel.get_webview_panel("main") {
                 panel.set_level(PanelLevel::Dock.value());
-                // Do not use `show_and_make_key`: tauri-nspanel first assigns
-                // the panel content view as first responder, which can detach
-                // the caret from an already-focused WebView input. Ordering the
-                // panel and making it key preserves the WebView responder.
-                panel.order_front_regardless();
-                panel.make_key_window();
+                // This is the hidden -> visible transition, so there is no live
+                // editor caret to preserve. Initializing the panel content view
+                // as first responder is required for first-mouse delivery after
+                // a pinned panel has resigned key to another application.
+                panel.show_and_make_key();
                 panel.set_collection_behavior(
                     CollectionBehavior::new()
                         .full_screen_auxiliary()
@@ -322,7 +322,7 @@ pub fn show_clipboard_panel(app: &AppHandle) -> bool {
                 crate::global_state::NAVIGATION_ENABLED.store(true, Ordering::SeqCst);
                 use tauri::Emitter;
                 let _ = app_for_panel.emit("clipboard-shown", ());
-                eprintln!("[macos-overlay] panel ordered front + key gen={gen}");
+                eprintln!("[macos-overlay] panel.show_and_make_key() gen={gen}");
             } else if overlay_show_generation().load(AtomicOrdering::SeqCst) == gen {
                 clipboard_panel_visible().store(false, AtomicOrdering::SeqCst);
                 overlay_presented_generation().store(0, AtomicOrdering::SeqCst);
@@ -349,6 +349,25 @@ pub fn make_clipboard_panel_key(app: &AppHandle) -> bool {
             if let Ok(panel) = app_for_panel.get_webview_panel("main") {
                 panel.order_front_regardless();
                 panel.make_key_window();
+            }
+        })
+        .is_ok()
+}
+
+/// A pinned clipboard acts like a passive palette: ordinary item/button clicks
+/// must reach WebKit without taking key status from the paste target. Editable
+/// controls still explicitly call `make_clipboard_panel_key` through the focus
+/// coordinator when they need keyboard input.
+#[cfg(target_os = "macos")]
+pub fn set_clipboard_panel_pinned_interaction(app: &AppHandle, pinned: bool) -> bool {
+    use tauri_nspanel::ManagerExt;
+
+    let handle = app.clone();
+    let app_for_panel = handle.clone();
+    handle
+        .run_on_main_thread(move || {
+            if let Ok(panel) = app_for_panel.get_webview_panel("main") {
+                panel.set_becomes_key_only_if_needed(pinned);
             }
         })
         .is_ok()
@@ -458,6 +477,53 @@ pub fn configure_overlay_space_behavior_async(window: &tauri::WebviewWindow) {
     let _ = window.run_on_main_thread(move || {
         configure_overlay_space_behavior(&window_for_main);
     });
+}
+
+/// Keep the passive compact-preview window above the main clipboard panel.
+/// The main panel uses Dock level (20), so Status level (25) is sufficient
+/// without resorting to the disruptive screen-saver level.
+#[cfg(target_os = "macos")]
+pub fn configure_compact_preview_window(app: &AppHandle) -> bool {
+    let Some(window) = app.get_webview_window("compact-preview") else {
+        return false;
+    };
+    let window_for_main = window.clone();
+    window
+        .run_on_main_thread(move || {
+            use objc2_app_kit::{
+                NSStatusWindowLevel, NSWindow, NSWindowCollectionBehavior,
+            };
+
+            let Ok(ns_window_ptr) = window_for_main.ns_window() else {
+                return;
+            };
+            let ns_window = ns_window_ptr as *const NSWindow;
+            if ns_window.is_null() {
+                return;
+            }
+
+            unsafe {
+                let current = (*ns_window).collectionBehavior()
+                    & !NSWindowCollectionBehavior::FullScreenPrimary
+                    & !NSWindowCollectionBehavior::FullScreenNone
+                    & !NSWindowCollectionBehavior::MoveToActiveSpace;
+                (*ns_window).setCollectionBehavior(
+                    current
+                        | NSWindowCollectionBehavior::CanJoinAllSpaces
+                        | NSWindowCollectionBehavior::FullScreenAuxiliary
+                        | NSWindowCollectionBehavior::IgnoresCycle,
+                );
+                (*ns_window).setLevel(NSStatusWindowLevel);
+                (*ns_window).setIgnoresMouseEvents(true);
+                (*ns_window).setHidesOnDeactivate(false);
+            }
+        })
+        .is_ok()
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn configure_compact_preview_window(_app: &AppHandle) -> bool {
+    true
 }
 
 /// After panel conversion, show/hide go through [`show_clipboard_panel`].

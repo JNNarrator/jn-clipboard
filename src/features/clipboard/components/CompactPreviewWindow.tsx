@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import { emitTo, listen } from "@tauri-apps/api/event";
-import { getCurrentWindow, LogicalSize, currentMonitor } from "@tauri-apps/api/window";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
     FileText,
     Image as ImageIcon,
     Link as LinkIcon,
     Code,
     File,
+    FileQuestion,
+    Files,
+    ImageOff,
     Video,
     AppWindow,
     Clock
@@ -25,10 +28,12 @@ import { getRichTextSnapshotDataUrl } from "../../../shared/lib/richTextSnapshot
 import { ensureInstalledThemeStyle } from "../../../shared/lib/themePackages";
 
 type PreviewPayload = {
+    requestId: number;
     contentType: string;
     content: string;
     preview?: string;
     htmlContent?: string;
+    filePreviewExists?: boolean;
     sourceApp?: string;
     timestamp?: number;
     language?: Locale;
@@ -37,6 +42,17 @@ type PreviewPayload = {
     richTextSnapshotPreview?: boolean;
     clipboardItemFontSize?: number;
     clipboardTagFontSize?: number;
+    maxWidth: number;
+    maxHeight: number;
+    mediaMaxWidth: number;
+    mediaMaxHeight: number;
+    minWidth: number;
+};
+
+type PreviewResizePayload = {
+    requestId: number;
+    width: number;
+    height: number;
 };
 
 const RICH_IMAGE_FALLBACK_PREFIX = "<!--TIEZ_RICH_IMAGE:";
@@ -145,10 +161,20 @@ const applyTheme = async (payload: PreviewPayload) => {
     });
 };
 
+const applyPreviewBounds = (payload: PreviewPayload) => {
+    const root = document.documentElement;
+    root.style.setProperty("--preview-max-width", `${payload.maxWidth}px`);
+    root.style.setProperty("--preview-max-height", `${payload.maxHeight}px`);
+    root.style.setProperty("--preview-media-max-width", `${payload.mediaMaxWidth}px`);
+    root.style.setProperty("--preview-media-max-height", `${payload.mediaMaxHeight}px`);
+    root.style.setProperty("--preview-min-width", `${payload.minWidth}px`);
+};
+
 const CompactPreviewWindow = () => {
     const [payload, setPayload] = useState<PreviewPayload | null>(null);
-    const [snapshotFailed, setSnapshotFailed] = useState(false);
-    const [richImageFallbackFailed, setRichImageFallbackFailed] = useState(false);
+    const [snapshotFailedRequestId, setSnapshotFailedRequestId] = useState<number | null>(null);
+    const [richImageFallbackFailedRequestId, setRichImageFallbackFailedRequestId] = useState<number | null>(null);
+    const [mediaFailedRequestId, setMediaFailedRequestId] = useState<number | null>(null);
     const richSnapshotImgRef = useRef<HTMLImageElement | null>(null);
     const richSnapshotFallbackTimerRef = useRef<number | null>(null);
     const containerRef = useRef<HTMLDivElement | null>(null);
@@ -157,7 +183,8 @@ const CompactPreviewWindow = () => {
     const dividerRef = useRef<HTMLDivElement | null>(null);
     const requestResizeRef = useRef<() => void>(() => {});
     const previewBoundsRef = useRef({ width: 560, height: 560, mediaWidth: 520, mediaHeight: 360 });
-    const lastSentSizeRef = useRef<{ width: number; height: number } | null>(null);
+    const latestRequestIdRef = useRef(0);
+    const lastSentSizeRef = useRef<PreviewResizePayload | null>(null);
     const richImageFallbackSrc = useMemo(() => {
         if (!payload || payload.contentType !== "rich_text" || !payload.htmlContent) return null;
         const { imagePayload } = extractRichImageFallback(payload.htmlContent);
@@ -172,90 +199,95 @@ const CompactPreviewWindow = () => {
         const { cleanHtml } = extractRichImageFallback(payload.htmlContent);
         const htmlForSnapshot = stripRichStorageMarkers(cleanHtml || payload.htmlContent);
         return getRichTextSnapshotDataUrl(htmlForSnapshot, {
-            width: 560,
-            maxHeight: 1200
+            width: payload.maxWidth,
+            maxHeight: Math.max(payload.maxHeight * 2, 720)
         });
     }, [payload]);
+    const snapshotFailed = !!payload && snapshotFailedRequestId === payload.requestId;
+    const richImageFallbackFailed = !!payload && richImageFallbackFailedRequestId === payload.requestId;
+    const mediaFailed = !!payload && mediaFailedRequestId === payload.requestId;
     const effectiveRichTextSnapshotSrc = snapshotFailed ? null : richTextSnapshotSrc;
     const effectiveRichImageFallbackSrc = richImageFallbackFailed ? null : richImageFallbackSrc;
     const useSnapshotPreviewImage = !effectiveRichImageFallbackSrc && !!effectiveRichTextSnapshotSrc;
 
     useEffect(() => {
         compactPreviewLog("window mounted", { label: getCurrentWindow().label });
-        getCurrentWindow()
-            .setAlwaysOnTop(true)
-            .then(() => compactPreviewLog("setAlwaysOnTop(true) success"))
-            .catch((err) => {
-                console.error(err);
-                compactPreviewLog("setAlwaysOnTop(true) failed", err);
-            });
-        (async () => {
+        let disposed = false;
+        let stopUpdate: (() => void) | null = null;
+        let stopReadyQuery: (() => void) | null = null;
+
+        void (async () => {
             try {
-                const monitor = await currentMonitor();
-                const fallbackWidth = 1280;
-                const fallbackHeight = 720;
-                const monitorWidth = monitor?.size.width ?? fallbackWidth;
-                const monitorHeight = monitor?.size.height ?? fallbackHeight;
-                const maxWidth = Math.max(320, Math.min(560, Math.floor(monitorWidth * 0.6)));
-                const maxHeight = Math.max(240, Math.min(560, Math.floor(monitorHeight * 0.6)));
-                const mediaMaxWidth = Math.max(260, Math.min(520, maxWidth));
-                const mediaMaxHeight = Math.max(200, Math.min(360, maxHeight - 120));
-                const minWidth = Math.max(300, Math.min(380, Math.floor(maxWidth * 0.62)));
-                compactPreviewLog("resolved monitor bounds", {
-                    monitorPos: monitor?.position,
-                    monitorSize: monitor?.size,
-                    maxWidth,
-                    maxHeight,
-                    mediaMaxWidth,
-                    mediaMaxHeight,
-                    minWidth
+                await Promise.allSettled([
+                    getCurrentWindow().setFocusable(false),
+                    getCurrentWindow().setIgnoreCursorEvents(true)
+                ]);
+                if (disposed) return;
+
+                stopUpdate = await listen<PreviewPayload>("compact-preview-update", (event) => {
+                    const next = event.payload;
+                    if (latestRequestIdRef.current === next.requestId) {
+                        requestResizeRef.current?.();
+                        return;
+                    }
+                    latestRequestIdRef.current = next.requestId;
+                    lastSentSizeRef.current = null;
+                    applyPreviewBounds(next);
+                    previewBoundsRef.current = {
+                        width: next.maxWidth,
+                        height: next.maxHeight,
+                        mediaWidth: next.mediaMaxWidth,
+                        mediaHeight: next.mediaMaxHeight
+                    };
+                    compactPreviewLog("received compact-preview-update", {
+                        requestId: next.requestId,
+                        contentType: next.contentType,
+                        contentLength: next.content?.length ?? 0,
+                        previewLength: next.preview?.length ?? 0,
+                        hasHtml: !!next.htmlContent,
+                        sourceApp: next.sourceApp
+                    });
+
+                    if (disposed) return;
+                    setPayload(next);
+                    void applyTheme(next).then(() => {
+                        if (!disposed && latestRequestIdRef.current === next.requestId) {
+                            requestResizeRef.current?.();
+                        }
+                    }).catch((err) => {
+                        console.error("Failed to apply compact preview theme:", err);
+                    });
                 });
+                if (disposed) {
+                    stopUpdate();
+                    stopUpdate = null;
+                    return;
+                }
 
-                previewBoundsRef.current = {
-                    width: maxWidth,
-                    height: maxHeight,
-                    mediaWidth: mediaMaxWidth,
-                    mediaHeight: mediaMaxHeight
-                };
+                stopReadyQuery = await listen("compact-preview-ready-query", () => {
+                    void emitTo("main", "compact-preview-ready", true);
+                });
+                if (disposed) {
+                    stopReadyQuery();
+                    stopReadyQuery = null;
+                    return;
+                }
 
-                const root = document.documentElement;
-                root.style.setProperty("--preview-max-width", `${maxWidth}px`);
-                root.style.setProperty("--preview-max-height", `${maxHeight}px`);
-                root.style.setProperty("--preview-media-max-width", `${mediaMaxWidth}px`);
-                root.style.setProperty("--preview-media-max-height", `${mediaMaxHeight}px`);
-                root.style.setProperty("--preview-min-width", `${minWidth}px`);
-
-                await getCurrentWindow().setSize(new LogicalSize(maxWidth, maxHeight));
-                compactPreviewLog("initial size set", { width: maxWidth, height: maxHeight });
+                if (!disposed) {
+                    await emitTo("main", "compact-preview-ready", true);
+                    compactPreviewLog("compact preview listeners ready");
+                }
             } catch (err) {
-                console.error("Failed to initialize preview bounds:", err);
-                compactPreviewLog("initialize preview bounds failed", err);
-            } finally {
-                compactPreviewLog("trigger initial resize request");
-                requestResizeRef.current?.();
+                console.error("Failed to initialize compact preview window:", err);
+                compactPreviewLog("compact preview initialization failed", err);
             }
         })();
-        compactPreviewLog("listen compact-preview-update");
-        const unlisten = listen<PreviewPayload>("compact-preview-update", (event) => {
-            compactPreviewLog("received compact-preview-update", {
-                contentType: event.payload.contentType,
-                contentLength: event.payload.content?.length ?? 0,
-                previewLength: event.payload.preview?.length ?? 0,
-                hasHtml: !!event.payload.htmlContent,
-                sourceApp: event.payload.sourceApp
-            });
-            setPayload(event.payload);
-            void applyTheme(event.payload);
-        });
-        emitTo("main", "compact-preview-mounted", true)
-            .then(() => compactPreviewLog("emit compact-preview-mounted"))
-            .catch((err) => {
-                console.error(err);
-                compactPreviewLog("emit compact-preview-mounted failed", err);
-            });
+
         return () => {
+            disposed = true;
             compactPreviewLog("window unmount cleanup");
-            unlisten.then((f) => f());
+            stopUpdate?.();
+            stopReadyQuery?.();
         };
     }, []);
 
@@ -279,6 +311,23 @@ const CompactPreviewWindow = () => {
                 const bounds = previewBoundsRef.current;
                 const maxWidth = bounds.width;
                 const maxHeight = bounds.height;
+                if (container.classList.contains("compact-preview-media")) {
+                    // Reserve the actual chrome height, including wrapped metadata
+                    // and theme padding, before measuring the fitted image/video.
+                    const style = getComputedStyle(container);
+                    const pixels = (value: string) => Number.parseFloat(value) || 0;
+                    const outerHeight = (element: HTMLElement | null) => {
+                        if (!element || getComputedStyle(element).display === "none") return 0;
+                        const elementStyle = getComputedStyle(element);
+                        return element.getBoundingClientRect().height
+                            + pixels(elementStyle.marginTop) + pixels(elementStyle.marginBottom);
+                    };
+                    const chromeHeight = pixels(style.paddingTop) + pixels(style.paddingBottom)
+                        + pixels(style.borderTopWidth) + pixels(style.borderBottomWidth)
+                        + outerHeight(metaRef.current) + outerHeight(dividerRef.current);
+                    const availableMediaHeight = Math.max(120, Math.floor(maxHeight - chromeHeight - 4));
+                    container.style.setProperty("--preview-media-fit-height", `${availableMediaHeight}px`);
+                }
                 const minWidth =
                     payload.contentType === "image" || payload.contentType === "video"
                         ? 260
@@ -298,12 +347,20 @@ const CompactPreviewWindow = () => {
                     return;
                 }
 
+                const requestId = payload.requestId;
+                if (latestRequestIdRef.current !== requestId) return;
                 const last = lastSentSizeRef.current;
-                if (last && Math.abs(last.width - width) <= 1 && Math.abs(last.height - height) <= 1) {
+                if (
+                    last &&
+                    last.requestId === requestId &&
+                    Math.abs(last.width - width) <= 1 &&
+                    Math.abs(last.height - height) <= 1
+                ) {
                     return;
                 }
-                lastSentSizeRef.current = { width, height };
+                lastSentSizeRef.current = { requestId, width, height };
                 compactPreviewLog("emit compact-preview-resize", {
+                    requestId,
                     measuredWidth,
                     measuredHeight,
                     width,
@@ -313,16 +370,10 @@ const CompactPreviewWindow = () => {
                     maxHeight
                 });
 
-                emitTo("main", "compact-preview-resize", { width, height }).catch((err) => {
+                emitTo("main", "compact-preview-resize", { requestId, width, height }).catch((err) => {
                     console.error(err);
                     compactPreviewLog("emit compact-preview-resize failed", err);
                 });
-                getCurrentWindow()
-                    .setSize(new LogicalSize(width, height))
-                    .catch((err) => {
-                        console.error(err);
-                        compactPreviewLog("setSize in preview failed", err);
-                    });
             });
         };
 
@@ -352,11 +403,6 @@ const CompactPreviewWindow = () => {
     }, [payload]);
 
     useEffect(() => {
-        setSnapshotFailed(false);
-        setRichImageFallbackFailed(false);
-    }, [payload?.content, payload?.htmlContent, payload?.richTextSnapshotPreview]);
-
-    useEffect(() => {
         if (richSnapshotFallbackTimerRef.current) {
             window.clearTimeout(richSnapshotFallbackTimerRef.current);
             richSnapshotFallbackTimerRef.current = null;
@@ -374,7 +420,7 @@ const CompactPreviewWindow = () => {
                     naturalHeight: img?.naturalHeight ?? 0,
                     sourceApp: payload?.sourceApp || ""
                 });
-                setSnapshotFailed(true);
+                if (payload) setSnapshotFailedRequestId(payload.requestId);
             }
         }, 700);
 
@@ -384,11 +430,19 @@ const CompactPreviewWindow = () => {
                 richSnapshotFallbackTimerRef.current = null;
             }
         };
-    }, [useSnapshotPreviewImage, effectiveRichTextSnapshotSrc, payload?.content, payload?.htmlContent]);
+    }, [useSnapshotPreviewImage, effectiveRichTextSnapshotSrc, payload?.requestId, payload?.content, payload?.htmlContent]);
 
     const content = useMemo(() => {
         if (!payload) return null;
         if (payload.contentType === "image") {
+            if (payload.filePreviewExists === false || mediaFailed) {
+                return (
+                    <div className="compact-preview-unavailable">
+                        <ImageOff size={22} />
+                        <span>Preview unavailable</span>
+                    </div>
+                );
+            }
             const src = payload.content.startsWith("data:")
                 ? payload.content
                 : (toTauriLocalImageSrc(payload.content) || payload.content);
@@ -400,15 +454,28 @@ const CompactPreviewWindow = () => {
                         compactPreviewLog("image loaded, request resize");
                         requestResizeRef.current?.();
                     }}
+                    onError={() => setMediaFailedRequestId(payload.requestId)}
                     style={{
+                        maxWidth: "100%",
+                        maxHeight: "var(--preview-media-fit-height, 460px)",
                         width: "auto",
                         height: "auto",
+                        objectFit: "contain",
+                        display: "block",
                         borderRadius: "4px"
                     }}
                 />
             );
         }
         if (payload.contentType === "video") {
+            if (payload.filePreviewExists === false || mediaFailed) {
+                return (
+                    <div className="compact-preview-unavailable">
+                        <Video size={22} />
+                        <span>Preview unavailable</span>
+                    </div>
+                );
+            }
             const src = payload.content.startsWith("data:")
                 ? payload.content
                 : (toTauriLocalImageSrc(payload.content) || payload.content);
@@ -425,13 +492,51 @@ const CompactPreviewWindow = () => {
                         seekVideoPreviewFrame(e.currentTarget);
                         requestResizeRef.current?.();
                     }}
+                    onError={() => setMediaFailedRequestId(payload.requestId)}
                     style={{
+                        maxWidth: "100%",
+                        maxHeight: "var(--preview-media-fit-height, 460px)",
                         width: "auto",
                         height: "auto",
+                        objectFit: "contain",
+                        display: "block",
                         borderRadius: "4px",
                         background: "#000"
                     }}
                 />
+            );
+        }
+        if (payload.contentType === "file") {
+            if (payload.filePreviewExists === false) {
+                return (
+                    <div className="compact-preview-unavailable">
+                        <FileQuestion size={22} />
+                        <span>File unavailable</span>
+                    </div>
+                );
+            }
+            const paths = payload.content
+                .split(/\r?\n/)
+                .map((path) => path.trim())
+                .filter(Boolean);
+            return (
+                <div className="compact-preview-file-list">
+                    {paths.length > 1 && (
+                        <div className="compact-preview-file-count">
+                            <Files size={16} />
+                            <span>{paths.length} items</span>
+                        </div>
+                    )}
+                    {(paths.length > 0 ? paths : [payload.preview || payload.content]).slice(0, 12).map((path, index) => (
+                        <div className="compact-preview-file-row" key={`${path}-${index}`}>
+                            <File size={14} />
+                            <span title={path}>{path.split(/[\\/]/).pop() || path}</span>
+                        </div>
+                    ))}
+                    {paths.length > 12 && (
+                        <div className="compact-preview-file-more">+{paths.length - 12}</div>
+                    )}
+                </div>
             );
         }
         if (payload.contentType === "rich_text" && payload.htmlContent) {
@@ -451,11 +556,15 @@ const CompactPreviewWindow = () => {
                                 srcSample: (effectiveRichImageFallbackSrc || "").slice(0, 140),
                                 sourceApp: payload.sourceApp || ""
                             });
-                            setRichImageFallbackFailed(true);
+                            setRichImageFallbackFailedRequestId(payload.requestId);
                         }}
                         style={{
+                            maxWidth: "100%",
+                            maxHeight: "var(--preview-media-fit-height, 460px)",
                             width: "auto",
                             height: "auto",
+                            objectFit: "contain",
+                            display: "block",
                             borderRadius: "4px"
                         }}
                     />
@@ -486,12 +595,14 @@ const CompactPreviewWindow = () => {
                                 srcSample: (effectiveRichTextSnapshotSrc || "").slice(0, 140),
                                 sourceApp: payload.sourceApp || ""
                             });
-                            setSnapshotFailed(true);
+                            setSnapshotFailedRequestId(payload.requestId);
                         }}
                         style={{
-                            width: "100%",
                             maxWidth: "100%",
+                            maxHeight: "var(--preview-media-fit-height, 460px)",
+                            width: "auto",
                             height: "auto",
+                            objectFit: "contain",
                             display: "block",
                             borderRadius: "4px"
                         }}
@@ -504,7 +615,7 @@ const CompactPreviewWindow = () => {
                     className="rich-text-preview"
                     htmlContent={cleanHtml || payload.htmlContent}
                     fallbackText={payload.preview || payload.content}
-                    preview={false}
+                    preview={true}
                     style={{
                         // Keep a single scrollbar on .popover-content to avoid nested scrollbars.
                         maxHeight: "none",
@@ -516,13 +627,13 @@ const CompactPreviewWindow = () => {
             );
         }
         return payload.content || payload.preview || "";
-    }, [payload, effectiveRichImageFallbackSrc, effectiveRichTextSnapshotSrc]);
+    }, [payload, effectiveRichImageFallbackSrc, effectiveRichTextSnapshotSrc, mediaFailed]);
 
     return (
         <div className="compact-preview-root">
             <div
                 ref={containerRef}
-                className={`compact-popover-portal compact-preview-window theme-${normalizeThemeId(payload?.theme || DEFAULT_THEME)} ${payload?.contentType === "image" ? "compact-preview-image" : ""} ${payload?.contentType === "image" || payload?.contentType === "video" || !!effectiveRichImageFallbackSrc ? "compact-preview-media" : ""} ${payload?.colorMode === "dark" ? "dark-mode" : ""}`}
+                className={`compact-popover-portal compact-preview-window theme-${normalizeThemeId(payload?.theme || DEFAULT_THEME)} ${payload?.contentType === "image" ? "compact-preview-image" : ""} ${payload?.contentType === "image" || payload?.contentType === "video" || !!effectiveRichImageFallbackSrc || useSnapshotPreviewImage ? "compact-preview-media" : ""} ${payload?.colorMode === "dark" ? "dark-mode" : ""}`}
                 style={{
                     display: "flex",
                     flexDirection: "column"
@@ -549,7 +660,12 @@ const CompactPreviewWindow = () => {
                     </div>
                 </div>
                 <div ref={dividerRef} className="popover-divider" />
-                <div ref={contentRef} className="popover-content">{content}</div>
+                <div
+                    ref={contentRef}
+                    className={`popover-content${payload?.contentType === "code" ? " compact-preview-code" : ""}`}
+                >
+                    {content}
+                </div>
             </div>
         </div>
     );

@@ -8,7 +8,7 @@ import {
 
 const SNAPSHOT_CACHE_LIMIT = 120;
 const SNAPSHOT_CACHE_BYTE_LIMIT = 24 * 1024 * 1024;
-const SNAPSHOT_CACHE_VERSION = "v8";
+const SNAPSHOT_CACHE_VERSION = "v9";
 const snapshotCache = new Map<string, { dataUrl: string; bytes: number }>();
 let snapshotCacheBytes = 0;
 
@@ -302,7 +302,9 @@ let cachedThemeValues = {
   background: "#ffffff",
   text: "#111827",
   accent: "#1d4ed8",
-  border: "rgba(128,128,128,.25)"
+  border: "rgba(128,128,128,.25)",
+  fontFamily: "'Segoe UI','Microsoft YaHei',sans-serif",
+  fontSize: "13px"
 };
 let lastThemeCheckTime = 0;
 
@@ -318,8 +320,14 @@ const getThemeSnapshotStyles = () => {
     const text = themeStyles.getPropertyValue("--text-primary").trim() || "#111827";
     const accent = themeStyles.getPropertyValue("--accent-color").trim() || "#1d4ed8";
     const border = themeStyles.getPropertyValue("--border-dark").trim() || "rgba(128,128,128,.25)";
-    cachedThemeValues = { background, text, accent, border };
-    cachedThemeSignature = [background, text, accent, border].join("|");
+    const rawFontFamily = themeStyles.getPropertyValue("--font-main").trim();
+    const fontFamily = rawFontFamily && !/[<>&;]/.test(rawFontFamily)
+      ? rawFontFamily.replace(/"/g, "'")
+      : "'Segoe UI','Microsoft YaHei',sans-serif";
+    const rawFontSize = themeStyles.getPropertyValue("--clipboard-item-font-size").trim();
+    const fontSize = /^\d+(?:\.\d+)?px$/i.test(rawFontSize) ? rawFontSize : "13px";
+    cachedThemeValues = { background, text, accent, border, fontFamily, fontSize };
+    cachedThemeSignature = [background, text, accent, border, fontFamily, fontSize].join("|");
     return { ...cachedThemeValues, signature: cachedThemeSignature };
   } catch {
     return { ...cachedThemeValues, signature: cachedThemeSignature || "default" };
@@ -331,8 +339,8 @@ export const getRichTextSnapshotDataUrl = (
   options: SnapshotOptions = {}
 ): string | null => {
   const sourceHtml = html || "";
-  const width = Math.max(480, Math.min(1800, Math.round(options.width ?? 960)));
-  const maxHeight = Math.max(220, Math.min(3200, Math.round(options.maxHeight ?? 1600)));
+  const width = Math.max(280, Math.min(1800, Math.round(options.width ?? 960)));
+  const maxHeight = Math.max(80, Math.min(3200, Math.round(options.maxHeight ?? 1600)));
 
   try {
     const theme = getThemeSnapshotStyles();
@@ -340,6 +348,8 @@ export const getRichTextSnapshotDataUrl = (
     const snapshotText = theme.text;
     const snapshotAccent = theme.accent;
     const snapshotBorder = theme.border;
+    const snapshotFontFamily = theme.fontFamily;
+    const snapshotFontSize = theme.fontSize;
     const themeSignature = theme.signature;
     const trimmedLength = sourceHtml.trim().length;
     if (!trimmedLength) {
@@ -390,10 +400,12 @@ export const getRichTextSnapshotDataUrl = (
       "height:100%",
       "overflow:hidden",
       `background:${snapshotBackground}`,
-      "font-family:'Segoe UI','Microsoft YaHei',sans-serif",
-      "font-size:13px",
+      `font-family:${snapshotFontFamily}`,
+      `font-size:${snapshotFontSize}`,
       `color:${snapshotText}`,
-      "line-height:1.4"
+      "line-height:1.5",
+      "overflow-wrap:anywhere",
+      "text-align:start"
     ].join(";");
 
     const xhtmlBodyHtml = toXhtmlCompatibleFragment(normalized.bodyHtml);
@@ -402,7 +414,7 @@ export const getRichTextSnapshotDataUrl = (
     const svg = [
       `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">`,
       `<foreignObject x="0" y="0" width="100%" height="100%">`,
-      '<div xmlns="http://www.w3.org/1999/xhtml" style="',
+      '<div xmlns="http://www.w3.org/1999/xhtml" class="tiez-rich-snapshot-root" style="',
       snapshotStyle,
       '">',
       xmlSafeBodyHtml,
@@ -411,31 +423,125 @@ export const getRichTextSnapshotDataUrl = (
         box-sizing: border-box;
         font-size: inherit !important;
         line-height: inherit;
-        color: ${snapshotText} !important;
       }
-      *:not(td):not(th) {
-        background-color: transparent !important;
+      .tiez-rich-snapshot-root > :first-child,
+      .tiez-rich-snapshot-root > style:first-child + * {
+        margin-block-start: 0 !important;
+      }
+      .tiez-rich-snapshot-root > :nth-last-child(2) {
+        margin-block-end: 0 !important;
+      }
+      .tiez-rich-snapshot-root > :is(p, div):has(> br:only-child) {
+        display: none !important;
+      }
+      p {
+        margin: 0 0 0.5em !important;
+        padding: 0 !important;
+        line-height: inherit;
+      }
+      h1, h2, h3, h4, h5, h6 {
+        margin: 0.62em 0 0.28em !important;
+        line-height: 1.22 !important;
+        font-weight: 700 !important;
+        letter-spacing: -0.01em;
+      }
+      h1 { font-size: 1.28em !important; }
+      h2 { font-size: 1.18em !important; }
+      h3 { font-size: 1.1em !important; }
+      h4, h5, h6 { font-size: 1.03em !important; }
+      strong, b { font-weight: 700; }
+      small { font-size: 0.92em !important; }
+      sub, sup {
+        font-size: 0.78em !important;
+        line-height: 0;
       }
       table {
         border-collapse: collapse !important;
         border-spacing: 0;
         width: 100% !important;
-        margin: 4px 0;
+        table-layout: auto;
+        margin: 0.5em 0 !important;
         border: 1px solid ${snapshotBorder} !important;
       }
-      img, video { max-width: 100%; height: auto; }
+      img, video {
+        display: block;
+        width: auto;
+        max-width: 100% !important;
+        max-height: 320px !important;
+        height: auto;
+        margin: 0.25em 0;
+        border-radius: 6px;
+        object-fit: contain;
+        object-position: top left;
+      }
       td, th {
         vertical-align: top;
         border: 1px solid ${snapshotBorder} !important;
-        padding: 3px 6px;
-        background-color: ${snapshotBackground} !important;
+        padding: 0.36em 0.55em !important;
+        font-size: 0.92em !important;
+        line-height: 1.35 !important;
         word-break: break-word;
       }
       th {
-        font-weight: bold;
-        background-color: rgba(128, 128, 128, 0.15) !important;
+        font-weight: 600 !important;
+        background-color: color-mix(in srgb, ${snapshotText} 8%, ${snapshotBackground});
       }
-      a { color: ${snapshotAccent} !important; }
+      tr:nth-child(even) td:not([style*="background"]):not([bgcolor]) {
+        background-color: color-mix(in srgb, ${snapshotText} 4%, ${snapshotBackground});
+      }
+      ul, ol {
+        margin: 0.2em 0 0.5em !important;
+        padding-inline-start: 1.45em !important;
+      }
+      li {
+        margin: 0.12em 0;
+        padding-inline-start: 0.08em;
+      }
+      blockquote {
+        margin: 0.3em 0 0.5em !important;
+        padding: 0.3em 0.68em !important;
+        border-inline-start: 2px solid ${snapshotAccent};
+        border-radius: 0 6px 6px 0;
+        background: color-mix(in srgb, ${snapshotAccent} 7%, transparent);
+      }
+      pre {
+        margin: 0.35em 0 0.5em !important;
+        padding: 0.55em 0.68em !important;
+        overflow: hidden;
+        border: 1px solid ${snapshotBorder};
+        border-radius: 6px;
+        background: color-mix(in srgb, ${snapshotText} 6%, transparent);
+        font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace !important;
+        line-height: 1.45 !important;
+        white-space: pre-wrap !important;
+        tab-size: 4;
+      }
+      code, kbd, samp {
+        font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace !important;
+      }
+      :not(pre) > code, kbd {
+        padding: 0.08em 0.3em;
+        border: 1px solid ${snapshotBorder};
+        border-radius: 4px;
+        background: color-mix(in srgb, ${snapshotText} 6%, transparent);
+      }
+      hr {
+        height: 1px;
+        margin: 0.65em 0 !important;
+        border: 0;
+        background: ${snapshotBorder};
+      }
+      mark {
+        padding: 0 0.12em;
+        border-radius: 3px;
+      }
+      a {
+        color: ${snapshotAccent} !important;
+        text-decoration-line: underline;
+        text-decoration-thickness: from-font;
+        text-underline-offset: 0.14em;
+        text-decoration-skip-ink: auto;
+      }
     </style>`,
       "</div>",
       "</foreignObject>",

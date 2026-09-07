@@ -664,22 +664,16 @@ async fn handle_window_focus_for_paste(app_handle: &tauri::AppHandle) -> AppResu
 
         #[cfg(target_os = "macos")]
         {
-            let prev_pid = crate::global_state::LAST_ACTIVE_APP_PID.load(Ordering::Relaxed);
-            let mut reactivated = false;
-            if prev_pid != 0 {
-                reactivated =
-                    crate::infrastructure::macos_api::apps::activate_app_by_pid(prev_pid as i32);
-            }
-
-            if !reactivated {
-                let prev_app = crate::global_state::get_last_active_app_name();
-                if !prev_app.is_empty() {
-                    println!("[DEBUG] Reactivating previous app by name: {}", prev_app);
-                    let _ = crate::infrastructure::macos_api::apps::activate_app_by_name(&prev_app);
-                }
-            }
+            let activated = handoff_macos_focus_for_paste();
+            tokio::time::sleep(std::time::Duration::from_millis(if activated {
+                60
+            } else {
+                8
+            }))
+            .await;
         }
 
+        #[cfg(not(target_os = "macos"))]
         tokio::time::sleep(std::time::Duration::from_millis(if window_pinned {
             80
         } else {
@@ -692,6 +686,45 @@ async fn handle_window_focus_for_paste(app_handle: &tauri::AppHandle) -> AppResu
     }
 
     Ok(())
+}
+
+/// Give keyboard ownership back to the paste target without needlessly
+/// re-activating its whole application. A non-activating NSPanel can be key
+/// while the target remains frontmost; calling `activateWithOptions` in that
+/// state reorders/flashes the target application's windows.
+#[cfg(target_os = "macos")]
+fn handoff_macos_focus_for_paste() -> bool {
+    if let Some(app_handle) = crate::global_state::GLOBAL_APP_HANDLE.get() {
+        let _ = crate::infrastructure::macos_api::window::resign_clipboard_panel_key(app_handle);
+    }
+
+    let prev_pid = crate::global_state::LAST_ACTIVE_APP_PID.load(Ordering::Relaxed);
+    if prev_pid != 0 {
+        let frontmost = crate::infrastructure::macos_api::window::get_active_app_snapshot();
+        if frontmost.pid == prev_pid {
+            return false;
+        }
+
+        if crate::infrastructure::macos_api::apps::activate_app_by_pid_soft(prev_pid as i32) {
+            return true;
+        }
+        if crate::infrastructure::macos_api::apps::activate_app_by_pid(prev_pid as i32) {
+            return true;
+        }
+    }
+
+    let prev_app = crate::global_state::get_last_active_app_name();
+    if prev_app.trim().is_empty() {
+        return false;
+    }
+    crate::infrastructure::macos_api::apps::activate_app_by_name(&prev_app)
+}
+
+#[cfg(target_os = "macos")]
+fn macos_previous_app_is_frontmost() -> bool {
+    let prev_pid = crate::global_state::LAST_ACTIVE_APP_PID.load(Ordering::Relaxed);
+    prev_pid != 0
+        && crate::infrastructure::macos_api::window::get_active_app_snapshot().pid == prev_pid
 }
 
 fn calculate_content_hash(content: &str) -> (u64, u64) {
@@ -1119,45 +1152,43 @@ async fn perform_paste_action(
         crate::WINDOW_PINNED.load(Ordering::Relaxed)
     );
 
-    // Give macOS enough time to switch focus back to the previously active app
-    // after the clipboard window is hidden.
-    // Reduced from 90ms to 40ms.
+    // Windows needs a short settle period after its real foreground-window
+    // switch. macOS uses a non-activating NSPanel and already waits for one
+    // run-loop turn in `handle_window_focus_for_paste`, so another unconditional
+    // delay here only makes every click feel sluggish.
+    #[cfg(target_os = "windows")]
     tokio::time::sleep(std::time::Duration::from_millis(40)).await;
 
-    // Verify foreground window is not our window before pasting
-    // Focus management for macOS
-    let mut stole_focus = false;
-    if let Some(window) = app_handle.get_webview_window("main") {
-        if window.is_focused().unwrap_or(false) {
-            stole_focus = true;
+    #[cfg(target_os = "windows")]
+    {
+        let stole_focus = app_handle
+            .get_webview_window("main")
+            .and_then(|window| window.is_focused().ok())
+            .unwrap_or(false);
+        if stole_focus {
+            let pinned = crate::WINDOW_PINNED.load(Ordering::Relaxed);
+            if pinned {
+                println!("[DEBUG] Pinned panel still reports focus; handing key back...");
+                tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+            } else {
+                println!("[WARN] Clipboard window STOLE focus back, attempting manual hide...");
+                if let Some(window) = app_handle.get_webview_window("main") {
+                    let _ = window.hide();
+                    crate::IS_HIDDEN.store(false, std::sync::atomic::Ordering::Relaxed);
+                    crate::app::window_manager::release_modifier_keys();
+                }
+                // Extra settle time for focus handoff before issuing the paste keystroke.
+                tokio::time::sleep(std::time::Duration::from_millis(120)).await;
+            }
         }
     }
 
-    if stole_focus {
-        let pinned = crate::WINDOW_PINNED.load(Ordering::Relaxed);
-        if pinned {
-            println!("[WARN] Pinned window still focused, attempting manual reactivation...");
-            // Try to give focus away again using native API if we have a PID
-            let prev_pid = crate::global_state::LAST_ACTIVE_APP_PID.load(Ordering::Relaxed);
-            if prev_pid != 0 {
-                #[cfg(target_os = "macos")]
-                crate::infrastructure::macos_api::apps::activate_app_by_pid(prev_pid as i32);
-            }
-            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-        } else {
-            println!("[WARN] Clipboard window STOLE focus back, attempting manual hide...");
-            if let Some(window) = app_handle.get_webview_window("main") {
-                #[cfg(target_os = "macos")]
-                crate::infrastructure::macos_api::window::set_window_focusable(&window, false);
-                #[cfg(target_os = "macos")]
-                let _ = crate::infrastructure::macos_api::window::hide_clipboard_panel(app_handle);
-                #[cfg(not(target_os = "macos"))]
-                let _ = window.hide();
-                crate::IS_HIDDEN.store(false, std::sync::atomic::Ordering::Relaxed);
-                crate::app::window_manager::release_modifier_keys();
-            }
-            // Extra settle time for focus handoff before issuing the paste keystroke.
-            tokio::time::sleep(std::time::Duration::from_millis(120)).await;
+    // This is only a recovery path. The normal macOS path is already frontmost
+    // and proceeds immediately after the initial 8 ms responder handoff.
+    #[cfg(target_os = "macos")]
+    if !macos_previous_app_is_frontmost() {
+        if handoff_macos_focus_for_paste() {
+            tokio::time::sleep(std::time::Duration::from_millis(40)).await;
         }
     }
 
@@ -1695,19 +1726,10 @@ pub fn send_paste_keystroke(method: &str, content: Option<&str>, content_type: O
     {
         let _method = method;
         let _content = content;
-        let prev_pid = crate::global_state::LAST_ACTIVE_APP_PID.load(Ordering::Relaxed);
-        let mut reactivated = false;
-        if prev_pid != 0 {
-            reactivated =
-                crate::infrastructure::macos_api::apps::activate_app_by_pid(prev_pid as i32);
-        }
-
-        if !reactivated {
-            let prev_app = crate::global_state::get_last_active_app_name();
-            if !prev_app.trim().is_empty() {
-                crate::infrastructure::macos_api::apps::activate_app_by_name(&prev_app);
-            }
-        }
+        // Focus was already handed off and allowed to settle before the
+        // clipboard payload was prepared. Do not schedule another NSPanel
+        // resign here: it can race the Command+V event and adds avoidable work
+        // to every paste.
 
         if !crate::infrastructure::macos_api::permissions::has_accessibility_permission() {
             println!(

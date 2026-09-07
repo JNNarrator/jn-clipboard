@@ -39,6 +39,7 @@ body.compact-preview #root > * {
     align-items: flex-start;
     justify-content: flex-start;
     align-self: flex-start;
+    pointer-events: none;
 }
 
 .compact-preview-root .compact-popover-portal.compact-preview-window {
@@ -50,8 +51,9 @@ body.compact-preview #root > * {
     max-height: var(--preview-max-height, 560px);
     display: inline-flex;
     flex-direction: column;
-    pointer-events: auto;
+    pointer-events: none;
     box-sizing: border-box;
+    overflow: hidden;
     margin: 0 !important;
     box-shadow: none !important;
     filter: none !important;
@@ -71,52 +73,95 @@ body.compact-preview #root > * {
 
 .compact-preview-root .compact-popover-portal.compact-preview-media {
     min-width: 260px;
-    max-width: var(--preview-media-max-width, 520px);
-    max-height: var(--preview-media-max-height, 360px);
+    max-width: var(--preview-media-max-width, 560px);
 }
 
 .compact-preview-root .compact-popover-portal.compact-preview-media .popover-content {
-    max-width: var(--preview-media-max-width, 520px);
-    max-height: var(--preview-media-max-height, 360px);
+    width: 100%;
+    max-width: var(--preview-media-max-width, 560px);
+    max-height: var(--preview-media-fit-height, calc(var(--preview-max-height, 560px) - 64px));
     white-space: normal;
     overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1 1 auto;
+    min-height: 0;
 }
 
-.compact-preview-root .compact-popover-portal.compact-preview-media img,
-.compact-preview-root .compact-popover-portal.compact-preview-media video {
+.compact-preview-root .compact-popover-portal.compact-preview-media .popover-content img,
+.compact-preview-root .compact-popover-portal.compact-preview-media .popover-content video,
+.compact-preview-root .compact-popover-portal.compact-preview-media .popover-content > img,
+.compact-preview-root .compact-popover-portal.compact-preview-media .popover-content > video {
     display: block;
     max-width: 100%;
-    max-height: 100%;
+    max-height: var(--preview-media-fit-height, calc(var(--preview-max-height, 560px) - 64px));
+    width: auto;
+    height: auto;
+    margin-inline: auto;
     object-fit: contain;
+    border-radius: 4px;
 }
 
 .compact-preview-root .popover-content {
     width: 100%;
     max-width: 100%;
-    max-height: 460px;
-    overflow: auto;
+    max-height: calc(var(--preview-max-height, 560px) - 64px);
+    overflow: hidden;
     word-break: break-word;
     overflow-wrap: break-word;
     white-space: pre-wrap;
 }
 
-/* Rich-text preview cleanup (avoid extra blank lines at top/bottom) */
-.compact-preview-root .rich-text-preview {
-    margin: 0;
-    padding: 0;
+.compact-preview-root .popover-content.compact-preview-code {
+    font-family: var(--font-mono);
+    tab-size: 4;
 }
 
-.compact-preview-root .rich-text-preview > :first-child {
-    margin-top: 0 !important;
+.compact-preview-root .compact-preview-file-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
 }
 
-.compact-preview-root .rich-text-preview > :last-child {
-    margin-bottom: 0 !important;
+.compact-preview-root .compact-preview-file-count,
+.compact-preview-root .compact-preview-file-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
 }
 
-.compact-preview-root .rich-text-preview p:has(br:only-child),
-.compact-preview-root .rich-text-preview div:has(br:only-child) {
-    margin: 0 !important;
-    padding: 0 !important;
-    display: none !important;
+.compact-preview-root .compact-preview-file-count {
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+.compact-preview-root .compact-preview-file-row svg {
+    flex: 0 0 auto;
+    color: var(--text-secondary);
+}
+
+.compact-preview-root .compact-preview-file-row span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.compact-preview-root .compact-preview-file-more {
+    padding-left: 21px;
+    color: var(--text-secondary);
+    font-size: 11px;
+}
+
+.compact-preview-root .compact-preview-unavailable {
+    min-height: 72px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: var(--text-secondary);
+    font-size: 12px;
 }

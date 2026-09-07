@@ -252,7 +252,16 @@ pub fn set_window_pinned(app_handle: AppHandle, state: State<'_, DbState>, pinne
         #[cfg(target_os = "windows")]
         let _ = window.set_focusable(!pinned);
         #[cfg(target_os = "macos")]
-        crate::infrastructure::macos_api::window::set_window_focusable(&window, !pinned);
+        {
+            // NSPanel focusability cannot be changed through Tauri after panel
+            // conversion. In pinned mode, let ordinary clicks pass through
+            // without making the clipboard key; editable controls opt in via
+            // the shared focus coordinator.
+            let _ = crate::infrastructure::macos_api::window::set_clipboard_panel_pinned_interaction(
+                &app_handle,
+                pinned,
+            );
+        }
         #[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
         let _ = window.set_focusable(false);
         #[cfg(windows)]
@@ -264,11 +273,12 @@ pub fn set_window_pinned(app_handle: AppHandle, state: State<'_, DbState>, pinne
             if let Ok(hwnd) = window.hwnd() {
                 unsafe {
                     let ex_style = GetWindowLongPtrW(HWND(hwnd.0), GWL_EXSTYLE);
-                    let _ = SetWindowLongPtrW(
-                        HWND(hwnd.0),
-                        GWL_EXSTYLE,
-                        ex_style | WS_EX_NOACTIVATE.0 as isize,
-                    );
+                    let next = if pinned {
+                        ex_style | WS_EX_NOACTIVATE.0 as isize
+                    } else {
+                        ex_style & !(WS_EX_NOACTIVATE.0 as isize)
+                    };
+                    let _ = SetWindowLongPtrW(HWND(hwnd.0), GWL_EXSTYLE, next);
                 }
             }
         }
