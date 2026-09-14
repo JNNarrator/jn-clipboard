@@ -58,9 +58,22 @@ header {
 }
 
 .windows-header-title {
-  margin-left: 4px;
+  margin-left: 2px;
   flex: 0 1 auto;
-  max-width: min(180px, 28vw);
+  max-width: min(220px, 46vw);
+}
+
+.windows-brand-mark {
+  display: block;
+  height: 16px;
+  width: 44px;
+  margin-left: 2px;
+  flex: 0 0 auto;
+  background-color: var(--brand-mark-color, var(--accent-color));
+  -webkit-mask: url("../../assets/tiez-wordmark.svg") left center / contain no-repeat;
+  mask: url("../../assets/tiez-wordmark.svg") left center / contain no-repeat;
+  pointer-events: none;
+  user-select: none;
 }
 
 .header-actions .windows-close-btn:hover {
@@ -237,9 +250,18 @@ header {
     margin-left: 0;
   }
 
-  .windows-header-title,
   .mac-header-title-wrap {
     display: none;
+  }
+
+  .windows-header-title {
+    min-width: 0;
+    max-width: 7.5em;
+  }
+
+  .windows-brand-mark {
+    height: 14px;
+    width: 38px;
   }
 
   .header-drag-region {

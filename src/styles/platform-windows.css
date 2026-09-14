@@ -1,0 +1,51 @@
+/*
+ * Windows 11 DWM clips the HWND to the system corner. Fill the client as a
+ * rectangle so the square WebView background is not visible in the four
+ * corners. macOS keeps each theme's --shell-radius.
+ */
+html.platform-windows,
+body.platform-windows {
+  --shell-radius: 0;
+  -webkit-font-smoothing: auto;
+  text-rendering: auto;
+  font-synthesis: none;
+}
+
+html.platform-windows {
+  --font-main: "Microsoft YaHei UI", "Microsoft YaHei", "Segoe UI Variable Text", "Segoe UI", sans-serif;
+}
+
+html.platform-windows body.theme-sakura,
+body.platform-windows.theme-sakura {
+  --font-main: "Microsoft YaHei UI", "Microsoft YaHei", "Segoe UI", sans-serif;
+}
+
+html.platform-windows,
+body.platform-windows,
+html.platform-windows #root {
+  border-radius: 0;
+}
+
+html.platform-windows .app-container {
+  border-radius: 0;
+  clip-path: none;
+  -webkit-clip-path: none;
+}
+
+html.platform-windows .header-title.windows-header-title.is-page-title {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+html.platform-windows,
+body.platform-windows,
+html.platform-windows #root {
+  border-radius: 0;
+}
+
+html.platform-windows .app-container {
+  border-radius: 0;
+  clip-path: none;
+  -webkit-clip-path: none;
+}

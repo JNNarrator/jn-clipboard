@@ -99,10 +99,9 @@ const AdvancedSettingsGroup = ({
     const [selectedSourceId, setSelectedSourceId] = useState("global");
     const [expandedRuleIndex, setExpandedRuleIndex] = useState<number | null>(0);
     const [draftRules, setDraftRules] = useState<EditableRule[]>(parseRules(cleanupRules));
-    const [sidebarWidth, setSidebarWidth] = useState(168);
-    const [sidebarHeight, setSidebarHeight] = useState(180);
+    const [sidebarWidth, setSidebarWidth] = useState(148);
+    const [isSplit, setIsSplit] = useState(false);
     const [isResizing, setIsResizing] = useState(false);
-    const [isStacked, setIsStacked] = useState(false);
     const workbenchRef = useRef<HTMLElement | null>(null);
 
     const configuredAppPolicies = useMemo(
@@ -182,15 +181,17 @@ const AdvancedSettingsGroup = ({
     }, [selectedTarget?.id]);
 
     useEffect(() => {
-        const mediaQuery = window.matchMedia("(max-width: 340px)");
-        const updateLayoutMode = () => {
-            setIsStacked(mediaQuery.matches);
+        const el = workbenchRef.current;
+        if (!el) return;
+
+        const updateSplit = () => {
+            setIsSplit(el.clientWidth >= 320);
         };
 
-        updateLayoutMode();
-        mediaQuery.addEventListener("change", updateLayoutMode);
-
-        return () => mediaQuery.removeEventListener("change", updateLayoutMode);
+        updateSplit();
+        const observer = new ResizeObserver(updateSplit);
+        observer.observe(el);
+        return () => observer.disconnect();
     }, []);
 
     useEffect(() => {
@@ -199,15 +200,7 @@ const AdvancedSettingsGroup = ({
         const handleMouseMove = (event: MouseEvent) => {
             const bounds = workbenchRef.current?.getBoundingClientRect();
             if (!bounds) return;
-
-            if (isStacked) {
-                const maxHeight = Math.max(140, bounds.height - 220);
-                const nextHeight = Math.min(Math.max(event.clientY - bounds.top, 120), maxHeight);
-                setSidebarHeight(nextHeight);
-                return;
-            }
-
-            const nextWidth = Math.min(Math.max(event.clientX - bounds.left, 80), 280);
+            const nextWidth = Math.min(Math.max(event.clientX - bounds.left, 96), 260);
             setSidebarWidth(nextWidth);
         };
 
@@ -217,7 +210,7 @@ const AdvancedSettingsGroup = ({
             document.body.style.userSelect = "";
         };
 
-        document.body.style.cursor = isStacked ? "row-resize" : "col-resize";
+        document.body.style.cursor = "col-resize";
         document.body.style.userSelect = "none";
         window.addEventListener("mousemove", handleMouseMove);
         window.addEventListener("mouseup", handleMouseUp);
@@ -228,7 +221,7 @@ const AdvancedSettingsGroup = ({
             document.body.style.cursor = "";
             document.body.style.userSelect = "";
         };
-    }, [isResizing, isStacked]);
+    }, [isResizing]);
 
     const persistAppPolicies = (nextPolicies: AppCleanupPolicy[]) => {
         setAppCleanupPolicies(nextPolicies);
@@ -358,11 +351,8 @@ const AdvancedSettingsGroup = ({
         <div className="settings-subpage advanced-settings-page">
             <section
                 ref={workbenchRef}
-                className={`advanced-workbench ${isStacked ? "stacked-layout" : ""}`}
-                style={{
-                    ["--advanced-sidebar-width" as string]: `${sidebarWidth}px`,
-                    ["--advanced-sidebar-height" as string]: `${sidebarHeight}px`
-                }}
+                className={`advanced-workbench${isSplit ? " is-split" : ""}`}
+                style={isSplit ? { ["--advanced-sidebar-width" as string]: `${sidebarWidth}px` } : undefined}
             >
                 <aside className="advanced-sidebar">
                     <div className="advanced-sidebar-search">
@@ -427,12 +417,17 @@ const AdvancedSettingsGroup = ({
                     </div>
                 </aside>
 
-                <div
-                    className={`advanced-divider ${isResizing ? "active" : ""} ${isStacked ? "stacked" : ""}`}
-                    onMouseDown={() => setIsResizing(true)}
-                >
-                    <span className="advanced-divider-handle" />
-                </div>
+                {isSplit && (
+                    <div
+                        className={`advanced-divider${isResizing ? " active" : ""}`}
+                        onMouseDown={(e) => {
+                            e.preventDefault();
+                            setIsResizing(true);
+                        }}
+                    >
+                        <span className="advanced-divider-handle" />
+                    </div>
+                )}
 
                 <div className="advanced-editor">
                     <div className="advanced-editor-toolbar">
@@ -531,7 +526,6 @@ const AdvancedSettingsGroup = ({
                                                         <textarea
                                                             className="search-input advanced-rule-textarea"
                                                             value={rule.match}
-                                                            style={{ minHeight: "80px" }}
                                                             placeholder={t("advanced_match_placeholder") || "输入正则匹配，例如：(?i)(token\\s*[:=]\\s*)\\S+"}
                                                             onChange={(e) => updateRule(index, { match: e.target.value })}
                                                         />
@@ -565,7 +559,6 @@ const AdvancedSettingsGroup = ({
                                                             <textarea
                                                                 className="search-input advanced-rule-textarea"
                                                                 value={rule.replace}
-                                                                style={{ minHeight: "80px" }}
                                                                 placeholder={t("advanced_replace_placeholder") || "输入替换文本，例如：$1[REDACTED]"}
                                                                 onChange={(e) => updateRule(index, { replace: e.target.value })}
                                                             />

@@ -2,17 +2,16 @@ import { lazy, Suspense, memo, useCallback, type ComponentProps, type RefObject,
 import { motion, Reorder, useDragControls } from "framer-motion";
 import type { DragControls } from "framer-motion";
 import { ArrowUp, Clipboard } from "lucide-react";
-import type SettingsPanelComponent from "../../settings/components/SettingsPanel";
+import SettingsPanel from "../../settings/components/SettingsPanel";
 import { VirtualClipboardList } from "../../clipboard/components/VirtualClipboardList";
 import type { ClipboardEntry } from "../../../shared/types";
 import type { VirtualClipboardListHandle } from "../../clipboard/types";
 
 const FileTransferChatView = lazy(() => import("../../file-transfer/components/FileTransferChatView"));
-const SettingsPanel = lazy(() => import("../../settings/components/SettingsPanel"));
 const TagManager = lazy(() => import("../../tag/components/TagManager"));
 const EmojiPanel = lazy(() => import("../../emoji/components/EmojiPanel"));
 
-type SettingsPanelProps = ComponentProps<typeof SettingsPanelComponent>;
+type SettingsPanelProps = ComponentProps<typeof SettingsPanel>;
 type RenderItem = (
   item: ClipboardEntry,
   index: number,
@@ -149,7 +148,7 @@ const AppMainContent = ({
       <motion.div
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
-        style={{ height: "100%", overflow: "hidden", boxSizing: "border-box" }}
+        style={{ height: "100%", overflow: "hidden", boxSizing: "border-box", display: "flex", flexDirection: "column" }}
       >
         <Suspense fallback={<ViewLoading label={t("loading")} />}>
           <TagManager t={t} theme={theme} />
@@ -200,19 +199,14 @@ const AppMainContent = ({
     }
 
     return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.16 }}
+      <div
         className="settings-view"
         style={{
           maxWidth: settingsPanelProps.settingsSubpage === "advanced" ? "min(1120px, 100%)" : undefined
         }}
       >
-        <Suspense fallback={<ViewLoading label={t("loading")} />}>
-          <SettingsPanel {...settingsPanelProps} />
-        </Suspense>
-      </motion.div>
+        <SettingsPanel {...settingsPanelProps} />
+      </div>
     );
   }
 

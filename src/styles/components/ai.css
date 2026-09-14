@@ -93,27 +93,6 @@
  * Theme-Specific Adapters for AI Buttons Directly
  * ========================================================= */
 
-/* Minecraft Theme: 3D Bevel, zero radius, XP green hover */
-.theme-minecraft .ai-action-btn {
-  border: 2px solid !important;
-  border-color: var(--border-light) var(--border-dark) var(--border-dark) var(--border-light) !important;
-  border-radius: 0 !important;
-  background: var(--bg-button) !important;
-  color: var(--text-primary) !important;
-  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.3) !important;
-}
-
-.theme-minecraft .ai-action-btn:hover {
-  outline: 2px solid var(--accent-color) !important;
-  outline-offset: -2px;
-}
-
-.theme-minecraft .ai-action-btn:active {
-  border-color: var(--border-dark) var(--border-light) var(--border-light) var(--border-dark) !important;
-  transform: translate(1px, 1px) !important;
-  box-shadow: inset 1px 1px 0 rgba(0, 0, 0, 0.35) !important;
-}
-
 /* Retro 3D Theme: Bevel borders, uppercase label, retro drop shadow */
 .theme-retro .ai-action-btn {
   border: 2px solid var(--border-dark);

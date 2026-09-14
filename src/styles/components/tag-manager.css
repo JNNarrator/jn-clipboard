@@ -6,79 +6,98 @@
   min-height: 0;
 }
 
-.tag-manager-workbench {
-  border-top: 1px solid var(--panel-divider-color);
-}
-
-.tag-manager-workbench.sidebar-collapsed {
-  grid-template-columns: 48px minmax(0, 1fr) !important;
-}
-
-.tag-manager-sidebar {
-  background: var(--bg-panel);
-}
-
-.tag-manager-search-row {
+.tag-manager-body {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
-.tag-manager-search-row .advanced-search-input {
+.tag-manager-filter {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px 6px;
+  border-bottom: 1px solid var(--panel-divider-color);
+  background: var(--bg-panel);
+  flex-shrink: 0;
+}
+
+.tag-manager-filter-search {
+  width: 128px;
+  flex-shrink: 0;
+  min-height: 28px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+.tag-manager-chip-row {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 4px;
   flex: 1;
   min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 2px;
 }
 
-.tag-manager-collapse-btn {
-  width: 28px;
-  height: 28px;
-  padding: 0;
+.tag-manager-chip {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  border: var(--button-border);
-  border-radius: var(--button-radius);
-  background: var(--bg-button);
-  color: var(--text-secondary);
-  box-shadow: var(--button-shadow);
-  cursor: pointer;
-  flex-shrink: 0;
-  transition:
-    background 0.16s ease,
-    border-color 0.16s ease,
-    color 0.16s ease;
-}
-
-.tag-manager-collapse-btn:hover {
-  background: var(--bg-input);
-  border-color: var(--button-hover-border-color);
+  gap: 6px;
+  max-width: 100%;
+  min-height: 26px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--bg-element);
   color: var(--text-primary);
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+  flex-shrink: 0;
 }
 
-.tag-manager-collapsed-bar {
-  display: flex;
+.tag-manager-chip:hover {
+  background: var(--bg-input);
+}
+
+.tag-manager-chip.active {
+  background: color-mix(in srgb, var(--accent-color) 12%, var(--bg-content));
+  border-color: rgba(var(--accent-color-rgb), 0.28);
+  color: var(--accent-color);
+}
+
+.tag-manager-chip.is-create {
+  border-style: dashed;
+  border-color: rgba(var(--accent-color-rgb), 0.22);
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.tag-manager-chip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 112px;
+}
+
+.tag-manager-chip-count {
+  font-size: 10px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.tag-manager-chip-empty {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  padding: 10px 8px;
-  border-bottom: 1px solid var(--panel-divider-color);
-}
-
-.tag-manager-target-list {
-  padding-top: 4px;
-}
-
-.tag-manager-target-item {
-  position: relative;
-}
-
-.tag-manager-target-item .advanced-target-meta {
-  padding-right: 0;
-  transition: padding-right 0.16s ease;
-}
-
-.tag-manager-target-item:hover .advanced-target-meta,
-.tag-manager-target-item.active .advanced-target-meta {
-  padding-right: 52px;
+  min-height: 26px;
+  padding: 0 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
 }
 
 .tag-color-wrapper {
@@ -88,8 +107,8 @@
 }
 
 .tag-color-dot {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
   cursor: pointer;
@@ -99,7 +118,7 @@
 }
 
 .tag-color-dot:hover {
-  transform: scale(1.1);
+  transform: scale(1.15);
 }
 
 .tag-color-dot:focus-visible {
@@ -108,27 +127,15 @@
 }
 
 .tag-target-actions {
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 2px;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.16s ease;
-}
-
-.tag-manager-target-item:hover .tag-target-actions,
-.tag-manager-target-item.active .tag-target-actions {
-  opacity: 1;
-  pointer-events: auto;
+  gap: 0;
+  margin-left: 2px;
 }
 
 .tag-target-action-btn {
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 18px;
   padding: 0;
   border: none;
   border-radius: var(--button-radius);
@@ -150,10 +157,10 @@
 }
 
 .inline-tag-edit {
-  flex: 1;
+  width: 88px;
   min-width: 0;
-  height: 28px;
-  padding: 0 8px;
+  height: 20px;
+  padding: 0 6px;
   border: 1px solid rgba(var(--accent-color-rgb), 0.22);
   border-radius: var(--button-radius);
   background: var(--bg-input);
@@ -162,39 +169,19 @@
   outline: none;
 }
 
-.tag-manager-target-item.create-hint {
-  border-style: dashed;
-  border-color: rgba(var(--accent-color-rgb), 0.14);
-}
-
-.tag-manager-sidebar-status {
-  padding: 12px 10px;
-  font-size: 12px;
-  color: var(--text-secondary);
-  text-align: center;
-}
-
-.tag-manager-workbench.sidebar-collapsed .tag-manager-target-item {
-  justify-content: center;
-  padding-inline: 8px;
-}
-
-.tag-manager-workbench.sidebar-collapsed .advanced-target-meta,
-.tag-manager-workbench.sidebar-collapsed .tag-target-actions {
-  display: none;
-}
-
 .tag-manager-editor {
   background: var(--bg-content);
   position: relative;
+  flex: 1;
+  min-height: 0;
 }
 
 .tag-manager-fab-add-btn {
   position: absolute;
-  right: 20px;
-  bottom: 20px;
-  width: 40px;
-  height: 40px;
+  right: 12px;
+  bottom: 12px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   z-index: 5;
   color: var(--accent-color);
@@ -203,15 +190,39 @@
 .tag-manager-toolbar-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: 4px;
+  flex-wrap: nowrap;
   justify-content: flex-end;
+}
+
+.tag-manager-editor .advanced-editor-toolbar {
+  gap: 8px;
+  padding: 6px 10px;
+}
+
+.tag-manager-editor .advanced-editor-title {
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.tag-manager-editor .advanced-editor-subtitle {
+  margin-top: 1px;
+  font-size: 11px;
+}
+
+.tag-manager-editor .advanced-editor-actions {
+  gap: 4px;
+}
+
+.tag-manager-editor .advanced-rule-list.tag-manager-items {
+  padding: 8px 10px 40px;
+  gap: 6px;
 }
 
 .tag-manager-sort-group {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   padding: 2px;
   border-radius: var(--button-radius);
   background: color-mix(in srgb, var(--bg-panel) 68%, transparent);
@@ -221,9 +232,11 @@
 .tag-manager-sort-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
-  min-height: 30px;
-  padding: 0 10px;
+  min-height: 26px;
+  min-width: 26px;
+  padding: 0 6px;
   border: none;
   border-radius: calc(var(--button-radius) - 2px);
   background: transparent;
@@ -231,6 +244,10 @@
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
+}
+
+.tag-manager-sort-btn span {
+  display: none;
 }
 
 .tag-manager-sort-btn:hover {
@@ -258,8 +275,8 @@
 }
 
 .tag-manager-view-toggle .toggle-btn {
-  width: 30px;
-  height: 30px;
+  width: 26px;
+  height: 26px;
   padding: 0;
   border: none;
   border-radius: calc(var(--button-radius) - 2px);
@@ -282,20 +299,20 @@
 }
 
 .tag-manager-items {
-  padding-top: 12px;
+  padding-top: 0;
 }
 
 .tag-manager-items .items-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 6px;
   width: 100%;
 }
 
 .tag-manager-items .items-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
   width: 100%;
 }
 
@@ -304,7 +321,7 @@
   border: var(--advanced-card-border);
   border-radius: var(--advanced-card-radius);
   background: var(--advanced-card-background);
-  padding: 12px;
+  padding: 8px 10px;
   cursor: pointer;
   position: relative;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
@@ -322,31 +339,38 @@
 }
 
 .tag-manager-card .card-top-row {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  left: 4px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  visibility: hidden;
-  margin-bottom: 8px;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 2;
 }
 
 .tag-manager-card:hover .card-top-row,
 .tag-manager-items.manage-mode .card-top-row,
 .tag-manager-card:has(.card-note.editing) .card-top-row {
-  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .tag-manager-card .card-actions-left {
   display: flex;
-  gap: 4px;
+  gap: 2px;
 }
 
 .tag-manager-card .card-action-btn,
 .tag-manager-card .del-btn {
-  background: transparent;
+  background: color-mix(in srgb, var(--bg-panel) 88%, transparent);
   border: none;
+  border-radius: 6px;
   color: var(--text-secondary);
   cursor: pointer;
-  padding: 2px;
+  padding: 3px;
   display: inline-flex;
   align-items: center;
 }
@@ -365,25 +389,26 @@
 
 .tag-manager-card .card-media img {
   max-width: 100%;
-  max-height: 120px;
-  border-radius: 10px;
+  max-height: 88px;
+  border-radius: 8px;
   object-fit: contain;
 }
 
 .tag-manager-card .card-body-text {
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: 12px;
+  line-height: 1.4;
   color: var(--text-primary);
-  max-height: 4.5em;
+  max-height: 3.4em;
   overflow: hidden;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
-  margin: 4px 0;
+  margin: 0;
+  padding-right: 18px;
 }
 
 .tag-manager-card .card-note {
-  margin: 6px 0 2px;
+  margin: 4px 0 0;
   min-width: 0;
 }
 
@@ -398,8 +423,8 @@
   background: transparent;
   color: var(--text-secondary);
   font: inherit;
-  font-size: 12px;
-  line-height: 1.35;
+  font-size: 11px;
+  line-height: 1.3;
   text-align: left;
   cursor: pointer;
   opacity: 0.9;
@@ -411,7 +436,7 @@
   word-break: break-word;
   white-space: normal;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -427,10 +452,10 @@
   width: 100%;
   box-sizing: border-box;
   resize: vertical;
-  min-height: 44px;
-  max-height: 120px;
+  min-height: 36px;
+  max-height: 96px;
   margin: 0;
-  padding: 6px 8px;
+  padding: 5px 7px;
   border: 1px solid var(--border-color, rgba(0, 0, 0, 0.12));
   border-radius: 8px;
   background: var(--bg-input, var(--bg-element));
@@ -447,16 +472,15 @@
 }
 
 .tag-manager-card .card-divider {
-  height: 1px;
-  background: var(--panel-divider-color);
-  margin: 8px 0;
+  display: none;
 }
 
 .tag-manager-card .card-footer {
   display: flex;
   justify-content: space-between;
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-secondary);
+  margin-top: 6px;
 }
 
 .tag-manager-card .meta-usage {
@@ -499,43 +523,109 @@
   display: block;
 }
 
-.tag-manager-workbench.tag-manager-modal-open {
+.tag-manager-body.tag-manager-modal-open {
   pointer-events: none;
 }
 
-.tag-manager-workbench.stacked-layout {
-  grid-template-columns: 1fr !important;
-  grid-template-rows: var(--advanced-sidebar-height, 180px) 2px minmax(0, 1fr) !important;
+.tag-manager-divider {
+  position: relative;
+  width: 8px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  background: transparent;
+  z-index: 2;
 }
 
-.tag-manager-workbench.stacked-layout .tag-manager-sidebar {
-  height: var(--advanced-sidebar-height, 180px) !important;
-  border-bottom: 1px solid var(--panel-divider-color);
-  border-right: none;
+.tag-manager-divider::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-50%);
+  background: var(--panel-divider-color);
 }
 
-.tag-manager-workbench.stacked-layout .advanced-divider {
-  cursor: row-resize;
+.tag-manager-divider.active::before,
+.tag-manager-divider:hover::before {
+  background: rgba(var(--accent-color-rgb), 0.35);
 }
 
-.tag-manager-workbench.stacked-layout .advanced-editor-toolbar {
+.tag-manager-divider-handle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 3px;
+  height: 36px;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: rgba(var(--accent-color-rgb), 0.35);
+}
+
+.tag-manager-body.is-split {
+  flex-direction: row;
+}
+
+.tag-manager-body.is-split .tag-manager-filter {
+  display: flex;
   flex-direction: column;
   align-items: stretch;
+  flex: 0 0 var(--tag-sidebar-width, 148px);
+  width: var(--tag-sidebar-width, 148px);
+  height: auto;
+  align-self: stretch;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  padding: 8px 8px 10px;
+  border-bottom: none;
 }
 
-.tag-manager-workbench.stacked-layout .tag-manager-toolbar-actions {
-  justify-content: flex-start;
+.tag-manager-body.is-split .tag-manager-filter-search {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
 }
 
-@media (max-width: 340px) {
-  .tag-manager-workbench {
-    grid-template-columns: 1fr !important;
-    grid-template-rows: var(--advanced-sidebar-height, 180px) 2px minmax(0, 1fr) !important;
-  }
+.tag-manager-body.is-split .tag-manager-chip-row {
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  align-self: stretch;
+  width: 100%;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-bottom: 0;
+}
 
-  .tag-manager-sidebar {
-    height: var(--advanced-sidebar-height, 180px) !important;
-    border-bottom: 1px solid var(--panel-divider-color);
-    border-right: none;
-  }
+.tag-manager-body.is-split .tag-manager-chip {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  align-self: stretch;
+  border-radius: var(--button-radius);
+}
+
+.tag-manager-body.is-split .tag-manager-chip-name {
+  flex: 1;
+  min-width: 0;
+  max-width: none;
+}
+
+.tag-manager-body.is-split .tag-manager-chip-empty {
+  justify-content: center;
+}
+
+.tag-manager-body.is-split .inline-tag-edit {
+  flex: 1;
+  width: auto;
 }

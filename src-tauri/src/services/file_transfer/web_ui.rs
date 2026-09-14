@@ -482,69 +482,6 @@ fn file_transfer_theme_variants(theme: &str) -> (&'static str, &'static str, &'s
             }}
             "#,
         ),
-        "minecraft" => (
-            r#"
-            --bg-body: #c6c6c6;
-            --bg-panel: #b8b8b8;
-            --bg-input: #8b8b8b;
-            --bg-button: #c6c6c6;
-            --border-dark: #373737;
-            --border-light: #ffffff;
-            --text-primary: #212121;
-            --text-secondary: #4a4a4a;
-            --accent-color: #2e8b57;
-            --shadow-color: #373737;
-            --font-mono: "Minecraft", "Courier New", Courier, monospace;
-            --content-font-family: var(--font-mono);
-            --radius: 0;
-            --bubble-received-bg: #a9a9a9;
-            --panel-border: 2px solid #373737;
-            --panel-radius: 0;
-            --panel-shadow: 2px 2px 0 0 #373737;
-            --input-border: 2px solid #373737;
-            --input-radius: 0;
-            --input-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.25);
-            --button-border: 2px solid #373737;
-            --button-radius: 0;
-            --button-shadow: 2px 2px 0 0 #373737;
-            --send-button-background: #2e8b57;
-            --send-button-color: #ffffff;
-            --send-button-border: 2px solid #173f29;
-            --send-button-shadow: 2px 2px 0 0 #173f29;
-            "#,
-            r#"
-            --bg-body: #18191c;
-            --bg-panel: #26282e;
-            --bg-input: #121316;
-            --bg-button: #31343c;
-            --border-dark: #0d0e10;
-            --border-light: #484b54;
-            --text-primary: #e2e4ea;
-            --text-secondary: #9a9ca6;
-            --accent-color: #55ff55;
-            --shadow-color: #0d0e10;
-            --bubble-received-bg: #222428;
-            --panel-border: 2px solid #0d0e10;
-            --panel-shadow: 3px 3px 0 0 #0d0e10;
-            --input-border: 2px solid #0d0e10;
-            --button-border: 2px solid #0d0e10;
-            --send-button-background: #55ff55;
-            --send-button-color: #000000;
-            --send-button-border: 2px solid #0d0e10;
-            --send-button-shadow: 2px 2px 0 0 #0d0e10;
-            "#,
-            r#"
-            .theme-minecraft * {{
-                border-radius: 0 !important;
-            }}
-            .theme-minecraft .avatar,
-            .theme-minecraft .bubble,
-            .theme-minecraft .text-input,
-            .theme-minecraft .retro-btn {{
-                image-rendering: pixelated;
-            }}
-            "#,
-        ),
         _ => (
             r#"
             --bg-body: #dcdcdc;
@@ -1700,7 +1637,6 @@ mod tests {
         "terminal",
         "receipt",
         "ink",
-        "minecraft",
     ];
 
     #[test]

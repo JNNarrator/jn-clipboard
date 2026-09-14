@@ -2,8 +2,8 @@ import { useState, useEffect, useRef, useMemo, useCallback, type MouseEvent as R
 import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { listen, emit } from '@tauri-apps/api/event';
 import {
-    Edit2, Trash2, X, ChevronRight, LayoutGrid, List,
-    Clock, MousePointer2, ChevronLeft, Plus, ExternalLink, CheckSquare, Copy, StickyNote
+    Edit2, Trash2, X, LayoutGrid, List,
+    Clock, MousePointer2, Plus, ExternalLink, CheckSquare, Copy, StickyNote
 } from 'lucide-react';
 import AppModal from "../../../shared/components/AppModal";
 import { getTagColor } from "../../../shared/lib/utils";
@@ -23,6 +23,10 @@ interface TagInfo {
 
 export default function TagManager({ t, theme }: TagManagerProps) {
     const TAG_MANAGER_VIEW_MODE_KEY = "tiez_tag_manager_view_mode";
+    const TAG_MANAGER_SPLIT_MIN_WIDTH = 320;
+    const TAG_SIDEBAR_MIN = 96;
+    const TAG_SIDEBAR_MAX = 260;
+    const TAG_SIDEBAR_DEFAULT = 148;
     const [tags, setTags] = useState<TagInfo[]>([]);
     const [tagSearch, setTagSearch] = useState('');
     const [selectedTag, setSelectedTag] = useState<string | null>(null);
@@ -42,7 +46,6 @@ export default function TagManager({ t, theme }: TagManagerProps) {
     const [isDeleting, setIsDeleting] = useState(false);
     const [deleteConfirmation, setDeleteConfirmation] = useState<{ show: boolean, tagName: string | null }>({ show: false, tagName: null });
     const [itemDeleteConfirmation, setItemDeleteConfirmation] = useState<{ show: boolean, id: number | null }>({ show: false, id: null });
-    const [isCollapsed, setIsCollapsed] = useState(false);
     const [sortBy, setSortBy] = useState<'time' | 'count'>('time');
     const [isCreatingItem, setIsCreatingItem] = useState(false);
     const [editingItem, setEditingItem] = useState<{ id: number, content: string } | null>(null);
@@ -51,56 +54,17 @@ export default function TagManager({ t, theme }: TagManagerProps) {
     const noteInputRef = useRef<HTMLTextAreaElement | null>(null);
     const ignoreNoteBlurRef = useRef(false);
     const [newItemContent, setNewItemContent] = useState('');
-    const [sidebarWidth, setSidebarWidth] = useState(168);
-    const [sidebarHeight, setSidebarHeight] = useState(180);
-    const sidebarSizeRef = useRef({ width: 168, height: 180 });
-    const [isResizing, setIsResizing] = useState(false);
-    const [isStacked, setIsStacked] = useState(false);
     const [isManageMode, setIsManageMode] = useState(false);
     const [selectedItemIds, setSelectedItemIds] = useState<Set<number>>(new Set());
-    const containerRef = useRef<HTMLElement | null>(null);
-    // A collapsed sidebar works as a narrow vertical rail on wide windows, but
-    // in the stacked mobile layout it would hide every tag label and leave only
-    // a column of color dots. Keep the preference for wide layouts while always
-    // presenting the full tag list when the sidebar sits above the editor.
-    const isSidebarCollapsed = isCollapsed && !isStacked;
+    const [sidebarWidth, setSidebarWidth] = useState(TAG_SIDEBAR_DEFAULT);
+    const [isSplit, setIsSplit] = useState(false);
+    const [isResizing, setIsResizing] = useState(false);
+    const pageRef = useRef<HTMLDivElement | null>(null);
+    const sidebarWidthRef = useRef(TAG_SIDEBAR_DEFAULT);
 
     const selectedTagRef = useRef<string | null>(null);
     useEffect(() => { selectedTagRef.current = selectedTag; }, [selectedTag]);
-
-    useEffect(() => {
-        sidebarSizeRef.current = {
-            width: isCollapsed ? 48 : sidebarWidth,
-            height: sidebarHeight,
-        };
-    }, [sidebarWidth, sidebarHeight, isCollapsed]);
-
-    const persistSidebarSize = useCallback(() => {
-        const { width, height } = sidebarSizeRef.current;
-        invoke('save_setting', {
-            key: 'app.tag_manager_size',
-            value: JSON.stringify({ width, height }),
-        }).catch(console.error);
-    }, []);
-
-    useEffect(() => {
-        invoke<Record<string, string>>('get_settings')
-            .then((settings) => {
-                const raw = settings['app.tag_manager_size'];
-                if (!raw) return;
-                const parsed = JSON.parse(raw) as { width?: number; height?: number };
-                if (typeof parsed.width === 'number' && parsed.width >= 48) {
-                    setSidebarWidth(parsed.width);
-                    if (parsed.width < 110) {
-                        setIsCollapsed(true);
-                    }
-                }
-                if (typeof parsed.height === 'number' && parsed.height >= 120) {
-                    setSidebarHeight(parsed.height);
-                }
-            })
-            .catch(console.error);
-    }, []);
+    useEffect(() => { sidebarWidthRef.current = sidebarWidth; }, [sidebarWidth]);
 
     useEffect(() => {
         try {
@@ -109,6 +73,73 @@ export default function TagManager({ t, theme }: TagManagerProps) {
             // Ignore storage write failures and keep UI functional.
         }
     }, [viewMode]);
+
+    useEffect(() => {
+        const el = pageRef.current;
+        if (!el) return;
+
+        const updateSplit = () => {
+            setIsSplit(el.clientWidth >= TAG_MANAGER_SPLIT_MIN_WIDTH);
+        };
+
+        updateSplit();
+        const observer = new ResizeObserver(updateSplit);
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, []);
+
+    useEffect(() => {
+        invoke<Record<string, string>>("get_settings")
+            .then((settings) => {
+                const raw = settings["app.tag_manager_size"];
+                if (!raw) return;
+                const parsed = JSON.parse(raw) as { width?: number };
+                if (typeof parsed.width === "number" && parsed.width >= TAG_SIDEBAR_MIN) {
+                    setSidebarWidth(Math.min(parsed.width, TAG_SIDEBAR_MAX));
+                }
+            })
+            .catch(console.error);
+    }, []);
+
+    const persistSidebarWidth = useCallback(() => {
+        invoke("save_setting", {
+            key: "app.tag_manager_size",
+            value: JSON.stringify({ width: sidebarWidthRef.current, height: 0 }),
+        }).catch(console.error);
+    }, []);
+
+    useEffect(() => {
+        if (!isResizing) return;
+
+        const handleMouseMove = (event: MouseEvent) => {
+            const bounds = pageRef.current?.getBoundingClientRect();
+            if (!bounds) return;
+            const nextWidth = Math.min(
+                Math.max(event.clientX - bounds.left, TAG_SIDEBAR_MIN),
+                TAG_SIDEBAR_MAX
+            );
+            setSidebarWidth(nextWidth);
+        };
+
+        const handleMouseUp = () => {
+            setIsResizing(false);
+            document.body.style.cursor = "";
+            document.body.style.userSelect = "";
+            persistSidebarWidth();
+        };
+
+        document.body.style.cursor = "col-resize";
+        document.body.style.userSelect = "none";
+        window.addEventListener("mousemove", handleMouseMove);
+        window.addEventListener("mouseup", handleMouseUp);
+
+        return () => {
+            window.removeEventListener("mousemove", handleMouseMove);
+            window.removeEventListener("mouseup", handleMouseUp);
+            document.body.style.cursor = "";
+            document.body.style.userSelect = "";
+        };
+    }, [isResizing, persistSidebarWidth]);
 
     useEffect(() => {
         let unlisteners: (() => void)[] = [];
@@ -128,64 +159,6 @@ export default function TagManager({ t, theme }: TagManagerProps) {
     }, [isDeleting]);
 
     useEffect(() => { fetchTags(); }, []);
-
-    useEffect(() => {
-        const mediaQuery = window.matchMedia("(max-width: 340px)");
-        const updateLayoutMode = () => {
-            setIsStacked(mediaQuery.matches);
-        };
-
-        updateLayoutMode();
-        mediaQuery.addEventListener("change", updateLayoutMode);
-
-        return () => mediaQuery.removeEventListener("change", updateLayoutMode);
-    }, []);
-
-    useEffect(() => {
-        if (!isResizing) return;
-
-        const handleMouseMove = (event: MouseEvent) => {
-            const bounds = containerRef.current?.getBoundingClientRect();
-            if (!bounds) return;
-            if (isStacked) {
-                const maxHeight = Math.max(140, bounds.height - 180);
-                const nextHeight = Math.min(Math.max(event.clientY - bounds.top, 120), maxHeight);
-                setSidebarHeight(nextHeight);
-                return;
-            }
-
-            const dragPos = event.clientX - bounds.left;
-            
-            // Auto collapse threshold: 110px
-            if (dragPos < 110) {
-                if (!isCollapsed) setIsCollapsed(true);
-                setSidebarWidth(48);
-            } else {
-                if (isCollapsed) setIsCollapsed(false);
-                const nextWidth = Math.min(dragPos, 320);
-                setSidebarWidth(nextWidth);
-            }
-        };
-
-        const handleMouseUp = () => {
-            setIsResizing(false);
-            document.body.style.cursor = "";
-            document.body.style.userSelect = "";
-            persistSidebarSize();
-        };
-
-        document.body.style.cursor = isStacked ? "row-resize" : "col-resize";
-        document.body.style.userSelect = "none";
-        window.addEventListener("mousemove", handleMouseMove);
-        window.addEventListener("mouseup", handleMouseUp);
-
-        return () => {
-            window.removeEventListener("mousemove", handleMouseMove);
-            window.removeEventListener("mouseup", handleMouseUp);
-            document.body.style.cursor = "";
-            document.body.style.userSelect = "";
-        };
-    }, [isResizing, isStacked, isCollapsed, persistSidebarSize]);
 
     const fetchTags = async () => {
         try {
@@ -388,202 +361,153 @@ export default function TagManager({ t, theme }: TagManagerProps) {
         editingItem !== null;
 
     return (
-        <div className="tag-manager-page">
-            <section
-                ref={containerRef}
-                className={`advanced-workbench tag-manager-workbench theme-${theme} ${isSidebarCollapsed ? "sidebar-collapsed" : ""} ${isStacked ? "stacked-layout" : ""}${isModalOpen ? " tag-manager-modal-open" : ""}`}
-                style={{
-                    ["--advanced-sidebar-width" as string]: isSidebarCollapsed ? "48px" : `${sidebarWidth}px`,
-                    ["--advanced-sidebar-height" as string]: `${sidebarHeight}px`
-                }}
+        <div ref={pageRef} className={`tag-manager-page theme-${theme}`}>
+            <div
+                className={`tag-manager-body${isSplit ? " is-split" : ""}${isModalOpen ? " tag-manager-modal-open" : ""}`}
+                style={isSplit ? { ["--tag-sidebar-width" as string]: `${sidebarWidth}px` } : undefined}
             >
-                <aside className="advanced-sidebar tag-manager-sidebar">
-                    {!isSidebarCollapsed ? (
-                        <div className="advanced-sidebar-search tag-manager-sidebar-search">
-                            <div className="tag-manager-search-row">
-                                <input
-                                    className="search-input advanced-search-input"
-                                    placeholder={t("find_or_create")}
-                                    value={tagSearch}
-                                    onChange={(e) => setTagSearch(e.target.value)}
-                                    onKeyDown={async (e) => {
-                                        if (e.key === "Enter" && tagSearch.trim()) {
-                                            const exactMatch = tags.find((tag) => tag.name.toLowerCase() === normalizedTagSearch);
-                                            if (exactMatch) {
-                                                loadTagItems(exactMatch.name);
-                                            } else {
-                                                await createTag(tagSearch);
-                                            }
+                <div className="tag-manager-filter">
+                    <input
+                        className="search-input tag-manager-filter-search"
+                        placeholder={t("find_or_create")}
+                        value={tagSearch}
+                        onChange={(e) => setTagSearch(e.target.value)}
+                        onKeyDown={async (e) => {
+                            if (e.key === "Enter" && tagSearch.trim()) {
+                                const exactMatch = tags.find((tag) => tag.name.toLowerCase() === normalizedTagSearch);
+                                if (exactMatch) {
+                                    loadTagItems(exactMatch.name);
+                                } else {
+                                    await createTag(tagSearch);
+                                }
+                            }
+                        }}
+                    />
+                    <div className="tag-manager-chip-row custom-scrollbar">
+                        {filteredTags.map((tag) => {
+                            const isSelected = selectedTag === tag.name;
+                            const canEditTag = tag.name !== "sensitive" && tag.name !== "密码";
+                            return (
+                                <div
+                                    key={tag.name}
+                                    role="button"
+                                    tabIndex={0}
+                                    className={`tag-manager-chip${isSelected ? " active" : ""}`}
+                                    onClick={() => loadTagItems(tag.name)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter" || e.key === " ") {
+                                            e.preventDefault();
+                                            loadTagItems(tag.name);
                                         }
                                     }}
-                                />
-                                <button
-                                    type="button"
-                                    className="tag-manager-collapse-btn"
-                                    title={t("collapse") || "收起"}
-                                    onClick={() => setIsCollapsed(true)}
+                                    title={`${tag.name} · ${tag.count}`}
                                 >
-                                    <ChevronLeft size={14} />
-                                </button>
-                            </div>
-                            {canCreateTag && tagSearch.trim() && (
-                                <div className="advanced-search-results">
-                                    <button
-                                        type="button"
-                                        className="advanced-search-result-item"
-                                        onClick={() => createTag(tagSearch)}
-                                    >
-                                        <span className="advanced-search-result-name">
-                                            {t("create_tag_hint").replace("{tag}", tagSearch.trim())}
-                                        </span>
-                                        <span className="advanced-search-result-action">{t("create_btn")}</span>
-                                    </button>
+                                    <div className="tag-color-wrapper">
+                                        <button
+                                            type="button"
+                                            className="tag-color-dot"
+                                            style={{ background: tagColors[tag.name] || getTagColor(tag.name, theme) }}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                document.getElementById(`color-picker-${tag.name}`)?.click();
+                                            }}
+                                            aria-label={`${tag.name}: ${t("color_mode")}`}
+                                            title={`${tag.name}: ${t("color_mode")}`}
+                                        />
+                                        <input
+                                            type="color"
+                                            id={`color-picker-${tag.name}`}
+                                            style={{ display: "none" }}
+                                            value={tagColors[tag.name] || "#888888"}
+                                            onClick={(e) => e.stopPropagation()}
+                                            onChange={async (e) => {
+                                                const newColor = e.target.value;
+                                                setTagColors((prev) => ({ ...prev, [tag.name]: newColor }));
+                                                await invoke("set_tag_color", { name: tag.name, color: newColor });
+                                                await emit("tag-colors-updated");
+                                            }}
+                                        />
+                                    </div>
+                                    {editingTag === tag.name ? (
+                                        <input
+                                            className="inline-tag-edit"
+                                            value={newTagName}
+                                            onChange={(e) => setNewTagName(e.target.value)}
+                                            autoFocus
+                                            onKeyDown={async (e) => {
+                                                if (e.key === "Enter") {
+                                                    await handleRenameTag(tag.name);
+                                                } else if (e.key === "Escape") {
+                                                    setEditingTag(null);
+                                                }
+                                            }}
+                                            onBlur={() => setEditingTag(null)}
+                                            onClick={(e) => e.stopPropagation()}
+                                        />
+                                    ) : (
+                                        <>
+                                            <span className="tag-manager-chip-name">{tag.name}</span>
+                                            <span className="tag-manager-chip-count">{tag.count}</span>
+                                            {isSelected && canEditTag && (
+                                                <span className="tag-target-actions">
+                                                    <button
+                                                        type="button"
+                                                        className="tag-target-action-btn"
+                                                        title={t("rename")}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setEditingTag(tag.name);
+                                                            setNewTagName(tag.name);
+                                                        }}
+                                                    >
+                                                        <Edit2 size={11} />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className="tag-target-action-btn danger"
+                                                        title={t("delete")}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            e.preventDefault();
+                                                            setDeleteConfirmation({ show: true, tagName: tag.name });
+                                                        }}
+                                                    >
+                                                        <Trash2 size={11} />
+                                                    </button>
+                                                </span>
+                                            )}
+                                        </>
+                                    )}
                                 </div>
-                            )}
-                        </div>
-                    ) : (
-                        <div className="tag-manager-collapsed-bar">
+                            );
+                        })}
+                        {canCreateTag && (
                             <button
                                 type="button"
-                                className="tag-manager-collapse-btn"
-                                title={t("open") || "展开"}
-                                onClick={() => {
-                                    setIsCollapsed(false);
-                                    if (sidebarWidth < 110) {
-                                        setSidebarWidth(168);
-                                    }
-                                }}
-                            >
-                                <ChevronRight size={14} />
-                            </button>
-                        </div>
-                    )}
-
-                    <div className="advanced-target-list tag-manager-target-list custom-scrollbar">
-                        {filteredTags.map((tag) => (
-                            <div
-                                key={tag.name}
-                                role="button"
-                                tabIndex={0}
-                                className={`advanced-target-item tag-manager-target-item ${selectedTag === tag.name ? "active" : ""}`}
-                                onClick={() => loadTagItems(tag.name)}
-                                onKeyDown={(e) => {
-                                    if (e.key === "Enter" || e.key === " ") {
-                                        e.preventDefault();
-                                        loadTagItems(tag.name);
-                                    }
-                                }}
-                                title={tag.name}
-                            >
-                                <div className="tag-color-wrapper">
-                                    <button
-                                        type="button"
-                                        className="tag-color-dot"
-                                        style={{ background: tagColors[tag.name] || getTagColor(tag.name, theme) }}
-                                        onClick={() => document.getElementById(`color-picker-${tag.name}`)?.click()}
-                                        aria-label={`${tag.name}: ${t("color_mode")}`}
-                                        title={`${tag.name}: ${t("color_mode")}`}
-                                    />
-                                    <input
-                                        type="color"
-                                        id={`color-picker-${tag.name}`}
-                                        style={{ display: "none" }}
-                                        value={tagColors[tag.name] || "#888888"}
-                                        onClick={(e) => e.stopPropagation()}
-                                        onChange={async (e) => {
-                                            const newColor = e.target.value;
-                                            setTagColors((prev) => ({ ...prev, [tag.name]: newColor }));
-                                            await invoke("set_tag_color", { name: tag.name, color: newColor });
-                                            await emit("tag-colors-updated");
-                                        }}
-                                    />
-                                </div>
-                                {editingTag === tag.name ? (
-                                    <input
-                                        className="inline-tag-edit"
-                                        value={newTagName}
-                                        onChange={(e) => setNewTagName(e.target.value)}
-                                        autoFocus
-                                        onKeyDown={async (e) => {
-                                            if (e.key === "Enter") {
-                                                await handleRenameTag(tag.name);
-                                            } else if (e.key === "Escape") {
-                                                setEditingTag(null);
-                                            }
-                                        }}
-                                        onBlur={() => setEditingTag(null)}
-                                        onClick={(e) => e.stopPropagation()}
-                                    />
-                                ) : (
-                                    <>
-                                        <span className="advanced-target-meta">
-                                            <span className="advanced-target-name">{tag.name}</span>
-                                            <span className="advanced-target-sub">
-                                                {tag.count} {t("tag_count")}
-                                            </span>
-                                        </span>
-                                        {(tag.name !== "sensitive" && tag.name !== "密码") && (
-                                            <span className="tag-target-actions">
-                                                <button
-                                                    type="button"
-                                                    className="tag-target-action-btn"
-                                                    title={t("rename")}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setEditingTag(tag.name);
-                                                        setNewTagName(tag.name);
-                                                    }}
-                                                >
-                                                    <Edit2 size={12} />
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    className="tag-target-action-btn danger"
-                                                    title={t("delete")}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        e.preventDefault();
-                                                        setDeleteConfirmation({ show: true, tagName: tag.name });
-                                                    }}
-                                                >
-                                                    <Trash2 size={12} />
-                                                </button>
-                                            </span>
-                                        )}
-                                    </>
-                                )}
-                            </div>
-                        ))}
-                        {filteredTags.length === 0 && !tagSearch.trim() && (
-                            <div className="tag-manager-sidebar-status">{t("no_tags")}</div>
-                        )}
-                        {!isSidebarCollapsed && canCreateTag && filteredTags.length === 0 && (
-                            <button
-                                type="button"
-                                className="advanced-target-item tag-manager-target-item create-hint"
+                                className="tag-manager-chip is-create"
                                 onClick={() => createTag(tagSearch)}
                             >
-                                <div className="tag-color-dot" style={{ border: "1px dashed currentColor", background: "transparent" }} />
-                                <span className="advanced-target-meta">
-                                    <span className="advanced-target-name">
-                                        {t("create_tag_hint").replace("{tag}", tagSearch.trim())}
-                                    </span>
-                                </span>
                                 <Plus size={12} />
+                                <span className="tag-manager-chip-name">
+                                    {t("create_tag_hint").replace("{tag}", tagSearch.trim())}
+                                </span>
                             </button>
                         )}
+                        {filteredTags.length === 0 && !tagSearch.trim() && (
+                            <span className="tag-manager-chip-empty">{t("no_tags")}</span>
+                        )}
                     </div>
-                </aside>
+                </div>
 
-                {!isSidebarCollapsed && (
+                {isSplit && (
                     <div
-                        className={`advanced-divider ${isResizing ? "active" : ""}`}
+                        className={`tag-manager-divider${isResizing ? " active" : ""}`}
                         onMouseDown={(e) => {
                             e.preventDefault();
                             setIsResizing(true);
                         }}
                     >
-                        <span className="advanced-divider-handle" />
+                        <span className="tag-manager-divider-handle" />
                     </div>
                 )}
 
@@ -591,12 +515,9 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                     <div className="advanced-editor-toolbar">
                         <div className="advanced-editor-heading">
                             <div className="advanced-editor-title">
-                                {selectedTag ? `#${selectedTag}` : t("tags")}
-                            </div>
-                            <div className="advanced-editor-subtitle">
                                 {selectedTag
-                                    ? `${sortedItems.length} ${t("tag_count")}`
-                                    : t("select_tag_to_begin")}
+                                    ? `#${selectedTag} · ${sortedItems.length}`
+                                    : t("tags")}
                             </div>
                         </div>
 
@@ -908,7 +829,7 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                         </button>
                     )}
                 </div>
-            </section>
+            </div>
 
             <AppModal
                 open={deleteConfirmation.show}

@@ -201,7 +201,17 @@ const AppHeader = ({
               <ChevronLeft size={16} />
             </button>
           )}
-          {!isMac && <span className="header-title windows-header-title">{headerTitle}</span>}
+          {!isMac && (
+            showSettings || showTagManager || showEmojiPanel ? (
+              <span className="header-title windows-header-title is-page-title">{headerTitle}</span>
+            ) : (
+              <span
+                className="windows-brand-mark"
+                role="img"
+                aria-label={t("app_name")}
+              />
+            )
+          )}
         </div>
 
         <div className="header-drag-region">

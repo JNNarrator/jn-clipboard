@@ -7,7 +7,8 @@
 .history-list-container,
 .virtuoso-grid,
 .scrollable-panel,
-.settings-content-body {
+.settings-content-body,
+.settings-view {
   scrollbar-gutter: stable;
 }
 

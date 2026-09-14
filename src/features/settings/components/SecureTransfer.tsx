@@ -1,36 +1,121 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { withNativeDialog } from "../../../shared/lib/focus";
 
-export default function SecureTransfer() {
+interface SecureTransferProps {
+  t: (key: string) => string;
+}
+
+export default function SecureTransfer({ t }: SecureTransferProps) {
+  const [collapsed, setCollapsed] = useState(true);
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [acknowledged, setAcknowledged] = useState(false);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
+
   const run = async (importing: boolean) => {
     setStatus("");
-    if (new TextEncoder().encode(password).length < 12) { setStatus("迁移密码至少需要 12 字节，请使用较长的密码。"); return; }
-    if (!importing && password !== confirmation) { setStatus("两次密码不一致。"); return; }
-    if (importing && !acknowledged) { setStatus("请先确认目标设备的存储方式。"); return; }
+    if (new TextEncoder().encode(password).length < 12) {
+      setStatus(t("secure_transfer_password_short"));
+      return;
+    }
+    if (!importing && password !== confirmation) {
+      setStatus(t("secure_transfer_password_mismatch"));
+      return;
+    }
+    if (importing && !acknowledged) {
+      setStatus(t("secure_transfer_ack_required"));
+      return;
+    }
     setBusy(true);
     try {
-      const filters = [{ name: "TieZ 加密迁移包", extensions: ["tiezx"] }];
-      const path = await withNativeDialog(() => importing ? open({ filters, multiple: false }) : save({ filters, defaultPath: "TieZ.tiezx" }), "settings:secure-transfer");
+      const filters = [{ name: t("secure_transfer_file_filter"), extensions: ["tiezx"] }];
+      const path = await withNativeDialog(
+        () => importing ? open({ filters, multiple: false }) : save({ filters, defaultPath: "TieZ.tiezx" }),
+        "settings:secure-transfer"
+      );
       if (!path || typeof path !== "string") return;
-      const result = await invoke<{ transferred: number; excluded: number }>(importing ? "import_secure_transfer" : "export_secure_transfer", { path, password, acknowledgePlaintext: acknowledged });
-      setStatus(`${importing ? "导入" : "导出"}成功：${result.transferred} 条，未包含 ${result.excluded} 条非文本记录。${importing ? "重新打开客户端以刷新列表。" : "请妥善保管密码，遗失后无法恢复迁移包。"}`);
-    } catch (error) { setStatus(String(error)); }
-    finally { setBusy(false); setPassword(""); setConfirmation(""); }
+      const result = await invoke<{ transferred: number; excluded: number }>(
+        importing ? "import_secure_transfer" : "export_secure_transfer",
+        { path, password, acknowledgePlaintext: acknowledged }
+      );
+      setStatus(
+        t(importing ? "secure_transfer_success_import" : "secure_transfer_success_export")
+          .replace("{n}", String(result.transferred))
+          .replace("{x}", String(result.excluded))
+      );
+    } catch (error) {
+      setStatus(String(error));
+    } finally {
+      setBusy(false);
+      setPassword("");
+      setConfirmation("");
+    }
   };
-  return <details className="settings-group" style={{ padding: 16 }}>
-    <summary>密码保护的文本迁移</summary>
-    <p>用于跨设备或安装版／便携版之间迁移文字记录。包含文本、代码、链接和富文本；不包含设置、图片、文件及富文本引用的本地附件。原设备数据保留。</p>
-    <label>迁移密码<input type="password" autoComplete="off" value={password} disabled={busy} onChange={e => setPassword(e.target.value)} /></label>
-    <label>导出时再次确认密码<input type="password" autoComplete="off" value={confirmation} disabled={busy} onChange={e => setConfirmation(e.target.value)} /></label>
-    <label><input type="checkbox" checked={acknowledged} disabled={busy} onChange={e => setAcknowledged(e.target.checked)} />我已了解：便携版导入后以明文保存；安装版仅对标记为敏感的记录加密。</label>
-    <div><button type="button" disabled={busy} onClick={() => void run(false)}>导出加密包</button> <button type="button" disabled={busy} onClick={() => void run(true)}>导入加密包</button></div>
-    <p role="status">{busy ? "正在处理，请稍候……" : status}</p>
-  </details>;
+
+  return (
+    <div className={`settings-group ${collapsed ? "collapsed" : ""}`}>
+      <button
+        type="button"
+        className="group-header"
+        aria-expanded={!collapsed}
+        onClick={() => setCollapsed((value) => !value)}
+      >
+        <h3 style={{ margin: 0 }}>{t("secure_transfer")}</h3>
+        {collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+      </button>
+      {!collapsed && (
+        <div className="group-content">
+          <p className="hint" style={{ margin: "0 0 8px" }}>{t("secure_transfer_desc")}</p>
+          <div className="setting-item column">
+            <span className="item-label">{t("secure_transfer_password")}</span>
+            <input
+              className="search-input"
+              type="password"
+              autoComplete="off"
+              value={password}
+              disabled={busy}
+              onChange={(event) => setPassword(event.target.value)}
+            />
+          </div>
+          <div className="setting-item column">
+            <span className="item-label">{t("secure_transfer_password_confirm")}</span>
+            <input
+              className="search-input"
+              type="password"
+              autoComplete="off"
+              value={confirmation}
+              disabled={busy}
+              onChange={(event) => setConfirmation(event.target.value)}
+            />
+          </div>
+          <label className="setting-item" style={{ gap: 8, cursor: busy ? "default" : "pointer" }}>
+            <input
+              type="checkbox"
+              checked={acknowledged}
+              disabled={busy}
+              onChange={(event) => setAcknowledged(event.target.checked)}
+            />
+            <span className="hint" style={{ whiteSpace: "normal" }}>{t("secure_transfer_ack")}</span>
+          </label>
+          <div className="setting-item no-border" style={{ gap: 8, justifyContent: "flex-start" }}>
+            <button type="button" className="settings-action-button" disabled={busy} onClick={() => void run(false)}>
+              {t("secure_transfer_export")}
+            </button>
+            <button type="button" className="settings-action-button" disabled={busy} onClick={() => void run(true)}>
+              {t("secure_transfer_import")}
+            </button>
+          </div>
+          {(busy || status) && (
+            <p className="hint" role="status" style={{ margin: "4px 0 0", whiteSpace: "normal" }}>
+              {busy ? t("secure_transfer_busy") : status}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }

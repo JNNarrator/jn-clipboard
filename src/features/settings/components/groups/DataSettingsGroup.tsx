@@ -412,7 +412,7 @@ const DataSettingsGroup = ({
 
     return (
         <>
-            <SecureTransfer />
+            <SecureTransfer t={t} />
             <div className={`settings-group ${collapsed ? "collapsed" : ""}`}>
                 <button type="button" className="group-header" aria-expanded={!collapsed} onClick={onToggle}>
                     <h3 style={{ margin: 0 }}>{t("data_management")}</h3>

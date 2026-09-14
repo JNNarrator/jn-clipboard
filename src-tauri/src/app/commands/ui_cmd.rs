@@ -72,7 +72,15 @@ pub fn get_platform_info() -> PlatformInfo {
 
 #[tauri::command]
 pub fn configure_compact_preview_window(app: AppHandle) -> bool {
-    crate::infrastructure::macos_api::window::configure_compact_preview_window(&app)
+    #[cfg(target_os = "macos")]
+    {
+        crate::infrastructure::macos_api::window::configure_compact_preview_window(&app)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = app;
+        true
+    }
 }
 
 #[tauri::command]
@@ -150,38 +158,42 @@ pub fn set_theme(
             Some("dark") => true,
             _ => window.theme().unwrap_or(Theme::Dark) == Theme::Dark,
         };
+        let apply_dwm_frame = |hwnd: HWND| {
+            unsafe {
+                let dark_mode = BOOL::from(is_dark);
+                let _ = DwmSetWindowAttribute(
+                    hwnd,
+                    DWMWA_USE_IMMERSIVE_DARK_MODE,
+                    &dark_mode as *const _ as _,
+                    std::mem::size_of::<BOOL>() as u32,
+                );
 
-        unsafe {
-            let dark_mode = BOOL::from(is_dark);
-            let _ = DwmSetWindowAttribute(
-                hwnd,
-                DWMWA_USE_IMMERSIVE_DARK_MODE,
-                &dark_mode as *const _ as _,
-                std::mem::size_of::<BOOL>() as u32,
-            );
+                // Theme CSS already draws --shell-border on #root. A Win11 DWM
+                // border follows the HWND shape instead, so it sits on a
+                // different radius than the theme corners.
+                const DWMWA_COLOR_NONE: u32 = 0xFFFF_FFFE;
+                let border_color = DWMWA_COLOR_NONE;
+                let _ = DwmSetWindowAttribute(
+                    hwnd,
+                    DWMWA_BORDER_COLOR,
+                    &border_color as *const _ as _,
+                    std::mem::size_of::<u32>() as u32,
+                );
 
-            const DWMWA_COLOR_DEFAULT: u32 = 0xFFFF_FFFF;
-            const DWMWA_COLOR_NONE: u32 = 0xFFFF_FFFE;
-            let border_color = if show_border {
-                DWMWA_COLOR_DEFAULT
-            } else {
-                DWMWA_COLOR_NONE
-            };
-            let _ = DwmSetWindowAttribute(
-                hwnd,
-                DWMWA_BORDER_COLOR,
-                &border_color as *const _ as _,
-                std::mem::size_of::<u32>() as u32,
-            );
+                // Clip the whole HWND — including the square WebView
+                // background — to Windows 11's system corner. CSS fills the
+                // client rectangle (--shell-radius: 0) so those corners are covered.
+                let corner = DWM_WINDOW_CORNER_PREFERENCE(DWMWCP_ROUND.0);
+                let _ = DwmSetWindowAttribute(
+                    hwnd,
+                    DWMWA_WINDOW_CORNER_PREFERENCE,
+                    &corner as *const _ as _,
+                    std::mem::size_of::<DWM_WINDOW_CORNER_PREFERENCE>() as u32,
+                );
+            }
+        };
 
-            let corner = DWM_WINDOW_CORNER_PREFERENCE(DWMWCP_ROUND.0);
-            let _ = DwmSetWindowAttribute(
-                hwnd,
-                DWMWA_WINDOW_CORNER_PREFERENCE,
-                &corner as *const _ as _,
-                std::mem::size_of::<DWM_WINDOW_CORNER_PREFERENCE>() as u32,
-            );
-        }
+        apply_dwm_frame(hwnd);
 
         let build = windows_version::OsVersion::current().build;
         let is_windows_11 = build >= 22000;
@@ -205,6 +217,8 @@ pub fn set_theme(
                 let _ = window.set_shadow(show_border && is_windows_11);
             }
         }
+
+        apply_dwm_frame(hwnd);
     }
 
     #[cfg(target_os = "macos")]

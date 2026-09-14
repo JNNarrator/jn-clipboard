@@ -87,16 +87,6 @@ export const THEMES: ThemeDefinition[] = [
       en: "Ink Wash",
       tw: "水墨"
     }
-  },
-  {
-    id: "minecraft",
-    labels: {
-      zh: "我的世界",
-      en: "Minecraft",
-      tw: "我的世界"
-    },
-    supportsCustomBackground: true,
-    supportsSurfaceOpacity: true
   }
 ];
 

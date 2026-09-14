@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import "./index.css";
 import "./styles/components/index.css";
 import "./styles/themes/load";
+import "./styles/platform-windows.css";
 
 const params = new URLSearchParams(window.location.search);
 const isCompactPreview = params.get("window") === "compact-preview";

@@ -1427,6 +1427,7 @@ pub fn send_paste_keystroke(method: &str, content: Option<&str>, content_type: O
                     },
                 },
             ];
+            SendInput(&inputs_up, std::mem::size_of::<INPUT>() as i32);
         } else if effective_method == "ctrl_shift_v" {
             let v_scan = MapVirtualKeyW(VK_V.0 as u32, MAPVK_VK_TO_VSC) as u16;
             let ctrl_scan = MapVirtualKeyW(VK_CONTROL.0 as u32, MAPVK_VK_TO_VSC) as u16;
