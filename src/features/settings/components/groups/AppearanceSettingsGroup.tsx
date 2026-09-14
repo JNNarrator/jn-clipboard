@@ -5,8 +5,10 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { withNativeDialog } from "../../../../shared/lib/focus";
 import { ChevronDown, ChevronRight, X } from "lucide-react";
 import {
-    THEMES,
+    getDefaultTheme,
+    getSelectableThemes,
     getThemeLabel,
+    normalizeThemeId,
     supportsCustomBackground,
     supportsSurfaceOpacity
 } from "../../../../shared/config/themes";
@@ -176,8 +178,9 @@ const AppearanceSettingsGroup = ({
             removeInstalledThemeStyle(item.id);
             setInstalledThemes(current => current.filter(themeItem => themeItem.id !== item.id));
             if (theme === item.id) {
-                setTheme('mica');
-                saveAppSetting('theme', 'mica');
+                const fallbackTheme = getDefaultTheme();
+                setTheme(fallbackTheme);
+                saveAppSetting('theme', fallbackTheme);
             }
         } catch (error) {
             console.error("Failed to uninstall theme package:", error);
@@ -201,14 +204,14 @@ const AppearanceSettingsGroup = ({
                         <span className="item-label">{t('visual_theme')}</span>
                     </div>
                     <div className="settings-choice-grid theme-choice-grid">
-                        {THEMES.map(themeItem => (
+                        {getSelectableThemes().map(themeItem => (
                             <button
                                 key={themeItem.id}
                                 onClick={() => {
                                     setTheme(themeItem.id);
                                     saveAppSetting('theme', themeItem.id);
                                 }}
-                                className={`btn-icon theme-choice-btn ${theme === themeItem.id ? 'active' : ''}`}
+                                className={`btn-icon theme-choice-btn ${normalizeThemeId(theme) === themeItem.id ? 'active' : ''}`}
                                 type="button"
                             >
                                 <span className="theme-choice-title">

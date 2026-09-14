@@ -17,6 +17,7 @@ fn apply_macos_window_material(window: &WebviewWindow, theme: &str) {
     let material = match theme {
         "mica" => Some(NSVisualEffectMaterial::Sidebar),
         "acrylic" => Some(NSVisualEffectMaterial::HudWindow),
+        "macos" => Some(NSVisualEffectMaterial::Popover),
         _ => None,
     };
 

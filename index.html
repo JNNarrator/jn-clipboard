@@ -9,9 +9,14 @@
       // Immediate theme application to prevent flash
       (function() {
         try {
-          var theme = localStorage.getItem('tiez_theme') || 'mica';
+          var isMac = /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent) || /Mac/i.test(navigator.platform);
+          var theme = localStorage.getItem('tiez_theme') || (isMac ? 'macos' : 'mica');
+          if (!isMac && theme === 'macos') theme = 'mica';
+          if (isMac && theme === 'mica') theme = 'macos';
           var colorMode = localStorage.getItem('tiez_color_mode') || 'system';
           var compactMode = localStorage.getItem('tiez_compact_mode') === 'true';
+
+          document.documentElement.classList.add(isMac ? 'platform-macos' : 'platform-windows');
           
           if (window.location.search.indexOf('window=pin-sticker') !== -1) {
             document.documentElement.classList.add('window-pin-sticker', 'pin-sticker');

@@ -4,6 +4,8 @@ html.window-pin-sticker,
 html.pin-sticker,
 body.window-pin-sticker,
 body.pin-sticker,
+html.window-pin-sticker body #root,
+html.pin-sticker body #root,
 body.window-pin-sticker #root,
 body.pin-sticker #root,
 :root.window-pin-sticker #root,
@@ -12,6 +14,7 @@ body.pin-sticker #root,
   padding: 0 !important;
   background: transparent !important;
   background-color: transparent !important;
+  background-image: none !important;
   box-shadow: none !important;
   border: none !important;
   border-radius: 0 !important;
@@ -27,11 +30,35 @@ body.pin-sticker #root {
   display: block !important;
 }
 
+html.window-pin-sticker::before,
+html.window-pin-sticker::after,
+html.pin-sticker::before,
+html.pin-sticker::after,
+html.window-pin-sticker body::before,
+html.window-pin-sticker body::after,
+html.pin-sticker body::before,
+html.pin-sticker body::after,
+html.window-pin-sticker body #root::before,
+html.window-pin-sticker body #root::after,
+html.pin-sticker body #root::before,
+html.pin-sticker body #root::after,
+body.window-pin-sticker::before,
+body.window-pin-sticker::after,
+body.pin-sticker::before,
+body.pin-sticker::after,
 body.window-pin-sticker #root::before,
-body.pin-sticker #root::before {
+body.window-pin-sticker #root::after,
+body.pin-sticker #root::before,
+body.pin-sticker #root::after {
   content: none !important;
   display: none !important;
+  visibility: hidden !important;
   background: none !important;
+  box-shadow: none !important;
+  border: none !important;
+  opacity: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 
 .pin-sticker-root {

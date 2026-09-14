@@ -74,6 +74,7 @@ pub fn apply_window_vibrancy(app: &AppHandle, window: &WebviewWindow) {
         let material = match theme.as_str() {
             "mica" => Some(NSVisualEffectMaterial::Sidebar),
             "acrylic" => Some(NSVisualEffectMaterial::HudWindow),
+            "macos" => Some(NSVisualEffectMaterial::Popover),
             _ => None,
         };
 

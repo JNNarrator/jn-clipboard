@@ -157,13 +157,13 @@ fn file_transfer_theme_variants(theme: &str) -> (&'static str, &'static str, &'s
             --border-dark: rgba(128, 128, 128, 0.18);
             --text-primary: #1a2435;
             --text-secondary: #607188;
-            --accent-color: #4f7dff;
+            --accent-color: #0078d4;
             --shadow-color: rgba(15, 23, 42, 0.1);
             --font-mono: system-ui, -apple-system, sans-serif;
-            --radius: 12px;
+            --radius: 8px;
             --bubble-received-bg: rgba(255, 255, 255, 0.9);
             --panel-border: 1px solid rgba(255, 255, 255, 0.3);
-            --send-button-background: #4f7dff;
+            --send-button-background: #0078d4;
             --send-button-color: #ffffff;
             "#,
             r#"
@@ -174,10 +174,10 @@ fn file_transfer_theme_variants(theme: &str) -> (&'static str, &'static str, &'s
             --bg-button: rgba(255, 255, 255, 0.05);
             --text-primary: #e8e8e8;
             --text-secondary: #a8a8a8;
-            --accent-color: #4f7dff;
+            --accent-color: #0078d4;
             --border-dark: rgba(255, 255, 255, 0.08);
             --bubble-received-bg: rgba(40, 40, 40, 0.9);
-            --send-button-background: #4f7dff;
+            --send-button-background: #0078d4;
             --send-button-color: #ffffff;
             "#,
             r#"
@@ -193,7 +193,55 @@ fn file_transfer_theme_variants(theme: &str) -> (&'static str, &'static str, &'s
                 background: var(--send-button-background);
                 color: var(--send-button-color);
                 border: none;
-                box-shadow: 0 4px 12px rgba(79, 125, 255, 0.3);
+                box-shadow: 0 4px 12px rgba(0, 120, 212, 0.3);
+            }}
+            "#,
+        ),
+        "macos" => (
+            r#"
+            --bg-body: #f5f5f7;
+            --bg-panel: rgba(255, 255, 255, 0.55);
+            --bg-input: rgba(255, 255, 255, 0.72);
+            --bg-button: rgba(255, 255, 255, 0.42);
+            --border-dark: rgba(0, 0, 0, 0.1);
+            --text-primary: #1d1d1f;
+            --text-secondary: #6e6e73;
+            --accent-color: #007aff;
+            --shadow-color: rgba(0, 0, 0, 0.08);
+            --font-mono: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", sans-serif;
+            --radius: 10px;
+            --bubble-received-bg: rgba(255, 255, 255, 0.82);
+            --panel-border: 1px solid rgba(0, 0, 0, 0.08);
+            --send-button-background: #007aff;
+            --send-button-color: #ffffff;
+            "#,
+            r#"
+            --bg-body: #1c1c1e;
+            --bg-panel: rgba(44, 44, 46, 0.55);
+            --bg-input: rgba(255, 255, 255, 0.08);
+            --bg-button: rgba(255, 255, 255, 0.06);
+            --text-primary: #f5f5f7;
+            --text-secondary: #98989d;
+            --accent-color: #0a84ff;
+            --border-dark: rgba(255, 255, 255, 0.1);
+            --bubble-received-bg: rgba(58, 58, 60, 0.82);
+            --send-button-background: #0a84ff;
+            --send-button-color: #ffffff;
+            "#,
+            r#"
+            .theme-macos header, .theme-macos footer {{
+                backdrop-filter: blur(24px) saturate(180%);
+                -webkit-backdrop-filter: blur(24px) saturate(180%);
+            }}
+            .theme-macos .message.received .bubble {{
+                backdrop-filter: blur(16px);
+                -webkit-backdrop-filter: blur(16px);
+            }}
+            .theme-macos .retro-btn.send-btn {{
+                background: var(--send-button-background);
+                color: var(--send-button-color);
+                border: none;
+                box-shadow: 0 4px 12px rgba(0, 122, 255, 0.28);
             }}
             "#,
         ),
@@ -240,7 +288,7 @@ fn file_transfer_theme_variants(theme: &str) -> (&'static str, &'static str, &'s
                 background: var(--send-button-background);
                 color: var(--send-button-color);
                 border: none;
-                box-shadow: 0 4px 12px rgba(79, 125, 255, 0.3);
+                box-shadow: 0 4px 12px rgba(0, 120, 212, 0.3);
             }}
             "#,
         ),
@@ -589,14 +637,14 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
         }}
 
         @media (prefers-color-scheme: dark) {{
-            .theme-mica, .theme-acrylic {{
+            .theme-mica, .theme-acrylic, .theme-macos {{
                 --bg-body: #101010;
                 --bg-panel: #1c1c1c;
                 --border-dark: rgba(255,255,255,0.08); /* Fainter border */
                 --text-primary: #e0e0e0;
                 --shadow-color: rgba(0,0,0,0.5);
             }}
-            :root:not(.theme-mica):not(.theme-acrylic) {{
+            :root:not(.theme-mica):not(.theme-acrylic):not(.theme-macos) {{
                 --bg-body: #121212; /* Slightly cooler black */
                 --bg-panel: #1e1e1e;
                 --border-dark: #2a2a2a; /* Dark gray instead of pure black for borders */
@@ -607,7 +655,7 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
         }}
 
         /* Theme mica / acrylic overrides */
-        .theme-mica, .theme-acrylic {{
+        .theme-mica, .theme-acrylic, .theme-macos {{
             --bg-body: #f3f3f3;
             --bg-panel: #ffffff;
             --border-dark: rgba(0,0,0,0.1);
@@ -619,7 +667,7 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
         }}
 
         @media (prefers-color-scheme: dark) {{
-            .theme-mica, .theme-acrylic {{
+            .theme-mica, .theme-acrylic, .theme-macos {{
                 --bg-body: #1a1a1a;
                 --bg-panel: #2a2a2a;
                 --text-primary: #e0e0e0;
@@ -657,12 +705,12 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
             flex-shrink: 0;
             z-index: 10;
         }}
-        .theme-mica header, .theme-acrylic header {{
+        .theme-mica header, .theme-acrylic header, .theme-macos header {{
             background: rgba(255,255,255,0.7); backdrop-filter: blur(20px);
             border-bottom: 1px solid rgba(0,0,0,0.1);
         }}
         @media (prefers-color-scheme: dark) {{
-            .theme-mica header, .theme-acrylic header {{ background: rgba(30,30,30,0.7); }}
+            .theme-mica header, .theme-acrylic header, .theme-macos header {{ background: rgba(30,30,30,0.7); }}
         }}
 
         h1 {{ font-size: 18px; font-weight: 900; margin: 0; letter-spacing: -0.5px; }}
@@ -699,7 +747,7 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
         }}
         .avatar img {{ width: 100%; height: 100%; object-fit: cover; }}
         
-        .theme-mica .avatar, .theme-acrylic .avatar {{
+        .theme-mica .avatar, .theme-acrylic .avatar, .theme-macos .avatar {{
             box-shadow: none; border-width: 1px;
         }}
 
@@ -717,33 +765,33 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
         .message.sent .bubble {{ background: var(--accent-color); color: #fff; border-color: var(--border-dark); }}
         
         /* Mica Style Bubbles */
-        .theme-mica .bubble, .theme-acrylic .bubble {{
+        .theme-mica .bubble, .theme-acrylic .bubble, .theme-macos .bubble {{
             box-shadow: 0 2px 10px var(--shadow-color);
             border: 1px solid var(--border-dark);
             border-radius: 12px;
         }}
-        .theme-mica .message.received .bubble, .theme-acrylic .message.received .bubble {{
+        .theme-mica .message.received .bubble, .theme-acrylic .message.received .bubble, .theme-macos .message.received .bubble {{
              background: var(--bubble-received-bg);
              backdrop-filter: blur(10px);
         }}
 
         /* Triangle tail for retro style only */
-        :root:not(.theme-mica):not(.theme-acrylic) .message.received .bubble::after {{
+        :root:not(.theme-mica):not(.theme-acrylic):not(.theme-macos) .message.received .bubble::after {{
             content: ''; position: absolute; left: -10px; top: 10px;
             width: 0; height: 0; border: 5px solid transparent;
             border-right-color: var(--bubble-received-bg);
         }}
-        :root:not(.theme-mica):not(.theme-acrylic) .message.received .bubble::before {{
+        :root:not(.theme-mica):not(.theme-acrylic):not(.theme-macos) .message.received .bubble::before {{
             content: ''; position: absolute; left: -13px; top: 9px;
             width: 0; height: 0; border: 6px solid transparent;
             border-right-color: var(--border-dark);
         }}
-        :root:not(.theme-mica):not(.theme-acrylic) .message.sent .bubble::after {{
+        :root:not(.theme-mica):not(.theme-acrylic):not(.theme-macos) .message.sent .bubble::after {{
             content: ''; position: absolute; right: -10px; top: 10px;
             width: 0; height: 0; border: 5px solid transparent;
             border-left-color: var(--accent-color);
         }}
-        :root:not(.theme-mica):not(.theme-acrylic) .message.sent .bubble::before {{
+        :root:not(.theme-mica):not(.theme-acrylic):not(.theme-macos) .message.sent .bubble::before {{
             content: ''; position: absolute; right: -13px; top: 9px;
             width: 0; height: 0; border: 6px solid transparent;
             border-left-color: var(--border-dark);
@@ -751,18 +799,22 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
         
         /* Mica doesn't use these triangles */
         .theme-mica .message.received .bubble::before,
-        .theme-acrylic .message.received .bubble::before {{ border-right-color: var(--border-dark); }}
+        .theme-acrylic .message.received .bubble::before,
+        .theme-macos .message.received .bubble::before {{ border-right-color: var(--border-dark); }}
         .theme-mica .message.received .bubble::after,
-        .theme-acrylic .message.received .bubble::after {{ border-right-color: var(--bubble-received-bg); }}
+        .theme-acrylic .message.received .bubble::after,
+        .theme-macos .message.received .bubble::after {{ border-right-color: var(--bubble-received-bg); }}
         
         @media (prefers-color-scheme: dark) {{
-            .theme-mica .message.received .bubble, .theme-acrylic .message.received .bubble {{ background: var(--bubble-received-bg); }}
+            .theme-mica .message.received .bubble, .theme-acrylic .message.received .bubble, .theme-macos .message.received .bubble {{ background: var(--bubble-received-bg); }}
         }}
 
         .theme-mica .message.sent .bubble::before,
-        .theme-acrylic .message.sent .bubble::before {{ display: none; }}
+        .theme-acrylic .message.sent .bubble::before,
+        .theme-macos .message.sent .bubble::before {{ display: none; }}
         .theme-mica .message.sent .bubble::after,
-        .theme-acrylic .message.sent .bubble::after {{ 
+        .theme-acrylic .message.sent .bubble::after,
+        .theme-macos .message.sent .bubble::after {{ 
             border-left-color: var(--accent-color) !important; 
             right: -7px; 
             bottom: 10px;
@@ -828,12 +880,12 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
             flex-shrink: 0;
             z-index: 10;
         }}
-        .theme-mica footer, .theme-acrylic footer {{
+        .theme-mica footer, .theme-acrylic footer, .theme-macos footer {{
             background: rgba(255,255,255,0.7); backdrop-filter: blur(20px);
             border-top: 1px solid rgba(0,0,0,0.1);
         }}
         @media (prefers-color-scheme: dark) {{
-            .theme-mica footer, .theme-acrylic footer {{ background: rgba(30,30,30,0.7); }}
+            .theme-mica footer, .theme-acrylic footer, .theme-macos footer {{ background: rgba(30,30,30,0.7); }}
         }}
         
         .retro-btn {{
@@ -852,12 +904,12 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
             box-shadow: var(--button-active-shadow, 0 0 0 0 var(--shadow-color));
         }}
         
-        .theme-mica .retro-btn, .theme-acrylic .retro-btn {{
+        .theme-mica .retro-btn, .theme-acrylic .retro-btn, .theme-macos .retro-btn {{
             box-shadow: none; border-width: 1px;
             background: rgba(255,255,255,0.5);
         }}
         @media (prefers-color-scheme: dark) {{
-            .theme-mica .retro-btn, .theme-acrylic .retro-btn {{ background: rgba(255,255,255,0.1); }}
+            .theme-mica .retro-btn, .theme-acrylic .retro-btn, .theme-macos .retro-btn {{ background: rgba(255,255,255,0.1); }}
         }}
 
         .file-send-control {{
@@ -911,27 +963,27 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
             border-radius: var(--input-radius, var(--radius)); -webkit-appearance: none;
             resize: none; overflow-y: auto; line-height: 20px;
         }}
-        .theme-mica .text-input, .theme-acrylic .text-input {{ box-shadow: none; border-width: 1px; }}
+        .theme-mica .text-input, .theme-acrylic .text-input, .theme-macos .text-input {{ box-shadow: none; border-width: 1px; }}
         @media (prefers-color-scheme: dark) {{
-            .theme-mica .text-input, .theme-acrylic .text-input {{ background: rgba(255,255,255,0.05); color: #fff; }}
+            .theme-mica .text-input, .theme-acrylic .text-input, .theme-macos .text-input {{ background: rgba(255,255,255,0.05); color: #fff; }}
 
             /* Retro Dark Mode Overrides */
-            :root:not(.theme-mica):not(.theme-acrylic) .retro-btn {{
+            :root:not(.theme-mica):not(.theme-acrylic):not(.theme-macos) .retro-btn {{
                 background: #333;
                 border-color: #000;
                 color: #e0e0e0;
                 box-shadow: 2px 2px 0 0 #000;
             }}
-            :root:not(.theme-mica):not(.theme-acrylic) .retro-btn:active {{
+            :root:not(.theme-mica):not(.theme-acrylic):not(.theme-macos) .retro-btn:active {{
                 box-shadow: none;
                 transform: translate(2px, 2px);
             }}
-            :root:not(.theme-mica):not(.theme-acrylic) .retro-btn.send-btn {{
+            :root:not(.theme-mica):not(.theme-acrylic):not(.theme-macos) .retro-btn.send-btn {{
                 background: #000;
                 color: #fff;
                 border-color: #000;
             }}
-            :root:not(.theme-mica):not(.theme-acrylic) .text-input {{
+            :root:not(.theme-mica):not(.theme-acrylic):not(.theme-macos) .text-input {{
                 background: #202020;
                 color: #e0e0e0;
                 border-color: #000;
@@ -954,14 +1006,14 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
             display: none; flex-direction: column;
             padding: 16px;
         }}
-        .theme-mica #fs-editor, .theme-acrylic #fs-editor {{
+        .theme-mica #fs-editor, .theme-acrylic #fs-editor, .theme-macos #fs-editor {{
              background: rgba(255,255,255,0.95); backdrop-filter: blur(20px);
         }}
         @media (prefers-color-scheme: dark) {{
-            .theme-mica #fs-editor, .theme-acrylic #fs-editor {{ background: rgba(20,20,20,0.95); }}
+            .theme-mica #fs-editor, .theme-acrylic #fs-editor, .theme-macos #fs-editor {{ background: rgba(20,20,20,0.95); }}
             
             /* Retro Dark Mode Overrides for Fullscreen Editor */
-            :root:not(.theme-mica):not(.theme-acrylic) #fs-textarea {{
+            :root:not(.theme-mica):not(.theme-acrylic):not(.theme-macos) #fs-textarea {{
                 background: #202020;
                 color: #e0e0e0;
                 border: 2px solid #000;
@@ -974,11 +1026,11 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
             background: #fff; color: var(--text-primary); margin-bottom: 16px;
             border-radius: var(--radius); resize: none; outline: none;
         }}
-        .theme-mica #fs-textarea, .theme-acrylic #fs-textarea {{
+        .theme-mica #fs-textarea, .theme-acrylic #fs-textarea, .theme-macos #fs-textarea {{
             background: rgba(255,255,255,0.5); border-width: 1px; box-shadow: none;
         }}
         @media (prefers-color-scheme: dark) {{
-            .theme-mica #fs-textarea, .theme-acrylic #fs-textarea {{ background: rgba(255,255,255,0.05); color: #fff; }}
+            .theme-mica #fs-textarea, .theme-acrylic #fs-textarea, .theme-macos #fs-textarea {{ background: rgba(255,255,255,0.05); color: #fff; }}
         }}
 
         .fs-toolbar {{ display: flex; justify-content: flex-end; gap: 12px; }}
@@ -1631,6 +1683,7 @@ mod tests {
         "retro",
         "sticky-note",
         "mica",
+        "macos",
         "acrylic",
         "paper",
         "sakura",

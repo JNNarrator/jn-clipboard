@@ -41,7 +41,8 @@
    header indicator quiet in translucent themes instead of emitting a blue
    active glow every time the window is shown. */
 body.theme-mica .header-pin-btn.active,
-body.theme-acrylic .header-pin-btn.active {
+body.theme-acrylic .header-pin-btn.active,
+body.theme-macos .header-pin-btn.active {
   background: var(--bg-input);
   color: var(--text-primary);
   border-color: var(--line-strong);

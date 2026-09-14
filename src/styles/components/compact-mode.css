@@ -505,8 +505,10 @@ body.hide-unselected-item-actions .history-item.compact.selected .item-actions {
 /* Rounded corners for modern themes - top and bottom left to match item border radius */
 body.theme-mica .history-item.compact .compact-pinned-indicator,
 body.theme-acrylic .history-item.compact .compact-pinned-indicator,
+body.theme-macos .history-item.compact .compact-pinned-indicator,
 html.theme-mica .history-item.compact .compact-pinned-indicator,
-html.theme-acrylic .history-item.compact .compact-pinned-indicator {
+html.theme-acrylic .history-item.compact .compact-pinned-indicator,
+html.theme-macos .history-item.compact .compact-pinned-indicator {
     border-radius: 4px 0 0 4px;
 }
 
@@ -573,8 +575,10 @@ html.theme-acrylic .history-item.compact .compact-pinned-indicator {
 
 body.theme-mica .history-item.compact,
 body.theme-acrylic .history-item.compact,
+body.theme-macos .history-item.compact,
 html.theme-mica .history-item.compact,
-html.theme-acrylic .history-item.compact {
+html.theme-acrylic .history-item.compact,
+html.theme-macos .history-item.compact {
     padding-top: 1px !important;
     padding-bottom: 1px !important;
     border-radius: 10px !important;

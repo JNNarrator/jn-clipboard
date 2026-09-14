@@ -1159,7 +1159,8 @@
 
 /* Theme token adapters: geometry remains untouched. */
 .theme-mica .wt-chat-view,
-.theme-acrylic .wt-chat-view {
+.theme-acrylic .wt-chat-view,
+.theme-macos .wt-chat-view {
   --im-canvas: transparent;
   --im-canvas-shade: color-mix(in srgb, var(--bg-window) 68%, transparent);
   --im-header: color-mix(in srgb, var(--bg-toolbar) 78%, transparent);

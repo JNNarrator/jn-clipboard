@@ -1,0 +1,9 @@
+html.platform-macos {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html.platform-macos,
+html.platform-macos body {
+  --font-main: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Hiragino Sans GB", sans-serif;
+}

@@ -28,3 +28,14 @@ pub fn default_ai_api_key() -> String {
         .or_else(|| option_env!("VITE_AI_DEFAULT_API_KEY").map(|value| value.to_string()))
         .unwrap_or_default()
 }
+
+pub fn default_theme_id() -> &'static str {
+    #[cfg(target_os = "macos")]
+    {
+        "macos"
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        "mica"
+    }
+}

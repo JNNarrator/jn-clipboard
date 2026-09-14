@@ -773,7 +773,8 @@ body.dark-mode.theme-sakura .tags-dropdown,
 
 /* --- Modern Styles (Mica / Acrylic) --- */
 .theme-mica .search-input.dropdown-open,
-.theme-acrylic .search-input.dropdown-open {
+.theme-acrylic .search-input.dropdown-open,
+.theme-macos .search-input.dropdown-open {
     border-bottom-left-radius: 0 !important;
     border-bottom-right-radius: 0 !important;
     border-radius: 12px 12px 0 0 !important;
@@ -786,13 +787,15 @@ body.dark-mode.theme-sakura .tags-dropdown,
 }
 
 :root.dark-mode .theme-mica .search-input.dropdown-open,
-:root.dark-mode .theme-acrylic .search-input.dropdown-open {
+:root.dark-mode .theme-acrylic .search-input.dropdown-open,
+:root.dark-mode .theme-macos .search-input.dropdown-open {
     background: rgba(255, 255, 255, 0.18) !important;
     border-color: rgba(255, 255, 255, 0.1) !important;
 }
 
 .theme-mica .tags-dropdown,
-.theme-acrylic .tags-dropdown {
+.theme-acrylic .tags-dropdown,
+.theme-macos .tags-dropdown {
     margin-top: 0 !important;
     padding: 5px 6px 6px !important;
     border: 1px solid var(--line-soft) !important;
@@ -805,20 +808,23 @@ body.dark-mode.theme-sakura .tags-dropdown,
 }
 
 :root.dark-mode .theme-mica .tags-dropdown,
-:root.dark-mode .theme-acrylic .tags-dropdown {
+:root.dark-mode .theme-acrylic .tags-dropdown,
+:root.dark-mode .theme-macos .tags-dropdown {
     background: rgba(255, 255, 255, 0.18) !important;
     border-color: rgba(255, 255, 255, 0.1) !important;
     box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28) !important;
 }
 
 .theme-mica .tags-dropdown .tags-list,
-.theme-acrylic .tags-dropdown .tags-list {
+.theme-acrylic .tags-dropdown .tags-list,
+.theme-macos .tags-dropdown .tags-list {
     flex-direction: column;
     gap: 1px;
 }
 
 .theme-mica .tags-dropdown .tag-chip,
-.theme-acrylic .tags-dropdown .tag-chip {
+.theme-acrylic .tags-dropdown .tag-chip,
+.theme-macos .tags-dropdown .tag-chip {
     width: 100%;
     justify-content: flex-start;
     gap: 8px;
@@ -833,7 +839,8 @@ body.dark-mode.theme-sakura .tags-dropdown,
 }
 
 .theme-mica .tags-dropdown .tag-chip::before,
-.theme-acrylic .tags-dropdown .tag-chip::before {
+.theme-acrylic .tags-dropdown .tag-chip::before,
+.theme-macos .tags-dropdown .tag-chip::before {
     content: "";
     width: 7px;
     height: 7px;
@@ -844,7 +851,8 @@ body.dark-mode.theme-sakura .tags-dropdown,
 }
 
 .theme-mica .tags-dropdown .tag-chip:hover,
-.theme-acrylic .tags-dropdown .tag-chip:hover {
+.theme-acrylic .tags-dropdown .tag-chip:hover,
+.theme-macos .tags-dropdown .tag-chip:hover {
     transform: none !important;
     background: color-mix(in srgb, var(--text-primary) 7%, transparent) !important;
     border-color: var(--line-soft);

@@ -4,6 +4,8 @@ import "./index.css";
 import "./styles/components/index.css";
 import "./styles/themes/load";
 import "./styles/platform-windows.css";
+import "./styles/platform-macos.css";
+import "./styles/components/pin-sticker.css";
 
 const params = new URLSearchParams(window.location.search);
 const isCompactPreview = params.get("window") === "compact-preview";

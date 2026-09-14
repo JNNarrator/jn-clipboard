@@ -317,8 +317,8 @@ fn load_settings(repo: &impl SettingsRepository) -> StartupSettings {
     StartupSettings {
         theme: repo
             .get("app.theme")
-            .unwrap_or(Some("mica".to_string()))
-            .unwrap_or("mica".to_string()),
+            .unwrap_or(Some(crate::build_config::default_theme_id().to_string()))
+            .unwrap_or_else(|| crate::build_config::default_theme_id().to_string()),
         persistent: repo
             .get("app.persistent")
             .unwrap_or(Some("true".to_string()))
@@ -1641,8 +1641,8 @@ fn apply_initial_theme(app: &App) {
     let theme = db_state
         .settings_repo
         .get("app.theme")
-        .unwrap_or(Some("mica".to_string()))
-        .unwrap_or("mica".to_string());
+        .unwrap_or(Some(crate::build_config::default_theme_id().to_string()))
+        .unwrap_or_else(|| crate::build_config::default_theme_id().to_string());
     let mode = db_state
         .settings_repo
         .get("app.color_mode")

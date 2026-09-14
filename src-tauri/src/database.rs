@@ -205,8 +205,8 @@ pub fn save_image_to_file(data_url: &str, data_dir: &std::path::Path) -> Option<
 pub fn seed_defaults(conn: &Connection) -> Result<()> {
     // App settings
     let _ = conn.execute(
-        "INSERT OR IGNORE INTO settings (key, value) VALUES ('app.theme', 'mica')",
-        [],
+        "INSERT OR IGNORE INTO settings (key, value) VALUES ('app.theme', ?1)",
+        [crate::build_config::default_theme_id()],
     );
     let _ = conn.execute(
         "INSERT OR IGNORE INTO settings (key, value) VALUES ('app.color_mode', 'system')",
