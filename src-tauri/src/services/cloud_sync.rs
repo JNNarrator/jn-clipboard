@@ -6,6 +6,7 @@ use crate::infrastructure::repository::clipboard_repo::ClipboardRepository;
 use crate::infrastructure::repository::settings_repo::SettingsRepository;
 use base64::Engine;
 use regex::Regex;
+use rusqlite::OptionalExtension;
 use reqwest::{Client, Method, RequestBuilder, Response, StatusCode};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -511,6 +512,7 @@ fn is_cloud_clipboard_content_type(content_type: &str) -> bool {
 }
 
 fn is_setting_sync_eligible(key: &str) -> bool {
+    if crate::database::is_sensitive_key(key) { return false; }
     !matches!(
         key,
         "app.anon_id"
@@ -1069,6 +1071,7 @@ fn entries_to_sync_items(
         .filter(|e| {
             is_cloud_clipboard_content_type(&e.content_type)
                 && prefs.includes_content_type(&e.content_type)
+                && !crate::database::has_sensitive_tag(&e.tags)
         })
         .filter_map(|e| {
             let normalized = normalize_item_for_sync(CloudSyncItem {
@@ -1166,18 +1169,17 @@ fn get_setting_i64(app: &AppHandle, key: &str, default: i64) -> i64 {
         .unwrap_or(default)
 }
 
-fn set_setting_i64(app: &AppHandle, key: &str, value: i64) {
-    if let Some(db_state) = app.try_state::<DbState>() {
-        let _ = db_state.settings_repo.set(key, &value.to_string());
-    }
+fn set_setting_i64(app: &AppHandle, key: &str, value: i64) -> AppResult<()> {
+    let db_state = app.try_state::<DbState>().ok_or_else(|| AppError::Internal("DB state unavailable".into()))?;
+    db_state.settings_repo.set(key, &value.to_string()).map_err(AppError::from)
 }
 
 fn get_local_webdav_op_seq(app: &AppHandle) -> i64 {
     get_setting_i64(app, CLOUD_SYNC_WEBDAV_LOCAL_SEQ_KEY, 0)
 }
 
-fn set_local_webdav_op_seq(app: &AppHandle, seq: i64) {
-    set_setting_i64(app, CLOUD_SYNC_WEBDAV_LOCAL_SEQ_KEY, seq);
+fn set_local_webdav_op_seq(app: &AppHandle, seq: i64) -> AppResult<()> {
+    set_setting_i64(app, CLOUD_SYNC_WEBDAV_LOCAL_SEQ_KEY, seq)
 }
 
 fn load_webdav_op_cursor_map(app: &AppHandle) -> HashMap<String, i64> {
@@ -1196,13 +1198,10 @@ fn load_webdav_op_cursor_map(app: &AppHandle) -> HashMap<String, i64> {
     serde_json::from_str::<HashMap<String, i64>>(&raw).unwrap_or_default()
 }
 
-fn save_webdav_op_cursor_map(app: &AppHandle, map: &HashMap<String, i64>) {
-    if let Some(db_state) = app.try_state::<DbState>() {
-        let payload = serde_json::to_string(map).unwrap_or_else(|_| "{}".to_string());
-        let _ = db_state
-            .settings_repo
-            .set(CLOUD_SYNC_WEBDAV_OP_CURSOR_MAP_KEY, &payload);
-    }
+fn save_webdav_op_cursor_map(app: &AppHandle, map: &HashMap<String, i64>) -> AppResult<()> {
+    let db_state = app.try_state::<DbState>().ok_or_else(|| AppError::Internal("DB state unavailable".into()))?;
+    let payload = serde_json::to_string(map).map_err(|e| AppError::Internal(e.to_string()))?;
+    db_state.settings_repo.set(CLOUD_SYNC_WEBDAV_OP_CURSOR_MAP_KEY, &payload).map_err(AppError::from)
 }
 
 fn load_webdav_snapshot_cursor_map(app: &AppHandle) -> HashMap<String, i64> {
@@ -1221,13 +1220,10 @@ fn load_webdav_snapshot_cursor_map(app: &AppHandle) -> HashMap<String, i64> {
     serde_json::from_str::<HashMap<String, i64>>(&raw).unwrap_or_default()
 }
 
-fn save_webdav_snapshot_cursor_map(app: &AppHandle, map: &HashMap<String, i64>) {
-    if let Some(db_state) = app.try_state::<DbState>() {
-        let payload = serde_json::to_string(map).unwrap_or_else(|_| "{}".to_string());
-        let _ = db_state
-            .settings_repo
-            .set(CLOUD_SYNC_WEBDAV_SNAPSHOT_CURSOR_MAP_KEY, &payload);
-    }
+fn save_webdav_snapshot_cursor_map(app: &AppHandle, map: &HashMap<String, i64>) -> AppResult<()> {
+    let db_state = app.try_state::<DbState>().ok_or_else(|| AppError::Internal("DB state unavailable".into()))?;
+    let payload = serde_json::to_string(map).map_err(|e| AppError::Internal(e.to_string()))?;
+    db_state.settings_repo.set(CLOUD_SYNC_WEBDAV_SNAPSHOT_CURSOR_MAP_KEY, &payload).map_err(AppError::from)
 }
 
 fn merge_webdav_sync_heads(base: &mut WebDavSyncHead, incoming: WebDavSyncHead) {
@@ -1389,12 +1385,70 @@ fn collect_local_tombstones(
     Ok(items)
 }
 
+// Local storage envelopes are not a portable wire format. Legacy `plain:` is
+// inherently ambiguous; reserve it until a versioned wire format can escape literals.
+fn validate_sync_plaintext(value: &str) -> AppResult<()> {
+    if crate::infrastructure::encryption::is_encrypted_value(value) {
+        return Err(AppError::Internal("Sync contains a local encryption envelope; repair the remote batch before retrying".into()));
+    }
+    Ok(())
+}
+
+fn validate_sync_items(items: &[CloudSyncItem]) -> AppResult<()> {
+    for item in items {
+        if crate::database::has_sensitive_tag(&item.tags) { continue; }
+        for value in [&item.content, &item.preview, &item.source_app] {
+            validate_sync_plaintext(value)?;
+        }
+        if let Some(html) = &item.html_content {
+            validate_sync_plaintext(html)?;
+        }
+        for tag in &item.tags {
+            validate_sync_plaintext(tag)?;
+        }
+    }
+    Ok(())
+}
+
+fn with_sync_savepoint<T>(conn: &rusqlite::Connection, apply: impl FnOnce() -> AppResult<T>) -> AppResult<T> {
+    conn.execute_batch("SAVEPOINT cloud_sync_write").map_err(AppError::from)?;
+    match apply().and_then(|value| {
+        conn.execute_batch("RELEASE cloud_sync_write").map_err(AppError::from)?;
+        Ok(value)
+    }) {
+        Ok(value) => Ok(value),
+        Err(error) => {
+            conn.execute_batch("ROLLBACK TO cloud_sync_write; RELEASE cloud_sync_write")
+                .map_err(|rollback| AppError::Internal(format!("{error}; sync rollback failed: {rollback}")))?;
+            Err(error)
+        }
+    }
+}
+
 fn update_existing_entry_from_sync(
     conn: &rusqlite::Connection,
     id: i64,
     item: &CloudSyncItem,
     effective_timestamp: i64,
 ) -> AppResult<bool> {
+    validate_sync_items(std::slice::from_ref(item))?;
+    with_sync_savepoint(conn, || update_existing_entry_from_sync_inner(conn, id, item, effective_timestamp))
+}
+
+fn update_existing_entry_from_sync_inner(
+    conn: &rusqlite::Connection,
+    id: i64,
+    item: &CloudSyncItem,
+    effective_timestamp: i64,
+) -> AppResult<bool> {
+    use crate::infrastructure::encryption::{decrypt_stored_value, encrypt_for_storage};
+    let (stored_content, stored_html): (String, Option<String>) = conn.query_row(
+        "SELECT content, html_content FROM clipboard_history WHERE id = ?",
+        [id], |row| Ok((row.get(0)?, row.get(1)?)),
+    ).map_err(AppError::from)?;
+    let content = decrypt_stored_value(&stored_content).map_err(AppError::Internal)?;
+    let local_html = stored_html.as_deref().map(decrypt_stored_value).transpose().map_err(AppError::Internal)?;
+    let html = item.html_content.clone().or_else(|| local_html.clone());
     let (local_timestamp, local_is_pinned, local_pinned_order, local_preview, local_source_app, local_use_count, local_tags_json, local_source_app_path, local_is_external, local_created_at, local_last_used_at): (i64, bool, i64, String, String, i32, String, Option<String>, bool, i64, i64) = conn
         .query_row(
             "SELECT sort_at, is_pinned, pinned_order, preview, source_app, use_count, tags, source_app_path, is_external, created_at, last_used_at FROM clipboard_history WHERE id = ?",
@@ -1415,11 +1469,11 @@ fn update_existing_entry_from_sync(
         )
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
-    let mut changed = false;
+    let mut changed = html != local_html;
     let mut timestamp = local_timestamp;
     let mut is_pinned = local_is_pinned;
     let mut pinned_order = local_pinned_order;
-    let mut preview = local_preview;
+    let mut preview = decrypt_stored_value(&local_preview).map_err(AppError::Internal)?;
     let mut source_app = local_source_app;
     let mut use_count = local_use_count;
     let mut tags_json = local_tags_json.clone();
@@ -1472,6 +1526,16 @@ fn update_existing_entry_from_sync(
     }
 
     if changed {
+        let protect = |value: &str| -> AppResult<String> {
+            if crate::database::has_sensitive_tag(&item.tags) {
+                encrypt_for_storage(value).map_err(AppError::Internal)
+            } else {
+                Ok(value.to_string())
+            }
+        };
+        let content = protect(&content)?;
+        let preview = protect(&preview)?;
+        let html = html.as_deref().map(protect).transpose()?;
         conn.execute(
             "UPDATE clipboard_history SET 
                 timestamp = ?,
@@ -1485,7 +1549,9 @@ fn update_existing_entry_from_sync(
                 use_count = ?, 
                 tags = ?,
                 source_app_path = ?,
-                is_external = ?
+                is_external = ?,
+                content = ?,
+                html_content = ?
              WHERE id = ?",
             rusqlite::params![
                 timestamp,
@@ -1500,6 +1566,8 @@ fn update_existing_entry_from_sync(
                 tags_json,
                 source_app_path,
                 if remote_is_external { 1 } else { 0 },
+                content,
+                html,
                 id
             ],
         )
@@ -1512,10 +1580,10 @@ fn update_existing_entry_from_sync(
             )
             .map_err(|e| AppError::Internal(e.to_string()))?;
             for tag in &item.tags {
-                let _ = conn.execute(
+                conn.execute(
                     "INSERT OR IGNORE INTO entry_tags (entry_id, tag) VALUES (?, ?)",
                     rusqlite::params![id, tag],
-                );
+                ).map_err(AppError::from)?;
             }
         }
     }
@@ -1528,6 +1596,7 @@ fn apply_remote_changes(
     remote_items: &[CloudSyncItem],
     prefs: &CloudSyncContentPrefs,
 ) -> AppResult<usize> {
+    validate_sync_items(remote_items)?;
     if remote_items.is_empty() {
         return Ok(0);
     }
@@ -1538,13 +1607,12 @@ fn apply_remote_changes(
     let mut applied = 0usize;
     let app_data_dir = get_app_data_dir(app);
     for item in remote_items {
+        if crate::database::has_sensitive_tag(&item.tags) { continue; }
         if item.content_type == "emoji_sync" {
             if !prefs.emoji {
                 continue;
             }
-            if let Err(e) = merge_remote_emojis(app, &item.content) {
-                println!("Error merging remote emojis: {}", e);
-            }
+            merge_remote_emojis(app, &item.content)?;
             applied += 1;
             continue;
         }
@@ -1560,6 +1628,8 @@ fn apply_remote_changes(
             .conn
             .lock()
             .map_err(|e| AppError::Internal(e.to_string()))?;
+        applied += with_sync_savepoint(&conn, || {
+        let mut applied = 0;
         let effective_timestamp = if item.sort_at > 0 {
             item.sort_at
         } else if item.timestamp > 0 {
@@ -1576,16 +1646,16 @@ fn apply_remote_changes(
 
         if item.deleted_at > 0 {
             if remote_hash == 0 {
-                continue;
+                return Ok(0);
             }
             let tombstone_ts = item.deleted_at.max(effective_timestamp);
-            let _ = conn.execute(
+            conn.execute(
                 "INSERT INTO cloud_sync_tombstones (content_type, content_hash, deleted_at)
                  VALUES (?1, ?2, ?3)
                  ON CONFLICT(content_type, content_hash)
                  DO UPDATE SET deleted_at = MAX(cloud_sync_tombstones.deleted_at, excluded.deleted_at)",
                 rusqlite::params![item.content_type, remote_hash, tombstone_ts],
-            );
+            ).map_err(AppError::from)?;
 
             let candidates = {
                 let mut stmt = conn
@@ -1599,14 +1669,18 @@ fn apply_remote_changes(
                         Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?))
                     })
                     .map_err(|e| AppError::Internal(e.to_string()))?;
-                rows.filter_map(Result::ok).collect::<Vec<_>>()
+                rows.collect::<Result<Vec<_>, _>>().map_err(AppError::from)?
             };
             for (id, stored_hash) in candidates {
+                let tags: String = conn.query_row("SELECT tags FROM clipboard_history WHERE id=?1", [id], |r| r.get(0)).map_err(AppError::from)?;
+                let tags: Vec<String> = serde_json::from_str(&tags).map_err(|e| AppError::Internal(e.to_string()))?;
+                if crate::database::has_sensitive_tag(&tags) { continue; }
                 let canonical_match = db_state
                     .repo
                     .get_entry_by_id_with_conn(&conn, id)
                     .map_err(AppError::Internal)?
                     .map(|entry| {
+                        if crate::database::has_sensitive_tag(&entry.tags) { return false; }
                         compute_sync_content_hash(&entry.content_type, &entry.content)
                             == remote_hash
                     })
@@ -1622,11 +1696,11 @@ fn apply_remote_changes(
                     .map_err(AppError::Internal)?;
                 applied += 1;
             }
-            continue;
+            return Ok(applied);
         }
 
         if item.content.trim().is_empty() {
-            continue;
+            return Ok(0);
         }
 
         if remote_hash != 0 {
@@ -1636,9 +1710,9 @@ fn apply_remote_changes(
                     rusqlite::params![item.content_type, remote_hash],
                     |row| row.get::<_, i64>(0),
                 )
-                .unwrap_or(0);
+                .optional().map_err(AppError::from)?.unwrap_or(0);
             if tombstone_deleted_at >= effective_timestamp.max(item.deleted_at) {
-                continue;
+                return Ok(0);
             }
         }
 
@@ -1648,17 +1722,21 @@ fn apply_remote_changes(
             .map_err(AppError::Internal)?;
 
         if let Some(id) = existing {
+            if db_state.repo.get_entry_by_id_with_conn(&conn, id).map_err(AppError::Internal)?
+                .is_some_and(|entry| crate::database::has_sensitive_tag(&entry.tags)) {
+                return Ok(0usize);
+            }
             if update_existing_entry_from_sync(&conn, id, item, effective_timestamp)? {
                 applied += 1;
             }
             if remote_hash != 0 {
-                let _ = conn.execute(
+                conn.execute(
                     "DELETE FROM cloud_sync_tombstones
                      WHERE content_type = ?1 AND content_hash = ?2 AND deleted_at <= ?3",
                     rusqlite::params![item.content_type, remote_hash, effective_timestamp],
-                );
+                ).map_err(AppError::from)?;
             }
-            continue;
+            return Ok(applied);
         }
 
         let preview = if item.preview.trim().is_empty() {
@@ -1703,13 +1781,15 @@ fn apply_remote_changes(
             .save_with_conn(&conn, &entry, app_data_dir.as_deref(), None)
             .map_err(AppError::Internal)?;
         if remote_hash != 0 {
-            let _ = conn.execute(
+            conn.execute(
                 "DELETE FROM cloud_sync_tombstones
                  WHERE content_type = ?1 AND content_hash = ?2 AND deleted_at <= ?3",
                 rusqlite::params![item.content_type, remote_hash, effective_timestamp],
-            );
+            ).map_err(AppError::from)?;
         }
         applied += 1;
+        Ok(applied)
+        })?;
     }
 
     Ok(applied)
@@ -2493,6 +2573,9 @@ fn collect_syncable_settings(app: &AppHandle) -> AppResult<HashMap<String, Strin
 }
 
 fn apply_synced_settings(app: &AppHandle, incoming: &HashMap<String, String>) -> AppResult<usize> {
+    for value in incoming.values() {
+        validate_sync_plaintext(value)?;
+    }
     if incoming.is_empty() {
         return Ok(0);
     }
@@ -2500,7 +2583,7 @@ fn apply_synced_settings(app: &AppHandle, incoming: &HashMap<String, String>) ->
         .try_state::<DbState>()
         .ok_or_else(|| AppError::Internal("DB state unavailable".to_string()))?;
     let current = db_state.settings_repo.get_all().map_err(AppError::from)?;
-    let mut changed = 0usize;
+    let mut updates = Vec::new();
     for (key, value) in incoming {
         if !is_setting_sync_eligible(key) {
             continue;
@@ -2519,13 +2602,20 @@ fn apply_synced_settings(app: &AppHandle, incoming: &HashMap<String, String>) ->
         {
             continue;
         }
-        db_state
-            .settings_repo
-            .set(key, &normalized_value)
-            .map_err(AppError::from)?;
-        changed += 1;
+        let stored = if crate::database::is_sensitive_key(key) {
+            crate::infrastructure::encryption::encrypt_for_storage(&normalized_value).map_err(AppError::Internal)?
+        } else {
+            normalized_value
+        };
+        updates.push((key, stored));
     }
-    Ok(changed)
+    let conn = db_state.conn.lock().map_err(|e| AppError::Internal(e.to_string()))?;
+    with_sync_savepoint(&conn, || {
+        for (key, value) in &updates {
+            conn.execute("INSERT INTO settings (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value", rusqlite::params![key, value]).map_err(AppError::from)?;
+        }
+        Ok(updates.len())
+    })
 }
 
 async fn upload_webdav_settings_snapshot(
@@ -2628,8 +2718,8 @@ fn should_rebuild_webdav_head(app: &AppHandle, now: i64) -> bool {
     should_run_periodic_snapshot(last, now, WEBDAV_HEAD_REBUILD_INTERVAL_SECS)
 }
 
-fn touch_webdav_head_rebuild_at(app: &AppHandle, now: i64) {
-    set_setting_i64(app, CLOUD_SYNC_WEBDAV_LAST_HEAD_REBUILD_AT_KEY, now);
+fn touch_webdav_head_rebuild_at(app: &AppHandle, now: i64) -> AppResult<()> {
+    set_setting_i64(app, CLOUD_SYNC_WEBDAV_LAST_HEAD_REBUILD_AT_KEY, now)
 }
 
 fn update_webdav_head_device<F>(head: &mut WebDavSyncHead, device_id: &str, mut update: F)
@@ -2771,7 +2861,7 @@ async fn resolve_webdav_sync_head(
             if fetched.as_ref() != Some(&rebuilt) {
                 upload_webdav_sync_head(client, cfg, &paths.head_path, &rebuilt).await?;
             }
-            touch_webdav_head_rebuild_at(app, now);
+            touch_webdav_head_rebuild_at(app, now)?;
             Ok(rebuilt)
         }
         Err(err) => {
@@ -2809,13 +2899,18 @@ async fn pull_remote_webdav_ops_from_head(
         }
 
         let mut last_seq = cursor_map.get(device_id).copied().unwrap_or(0);
+        if device_head.snapshot_op_seq > last_seq {
+            // The snapshot must be applied before its compacted operations can be skipped.
+            continue;
+        }
+
         if device_head.latest_op_seq <= last_seq {
             continue;
         }
 
         for seq in (last_seq + 1)..=device_head.latest_op_seq {
             if cloud_sync_cancel_requested() {
-                save_webdav_op_cursor_map(app, &cursor_map);
+                save_webdav_op_cursor_map(app, &cursor_map)?;
                 return Ok(received);
             }
 
@@ -2825,6 +2920,7 @@ async fn pull_remote_webdav_ops_from_head(
             };
             match fetch_webdav_ops_batch(client, cfg, ops_path, &op_ref).await? {
                 Some(mut batch) if batch.device_id == op_ref.device_id => {
+                    batch.entries.retain(|entry| !crate::database::has_sensitive_tag(&entry.tags));
                     enrich_item_blobs_after_pull(app, client, cfg, blobs_path, &mut batch.entries)
                         .await?;
                     received += apply_remote_changes(app, &batch.entries, &cfg.content_prefs)?;
@@ -2843,7 +2939,7 @@ async fn pull_remote_webdav_ops_from_head(
         }
     }
 
-    save_webdav_op_cursor_map(app, &cursor_map);
+    save_webdav_op_cursor_map(app, &cursor_map)?;
     Ok(received)
 }
 
@@ -2890,6 +2986,8 @@ async fn pull_remote_device_snapshots(
 
     candidates.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
 
+    let mut applied_snapshot_ops: Vec<(String, i64)> = Vec::new();
+
     for (device_id, _) in candidates.into_iter().take(MAX_REMOTE_SNAPSHOTS) {
         if cloud_sync_cancel_requested() {
             break;
@@ -2904,19 +3002,32 @@ async fn pull_remote_device_snapshots(
             continue;
         }
 
+        snapshot.entries.retain(|entry| !crate::database::has_sensitive_tag(&entry.tags));
         enrich_item_blobs_after_pull(app, client, cfg, blobs_path, &mut snapshot.entries).await?;
         remote_items.extend(snapshot.entries);
-        snapshot_cursor.insert(device_id, snapshot.updated_at);
+        snapshot_cursor.insert(device_id.clone(), snapshot.updated_at);
+        if snapshot.latest_op_seq > 0 {
+            applied_snapshot_ops.push((device_id, snapshot.latest_op_seq));
+        }
     }
 
-    save_webdav_snapshot_cursor_map(app, &snapshot_cursor);
-
-    if remote_items.is_empty() {
-        return Ok(0);
-    }
-
+    // Persist progress only after all downloaded entries have been applied.
     remote_items.sort_by_key(|item| item.timestamp);
-    apply_remote_changes(app, &remote_items, &cfg.content_prefs)
+    let applied = apply_remote_changes(app, &remote_items, &cfg.content_prefs)?;
+    save_webdav_snapshot_cursor_map(app, &snapshot_cursor)?;
+
+    if !applied_snapshot_ops.is_empty() {
+        let mut op_cursor_map = load_webdav_op_cursor_map(app);
+        for (dev_id, op_seq) in applied_snapshot_ops {
+            let current = op_cursor_map.get(&dev_id).copied().unwrap_or(0);
+            if op_seq > current {
+                op_cursor_map.insert(dev_id, op_seq);
+            }
+        }
+        save_webdav_op_cursor_map(app, &op_cursor_map)?;
+    }
+
+    Ok(applied)
 }
 
 async fn pull_remote_settings_snapshot_from_head(
@@ -3084,11 +3195,7 @@ async fn sync_once_http(app: &AppHandle, cfg: &CloudSyncConfig) -> AppResult<Clo
         .max(local_max)
         .max(remote_max);
 
-    if let Some(db_state) = app.try_state::<DbState>() {
-        let _ = db_state
-            .settings_repo
-            .set("cloud_sync_cursor", &next_cursor.to_string());
-    }
+    set_setting_i64(app, "cloud_sync_cursor", next_cursor)?;
 
     let now = now_ms();
     CLOUD_SYNC_LAST_SYNC_AT.store(now, Ordering::Relaxed);
@@ -3193,7 +3300,7 @@ async fn sync_once_webdav(
             next_seq = next_seq.saturating_add(1);
             upload_webdav_ops_batch(&client, cfg, &paths.ops_path, next_seq, chunk).await?;
         }
-        set_local_webdav_op_seq(app, next_seq);
+        set_local_webdav_op_seq(app, next_seq)?;
         upsert_local_sync_index(app, &delta_items)?;
         uploaded_items += delta_items.len();
         update_webdav_head_device(&mut sync_head, &cfg.device_id, |device| {
@@ -3211,7 +3318,7 @@ async fn sync_once_webdav(
         if let Some(op) = emoji_op {
             let next_seq = get_local_webdav_op_seq(app).saturating_add(1);
             upload_webdav_ops_batch(&client, cfg, &paths.ops_path, next_seq, &[op]).await?;
-            set_local_webdav_op_seq(app, next_seq);
+            set_local_webdav_op_seq(app, next_seq)?;
             uploaded_items += 1;
             update_webdav_head_device(&mut sync_head, &cfg.device_id, |device| {
                 device.latest_op_seq = device.latest_op_seq.max(next_seq);
@@ -3248,7 +3355,7 @@ async fn sync_once_webdav(
             device.settings_updated_at = device.settings_updated_at.max(now_ms());
         });
         sync_head_dirty = true;
-        set_setting_i64(app, CLOUD_SYNC_WEBDAV_LAST_SNAPSHOT_PUSH_AT_KEY, now);
+        set_setting_i64(app, CLOUD_SYNC_WEBDAV_LAST_SNAPSHOT_PUSH_AT_KEY, now)?;
         let _ = cleanup_local_webdav_ops(&client, cfg, &paths.ops_path, latest_op_seq).await;
         replace_local_sync_index(app, &collapse_items_by_sync_key(&local_items))?;
     }
@@ -3263,11 +3370,7 @@ async fn sync_once_webdav(
     }
     CLOUD_SYNC_LAST_SYNC_AT.store(now, Ordering::Relaxed);
 
-    if let Some(db_state) = app.try_state::<DbState>() {
-        let _ = db_state
-            .settings_repo
-            .set("cloud_sync_cursor", &now.to_string());
-    }
+    set_setting_i64(app, "cloud_sync_cursor", now)?;
 
     Ok(CloudSyncStatus {
         state: "idle".to_string(),
@@ -3713,6 +3816,29 @@ fn merge_remote_emojis(app: &AppHandle, remote_json: &str) -> AppResult<()> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn sensitive_settings_and_tags_stay_local() {
+        for key in ["mqtt_password", "mqtt_username", "ai_profiles", "cloud_sync_api_key", "cloud_sync_webdav_password"] {
+            assert!(!super::is_setting_sync_eligible(key));
+        }
+        for tag in ["sensitive", "密码", "password", "PASSWORD"] {
+            assert!(crate::database::has_sensitive_tag(&[tag.to_string()]));
+        }
+        assert!(super::is_setting_sync_eligible("app.theme"));
+    }
+    #[test]
+    fn sensitive_entries_are_excluded_from_snapshots_and_deltas() {
+        let mut entry: crate::domain::models::ClipboardEntry = serde_json::from_value(serde_json::json!({
+            "id":1,"content_type":"text","content":"example","source_app":"test",
+            "timestamp":1,"preview":"example","is_pinned":false
+        })).unwrap();
+        let prefs: super::CloudSyncContentPrefs = serde_json::from_str("{}").unwrap();
+        assert_eq!(super::entries_to_sync_items(vec![entry.clone()], &prefs).len(), 1);
+        for tag in ["sensitive", "密码", "password"] {
+            entry.tags = vec![tag.into()];
+            assert!(super::entries_to_sync_items(vec![entry.clone()], &prefs).is_empty());
+        }
+    }
     use super::{
         merge_webdav_sync_heads, normalize_item_for_sync, rewrite_rich_html_resources_for_sync,
         webdav_sync_head_covers, CloudSyncItem, WebDavDeviceHead, WebDavSyncHead,

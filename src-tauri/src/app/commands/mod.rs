@@ -1,4 +1,6 @@
 pub mod ai_cmd;
+pub mod secure_transfer;
+pub use secure_transfer::*;
 pub mod clipboard_cmd;
 pub mod file_cmd;
 pub mod history_cmd;

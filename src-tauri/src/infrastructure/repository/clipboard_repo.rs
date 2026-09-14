@@ -208,23 +208,13 @@ impl SqliteClipboardRepository {
                 |row| Ok((row.get(0)?, row.get(1)?, row.get(2).ok(), row.get(3)?, row.get(4)?)),
             ).map_err(|e| e.to_string())?;
 
-        let already_encrypted = encryption::is_modern_ciphertext(&content_raw)
-            && encryption::is_modern_ciphertext(&preview_raw)
-            && html_raw
-                .as_ref()
-                .map(|h| encryption::is_modern_ciphertext(h))
-                .unwrap_or(true);
-        if already_encrypted {
-            return Ok(());
-        }
+        let content_plain = self.maybe_decrypt_text(&content_raw)?;
+        let preview_plain = self.maybe_decrypt_text(&preview_raw)?;
+        let html_plain = html_raw.map(|h| self.maybe_decrypt_text(&h)).transpose()?;
 
-        let content_plain = self.maybe_decrypt_text(&content_raw);
-        let preview_plain = self.maybe_decrypt_text(&preview_raw);
-        let html_plain = html_raw.map(|h| self.maybe_decrypt_text(&h));
-
-        let content_enc = self.maybe_encrypt_text(&content_plain);
-        let preview_enc = self.maybe_encrypt_text(&preview_plain);
-        let html_enc = html_plain.as_ref().map(|h| self.maybe_encrypt_text(h));
+        let content_enc = self.maybe_encrypt_text(&content_plain)?;
+        let preview_enc = self.maybe_encrypt_text(&preview_plain)?;
+        let html_enc = html_plain.as_ref().map(|h| self.maybe_encrypt_text(h)).transpose()?;
         let new_hash = if is_text_type(&content_type) {
             calc_text_hash(&content_plain) as i64
         } else {
@@ -256,9 +246,9 @@ impl SqliteClipboardRepository {
             return Ok(());
         }
 
-        let content_plain = self.maybe_decrypt_text(&content_raw);
-        let preview_plain = self.maybe_decrypt_text(&preview_raw);
-        let html_plain = html_raw.map(|h| self.maybe_decrypt_text(&h));
+        let content_plain = self.maybe_decrypt_text(&content_raw)?;
+        let preview_plain = self.maybe_decrypt_text(&preview_raw)?;
+        let html_plain = html_raw.map(|h| self.maybe_decrypt_text(&h)).transpose()?;
         let new_hash = if is_text_type(&content_type) {
             calc_text_hash(&content_plain) as i64
         } else {
@@ -337,34 +327,23 @@ impl SqliteClipboardRepository {
         Ok(())
     }
 
-    fn maybe_encrypt_text(&self, value: &str) -> String {
-        #[cfg(not(feature = "portable"))]
-        {
-            if encryption::is_modern_ciphertext(value) {
-                return value.to_string();
-            }
-            let plain = if encryption::is_encrypted_value(value) {
-                let Some(plain) = encryption::decrypt_value(value) else {
-                    return value.to_string();
-                };
-                plain
-            } else {
-                value.to_string()
-            };
-            encryption::encrypt_value(&plain).unwrap_or(plain)
-        }
-        #[cfg(feature = "portable")]
-        {
-            value.to_string()
-        }
+    fn maybe_encrypt_text(&self, value: &str) -> Result<String, String> {
+        encryption::encrypt_for_storage(value)
     }
 
-    fn maybe_decrypt_text(&self, value: &str) -> String {
-        if encryption::is_encrypted_value(value) {
-            encryption::decrypt_value(value).unwrap_or_else(|| value.to_string())
-        } else {
-            value.to_string()
-        }
+    fn maybe_decrypt_text(&self, value: &str) -> Result<String, String> {
+        encryption::decrypt_stored_value(value)
+    }
+
+    pub(crate) fn validate_entry_with_conn(&self, conn: &Connection, id: i64) -> Result<(), String> {
+        let (content, preview, html): (String, String, Option<String>) = conn.query_row(
+            "SELECT content, preview, html_content FROM clipboard_history WHERE id = ?",
+            [id], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        ).map_err(|e| e.to_string())?;
+        self.maybe_decrypt_text(&content)?;
+        self.maybe_decrypt_text(&preview)?;
+        html.as_deref().map(|v| self.maybe_decrypt_text(v)).transpose()?;
+        Ok(())
     }
 
     fn extract_rich_image_fallback_payload(html: &str) -> Option<String> {
@@ -417,18 +396,18 @@ impl SqliteClipboardRepository {
         html_raw: Option<&str>,
         is_external: bool,
         attachments_dir: &std::path::Path,
-    ) -> Vec<PathBuf> {
+    ) -> Result<Vec<PathBuf>, String> {
         let mut paths = HashSet::new();
 
         if is_external {
-            let content_path = PathBuf::from(self.maybe_decrypt_text(content_raw));
+            let content_path = PathBuf::from(self.maybe_decrypt_text(content_raw)?);
             if content_path.starts_with(attachments_dir) {
                 paths.insert(content_path);
             }
         }
 
         if let Some(html_raw_value) = html_raw {
-            let html = self.maybe_decrypt_text(html_raw_value);
+            let html = self.maybe_decrypt_text(html_raw_value)?;
             if let Some(payload) = Self::extract_rich_image_fallback_payload(&html) {
                 if let Some(path) = Self::fallback_payload_to_path(&payload) {
                     if path.starts_with(attachments_dir) {
@@ -438,7 +417,7 @@ impl SqliteClipboardRepository {
             }
         }
 
-        paths.into_iter().collect()
+        Ok(paths.into_iter().collect())
     }
 
     fn parse_raw_history_row(row: &rusqlite::Row<'_>) -> Result<RawHistoryRow, rusqlite::Error> {
@@ -465,21 +444,21 @@ impl SqliteClipboardRepository {
         })
     }
 
-    fn decrypt_history_row(&self, raw: RawHistoryRow) -> ClipboardEntry {
-        ClipboardEntry {
+    fn decrypt_history_row(&self, raw: RawHistoryRow) -> Result<ClipboardEntry, String> {
+        Ok(ClipboardEntry {
             id: raw.id,
             content_type: raw.content_type,
-            content: self.maybe_decrypt_text(&raw.content_raw),
+            content: self.maybe_decrypt_text(&raw.content_raw)?,
             html_content: raw
                 .html_raw
                 .as_ref()
-                .map(|value| self.maybe_decrypt_text(value)),
+                .map(|value| self.maybe_decrypt_text(value)).transpose()?,
             source_app: raw.source_app,
             timestamp: raw.timestamp,
             created_at: raw.created_at,
             last_used_at: raw.last_used_at,
             sort_at: raw.sort_at,
-            preview: self.maybe_decrypt_text(&raw.preview_raw),
+            preview: self.maybe_decrypt_text(&raw.preview_raw)?,
             is_pinned: raw.is_pinned,
             tags: raw.tags,
             use_count: raw.use_count,
@@ -488,7 +467,7 @@ impl SqliteClipboardRepository {
             source_app_path: raw.source_app_path,
             note: raw.note,
             file_preview_exists: true,
-        }
+        })
     }
 
     fn fetch_history_rows(
@@ -571,10 +550,10 @@ impl SqliteClipboardRepository {
                 sort_mode,
             )?
         };
-        Ok(raw_rows
+        raw_rows
             .into_iter()
             .map(|raw| self.decrypt_history_row(raw))
-            .collect())
+            .collect()
     }
 
     pub fn save_with_conn(
@@ -584,6 +563,11 @@ impl SqliteClipboardRepository {
         data_dir: Option<&std::path::Path>,
         precomputed_content_hash: Option<i64>,
     ) -> Result<i64, String> {
+        if entry.id > 0 { self.validate_entry_with_conn(conn, entry.id)?; }
+        let mut entry = entry.clone();
+        entry.content = self.maybe_decrypt_text(&entry.content)?;
+        entry.preview = self.maybe_decrypt_text(&entry.preview)?;
+        entry.html_content = entry.html_content.as_deref().map(|v| self.maybe_decrypt_text(v)).transpose()?;
         // Encrypt only when explicitly marked as sensitive
         let should_encrypt = has_sensitive_tag(&entry.tags);
 
@@ -614,20 +598,13 @@ impl SqliteClipboardRepository {
             }
         });
 
-        // Re-adding an item should clear an older delete tombstone for the same fingerprint.
-        let _ = self.clear_tombstone_with_conn(conn, &entry.content_type, calculated_hash);
-        let sync_hash = calc_sync_content_hash(&entry.content_type, &final_content);
-        if sync_hash != calculated_hash {
-            let _ = self.clear_tombstone_with_conn(conn, &entry.content_type, sync_hash);
-        }
-
         let (content, preview, content_hash, html_content) = if should_encrypt {
-            let encrypted_content = self.maybe_encrypt_text(&final_content);
-            let encrypted_preview = self.maybe_encrypt_text(&entry.preview);
+            let encrypted_content = self.maybe_encrypt_text(&final_content)?;
+            let encrypted_preview = self.maybe_encrypt_text(&entry.preview)?;
             let encrypted_html = entry
                 .html_content
                 .as_ref()
-                .map(|html| self.maybe_encrypt_text(html));
+                .map(|html| self.maybe_encrypt_text(html)).transpose()?;
             (
                 encrypted_content,
                 encrypted_preview,
@@ -636,12 +613,19 @@ impl SqliteClipboardRepository {
             )
         } else {
             (
-                final_content,
+                final_content.clone(),
                 entry.preview.clone(),
                 calculated_hash,
                 entry.html_content.clone(),
             )
         };
+
+        // Re-adding an item should clear an older delete tombstone for the same fingerprint.
+        self.clear_tombstone_with_conn(conn, &entry.content_type, calculated_hash)?;
+        let sync_hash = calc_sync_content_hash(&entry.content_type, &final_content);
+        if sync_hash != calculated_hash {
+            self.clear_tombstone_with_conn(conn, &entry.content_type, sync_hash)?;
+        }
 
         let mut seen: HashSet<String> = HashSet::new();
         let mut cleaned_tags: Vec<String> = Vec::new();
@@ -762,15 +746,16 @@ impl SqliteClipboardRepository {
             Err(_) => return true,
         };
 
-        for row in rows.flatten() {
+        for row in rows {
+            let Ok(row) = row else { return true; };
             if row.3 {
-                let decrypted_content = self.maybe_decrypt_text(&row.1);
+                let Ok(decrypted_content) = self.maybe_decrypt_text(&row.1) else { return true; };
                 if decrypted_content == path_str || decrypted_content.ends_with(file_name) {
                     return true;
                 }
             }
             if let Some(html_raw_value) = row.2 {
-                let decrypted_html = self.maybe_decrypt_text(&html_raw_value);
+                let Ok(decrypted_html) = self.maybe_decrypt_text(&html_raw_value) else { return true; };
                 if decrypted_html.contains(file_name) || decrypted_html.contains(&path_str) {
                     return true;
                 }
@@ -786,6 +771,7 @@ impl SqliteClipboardRepository {
         id: i64,
         data_dir: Option<&std::path::Path>,
     ) -> Result<(), String> {
+        self.validate_entry_with_conn(conn, id)?;
         let mut tombstone: Option<(String, i64)> = None;
         // Check for external files to delete
         if let Some(dir) = data_dir {
@@ -806,11 +792,11 @@ impl SqliteClipboardRepository {
                     entry.1.as_deref(),
                     entry.2,
                     &attachments_dir,
-                );
+                )?;
                 // Fingerprint image bytes before removing managed attachments.
                 // Hashing the path after deletion would create a tombstone that
                 // cannot match the byte-based hash uploaded to mobile devices.
-                let content = self.maybe_decrypt_text(&entry.0);
+                let content = self.maybe_decrypt_text(&entry.0)?;
                 tombstone = Some((entry.3.clone(), calc_sync_content_hash(&entry.3, &content)));
                 for path in files_to_remove {
                     if path.exists() && !self.is_attachment_in_use_by_other_entries(conn, id, &path) {
@@ -827,25 +813,26 @@ impl SqliteClipboardRepository {
                 let content: String = row.get(1)?;
                 Ok((content_type, content))
             }) {
-                let content = self.maybe_decrypt_text(&entry.1);
+                let content = self.maybe_decrypt_text(&entry.1)?;
                 tombstone = Some((entry.0.clone(), calc_sync_content_hash(&entry.0, &content)));
             }
         }
 
         if let Some((content_type, content_hash)) = tombstone {
-            let _ = self.upsert_tombstone_with_conn(conn, &content_type, content_hash, now_ms());
+            self.upsert_tombstone_with_conn(conn, &content_type, content_hash, now_ms())?;
         }
 
         conn.execute("DELETE FROM clipboard_history WHERE id = ?", [id])
             .map_err(|e| e.to_string())?;
-        let _ = conn.execute("DELETE FROM entry_tags WHERE entry_id = ?", params![id]);
+        conn.execute("DELETE FROM entry_tags WHERE entry_id = ?", params![id]).map_err(|e| e.to_string())?;
         Ok(())
     }
 
     pub fn delete_metadata_with_conn(&self, conn: &Connection, id: i64) -> Result<(), String> {
+        self.validate_entry_with_conn(conn, id)?;
         conn.execute("DELETE FROM clipboard_history WHERE id = ?", params![id])
             .map_err(|e| e.to_string())?;
-        let _ = conn.execute("DELETE FROM entry_tags WHERE entry_id = ?", params![id]);
+        conn.execute("DELETE FROM entry_tags WHERE entry_id = ?", params![id]).map_err(|e| e.to_string())?;
         Ok(())
     }
 
@@ -964,6 +951,7 @@ impl SqliteClipboardRepository {
         id: i64,
         is_pinned: bool,
     ) -> Result<(), String> {
+        self.validate_entry_with_conn(conn, id)?;
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
@@ -1027,9 +1015,9 @@ impl SqliteClipboardRepository {
             let content_raw: String = row.get(2).map_err(|e| e.to_string())?;
             let html_raw: Option<String> = row.get(3).map_err(|e| e.to_string()).unwrap_or(None);
             let preview_raw: String = row.get(6).map_err(|e| e.to_string())?;
-            let content = self.maybe_decrypt_text(&content_raw);
-            let preview = self.maybe_decrypt_text(&preview_raw);
-            let html_content = html_raw.map(|v| self.maybe_decrypt_text(&v));
+            let content = self.maybe_decrypt_text(&content_raw)?;
+            let preview = self.maybe_decrypt_text(&preview_raw)?;
+            let html_content = html_raw.map(|v| self.maybe_decrypt_text(&v)).transpose()?;
 
             Ok(Some(ClipboardEntry {
                 id: row.get(0).map_err(|e| e.to_string())?,
@@ -1063,6 +1051,11 @@ impl SqliteClipboardRepository {
         content: &str,
         preview: &str,
     ) -> Result<(), String> {
+        self.validate_entry_with_conn(conn, id)?;
+        let content = self.maybe_decrypt_text(content)?;
+        let preview = self.maybe_decrypt_text(preview)?;
+        let content = content.as_str();
+        let preview = preview.as_str();
         let (old_content_raw, content_type, tags_json, has_html) = conn
             .query_row(
                 "SELECT content, content_type, tags, (html_content IS NOT NULL) FROM clipboard_history WHERE id = ?",
@@ -1078,7 +1071,7 @@ impl SqliteClipboardRepository {
             )
             .map_err(|e| e.to_string())?;
 
-        let old_content = self.maybe_decrypt_text(&old_content_raw);
+        let old_content = self.maybe_decrypt_text(&old_content_raw)?;
         // Procceed if content changed, OR if content is same but we need to transition away from rich text/clear HTML
         if old_content == content && content_type != "rich_text" && !has_html {
             return Ok(());
@@ -1095,8 +1088,8 @@ impl SqliteClipboardRepository {
                 &content_type
             };
             if should_encrypt {
-                let encrypted_content = self.maybe_encrypt_text(content);
-                let encrypted_preview = self.maybe_encrypt_text(preview);
+                let encrypted_content = self.maybe_encrypt_text(content)?;
+                let encrypted_preview = self.maybe_encrypt_text(preview)?;
                 conn.execute(
                     "UPDATE clipboard_history SET content = ?, preview = ?, content_hash = ?, html_content = NULL, content_type = ? WHERE id = ?",
                     params![encrypted_content, encrypted_preview, hash, new_type, id],
@@ -1110,8 +1103,8 @@ impl SqliteClipboardRepository {
             return Ok(());
         }
         if should_encrypt {
-            let encrypted_content = self.maybe_encrypt_text(content);
-            let encrypted_preview = self.maybe_encrypt_text(preview);
+            let encrypted_content = self.maybe_encrypt_text(content)?;
+            let encrypted_preview = self.maybe_encrypt_text(preview)?;
             conn.execute(
                 "UPDATE clipboard_history SET content = ?, preview = ?, html_content = NULL WHERE id = ?",
                 params![encrypted_content, encrypted_preview, id],
@@ -1130,6 +1123,7 @@ impl SqliteClipboardRepository {
         conn: &Connection,
         id: i64,
     ) -> Result<Option<(String, String)>, String> {
+        self.validate_entry_with_conn(conn, id)?;
         let mut stmt = conn
             .prepare("SELECT content, content_type FROM clipboard_history WHERE id = ?")
             .map_err(|e| e.to_string())?;
@@ -1137,7 +1131,7 @@ impl SqliteClipboardRepository {
         if let Some(row) = rows.next().map_err(|e| e.to_string())? {
             let content: String = row.get(0).map_err(|e| e.to_string())?;
             let content_type: String = row.get(1).map_err(|e| e.to_string())?;
-            Ok(Some((self.maybe_decrypt_text(&content), content_type)))
+            Ok(Some((self.maybe_decrypt_text(&content)?, content_type)))
         } else {
             Ok(None)
         }
@@ -1148,6 +1142,7 @@ impl SqliteClipboardRepository {
         conn: &Connection,
         id: i64,
     ) -> Result<Option<(String, String, Option<String>)>, String> {
+        self.validate_entry_with_conn(conn, id)?;
         let mut stmt = conn
             .prepare(
                 "SELECT content, content_type, html_content FROM clipboard_history WHERE id = ?",
@@ -1158,9 +1153,9 @@ impl SqliteClipboardRepository {
             let content: String = row.get(0).map_err(|e| e.to_string())?;
             let content_type: String = row.get(1).map_err(|e| e.to_string())?;
             let html_raw: Option<String> = row.get(2).map_err(|e| e.to_string()).unwrap_or(None);
-            let html_content = html_raw.map(|v| self.maybe_decrypt_text(&v));
+            let html_content = html_raw.map(|v| self.maybe_decrypt_text(&v)).transpose()?;
             Ok(Some((
-                self.maybe_decrypt_text(&content),
+                self.maybe_decrypt_text(&content)?,
                 content_type,
                 html_content,
             )))
@@ -1270,29 +1265,7 @@ impl ClipboardRepository for SqliteClipboardRepository {
 
             let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
 
-            let map_row = |row: &rusqlite::Row<'_>| {
-                let tags_str: String = row.get::<_, String>(8).unwrap_or_else(|_| "[]".to_string());
-                Ok(ClipboardEntry {
-                    id: row.get(0)?,
-                    content_type: row.get(1)?,
-                    content: row.get(2)?,
-                    html_content: row.get(3).ok(),
-                    source_app: row.get(4)?,
-                    timestamp: row.get(5)?,
-                    created_at: row.get(14).unwrap_or_else(|_| row.get(5).unwrap_or(0)),
-                    last_used_at: row.get(15).unwrap_or(0),
-                    sort_at: row.get(16).unwrap_or_else(|_| row.get(5).unwrap_or(0)),
-                    preview: row.get(6)?,
-                    is_pinned: row.get::<_, i32>(7)? == 1,
-                    tags: serde_json::from_str(&tags_str).unwrap_or_default(),
-                    note: row.get::<_, String>(13).unwrap_or_default(),
-                    use_count: row.get(9).unwrap_or(0),
-                    is_external: row.get::<_, i32>(10)? == 1,
-                    pinned_order: row.get(11).unwrap_or(0),
-                    source_app_path: row.get(12).unwrap_or(None),
-                    file_preview_exists: true,
-                })
-            };
+            let map_row = Self::parse_raw_history_row;
 
             let rows = if note_only && term.is_empty() {
                 stmt.query_map(params![limit], map_row)
@@ -1305,7 +1278,9 @@ impl ClipboardRepository for SqliteClipboardRepository {
             for row in rows {
                 results.push(row.map_err(|e| e.to_string())?);
             }
-            Ok(results)
+            drop(stmt);
+            drop(conn);
+            results.into_iter().map(|raw| self.decrypt_history_row(raw)).collect()
         }
 
         #[cfg(not(feature = "portable"))]
@@ -1394,37 +1369,7 @@ impl ClipboardRepository for SqliteClipboardRepository {
             let mut stmt = conn
                 .prepare(&sql_non_sensitive)
                 .map_err(|e| e.to_string())?;
-            let map_row = |row: &rusqlite::Row<'_>| {
-                let tags_str: String = row.get(8).unwrap_or_else(|_| "[]".to_string());
-                let tags: Vec<String> = serde_json::from_str(&tags_str).unwrap_or_default();
-                let content_raw: String = row.get(2)?;
-                let preview_raw: String = row.get(6)?;
-                let html_raw: Option<String> = row.get(3).ok();
-                let content = self.maybe_decrypt_text(&content_raw);
-                let preview = self.maybe_decrypt_text(&preview_raw);
-                let html_content = html_raw.map(|v| self.maybe_decrypt_text(&v));
-
-                Ok(ClipboardEntry {
-                    id: row.get(0)?,
-                    content_type: row.get(1)?,
-                    content,
-                    html_content,
-                    source_app: row.get(4)?,
-                    timestamp: row.get(5)?,
-                    created_at: row.get(14).unwrap_or_else(|_| row.get(5).unwrap_or(0)),
-                    last_used_at: row.get(15).unwrap_or(0),
-                    sort_at: row.get(16).unwrap_or_else(|_| row.get(5).unwrap_or(0)),
-                    preview,
-                    is_pinned: row.get::<_, i32>(7)? == 1,
-                    tags,
-                    use_count: row.get(9).unwrap_or(0),
-                    is_external: row.get::<_, i32>(10)? == 1,
-                    pinned_order: row.get(11).unwrap_or(0),
-                    source_app_path: row.get(12).unwrap_or(None),
-                    note: row.get::<_, String>(13).unwrap_or_default(),
-                    file_preview_exists: true,
-                })
-            };
+            let map_row = Self::parse_raw_history_row;
 
             let rows = if note_only && term.is_empty() {
                 stmt.query_map(params![limit], map_row)
@@ -1433,15 +1378,13 @@ impl ClipboardRepository for SqliteClipboardRepository {
             }
             .map_err(|e| e.to_string())?;
 
-            for row in rows {
-                if let Ok(entry) = row {
-                    if seen.insert(entry.id) {
-                        results.push(entry);
-                    }
-                }
-            }
+            let raw_rows = rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
             drop(stmt);
             drop(conn);
+            for raw in raw_rows {
+                let entry = self.decrypt_history_row(raw)?;
+                if seen.insert(entry.id) { results.push(entry); }
+            }
 
             // 2) Decrypt-scan sensitive or encrypted entries (only if needed)
             if results.len() < limit as usize {
@@ -1512,9 +1455,7 @@ impl ClipboardRepository for SqliteClipboardRepository {
 
                         let mut raw_batch = Vec::new();
                         for row in rows {
-                            if let Ok(entry) = row {
-                                raw_batch.push(entry);
-                            }
+                            raw_batch.push(row.map_err(|e| e.to_string())?);
                         }
                         raw_batch
                     };
@@ -1527,10 +1468,10 @@ impl ClipboardRepository for SqliteClipboardRepository {
                     // SQL read. Do it after releasing the global DB mutex so new
                     // clipboard captures are not blocked by a long search.
                     for entry in &mut batch {
-                        entry.content = self.maybe_decrypt_text(&entry.content);
-                        entry.preview = self.maybe_decrypt_text(&entry.preview);
+                        entry.content = self.maybe_decrypt_text(&entry.content)?;
+                        entry.preview = self.maybe_decrypt_text(&entry.preview)?;
                         if let Some(html) = entry.html_content.take() {
-                            entry.html_content = Some(self.maybe_decrypt_text(&html));
+                            entry.html_content = Some(self.maybe_decrypt_text(&html)?);
                         }
                     }
 
@@ -1613,6 +1554,7 @@ impl ClipboardRepository for SqliteClipboardRepository {
 
     fn increment_use_count(&self, id: i64) -> Result<(), String> {
         let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        self.validate_entry_with_conn(&conn, id)?;
         conn.execute(
             "UPDATE clipboard_history
              SET use_count = use_count + 1, last_used_at = ?1
@@ -1625,6 +1567,7 @@ impl ClipboardRepository for SqliteClipboardRepository {
 
     fn touch_entry(&self, id: i64, timestamp: i64) -> Result<(), String> {
         let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        self.validate_entry_with_conn(&conn, id)?;
         conn.execute(
             "UPDATE clipboard_history SET timestamp = ?1, sort_at = ?1 WHERE id = ?2",
             params![timestamp, id],
@@ -1667,6 +1610,7 @@ impl ClipboardRepository for SqliteClipboardRepository {
 
     fn update_entry_note(&self, id: i64, note: &str) -> Result<(), String> {
         let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        self.validate_entry_with_conn(&conn, id)?;
         let cleaned = note.trim();
         conn.execute(
             "UPDATE clipboard_history SET note = ?1 WHERE id = ?2",
@@ -1678,13 +1622,14 @@ impl ClipboardRepository for SqliteClipboardRepository {
 
     fn get_entry_content(&self, id: i64) -> Result<Option<String>, String> {
         let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        self.validate_entry_with_conn(&conn, id)?;
         let mut stmt = conn
             .prepare("SELECT content FROM clipboard_history WHERE id = ?")
             .map_err(|e| e.to_string())?;
         let mut rows = stmt.query(params![id]).map_err(|e| e.to_string())?;
         if let Some(row) = rows.next().map_err(|e| e.to_string())? {
             let content: String = row.get(0).map_err(|e| e.to_string())?;
-            Ok(Some(self.maybe_decrypt_text(&content)))
+            Ok(Some(self.maybe_decrypt_text(&content)?))
         } else {
             Ok(None)
         }

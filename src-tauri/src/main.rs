@@ -72,6 +72,8 @@ fn main() -> AppResult<()> {
             app::commands::discover_clipboard_import_sources,
             app::commands::get_clipboard_history,
             app::commands::import_clipboard_data,
+            app::commands::export_secure_transfer,
+            app::commands::import_secure_transfer,
             app::commands::search_clipboard_history,
             app::commands::delete_clipboard_entry,
             app::commands::clear_clipboard_history,

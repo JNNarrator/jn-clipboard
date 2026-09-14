@@ -25,12 +25,8 @@ impl SqliteTagRepository {
         Self { conn }
     }
 
-    fn maybe_decrypt_text(&self, value: &str) -> String {
-        if encryption::is_encrypted_value(value) {
-            encryption::decrypt_value(value).unwrap_or_else(|| value.to_string())
-        } else {
-            value.to_string()
-        }
+    fn maybe_decrypt_text(&self, value: &str) -> rusqlite::Result<String> {
+        encryption::decrypt_stored_value(value).map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::new(std::io::ErrorKind::InvalidData, e))))
     }
 
     fn refresh_entry_tags_json(conn: &Connection, entry_id: i64) -> Result<(), String> {
@@ -225,7 +221,7 @@ impl TagRepository for SqliteTagRepository {
                 }) {
                     if entry.1 {
                         // is_external
-                        let content_path = self.maybe_decrypt_text(&entry.0);
+                        let content_path = self.maybe_decrypt_text(&entry.0).map_err(|e| e.to_string())?;
                         let path = std::path::Path::new(&content_path);
                         if path.starts_with(&attachments_dir) && path.exists() {
                             let file_name = path.file_name().and_then(|f| f.to_str()).unwrap_or("");
@@ -264,9 +260,9 @@ impl TagRepository for SqliteTagRepository {
                 let content_raw: String = row.get(2)?;
                 let html_raw: Option<String> = row.get(3).ok();
                 let preview_raw: String = row.get(6)?;
-                let content = self.maybe_decrypt_text(&content_raw);
-                let preview = self.maybe_decrypt_text(&preview_raw);
-                let html_content = html_raw.map(|v| self.maybe_decrypt_text(&v));
+                let content = self.maybe_decrypt_text(&content_raw)?;
+                let preview = self.maybe_decrypt_text(&preview_raw)?;
+                let html_content = html_raw.map(|v| self.maybe_decrypt_text(&v)).transpose()?;
 
                 Ok(ClipboardEntry {
                     id: row.get(0)?,
@@ -293,15 +289,16 @@ impl TagRepository for SqliteTagRepository {
 
         let mut history = Vec::new();
         for row in rows {
-            if let Ok(entry) = row {
-                history.push(entry);
-            }
+            history.push(row.map_err(|e| e.to_string())?);
         }
         Ok(history)
     }
 
     fn update_entry_tags(&self, id: i64, tags: Vec<String>) -> Result<(), String> {
-        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        let mut guard = self.conn.lock().map_err(|e| e.to_string())?;
+        let conn = guard.transaction().map_err(|e| e.to_string())?;
+        let repo = crate::infrastructure::repository::clipboard_repo::SqliteClipboardRepository::new(self.conn.clone());
+        repo.validate_entry_with_conn(&conn, id)?;
         let mut seen: HashSet<String> = HashSet::new();
         let mut cleaned: Vec<String> = Vec::new();
         for tag in tags {
@@ -326,11 +323,16 @@ impl TagRepository for SqliteTagRepository {
         }
 
         let tags_json = serde_json::to_string(&cleaned).unwrap_or_else(|_| "[]".to_string());
+        if crate::database::has_sensitive_tag(&cleaned) {
+            repo.encrypt_entry_with_conn(&conn, id)?;
+        } else {
+            repo.decrypt_entry_with_conn(&conn, id)?;
+        }
         conn.execute(
             "UPDATE clipboard_history SET tags = ? WHERE id = ?",
             params![tags_json, id],
         )
         .map_err(|e| e.to_string())?;
-        Ok(())
+        conn.commit().map_err(|e| e.to_string())
     }
 }

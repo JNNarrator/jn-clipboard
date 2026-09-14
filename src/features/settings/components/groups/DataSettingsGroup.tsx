@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { open, ask, message } from "@tauri-apps/plugin-dialog";
 import { useState } from "react";
+import SecureTransfer from "../SecureTransfer";
 import {
     AlertTriangle,
     ArchiveRestore,
@@ -411,6 +412,7 @@ const DataSettingsGroup = ({
 
     return (
         <>
+            <SecureTransfer />
             <div className={`settings-group ${collapsed ? "collapsed" : ""}`}>
                 <button type="button" className="group-header" aria-expanded={!collapsed} onClick={onToggle}>
                     <h3 style={{ margin: 0 }}>{t("data_management")}</h3>

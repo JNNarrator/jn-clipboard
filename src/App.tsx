@@ -1001,7 +1001,7 @@ const App = () => {
     setSelectedItemId
   });
 
-  useSearchFetchTrigger({ debouncedSearch, isComposing, typeFilter, fetchHistory });
+  useSearchFetchTrigger({ debouncedSearch, isComposing, typeFilter, sortMode: clipboardSortMode, fetchHistory });
 
   useScrollToSelection({
     filteredHistory: navigableHistory,

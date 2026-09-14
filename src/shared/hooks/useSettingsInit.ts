@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { message } from "@tauri-apps/plugin-dialog";
 import { DEFAULT_THEME, normalizeThemeId } from "../config/themes";
 import type { Locale } from "../types";
 import { isTauriRuntime } from "../lib/tauriRuntime";
@@ -38,10 +39,6 @@ export const useSettingsInit = ({
         .then((result) => {
           if (disposed) return;
 
-          console.log(
-            `[THEME DEBUG] get_settings response (run #${settingsEffectCount.current}):`,
-            result
-          );
           console.log("[THEME DEBUG] app.color_mode from DB:", result["app.color_mode"]);
 
           setAppSettings(result);
@@ -72,7 +69,11 @@ export const useSettingsInit = ({
 
           setSettings(result);
         })
-        .catch(console.error);
+        .catch((error) => {
+          if (disposed) return;
+          console.error("Settings initialization failed", error);
+          void message("无法读取设置。原始数据已保留，请检查原设备密钥或系统钥匙串权限，再重新启动。\n" + String(error), { title: "TieZ：设置读取失败", kind: "error" });
+        });
     };
 
     loadSettings();

@@ -714,6 +714,32 @@ pub fn set_data_path(app_handle: AppHandle, new_path: String) -> AppResult<()> {
     }
 
     let old_path_buf = app_handle.state::<AppDataDir>().0.lock().unwrap().clone();
+    if std::fs::canonicalize(&old_path_buf).ok() == std::fs::canonicalize(new_data_path).ok() {
+        return Ok(());
+    }
+    // Keep the original key recoverable and refuse to merge different key stores.
+    for name in ["master.key", "master.key.dpapi"] {
+        let source = old_path_buf.join(name);
+        let destination = new_data_path.join(name);
+        if !source.exists() { continue; }
+        let bytes = std::fs::read(&source).map_err(AppError::from)?;
+        if destination.exists() && std::fs::read(&destination).map_err(AppError::from)? != bytes {
+            return Err(AppError::Validation("目标目录含有不同的加密密钥，请选择空目录。".into()));
+        }
+    }
+    for name in ["master.key", "master.key.dpapi"] {
+        let source = old_path_buf.join(name);
+        let destination = new_data_path.join(name);
+        if source.exists() && !destination.exists() {
+            use std::io::Write;
+            let mut options = std::fs::OpenOptions::new();
+            options.write(true).create_new(true);
+            #[cfg(unix)] { use std::os::unix::fs::OpenOptionsExt; options.mode(0o600); }
+            let mut output = options.open(&destination).map_err(AppError::from)?;
+            output.write_all(&std::fs::read(&source).map_err(AppError::from)?).map_err(AppError::from)?;
+            output.sync_all().map_err(AppError::from)?;
+        }
+    }
 
     // 1. Migrate data folders if they exist in the OLD path
     {

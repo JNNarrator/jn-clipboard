@@ -135,36 +135,28 @@ pub fn get_clipboard_history(
     let sort_mode = ClipboardSortMode::from_setting(sort_mode.as_deref());
     let data_dir = app_data.0.lock().map(|d| d.clone()).unwrap_or_default();
 
-    // 1. Get history from repository
-    let mut history =
-        state
-            .repo
-            .get_history_sorted(limit, offset, content_type.as_deref(), sort_mode)?;
-
-    // 2. Add session history items (non-persisted) ONLY on the first page
-    if offset == 0 {
-        let session_items = session.inner().0.lock().unwrap();
-        for item in session_items.iter().rev() {
-            if let Some(ct) = content_type.as_deref() {
-                if item.content_type != ct {
-                    continue;
-                }
-            }
-            // Avoid duplicates: if item is already in DB, it will have id > 0
-            if !history.iter().any(|h| h.id == item.id && item.id != 0) {
-                history.push(item.clone());
-            }
-        }
+    let limit = limit.clamp(0, 1000);
+    let offset = offset.max(0);
+    if limit == 0 {
+        return Ok(Vec::new());
     }
-
-    // 3. Apply the same stable sorting as the repository.
-    // This MUST match the repository's logic to maintain pagination stability
-    history.sort_by(|a, b| sort_mode.compare(a, b));
-
-    // 4. Truncate to limit
-    if history.len() > limit as usize {
-        history.truncate(limit as usize);
-    }
+    // With session entries present, merge the sorted prefix before slicing.
+    let session_items = session.inner().0.lock().unwrap();
+    let session_count = session_items.len() as i32;
+    let db_offset = if session_count == 0 { offset } else { 0 };
+    let db_limit = limit.saturating_add(offset - db_offset);
+    let db_items = state.repo.get_history_sorted(
+        db_limit, db_offset, content_type.as_deref(), sort_mode,
+    )?;
+    let mut history = {
+        let mut candidates: Vec<&ClipboardEntry> = session_items.iter()
+            .filter(|item| content_type.as_deref().map_or(true, |ct| item.content_type == ct))
+            .chain(db_items.iter())
+            .collect();
+        sorted_page(&mut candidates, (offset - db_offset) as usize, limit as usize,
+            |a, b| sort_mode.compare(a, b))
+    };
+    drop(session_items);
 
     // 5. Truncate content for UI performance and validate media
     for item in &mut history {
@@ -202,6 +194,28 @@ pub fn get_clipboard_history(
     }
 
     Ok(history)
+}
+
+fn sorted_page<T: Clone>(items: &mut Vec<&T>, offset: usize, limit: usize,
+    compare: impl Fn(&T, &T) -> std::cmp::Ordering) -> Vec<T> {
+    items.sort_by(|a, b| compare(a, b));
+    items.iter().skip(offset).take(limit).map(|item| (*item).clone()).collect()
+}
+
+#[cfg(test)]
+mod merged_page_tests {
+    use super::sorted_page;
+
+    #[test]
+    fn mixed_sources_are_sorted_before_pagination() {
+        let session = [8, 3, 1];
+        let database = [10, 9, 7, 6, 5, 4, 2];
+        let mut candidates = session.iter().chain(database.iter()).collect();
+        assert_eq!(sorted_page(&mut candidates, 0, 4, |a, b| b.cmp(a)), vec![10, 9, 8, 7]);
+        assert_eq!(sorted_page(&mut candidates, 4, 4, |a, b| b.cmp(a)), vec![6, 5, 4, 3]);
+        assert_eq!(sorted_page(&mut candidates, 8, 4, |a, b| b.cmp(a)), vec![2, 1]);
+        assert!(sorted_page(&mut candidates, 10, 4, |a, b| b.cmp(a)).is_empty());
+    }
 }
 
 #[tauri::command]

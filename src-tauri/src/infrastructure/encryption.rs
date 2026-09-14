@@ -60,6 +60,11 @@ pub fn is_modern_ciphertext(value: &str) -> bool {
 pub fn init(data_dir: &Path) {
     let _ = DATA_DIR.set(data_dir.to_path_buf());
 
+    // Portable saves are plaintext. Load an existing key only on a decrypt request.
+    if cfg!(feature = "portable") {
+        return;
+    }
+
     #[cfg(all(target_os = "macos", not(debug_assertions)))]
     {
         // Prewarm off the main thread: SecurityAgent UI needs a free run loop.
@@ -110,6 +115,10 @@ fn load_or_create_master_key() -> Result<[u8; KEY_LEN], String> {
             // Access-denied / user-cancel must NOT overwrite the existing key,
             // otherwise previously encrypted data becomes undecryptable.
             Err(KeychainLoadError::NotFound) => {
+                ensure_no_orphaned_ciphertext()?;
+                if cfg!(feature = "portable") {
+                    return Err("existing master key not found".into());
+                }
                 let key = generate_key();
                 store_key_in_keychain(&key)?;
                 return Ok(key);
@@ -125,6 +134,10 @@ fn load_or_create_master_key() -> Result<[u8; KEY_LEN], String> {
         if path.exists() {
             return load_key_dpapi(&path);
         }
+        if cfg!(feature = "portable") {
+            return Err("existing master key not found".into());
+        }
+        ensure_no_orphaned_ciphertext()?;
         let key = generate_key();
         store_key_dpapi(&path, &key)?;
         return Ok(key);
@@ -134,6 +147,25 @@ fn load_or_create_master_key() -> Result<[u8; KEY_LEN], String> {
     {
         load_or_create_file_key(FALLBACK_KEY_FILE)
     }
+}
+
+fn ensure_no_orphaned_ciphertext() -> Result<(), String> {
+    let Some(dir) = data_dir() else { return Ok(()); };
+    let path = dir.join("clipboard.db");
+    if !path.exists() { return Ok(()); }
+    let conn = rusqlite::Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
+        .map_err(|e| format!("cannot verify existing encrypted database: {e}"))?;
+    for (table, fields) in [("settings", vec!["value"]), ("clipboard_history", vec!["content", "preview", "html_content"])] {
+        let exists: bool = conn.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name=?1)", [table], |r| r.get(0)).map_err(|e| e.to_string())?;
+        if !exists { continue; }
+        for field in fields {
+            let sql = format!("SELECT EXISTS(SELECT 1 FROM {table} WHERE {field} LIKE 'enc1:%')");
+            if conn.query_row(&sql, [], |r| r.get::<_, bool>(0)).map_err(|e| e.to_string())? {
+                return Err("existing encrypted data has no accessible master key; restore the original key before saving".into());
+            }
+        }
+    }
+    Ok(())
 }
 
 #[cfg(any(
@@ -152,6 +184,10 @@ fn load_or_create_file_key(filename: &str) -> Result<[u8; KEY_LEN], String> {
         key.copy_from_slice(&bytes);
         return Ok(key);
     }
+    if cfg!(feature = "portable") {
+        return Err("existing master key not found".into());
+    }
+    ensure_no_orphaned_ciphertext()?;
     let key = generate_key();
     if let Some(parent) = path.parent() {
         let _ = std::fs::create_dir_all(parent);
@@ -320,10 +356,24 @@ pub fn encrypt_value(plain: &str) -> Option<String> {
 }
 
 pub fn decrypt_value(cipher: &str) -> Option<String> {
-    decrypt_value_inner(cipher, true)
+    decrypt_value_inner(cipher)
 }
 
-fn decrypt_value_inner(cipher: &str, unwrap_legacy_after_modern: bool) -> Option<String> {
+/// Decode one storage envelope. Modern plaintext is never recursively unwrapped.
+pub fn decrypt_stored_value(value: &str) -> Result<String, String> {
+    decrypt_value(value).ok_or_else(|| "stored value cannot be decrypted; original data preserved".into())
+}
+
+/// Encode literal plaintext for storage; portable builds deliberately save plaintext.
+/// Call decrypt_stored_value explicitly before passing an existing storage envelope.
+pub fn encrypt_for_storage(value: &str) -> Result<String, String> {
+    #[cfg(feature = "portable")]
+    { Ok(value.to_string()) }
+    #[cfg(not(feature = "portable"))]
+    { encrypt_value(value).ok_or_else(|| "encryption unavailable; value was not saved".into()) }
+}
+
+fn decrypt_value_inner(cipher: &str) -> Option<String> {
     if let Some(payload) = cipher.strip_prefix(LEGACY_PLAIN_PREFIX) {
         return Some(payload.to_string());
     }
@@ -349,25 +399,15 @@ fn decrypt_value_inner(cipher: &str, unwrap_legacy_after_modern: bool) -> Option
         return Some(cipher.to_string());
     }
 
-    #[cfg(feature = "portable")]
-    {
-        return Some(cipher.to_string());
+    let plain = decrypt_modern_value_once(cipher)?;
+    // Recover old Windows builds that wrapped a DPAPI envelope in AES.
+    // Only unwrap an authenticated, locally decryptable DPAPI payload.
+    if plain.starts_with(LEGACY_DPAPI_PREFIX) {
+        if let Some(legacy) = decrypt_value_inner(&plain) { return Some(legacy); }
     }
-
-    #[cfg(not(feature = "portable"))]
-    {
-        let plain = decrypt_modern_value_once(cipher)?;
-        if unwrap_legacy_after_modern
-            && (plain.starts_with(LEGACY_PLAIN_PREFIX)
-                || plain.starts_with(LEGACY_DPAPI_PREFIX))
-        {
-            return decrypt_value_inner(&plain, false);
-        }
-        Some(plain)
-    }
+    Some(plain)
 }
 
-#[cfg(not(feature = "portable"))]
 fn decrypt_modern_value_once(cipher: &str) -> Option<String> {
     let payload = cipher.strip_prefix(ENCRYPT_PREFIX)?;
     let packed = base64::engine::general_purpose::STANDARD
@@ -387,6 +427,35 @@ fn decrypt_modern_value_once(cipher: &str) -> Option<String> {
 /// Re-encrypt legacy `plain:` / Windows `dpapi:` blobs when they can be
 /// decrypted. Undecryptable ciphertext is intentionally left untouched.
 pub fn migrate_legacy_ciphertexts(conn: &rusqlite::Connection) -> Result<usize, String> {
+    if cfg!(feature = "portable") {
+        return Ok(0);
+    }
+    backup_before_migration(conn)?;
+    let transaction = conn.unchecked_transaction().map_err(|e| e.to_string())?;
+    let upgraded = migrate_legacy_in_transaction(&transaction)?;
+    transaction.commit().map_err(|e| e.to_string())?;
+    Ok(upgraded)
+}
+
+// VACUUM INTO takes a consistent SQLite snapshot, including committed WAL data.
+// It must run outside the migration transaction. Never overwrite an old backup.
+fn backup_before_migration(conn: &rusqlite::Connection) -> Result<(), String> {
+    let path: String = conn.query_row("SELECT file FROM pragma_database_list WHERE name = 'main'", [], |row| row.get(0))
+        .map_err(|e| e.to_string())?;
+    if path.is_empty() { return Ok(()); } // In-memory tests have no durable data.
+    let backup = format!("{path}.pre-encryption-v1.bak");
+    if std::path::Path::new(&backup).exists() { return Ok(()); }
+    conn.execute("VACUUM main INTO ?1", [&backup]).map_err(|e| format!("encryption backup failed: {e}"))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&backup, std::fs::Permissions::from_mode(0o600))
+            .map_err(|e| format!("cannot restrict backup permissions: {e}"))?;
+    }
+    Ok(())
+}
+
+fn migrate_legacy_in_transaction(conn: &rusqlite::Connection) -> Result<usize, String> {
     let mut upgraded = 0usize;
 
     // Settings: sensitive keys with legacy or plaintext values are rewritten via encrypt.
@@ -491,27 +560,13 @@ pub fn migrate_legacy_ciphertexts(conn: &rusqlite::Connection) -> Result<usize, 
 
 fn upgrade_field(value: &str) -> String {
     if is_modern_ciphertext(value) {
-        #[cfg(not(feature = "portable"))]
-        {
-            let Some(inner) = decrypt_modern_value_once(value) else {
-                return value.to_string();
-            };
-            if inner.starts_with(LEGACY_PLAIN_PREFIX)
-                || inner.starts_with(LEGACY_DPAPI_PREFIX)
-            {
-                let Some(plain) = decrypt_value_inner(&inner, false) else {
-                    return value.to_string();
-                };
-                return encrypt_value(&plain).unwrap_or_else(|| value.to_string());
-            }
-        }
         return value.to_string();
     }
     if value.starts_with(LEGACY_PLAIN_PREFIX) || value.starts_with(LEGACY_DPAPI_PREFIX) {
         let Some(plain) = decrypt_value(value) else {
             return value.to_string();
         };
-        return encrypt_value(&plain).unwrap_or(plain);
+        return encrypt_value(&plain).unwrap_or_else(|| value.to_string());
     }
     value.to_string()
 }
@@ -588,7 +643,7 @@ mod tests {
         assert_eq!(decrypt_value(&legacy).as_deref(), Some("old-secret"));
     }
 
-    #[cfg(target_os = "windows")]
+    #[cfg(all(target_os = "windows", not(feature = "portable")))]
     #[test]
     fn modern_ciphertext_can_unwrap_a_legacy_dpapi_value() {
         let test_data_dir = std::env::temp_dir().join(format!(
