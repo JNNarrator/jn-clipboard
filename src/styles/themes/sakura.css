@@ -17,7 +17,7 @@ body.theme-sakura {
   --bg-button: rgba(255, 255, 255, 0.78);
 
   --text-primary: #4a343a;
-  --text-secondary: #946c78;
+  --text-secondary: #7f5a66;
   --text-muted: #b89ca4;
 
   --accent-color: #ff85a1;
@@ -67,16 +67,16 @@ body.theme-sakura {
   --button-border: 1px solid rgba(255, 133, 161, 0.2);
   --button-radius: 12px;
   --button-shadow: none;
-  --button-hover-shadow: 0 3px 9px rgba(92, 58, 68, 0.1);
+  --button-hover-shadow: none;
   --button-hover-transform: translateY(-1px);
   --button-active-transform: translateY(0) scale(0.98);
-  --button-active-shadow: 0 2px 8px rgba(255, 133, 161, 0.1);
-  --button-active-filled-shadow: 0 8px 24px rgba(255, 133, 161, 0.3);
+  --button-active-shadow: none;
+  --button-active-filled-shadow: none;
 
   --card-border: 1px solid rgba(212, 160, 175, 0.18);
   --card-radius: 14px;
   --card-shadow: none;
-  --card-hover-shadow: var(--shadow-xs);
+  --card-hover-shadow: none;
   --card-hover-transform: translateY(-1px);
   --card-active-transform: translateY(0);
   --card-active-shadow: var(--shadow-xs);

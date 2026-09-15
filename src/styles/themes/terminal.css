@@ -28,7 +28,7 @@ body.theme-terminal {
 
   --title-font-family: var(--font-main);
   --title-font-weight: 500;
-  --title-font-size: 11px;
+  --title-font-size: 12px;
   --title-letter-spacing: 0.02em;
   --title-transform: none;
   --title-color: var(--term-fg-dim);

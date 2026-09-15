@@ -25,7 +25,7 @@ body.theme-ink {
   --shell-radius: 8px;
 
   --content-font-family: var(--font-main);
-  --content-line-height: 1.75;
+  --content-line-height: 1.6;
   --empty-state-font-family: var(--font-main);
 
   --title-font-family: var(--font-main);
@@ -53,12 +53,12 @@ body.theme-ink {
   --layout-search-icon-left: 14px;
   --layout-main-padding-y: 12px;
   --layout-main-padding-bottom: 16px;
-  --layout-main-gap: 10px;
+  --layout-main-gap: 8px;
   --layout-list-padding-x: 16px;
   --layout-item-margin-x: 4px;
-  --layout-item-margin-bottom: 12px;
-  --layout-item-padding: 12px 16px 14px 16px;
-  --layout-item-padding-compact: 8px 14px 8px 14px;
+  --layout-item-margin-bottom: 8px;
+  --layout-item-padding: 10px 14px 12px 14px;
+  --layout-item-padding-compact: 7px 12px 7px 12px;
   --layout-item-background: transparent;
   --layout-item-hover-background: rgba(0, 0, 0, 0.025);
   --layout-item-divider: none;
@@ -67,7 +67,7 @@ body.theme-ink {
   --layout-meta-font-size: 11px;
   --layout-meta-font-weight: 400;
   --layout-meta-border-bottom: 1px solid rgba(26, 26, 26, 0.12);
-  --layout-meta-padding-bottom: 6px;
+  --layout-meta-padding-bottom: 4px;
   --layout-tag-list-gap: 8px;
   --layout-tag-chip-padding: 1px 8px;
   --layout-overlay-tag-padding: 1px 8px;

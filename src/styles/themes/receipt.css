@@ -9,7 +9,7 @@ body.theme-receipt {
 
   --font-main: "Courier New", Courier, "SF Mono", ui-monospace, monospace;
   --font-mono: var(--font-main);
-  --font-size-md: 12px;
+  --font-size-md: 13px;
 
   --radius-window: 4px;
   --radius-panel: 2px;
@@ -31,7 +31,7 @@ body.theme-receipt {
 
   --title-font-family: var(--font-main);
   --title-font-weight: 700;
-  --title-font-size: 11px;
+  --title-font-size: 12px;
   --title-letter-spacing: 0.12em;
   --title-transform: uppercase;
   --title-color: #2a2a2a;
@@ -64,7 +64,7 @@ body.theme-receipt {
   --layout-item-divider: 1px dashed rgba(0, 0, 0, 0.14);
   --layout-drag-handle-radius: 0;
   --layout-btn-icon-padding: 4px;
-  --layout-meta-font-size: 9px;
+  --layout-meta-font-size: 10px;
   --layout-meta-font-weight: 700;
   --layout-meta-border-bottom: none;
   --layout-meta-padding-bottom: 2px;
