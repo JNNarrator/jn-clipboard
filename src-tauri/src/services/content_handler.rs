@@ -6,16 +6,24 @@ use crate::infrastructure::repository::settings_repo::SettingsRepository;
 #[cfg(target_os = "windows")]
 use crate::infrastructure::windows_api::apps::launch_uwp_with_file;
 use base64::{engine::general_purpose, Engine as _};
-use std::collections::HashSet;
+use std::collections::HashMap;
 use std::io::Read;
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
 use std::process::Command;
-use std::sync::{LazyLock, Mutex};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, LazyLock, Mutex};
+use std::time::Instant;
 use tauri::{Emitter, Manager, State};
 
-static WATCHED_PREVIEW_ENTRY_IDS: LazyLock<Mutex<HashSet<i64>>> =
-    LazyLock::new(|| Mutex::new(HashSet::new()));
+struct WatchedEntryInfo {
+    path: std::path::PathBuf,
+    cancel: Arc<AtomicBool>,
+    last_activity: Arc<Mutex<Instant>>,
+}
+
+static WATCHED_PREVIEW_ENTRIES: LazyLock<Mutex<HashMap<i64, WatchedEntryInfo>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 
 #[tauri::command]
 pub async fn open_content(
@@ -54,7 +62,21 @@ pub async fn open_content(
 
     let app_path = get_app_path_for_content_type(&state, &content_type)?;
     let mut temp_path = std::env::temp_dir();
-    let filename = format!("TieZ_Clip_{}", chrono::Utc::now().format("%Y%m%d-%H%M%S"));
+    let filename = if id != 0 {
+        if id > 0 {
+            format!("TieZ_Clip_entry_{}", id)
+        } else {
+            format!("TieZ_Clip_session_{}", id.abs())
+        }
+    } else {
+        static TEMP_FILE_COUNTER: AtomicU64 = AtomicU64::new(1);
+        let count = TEMP_FILE_COUNTER.fetch_add(1, Ordering::Relaxed);
+        format!(
+            "TieZ_Clip_temp_{}_{:x}",
+            chrono::Utc::now().format("%Y%m%d-%H%M%S"),
+            count
+        )
+    };
     let mut use_direct_path = false;
 
     // Handle links/URLs
@@ -114,21 +136,56 @@ pub fn register_file_preview_watch(
         return;
     }
 
-    {
-        let mut watched = WATCHED_PREVIEW_ENTRY_IDS.lock().unwrap();
-        if !watched.insert(id) {
-            return;
+    let (cancel_token, last_activity) = {
+        let mut watched = WATCHED_PREVIEW_ENTRIES.lock().unwrap();
+        if let Some(existing) = watched.get_mut(&id) {
+            if existing.path == file_path {
+                // Stable reuse of the same entry file: refresh activity timer and continue existing watch
+                *existing.last_activity.lock().unwrap() = Instant::now();
+                return;
+            } else {
+                // Path changed: signal cancellation to previous watcher and spawn new watcher
+                existing.cancel.store(true, Ordering::Relaxed);
+                let cancel = Arc::new(AtomicBool::new(false));
+                let last_act = Arc::new(Mutex::new(Instant::now()));
+                *existing = WatchedEntryInfo {
+                    path: file_path.clone(),
+                    cancel: cancel.clone(),
+                    last_activity: last_act.clone(),
+                };
+                (cancel, last_act)
+            }
+        } else {
+            let cancel = Arc::new(AtomicBool::new(false));
+            let last_act = Arc::new(Mutex::new(Instant::now()));
+            watched.insert(
+                id,
+                WatchedEntryInfo {
+                    path: file_path.clone(),
+                    cancel: cancel.clone(),
+                    last_activity: last_act.clone(),
+                },
+            );
+            (cancel, last_act)
         }
-    }
+    };
 
     std::thread::spawn(move || {
         let mut last_mtime = std::fs::metadata(&file_path)
             .ok()
             .and_then(|m| m.modified().ok());
-        let start_time = std::time::Instant::now();
 
-        while start_time.elapsed().as_secs() < 3600 {
+        loop {
             std::thread::sleep(std::time::Duration::from_secs(2));
+
+            if cancel_token.load(Ordering::Relaxed) {
+                break;
+            }
+
+            let elapsed = last_activity.lock().unwrap().elapsed().as_secs();
+            if elapsed >= 3600 {
+                break;
+            }
 
             if !file_path.exists() {
                 break;
@@ -152,7 +209,15 @@ pub fn register_file_preview_watch(
             }
         }
 
-        let _ = WATCHED_PREVIEW_ENTRY_IDS.lock().unwrap().remove(&id);
+        let mut watched = WATCHED_PREVIEW_ENTRIES.lock().unwrap();
+        if let Some(existing) = watched.get(&id) {
+            if existing.cancel.load(Ordering::Relaxed)
+                || existing.last_activity.lock().unwrap().elapsed().as_secs() >= 3600
+                || !file_path.exists()
+            {
+                watched.remove(&id);
+            }
+        }
     });
 }
 

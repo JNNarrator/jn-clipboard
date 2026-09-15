@@ -47,8 +47,15 @@ body.theme-macos {
   --button-shadow: none;
   --button-hover-shadow: none;
   --button-active-shadow: none;
-  --button-active-filled-shadow: 0 6px 16px rgba(0, 122, 255, 0.28);
-  --compact-action-backdrop-filter: blur(20px) saturate(180%);
+  --button-active-filled-shadow: none;
+  --keycap-shadow: none;
+  --keycap-active-shadow: none;
+  --segmented-shadow: none;
+  --segment-active-shadow: none;
+  --dialog-button-shadow: none;
+  --dialog-button-hover-shadow: none;
+  --dialog-button-active-shadow: none;
+  --compact-action-backdrop-filter: none;
   --popover-backdrop-filter: blur(24px) saturate(190%);
 
   --card-border: 1px solid rgba(0, 0, 0, 0.1);
@@ -85,6 +92,8 @@ body.theme-macos {
 
   --queue-border: 1px solid rgba(0, 0, 0, 0.08);
   --queue-shadow: 0 16px 40px rgba(0, 0, 0, 0.14);
+  --queue-count-shadow: none;
+  --queue-action-shadow: none;
 
   --reset-button-border: 1px solid rgba(255, 59, 48, 0.22);
 
@@ -99,9 +108,12 @@ body.theme-macos {
 
 html.platform-macos body.theme-macos,
 html.platform-macos.theme-macos {
-  --bg-window: rgba(246, 246, 246, calc(0.38 * var(--surface-opacity-scale, 1)));
-  --shell-background: rgba(246, 246, 246, calc(0.38 * var(--surface-opacity-scale, 1)));
-  --shell-backdrop-filter: none;
+  /* Keep the default macOS theme readable. The transparent Tauri window is
+     still needed for rounded corners, but the shell itself must remain a
+     visible surface instead of inheriting the old 0.38 alpha. */
+  --bg-window: rgba(246, 246, 246, calc(0.78 * var(--surface-opacity-scale, 1)));
+  --shell-background: rgba(246, 246, 246, calc(0.78 * var(--surface-opacity-scale, 1)));
+  --shell-backdrop-filter: blur(22px) saturate(180%);
   --shell-border: 0.5px solid rgba(0, 0, 0, 0.12);
 }
 
@@ -206,9 +218,9 @@ body.theme-macos #root > * {
 
   html.platform-macos body.theme-macos:not(.light-mode),
   html.platform-macos.theme-macos:not(.light-mode) {
-    --bg-window: rgba(28, 28, 30, calc(0.34 * var(--surface-opacity-scale, 1)));
-    --shell-background: rgba(28, 28, 30, calc(0.34 * var(--surface-opacity-scale, 1)));
-    --shell-backdrop-filter: none;
+    --bg-window: rgba(28, 28, 30, calc(0.72 * var(--surface-opacity-scale, 1)));
+    --shell-background: rgba(28, 28, 30, calc(0.72 * var(--surface-opacity-scale, 1)));
+    --shell-backdrop-filter: blur(22px) saturate(160%);
   }
 }
 
@@ -256,9 +268,9 @@ body.dark-mode.theme-macos {
 
 html.platform-macos.dark-mode body.theme-macos,
 html.platform-macos body.dark-mode.theme-macos {
-  --bg-window: rgba(28, 28, 30, calc(0.34 * var(--surface-opacity-scale, 1)));
-  --shell-background: rgba(28, 28, 30, calc(0.34 * var(--surface-opacity-scale, 1)));
-  --shell-backdrop-filter: none;
+  --bg-window: rgba(28, 28, 30, calc(0.72 * var(--surface-opacity-scale, 1)));
+  --shell-background: rgba(28, 28, 30, calc(0.72 * var(--surface-opacity-scale, 1)));
+  --shell-backdrop-filter: blur(22px) saturate(160%);
 }
 
 body.compact-preview.theme-macos #root,

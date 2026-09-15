@@ -3,7 +3,7 @@ import type { ComponentType, KeyboardEvent as ReactKeyboardEvent, ReactNode } fr
 import { invoke } from "@tauri-apps/api/core";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { withNativeDialog } from "../../../../shared/lib/focus";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, HelpCircle } from "lucide-react";
 import { getHotkeyDisplayTokens } from "../../../../shared/lib/hotkeyDisplay";
 import { isMacPlatform, isWindowsPlatform } from "../../../../shared/lib/platform";
 import type { QuickPasteModifier } from "../../../app/types";
@@ -108,6 +108,7 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
         props.persistentLimit.toString()
     );
     const [maskSettingsOpen, setMaskSettingsOpen] = useState(false);
+    const [mainHotkeyHintOpen, setMainHotkeyHintOpen] = useState(false);
 
     useEffect(() => {
         setPersistentLimitDraft(props.persistentLimit.toString());
@@ -407,7 +408,7 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
                             hintKey="quick_paste_modifier"
                         />
                         <select
-                            className="search-input settings-hotkey-select"
+                            className="search-input settings-hotkey-select quick-paste-select"
                             value={props.quickPasteModifier}
                             onChange={(e) => {
                                 const value = e.target.value as QuickPasteModifier;
@@ -746,15 +747,30 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
                         <div className="item-label-group">
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 <span className="item-label">{props.t('global_hotkey')}</span>
+                                {!isWinVManaged && (
+                                    <button
+                                        type="button"
+                                        className="hint-icon-btn"
+                                        title={`${props.t('main_hotkey_hint')} ${props.t('hotkey_click_hint')}`}
+                                        aria-label={props.t('main_hotkey_hint')}
+                                        onClick={(event) => {
+                                            event.stopPropagation();
+                                            setMainHotkeyHintOpen((open) => !open);
+                                        }}
+                                    >
+                                        <HelpCircle size={12} />
+                                    </button>
+                                )}
                             </div>
-                            <span className="hint hotkey-hint">
-                                {isWinVManaged
-                                    ? props.t('main_hotkey_managed_by_win_v')
-                                    : renderHotkeyHint(
-                                        props.isRecording,
-                                        `${props.t('main_hotkey_hint')} ${props.t('hotkey_click_hint')}`
-                                    )}
-                            </span>
+                            {isWinVManaged ? (
+                                <span className="hint hotkey-hint">{props.t('main_hotkey_managed_by_win_v')}</span>
+                            ) : props.isRecording ? (
+                                <span className="hint hotkey-hint">{renderHotkeyHint(true)}</span>
+                            ) : mainHotkeyHintOpen ? (
+                                <span className="hint hotkey-hint">
+                                    {props.t('main_hotkey_hint')} {props.t('hotkey_click_hint')}
+                                </span>
+                            ) : null}
                         </div>
 
                         <div

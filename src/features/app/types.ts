@@ -7,7 +7,7 @@ export type StateSetter<T> = Dispatch<SetStateAction<T>>;
 export type InstalledAppOption = { label: string; value: string };
 export type DefaultAppsMap = Record<string, string>;
 export type QuickPasteModifier = "disabled" | "ctrl" | "alt" | "shift" | "win";
-export type SettingsSubpage = "home" | "advanced" | "themes";
+export type SettingsSubpage = "home" | "advanced";
 export type ClipboardSortMode = "activity" | "created" | "last_used" | "usage";
 
 export type CloudSyncContentPrefs = {

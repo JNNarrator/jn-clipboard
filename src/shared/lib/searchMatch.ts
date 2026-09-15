@@ -5,8 +5,16 @@ const TEXT_TYPES = new Set(["text", "code", "url", "rich_text"]);
 
 export function entryMatchesSearch(
   item: ClipboardEntry,
-  parsed: ParsedSearchQuery
+  parsed: ParsedSearchQuery,
+  options?: { isServerSearchResult?: boolean } | boolean
 ): boolean {
+  const isServerMatch =
+    typeof options === "boolean"
+      ? options
+      : options?.isServerSearchResult ??
+        ((item as any)._serverSearchMatched === parsed.raw ||
+         (item as any).server_matched === true);
+
   const { term, tagOnly, noteOnly } = parsed;
 
   if (tagOnly) {
@@ -42,7 +50,13 @@ export function entryMatchesSearch(
     if (preview.includes(term)) {
       return true;
     }
-    return item.content?.toLowerCase().includes(term) ?? false;
+    if (item.content?.toLowerCase().includes(term)) {
+      return true;
+    }
+    if (isServerMatch && item.content?.includes("... [Truncated for speed]")) {
+      return true;
+    }
+    return false;
   }
 
   return false;

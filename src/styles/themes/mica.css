@@ -43,11 +43,18 @@ body.theme-mica {
 
   --button-border: 1px solid rgba(0, 0, 0, 0.1);
   --button-radius: 6px;
-  --button-shadow: var(--shadow-xs);
-  --button-hover-shadow: var(--shadow-sm);
-  --button-active-shadow: var(--shadow-xs);
-  --button-active-filled-shadow: 0 8px 18px rgba(0, 120, 212, 0.26);
-  --compact-action-backdrop-filter: blur(10px) saturate(135%);
+  --button-shadow: none;
+  --button-hover-shadow: none;
+  --button-active-shadow: none;
+  --button-active-filled-shadow: none;
+  --keycap-shadow: none;
+  --keycap-active-shadow: none;
+  --segmented-shadow: none;
+  --segment-active-shadow: none;
+  --dialog-button-shadow: none;
+  --dialog-button-hover-shadow: none;
+  --dialog-button-active-shadow: none;
+  --compact-action-backdrop-filter: none;
   --popover-backdrop-filter: blur(12px) saturate(150%);
 
   --card-border: 1px solid rgba(0, 0, 0, 0.1);
@@ -88,6 +95,8 @@ body.theme-mica {
 
   --queue-border: 1px solid rgba(255, 255, 255, 0.38);
   --queue-shadow: 0 18px 42px rgba(15, 23, 42, 0.12);
+  --queue-count-shadow: none;
+  --queue-action-shadow: none;
 
   --reset-button-border: 1px solid rgba(255, 99, 99, 0.2);
 }

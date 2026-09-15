@@ -201,16 +201,10 @@ const AppHeader = ({
               <ChevronLeft size={16} />
             </button>
           )}
-          {!isMac && (
-            showSettings || showTagManager || showEmojiPanel ? (
-              <span className="header-title windows-header-title is-page-title">{headerTitle}</span>
-            ) : (
-              <span
-                className="windows-brand-mark"
-                role="img"
-                aria-label={t("app_name")}
-              />
-            )
+          {showSettings || showTagManager || showEmojiPanel ? (
+            <span className="header-title page-header-title is-page-title">{headerTitle}</span>
+          ) : (
+            <span className="brand-mark" role="img" aria-label={t("app_name")} />
           )}
         </div>
 
@@ -264,11 +258,6 @@ const AppHeader = ({
             </button>
           )}
 
-          {isMac && (
-            <div className="mac-header-title-wrap">
-              <span className="header-title">{headerTitle}</span>
-            </div>
-          )}
           {!isMac && (
             <button
               className="btn-icon windows-close-btn"

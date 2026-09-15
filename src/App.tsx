@@ -824,10 +824,6 @@ const App = () => {
 
   useMqttListener({ enabled: mqttNotificationEnabled, t });
 
-  useEffect(() => {
-    fetchHistory();
-  }, []);
-
   useToastListener({ pushToast });
 
   useSettingsPanelReset({ showSettings, setCollapsedGroups, setSettingsSubpage });
@@ -1131,9 +1127,7 @@ const App = () => {
         settingsTitle={
           showSettings && settingsSubpage === "advanced"
             ? t("advanced_settings")
-            : showSettings && settingsSubpage === "themes"
-              ? t("theme_store")
-              : t("settings")
+            : t("settings")
         }
         typeFilter={typeFilter}
         setTypeFilter={setTypeFilter}

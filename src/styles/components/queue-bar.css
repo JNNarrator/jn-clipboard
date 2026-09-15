@@ -95,12 +95,12 @@
 
 .queue-bar .btn-icon:hover {
   transform: translateY(-1px);
-  box-shadow: var(--shadow-sm) !important;
+  box-shadow: var(--button-hover-shadow) !important;
 }
 
 .queue-bar .btn-icon:active {
   transform: translateY(0);
-  box-shadow: var(--shadow-xs) !important;
+  box-shadow: var(--button-active-shadow) !important;
 }
 
 @keyframes slideUpBar {

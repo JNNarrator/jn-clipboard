@@ -29,9 +29,9 @@ export const THEMES: ThemeDefinition[] = [
   {
     id: "mica",
     labels: {
-      zh: "Windows 系统",
-      en: "Windows",
-      tw: "Windows 系統"
+      zh: "云母",
+      en: "Mica",
+      tw: "雲母"
     },
     supportsCustomBackground: true,
     supportsSurfaceOpacity: true
@@ -39,9 +39,9 @@ export const THEMES: ThemeDefinition[] = [
   {
     id: "macos",
     labels: {
-      zh: "macOS 系统",
-      en: "macOS",
-      tw: "macOS 系統"
+      zh: "原生极简",
+      en: "Native Minimal",
+      tw: "原生極簡"
     },
     supportsCustomBackground: true,
     supportsSurfaceOpacity: true

@@ -103,6 +103,18 @@ const ViewLoading = ({ label }: { label: string }) => (
   </div>
 );
 
+const SettingsSkeleton = ({ label }: { label: string }) => (
+  <div className="settings-skeleton" role="status" aria-label={label} aria-busy="true">
+    {Array.from({ length: 7 }, (_, index) => (
+      <div className="settings-skeleton-group" key={index} aria-hidden="true">
+        <span className="settings-skeleton-icon" />
+        <span className="settings-skeleton-title" style={{ width: `${104 + (index % 3) * 28}px` }} />
+        <span className="settings-skeleton-chevron" />
+      </div>
+    ))}
+  </div>
+);
+
 const AppMainContent = ({
   t,
   theme,
@@ -205,7 +217,9 @@ const AppMainContent = ({
           maxWidth: settingsPanelProps.settingsSubpage === "advanced" ? "min(1120px, 100%)" : undefined
         }}
       >
-        <SettingsPanel {...settingsPanelProps} />
+        <Suspense fallback={<SettingsSkeleton label={t("loading")} />}>
+          <SettingsPanel {...settingsPanelProps} />
+        </Suspense>
       </div>
     );
   }
@@ -287,7 +301,7 @@ const AppMainContent = ({
             hasMore={hasMore}
             isLoading={isLoadingMore}
             loadingLabel={t("loading")}
-            loadMoreLabel={t("theme_store_load_more")}
+            loadMoreLabel={t("load_more")}
           />
           {showScrollTop && (
             <button

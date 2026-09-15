@@ -171,4 +171,3 @@ VirtualClipboardList.displayName = 'VirtualClipboardList';
 
 export { VirtualClipboardList };
 export default VirtualClipboardList;
-

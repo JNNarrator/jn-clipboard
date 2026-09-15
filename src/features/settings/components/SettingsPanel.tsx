@@ -21,7 +21,6 @@ import DataSettingsGroup from "./groups/DataSettingsGroup";
 import FileTransferSettingsGroup from "./groups/FileTransferSettingsGroup";
 import AiSettingsGroup from "./groups/AiSettingsGroup";
 import SettingsFooter from "./SettingsFooter";
-import ThemeStoreView from "./ThemeStoreView";
 import { CLOUD_SYNC_ENABLED } from "../../../shared/config/edition";
 import { getReleaseBuildInfo, type ReleaseBuildInfo } from "../../../shared/lib/releaseBuild";
 
@@ -505,14 +504,6 @@ const SettingsPanel = (props: SettingsPanelProps) => {
 
                     {/* Removed UpdateModal in advanced */}
                 </>
-            ) : settingsSubpage === "themes" ? (
-                <ThemeStoreView
-                    t={t}
-                    language={language}
-                    theme={theme}
-                    setTheme={setTheme}
-                    saveAppSetting={saveAppSetting}
-                />
             ) : (
                 <>
             {/* General Settings */}

@@ -57,13 +57,13 @@ header {
   color: var(--text-secondary);
 }
 
-.windows-header-title {
+.page-header-title {
   margin-left: 2px;
   flex: 0 1 auto;
   max-width: min(220px, 46vw);
 }
 
-.windows-brand-mark {
+.brand-mark {
   display: block;
   height: 16px;
   width: 44px;
@@ -208,28 +208,6 @@ header {
   max-width: calc(100% - 28px);
 }
 
-.mac-header-title-wrap {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-  margin-left: 4px;
-}
-
-.header-actions .btn-icon,
-.header-leading > .btn-icon {
-  box-shadow: var(--layout-header-btn-shadow);
-}
-
-.header-actions .btn-icon:hover,
-.header-leading > .btn-icon:hover {
-  box-shadow: var(--layout-header-btn-shadow-hover);
-}
-
-.header-actions .btn-icon:active,
-.header-leading > .btn-icon:active {
-  box-shadow: var(--layout-header-btn-shadow-active);
-}
-
 /* The window can be resized down to 250px. Keep every header action available
    at that width instead of letting theme-specific spacing push controls out of
    the viewport. Titles yield first; controls retain a 24px compact hit area. */
@@ -250,15 +228,12 @@ header {
     margin-left: 0;
   }
 
-  .mac-header-title-wrap {
-    display: none;
-  }
-
-  .windows-header-title {
+  .page-header-title {
     min-width: 0;
     max-width: 7.5em;
   }
 
+  .brand-mark,
   .windows-brand-mark {
     height: 14px;
     width: 38px;
@@ -605,9 +580,9 @@ select.search-input option {
   background: color-mix(in srgb, var(--bg-window) 86%, var(--accent-color) 14%);
   color: var(--accent-color);
   border: 1px solid color-mix(in srgb, var(--accent-color) 42%, var(--line-strong));
-  box-shadow: var(--shadow-md);
-  backdrop-filter: var(--popover-backdrop-filter);
-  -webkit-backdrop-filter: var(--popover-backdrop-filter);
+  box-shadow: var(--button-shadow);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   pointer-events: auto;
   touch-action: manipulation;
   opacity: 1;
@@ -630,7 +605,7 @@ select.search-input option {
   background: var(--accent-color);
   color: var(--on-accent);
   border-color: var(--accent-color);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--button-hover-shadow);
 }
 
 .history-list-container > .btn-icon.scroll-top-button:focus-visible {

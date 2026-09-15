@@ -1,7 +1,6 @@
 import { useEffect, useState, type ComponentType, type ReactNode, type CSSProperties } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { ask, open, message } from "@tauri-apps/plugin-dialog";
-import { openUrl } from "@tauri-apps/plugin-opener";
 import { withNativeDialog } from "../../../../shared/lib/focus";
 import { ChevronDown, ChevronRight, X } from "lucide-react";
 import {
@@ -59,8 +58,6 @@ interface AppearanceSettingsGroupProps {
     setSurfaceOpacity: (val: number) => void;
     saveAppSetting: (key: string, val: string) => void;
 }
-
-const THEME_STORE_URL = "http://localhost:3000/";
 
 const clampProgress = (value: number, min: number, max: number) => {
     if (max <= min) return "0%";
@@ -154,7 +151,7 @@ const AppearanceSettingsGroup = ({
             setTheme(installed.id);
             saveAppSetting('theme', installed.id);
             await message(t('theme_package_install_success'), {
-                title: t('theme_store'),
+                title: t('visual_theme'),
                 kind: 'info'
             });
         } catch (error) {
@@ -169,8 +166,8 @@ const AppearanceSettingsGroup = ({
     const uninstallTheme = async (item: InstalledThemeDefinition) => {
         try {
             const confirmed = await withNativeDialog(async () => ask(
-                t('theme_store_confirm_delete'),
-                { title: t('theme_store'), kind: 'warning' }
+                t('theme_package_confirm_delete'),
+                { title: t('visual_theme'), kind: 'warning' }
             ), "settings:uninstall-theme");
             if (!confirmed) return;
 
@@ -243,8 +240,8 @@ const AppearanceSettingsGroup = ({
                                         <button
                                             type="button"
                                             className="btn-icon installed-theme-remove"
-                                            aria-label={t('theme_store_delete')}
-                                            title={t('theme_store_delete')}
+                                            aria-label={t('delete')}
+                                            title={t('delete')}
                                             onClick={() => void uninstallTheme(themeItem)}
                                         >
                                             <X size={14} />
@@ -254,14 +251,6 @@ const AppearanceSettingsGroup = ({
                             </div>
                         </>
                     )}
-                    <button
-                        type="button"
-                        className="btn-icon theme-store-open-btn"
-                        onClick={() => void openUrl(THEME_STORE_URL)}
-                    >
-                        {t('browse_theme_store')}
-                        <ChevronRight size={15} />
-                    </button>
                     <button
                         type="button"
                         className="btn-icon theme-package-import-btn"
@@ -409,13 +398,13 @@ const AppearanceSettingsGroup = ({
                 </div>
 
                 <div className="setting-item column">
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                    <div className="setting-item-heading">
                         <LabelWithHint
                             label={t('clipboard_item_font_size') || '条目字体大小'}
                             hint={t('clipboard_item_font_size_hint') || '调整剪贴板首页条目内容的字体大小'}
                             hintKey="clipboard_item_font_size"
                         />
-                        <span className="hint" style={{ fontSize: '10px', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                        <span className="hint setting-value" style={{ fontSize: '10px', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
                             {clipboardItemFontSize}px
                         </span>
                     </div>
@@ -435,13 +424,13 @@ const AppearanceSettingsGroup = ({
                 </div>
 
                 <div className="setting-item column">
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                    <div className="setting-item-heading">
                         <LabelWithHint
                             label={t('clipboard_tag_font_size') || '标签字体大小'}
                             hint={t('clipboard_tag_font_size_hint') || '调整剪贴板条目标签的字体大小'}
                             hintKey="clipboard_tag_font_size"
                         />
-                        <span className="hint" style={{ fontSize: '10px', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                        <span className="hint setting-value" style={{ fontSize: '10px', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
                             {clipboardTagFontSize}px
                         </span>
                     </div>

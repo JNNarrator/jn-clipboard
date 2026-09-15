@@ -32,7 +32,7 @@ html.platform-windows .app-container {
   -webkit-clip-path: none;
 }
 
-html.platform-windows .header-title.windows-header-title.is-page-title {
+html.platform-windows .header-title.page-header-title.is-page-title {
   font-size: 14px;
   font-weight: 600;
   letter-spacing: 0;

@@ -69,7 +69,7 @@ export default function SecureTransfer({ t }: SecureTransferProps) {
       </button>
       {!collapsed && (
         <div className="group-content">
-          <p className="hint" style={{ margin: "0 0 8px" }}>{t("secure_transfer_desc")}</p>
+          <p className="secure-transfer-description">{t("secure_transfer_desc")}</p>
           <div className="setting-item column">
             <span className="item-label">{t("secure_transfer_password")}</span>
             <input
@@ -110,7 +110,7 @@ export default function SecureTransfer({ t }: SecureTransferProps) {
             </button>
           </div>
           {(busy || status) && (
-            <p className="hint" role="status" style={{ margin: "4px 0 0", whiteSpace: "normal" }}>
+            <p className="secure-transfer-status" role="status">
               {busy ? t("secure_transfer_busy") : status}
             </p>
           )}

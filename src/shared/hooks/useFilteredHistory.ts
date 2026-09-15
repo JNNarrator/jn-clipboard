@@ -66,7 +66,8 @@ export const useFilteredHistory = ({
 
       if (!parsed.raw) return true;
 
-      return entryMatchesSearch(item, parsed);
+      const isServerSearchResult = (item as any)._serverSearchMatched === parsed.raw;
+      return entryMatchesSearch(item, parsed, { isServerSearchResult });
     });
 
     return filtered.sort((a, b) => compareClipboardEntries(a, b, sortMode));

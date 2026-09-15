@@ -9,6 +9,7 @@
   text-transform: var(--meta-text-transform);
   letter-spacing: var(--meta-letter-spacing);
   color: var(--text-secondary);
+  margin-top: -4px;
   margin-bottom: 0;
   border-bottom: var(--layout-meta-border-bottom);
   padding-bottom: var(--layout-meta-padding-bottom);
@@ -18,14 +19,19 @@
   display: flex;
   align-items: center;
   gap: 4px;
+  flex: 1 1 0;
   min-width: 0;
+  overflow: hidden;
+  transform: translateY(-2px);
 }
 
 .app-info {
   display: flex;
   align-items: center;
   gap: 4px;
+  flex: 1 1 auto;
   min-width: 0;
+  overflow: hidden;
 }
 
 .app-info svg,
@@ -466,6 +472,7 @@
   flex-direction: row;
   align-items: center;
   gap: 4px;
+  flex: 0 0 auto;
 }
 
 .item-actions .btn-icon {
@@ -481,18 +488,33 @@ body.hide-unselected-item-actions .history-item:not(.selected) .item-actions {
   pointer-events: none;
 }
 
+/* In this compact action mode, the selected row uses the freed space for its
+   action buttons while unselected rows keep the source app label visible. */
+body.hide-unselected-item-actions .history-item.selected .app-info > span {
+  display: none;
+}
+
 .item-meta-right {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex: 0 0 auto;
+  min-width: 0;
+  transform: translateY(-2px);
 }
 
 .item-meta-right-info {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex: 0 0 auto;
   opacity: 0.6;
   font-size: 10px;
+  white-space: nowrap;
+}
+
+.item-meta-right-info > span {
+  white-space: nowrap;
 }
 
 .quick-paste-hint {

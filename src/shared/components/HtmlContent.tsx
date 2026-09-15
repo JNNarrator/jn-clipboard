@@ -30,7 +30,7 @@ const stripUnsafeCssText = (cssText: string): string => {
   return cssText
     .replace(/@import\s+[^;]+;?/gi, "")
     .replace(/expression\s*\([^)]*\)/gi, "")
-    .replace(/(?:^|[;{])\s*(?:position|z-index|inset|top|right|bottom|left)\s*:\s*[^;}]+;?/gi, "$1")
+    .replace(/(^|[;{])\s*(?:position|z-index|inset|top|right|bottom|left)\s*:\s*[^;}]+;?/gi, "$1")
     .replace(
       /url\s*\(\s*(['"]?)(.*?)\1\s*\)/gi,
       (full, _quote: string, rawUrl: string) => {
@@ -41,6 +41,7 @@ const stripUnsafeCssText = (cssText: string): string => {
       }
     )
     .replace(/;\s*;/g, ";")
+    .replace(/^;+|;+$/g, "")
     .trim();
 };
 
