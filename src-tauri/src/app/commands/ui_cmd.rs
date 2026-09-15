@@ -5,31 +5,6 @@ use crate::infrastructure::repository::settings_repo::SettingsRepository;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State, Theme, WebviewWindow};
 use tauri_plugin_notification::NotificationExt;
-#[cfg(target_os = "macos")]
-use window_vibrancy::{
-    apply_vibrancy, clear_vibrancy, NSVisualEffectMaterial, NSVisualEffectState,
-};
-
-#[cfg(target_os = "macos")]
-fn apply_macos_window_material(window: &WebviewWindow, theme: &str) {
-    let _ = clear_vibrancy(window);
-
-    let material = match theme {
-        "mica" => Some(NSVisualEffectMaterial::Sidebar),
-        "acrylic" => Some(NSVisualEffectMaterial::HudWindow),
-        "macos" => Some(NSVisualEffectMaterial::Popover),
-        _ => None,
-    };
-
-    if let Some(material) = material {
-        let _ = apply_vibrancy(
-            window,
-            material,
-            Some(NSVisualEffectState::FollowsWindowActiveState),
-            Some(12.0),
-        );
-    }
-}
 
 #[derive(Debug, Serialize)]
 pub struct PlatformInfo {
@@ -224,7 +199,7 @@ pub fn set_theme(
 
     #[cfg(target_os = "macos")]
     {
-        apply_macos_window_material(&window, &theme);
+        crate::app::window_manager::apply_macos_window_material(&window)?;
     }
 
     let _ = window.emit("theme-changed", theme);

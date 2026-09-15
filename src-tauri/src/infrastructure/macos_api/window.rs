@@ -305,6 +305,11 @@ pub fn show_clipboard_panel(app: &AppHandle) -> bool {
             }
 
             if let Ok(panel) = app_for_panel.get_webview_panel("main") {
+                // Restore the native material for every entry point (hotkey,
+                // Dock, search/focus), within the same main-thread show pass.
+                if let Some(window) = app_for_panel.get_webview_window("main") {
+                    crate::app::window_manager::apply_window_vibrancy(&app_for_panel, &window);
+                }
                 panel.set_level(PanelLevel::Dock.value());
                 // This is the hidden -> visible transition, so there is no live
                 // editor caret to preserve. Initializing the panel content view
@@ -406,6 +411,12 @@ pub fn hide_clipboard_panel(app: &AppHandle) -> bool {
     let app_for_panel = handle.clone();
     let scheduled = handle
         .run_on_main_thread(move || {
+            // A newer show may have overtaken this queued hide.
+            if overlay_show_generation().load(AtomicOrdering::SeqCst) != gen
+                || is_clipboard_panel_visible()
+            {
+                return;
+            }
             if let Ok(panel) = app_for_panel.get_webview_panel("main") {
                 panel.hide();
                 panel.set_collection_behavior(

@@ -49,28 +49,18 @@ pub fn maybe_open_devtools(window: &WebviewWindow) {
 #[cfg(not(feature = "devtools"))]
 pub fn maybe_open_devtools(_window: &WebviewWindow) {}
 
-pub fn clear_window_vibrancy(window: &WebviewWindow) {
-    #[cfg(any(target_os = "windows", target_os = "macos"))]
-    let _ = window_vibrancy::clear_vibrancy(window);
-}
-
-pub fn clear_window_vibrancy_for_label(app: &AppHandle, label: &str) {
-    if let Some(window) = app.get_webview_window(label) {
-        clear_window_vibrancy(&window);
-    }
-}
-
-pub fn apply_window_vibrancy(app: &AppHandle, window: &WebviewWindow) {
-    let settings = app.state::<SettingsState>();
-    let theme = settings.theme.lock().unwrap().clone();
-
-    #[cfg(any(target_os = "macos", target_os = "windows"))]
-    clear_window_vibrancy(window);
-
-    #[cfg(target_os = "macos")]
-    {
+/// AppKit view mutations must run together on the main thread. In particular,
+/// clearing off-thread can succeed while applying returns NotMainThread, leaving
+/// only the transparent webview. Keep the material attached across hide/show.
+#[cfg(target_os = "macos")]
+pub fn apply_macos_window_material(window: &WebviewWindow) -> tauri::Result<()> {
+    let target = window.clone();
+    window.run_on_main_thread(move || {
         use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial, NSVisualEffectState};
 
+        // Read at execution time so queued requests cannot restore an old theme.
+        let settings = target.app_handle().state::<SettingsState>();
+        let theme = settings.theme.lock().unwrap().clone();
         let material = match theme.as_str() {
             "mica" => Some(NSVisualEffectMaterial::Sidebar),
             "acrylic" => Some(NSVisualEffectMaterial::HudWindow),
@@ -78,18 +68,36 @@ pub fn apply_window_vibrancy(app: &AppHandle, window: &WebviewWindow) {
             _ => None,
         };
 
-        if let Some(material) = material {
-            let _ = apply_vibrancy(
-                window,
-                material,
-                Some(NSVisualEffectState::FollowsWindowActiveState),
-                Some(12.0),
-            );
+        if let Err(error) = window_vibrancy::clear_vibrancy(&target) {
+            eprintln!("[window-material] clear failed: {error}");
+            return;
         }
+        if let Some(material) = material {
+            // The clipboard is a non-activating panel and can remain visible
+            // while another application owns focus (especially when pinned).
+            if let Err(error) = apply_vibrancy(
+                &target,
+                material,
+                Some(NSVisualEffectState::Active),
+                Some(12.0),
+            ) {
+                eprintln!("[window-material] apply {theme} failed: {error}");
+            }
+        }
+    })
+}
+
+pub fn apply_window_vibrancy(_app: &AppHandle, window: &WebviewWindow) {
+    #[cfg(target_os = "macos")]
+    if let Err(error) = apply_macos_window_material(window) {
+        eprintln!("[window-material] scheduling failed: {error}");
     }
 
     #[cfg(target_os = "windows")]
     {
+        let settings = _app.state::<SettingsState>();
+        let theme = settings.theme.lock().unwrap().clone();
+        let _ = window_vibrancy::clear_vibrancy(window);
         let is_dark = matches!(window.theme().unwrap_or(Theme::Dark), Theme::Dark);
         if theme == "mica" {
             let _ = window_vibrancy::apply_mica(window, Some(is_dark));
@@ -565,7 +573,6 @@ fn toggle_window_macos(app_handle: &AppHandle) {
             let pinned = WINDOW_PINNED.load(Ordering::Relaxed);
             let _ = window.set_always_on_top(pinned);
             crate::infrastructure::macos_api::window::set_window_focusable(&window, false);
-            clear_window_vibrancy(&window);
             if !crate::infrastructure::macos_api::window::hide_clipboard_panel(app_handle) {
                 let _ = window.hide();
             }
@@ -612,9 +619,9 @@ fn toggle_window_macos(app_handle: &AppHandle) {
             maybe_position_window_follow_mouse(app_handle, &window);
         }
 
-        apply_window_vibrancy(app_handle, &window);
         eprintln!("[macos-toggle] show + present overlay");
         if !crate::infrastructure::macos_api::window::show_clipboard_panel(app_handle) {
+            apply_window_vibrancy(app_handle, &window);
             let _ = window.show();
             crate::infrastructure::macos_api::window::present_overlay_above_fullscreen_async(
                 &window,
@@ -711,7 +718,6 @@ fn hide_window(app_handle: AppHandle, restore_focus: bool) -> Result<(), String>
         let _ = window.set_always_on_top(pinned);
         #[cfg(target_os = "macos")]
         crate::infrastructure::macos_api::window::set_window_focusable(&window, false);
-        clear_window_vibrancy(&window);
         #[cfg(target_os = "macos")]
         {
             if !crate::infrastructure::macos_api::window::hide_clipboard_panel(&app_handle) {
@@ -786,6 +792,7 @@ pub fn focus_clipboard_window(app_handle: AppHandle) -> Result<(), String> {
             }
 
             if !crate::infrastructure::macos_api::window::show_clipboard_panel(&app_handle) {
+                apply_window_vibrancy(&app_handle, &window);
                 let _ = window.show();
                 let _ = window.set_focus();
                 let _ = app_handle.emit("clipboard-shown", ());

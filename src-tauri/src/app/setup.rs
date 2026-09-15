@@ -1823,10 +1823,6 @@ pub fn handle_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
             }
             api.prevent_close();
             let _ = window.app_handle().emit("force-hide-compact-preview", ());
-            crate::app::window_manager::clear_window_vibrancy_for_label(
-                window.app_handle(),
-                window.label(),
-            );
             #[cfg(target_os = "macos")]
             if !crate::infrastructure::macos_api::window::hide_clipboard_panel(
                 window.app_handle(),
@@ -1938,10 +1934,6 @@ fn handle_blur(window: &tauri::Window) {
         if !down && !tucked_by_edge && matches!(w.is_focused(), Ok(false)) {
             if !is_blur_ignored() && !WINDOW_PINNED.load(Ordering::Relaxed) {
                 let _ = w.app_handle().emit("force-hide-compact-preview", ());
-                crate::app::window_manager::clear_window_vibrancy_for_label(
-                    w.app_handle(),
-                    w.label(),
-                );
                 let _ = w.hide();
                 NAVIGATION_ENABLED.store(false, Ordering::SeqCst);
                 release_modifier_keys();
