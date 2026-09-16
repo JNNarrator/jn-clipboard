@@ -911,24 +911,51 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                 open={isCreatingItem}
                 onClose={() => setIsCreatingItem(false)}
                 theme={theme}
-                panelClassName="modal-panel confirm-dialog"
+                panelClassName="modal-panel tag-add-dialog"
                 ariaLabel={t("add_item")}
             >
-                <h3 className="confirm-dialog-title">{t("add_item")}</h3>
+                <div className="tag-add-dialog-header">
+                    <div className="tag-add-dialog-icon" aria-hidden="true">
+                        <Plus size={18} strokeWidth={2.4} />
+                    </div>
+                    <div className="tag-add-dialog-heading">
+                        <h3 className="tag-add-dialog-title">{t("add_item")}</h3>
+                        {selectedTag && (
+                            <span className="tag-add-dialog-tag" title={selectedTag}>
+                                {selectedTag}
+                            </span>
+                        )}
+                    </div>
+                </div>
                 <textarea
                     className="modal-textarea"
                     value={newItemContent}
                     onChange={(e) => setNewItemContent(e.target.value)}
                     placeholder={t("input_content_placeholder")}
+                    aria-label={t("input_content_placeholder")}
+                    onKeyDown={(e) => {
+                        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                            e.preventDefault();
+                            void handleAddManualItem();
+                        }
+                    }}
                     autoFocus
                 />
-                <div className="confirm-dialog-buttons">
-                    <button type="button" className="modal-button" onClick={() => setIsCreatingItem(false)}>
-                        {t("cancel")}
-                    </button>
-                    <button type="button" className="modal-button primary" onClick={handleAddManualItem}>
-                        {t("confirm")}
-                    </button>
+                <div className="tag-add-dialog-footer">
+                    <span className="tag-add-dialog-hint">⌘/Ctrl ↵ {t("confirm")}</span>
+                    <div className="tag-add-dialog-actions">
+                        <button type="button" className="modal-button" onClick={() => setIsCreatingItem(false)}>
+                            {t("cancel")}
+                        </button>
+                        <button
+                            type="button"
+                            className="modal-button primary"
+                            onClick={handleAddManualItem}
+                            disabled={!newItemContent.trim()}
+                        >
+                            {t("confirm")}
+                        </button>
+                    </div>
                 </div>
             </AppModal>
 
