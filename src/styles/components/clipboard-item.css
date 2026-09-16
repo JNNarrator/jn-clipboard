@@ -78,6 +78,24 @@
   min-width: 0;
 }
 
+/* Tags sit over the final preview line. Only the chips carry a surface; the
+   surrounding row stays transparent so it does not become a second glass pane. */
+.history-item:not(.compact) .content-preview-shell.has-overlay-meta .item-meta-footer {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 12;
+  margin: 0;
+  padding: 0;
+  align-items: flex-end;
+  pointer-events: none;
+}
+
+.history-item:not(.compact) .content-preview-shell.has-overlay-meta .item-meta-footer .item-tags-container,
+.history-item:not(.compact) .content-preview-shell.has-overlay-meta .item-meta-footer .tag-chip {
+  pointer-events: auto;
+}
+
 /* Note + tags share one row in document flow; long notes grow the item height */
 .item-meta-footer {
   display: flex;

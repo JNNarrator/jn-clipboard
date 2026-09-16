@@ -969,9 +969,11 @@ const ClipboardItem = ({
     const hasTagsSection = visibleTagCount > 0 || isEditingTags;
     const hasNoteSection = isEditingNote || (!!item.note && !compactMode);
     const hasMetaFooter = hasTagsSection || hasNoteSection;
-    // Keep metadata in document flow. An absolute tag overlay made the card
-    // reserve an artificial bottom band and introduced a second glass surface.
-    const showFlowMetaFooter = !compactMode && hasMetaFooter;
+    // Keep ordinary tags overlaid on the bottom of the preview, but keep notes
+    // and editing controls in flow so they never cover user content.
+    const overlayMetaInPreview =
+        !compactMode && !isEditingTags && !isEditingNote && visibleTagCount > 0 && !item.note;
+    const showFlowMetaFooter = !compactMode && hasMetaFooter && !overlayMetaInPreview;
     const standaloneColorValue = useMemo(
         () => getStandaloneColorValue(item.content_type, item.content),
         [item.content, item.content_type]
@@ -1932,7 +1934,7 @@ const ClipboardItem = ({
                     </div>
                 )
             }
-            <div className="content-preview-shell">
+            <div className={`content-preview-shell${overlayMetaInPreview ? ' has-overlay-meta' : ''}`}>
                 <div data-content-type={item.content_type} className={`content-preview ${item.content_type === 'rich_text' ? 'rich-text' : ''} ${item.content_type === 'file' ? 'file-preview' : ''} ${isSensitiveHidden ? 'sensitive-blur' : ''}`}>
                 {item.content_type === "image" ? (
                     <div style={{ position: 'relative' }}>
@@ -2100,6 +2102,7 @@ const ClipboardItem = ({
                         : item.preview
                 )}
                 </div>
+                {overlayMetaInPreview && renderMetaFooter()}
             </div>
 
             {showFlowMetaFooter && renderMetaFooter()}
