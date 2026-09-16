@@ -123,6 +123,7 @@
 }
 
 .tag-manager-chip-row {
+  --scrollbar-size-thin: 3px;
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
@@ -131,7 +132,20 @@
   min-width: 0;
   overflow-x: auto;
   overflow-y: hidden;
-  padding-bottom: 2px;
+  padding-bottom: 6px;
+  /* Let the explicit WebKit dimensions control the native scroll indicator. */
+  scrollbar-width: auto;
+  scrollbar-gutter: stable;
+}
+
+.tag-manager-chip-row::-webkit-scrollbar {
+  width: 3px;
+  height: 3px;
+}
+
+.tag-manager-chip-row::-webkit-scrollbar-thumb {
+  border: 0;
+  border-radius: 999px;
 }
 
 .tag-manager-chip {
@@ -421,6 +435,7 @@ body.dark-mode.theme-acrylic .tag-add-dialog {
   --scrollbar-size-thin: 4px;
   padding: 8px 14px 40px 10px;
   min-width: 0;
+  scrollbar-width: auto;
   scrollbar-gutter: stable;
   gap: 6px;
 }
@@ -842,6 +857,7 @@ body.dark-mode.theme-acrylic .tag-add-dialog {
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
+  padding-right: 7px;
   padding-bottom: 0;
 }
 
