@@ -466,10 +466,19 @@
 }
 
 body.hide-unselected-item-actions .history-item:not(.selected):not(:hover) .item-actions {
-  display: none !important;
+  display: flex !important;
+  flex: 0 0 0;
+  width: 0;
+  min-width: 0;
+  gap: 0;
+  overflow: hidden;
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
+}
+
+body.hide-unselected-item-actions .history-item:not(.selected):not(:hover) .item-meta-right {
+  gap: 0;
 }
 
 /* In this compact action mode, unselected rows keep the full source app label
