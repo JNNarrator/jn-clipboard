@@ -624,18 +624,20 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                     </div>
 
                     <div
-                        className={`advanced-rule-list tag-manager-items custom-scrollbar${
-                            loading || sortedItems.length === 0 ? " is-empty" : ""
-                        }${isManageMode ? " manage-mode" : ""}`}
+                        className={
+                            loading || sortedItems.length > 0
+                                ? `advanced-rule-list tag-manager-items custom-scrollbar${loading ? " is-empty" : ""}${isManageMode ? " manage-mode" : ""}`
+                                : "tag-manager-empty-panel"
+                        }
                     >
                         {loading ? (
                             <div className="tag-manager-status">{t("processing")}</div>
                         ) : sortedItems.length === 0 ? (
-                            <div className="advanced-empty-state">
-                                <div className="advanced-empty-title">
+                            <div className="tag-manager-empty-state">
+                                <div className="tag-manager-empty-title">
                                     {selectedTag ? t("no_items") : t("tags")}
                                 </div>
-                                <div className="advanced-empty-text">
+                                <div className="tag-manager-empty-text">
                                     {selectedTag ? t("select_tag") : t("select_tag_to_begin")}
                                 </div>
                             </div>

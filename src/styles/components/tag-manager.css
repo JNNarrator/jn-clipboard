@@ -339,15 +339,32 @@
   gap: 6px;
 }
 
-/* The tag manager already provides the content surface. Keep its empty state
-   as text on that surface instead of nesting a second card inside it. */
-.tag-manager-items .advanced-empty-state {
-  width: auto;
-  max-width: 100%;
-  padding: 0 16px;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
+/* Empty state is the editor's own message, not a list item or nested card. */
+.tag-manager-empty-panel {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  text-align: center;
+}
+
+.tag-manager-empty-state {
+  max-width: 420px;
+}
+
+.tag-manager-empty-title {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.tag-manager-empty-text {
+  margin-top: 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .tag-manager-sort-group {
