@@ -1064,6 +1064,10 @@
   width: var(--scrollbar-size) !important;
 }
 
+.advanced-rule-list.custom-scrollbar::-webkit-scrollbar {
+  width: var(--scrollbar-size-thin) !important;
+}
+
 .advanced-rule-list:hover::-webkit-scrollbar-thumb,
 .advanced-rule-list:focus-within::-webkit-scrollbar-thumb,
 .advanced-rule-list:active::-webkit-scrollbar-thumb {

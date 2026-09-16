@@ -173,6 +173,7 @@
   background: var(--bg-content);
   position: relative;
   flex: 1;
+  min-width: 0;
   min-height: 0;
 }
 
@@ -327,8 +328,20 @@ body.dark-mode.theme-acrylic .tag-add-dialog {
 }
 
 .tag-manager-editor .advanced-rule-list.tag-manager-items {
-  padding: 8px 10px 40px;
+  --scrollbar-size-thin: 4px;
+  padding: 8px 14px 40px 10px;
+  min-width: 0;
+  scrollbar-gutter: stable;
   gap: 6px;
+}
+
+.tag-manager-items::-webkit-scrollbar-thumb {
+  border: 0;
+  border-radius: 999px;
+}
+
+.tag-manager-items::-webkit-scrollbar-track {
+  margin-block: 8px;
 }
 
 /* Empty state is the editor's own message, not a list item or nested card. */
@@ -444,7 +457,7 @@ body.dark-mode.theme-acrylic .tag-add-dialog {
 
 .tag-manager-items .items-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(140px, 100%), 1fr));
   gap: 6px;
   width: 100%;
 }
@@ -458,6 +471,7 @@ body.dark-mode.theme-acrylic .tag-add-dialog {
 
 .tag-manager-card {
   flex-shrink: 0;
+  min-width: 0;
   border: var(--advanced-card-border);
   border-radius: var(--advanced-card-radius);
   background: var(--advanced-card-background);
