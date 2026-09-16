@@ -859,6 +859,69 @@ body.dark-mode.theme-sakura .tags-dropdown,
     filter: none;
 }
 
+/* --- Unified tag identity ---
+   Every visible tag uses its assigned color as the surface and a readable
+   foreground from the same hue family. Theme-specific rules may still tune
+   radius, border, padding, and hover motion, but must not replace the tag
+   surface with a neutral fill or a color marker. */
+.tag-chip {
+  background: var(--tag-color, var(--accent-color)) !important;
+  color: var(--tag-text-color, var(--text-primary)) !important;
+  text-shadow: none;
+}
+
+.tag-chip::before,
+.tag-chip::after {
+  content: none !important;
+  display: none !important;
+}
+
+body[class*="theme-"] .tag-chip,
+body[class*="theme-"].light-mode .tag-chip,
+body[class*="theme-"].dark-mode .tag-chip {
+  background: var(--tag-color, var(--accent-color)) !important;
+  color: var(--tag-text-color, var(--text-primary)) !important;
+}
+
+body[class*="theme-"] .tags-dropdown .tag-chip,
+body[class*="theme-"].light-mode .tags-dropdown .tag-chip,
+body[class*="theme-"].dark-mode .tags-dropdown .tag-chip {
+  background: var(--tag-color, var(--accent-color)) !important;
+  color: var(--tag-text-color, var(--text-primary)) !important;
+}
+
+body[class*="theme-"] .tag-chip:hover,
+body[class*="theme-"].light-mode .tag-chip:hover,
+body[class*="theme-"].dark-mode .tag-chip:hover,
+body[class*="theme-"] .tag-chip:active,
+body[class*="theme-"].light-mode .tag-chip:active,
+body[class*="theme-"].dark-mode .tag-chip:active {
+  background: var(--tag-color, var(--accent-color)) !important;
+  color: var(--tag-text-color, var(--text-primary)) !important;
+  filter: brightness(1.06);
+}
+
+body[class*="theme-"] .tags-dropdown .tag-chip:hover,
+body[class*="theme-"].light-mode .tags-dropdown .tag-chip:hover,
+body[class*="theme-"].dark-mode .tags-dropdown .tag-chip:hover,
+body[class*="theme-"] .tags-dropdown .tag-chip:active,
+body[class*="theme-"].light-mode .tags-dropdown .tag-chip:active,
+body[class*="theme-"].dark-mode .tags-dropdown .tag-chip:active {
+  background: var(--tag-color, var(--accent-color)) !important;
+  color: var(--tag-text-color, var(--text-primary)) !important;
+  filter: brightness(1.06);
+}
+
+body[class*="theme-"] .tag-chip::before,
+body[class*="theme-"] .tag-chip::after,
+body[class*="theme-"].light-mode .tag-chip::before,
+body[class*="theme-"].light-mode .tag-chip::after,
+body[class*="theme-"].dark-mode .tag-chip::before,
+body[class*="theme-"].dark-mode .tag-chip::after {
+  content: none !important;
+  display: none !important;
+}
+
 /* --- Receipt: tighten input + dropdown seam --- */
 .theme-receipt .search-input.dropdown-open {
   border-bottom-left-radius: 0 !important;
