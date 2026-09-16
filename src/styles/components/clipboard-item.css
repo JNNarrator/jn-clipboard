@@ -465,6 +465,23 @@
   box-shadow: var(--button-shadow);
 }
 
+/* Keep the clipboard toolbar geometry fixed while the pointer moves between
+   actions. Theme-level lift/scale hover effects make the whole row wobble. */
+.item-actions .btn-icon {
+  transition:
+    background 0.14s ease,
+    border-color 0.14s ease,
+    box-shadow 0.14s ease,
+    color 0.14s ease;
+}
+
+.item-actions .btn-icon:hover,
+.item-actions .btn-icon:focus-visible,
+.item-actions .btn-icon:active {
+  transform: none !important;
+  box-shadow: var(--button-shadow) !important;
+}
+
 body.hide-unselected-item-actions .history-item:not(.selected):not(:hover) .item-actions {
   display: flex !important;
   flex: 0 0 0;
