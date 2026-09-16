@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useMemo, useCallback, useId, type MouseEvent as ReactMouseEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { listen, emit } from '@tauri-apps/api/event';
 import {
     Edit2, Trash2, X, LayoutGrid, List,
-    Clock, MousePointer2, Plus, ExternalLink, CheckSquare, Copy, StickyNote, Search
+    Clock, MousePointer2, Plus, ExternalLink, CheckSquare, Copy, StickyNote, Search, Ellipsis
 } from 'lucide-react';
 import AppModal from "../../../shared/components/AppModal";
 import { getTagColor } from "../../../shared/lib/utils";
@@ -37,6 +38,10 @@ export default function TagManager({ t, theme }: TagManagerProps) {
     const [tagItems, setTagItems] = useState<ClipboardEntry[]>([]);
     const [tagColors, setTagColors] = useState<Record<string, string>>({});
     const [editingTag, setEditingTag] = useState<string | null>(null);
+    const [tagMenu, setTagMenu] = useState<{ name: string; left: number; top: number } | null>(null);
+    const tagMenuRef = useRef<HTMLDivElement | null>(null);
+    const tagMenuTriggerRef = useRef<HTMLButtonElement | null>(null);
+    const tagMenuId = useId();
     const [newTagName, setNewTagName] = useState('');
     const [loading, setLoading] = useState(false);
     const [viewMode, setViewMode] = useState<'list' | 'grid'>(() => {
@@ -84,6 +89,33 @@ export default function TagManager({ t, theme }: TagManagerProps) {
         setIsTagSearchOpen(false);
         tagSearchButtonRef.current?.focus({ preventScroll: true });
     };
+
+    useEffect(() => {
+        if (!tagMenu) return;
+        const frame = requestAnimationFrame(() => {
+            tagMenuRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
+        });
+        const handleOutsidePress = (event: PointerEvent) => {
+            const target = event.target as Node;
+            if (!tagMenuRef.current?.contains(target) && !tagMenuTriggerRef.current?.contains(target)) {
+                setTagMenu(null);
+            }
+        };
+        const handleLayoutChange = (event: Event) => {
+            if (!(event.target instanceof Node) || !tagMenuRef.current?.contains(event.target)) {
+                setTagMenu(null);
+            }
+        };
+        document.addEventListener('pointerdown', handleOutsidePress);
+        window.addEventListener('scroll', handleLayoutChange, true);
+        window.addEventListener('resize', handleLayoutChange);
+        return () => {
+            cancelAnimationFrame(frame);
+            document.removeEventListener('pointerdown', handleOutsidePress);
+            window.removeEventListener('scroll', handleLayoutChange, true);
+            window.removeEventListener('resize', handleLayoutChange);
+        };
+    }, [tagMenu]);
 
     useEffect(() => {
         try {
@@ -458,9 +490,10 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                                     key={tag.name}
                                     role="button"
                                     tabIndex={0}
-                                    className={`tag-manager-chip${isSelected ? " active" : ""}`}
+                                    className={`tag-manager-chip${isSelected ? " active" : ""}${tagMenu?.name === tag.name ? " menu-open" : ""}`}
                                     onClick={() => loadTagItems(tag.name)}
                                     onKeyDown={(e) => {
+                                        if (e.target !== e.currentTarget) return;
                                         if (e.key === "Enter" || e.key === " ") {
                                             e.preventDefault();
                                             loadTagItems(tag.name);
@@ -519,26 +552,27 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                                                     <button
                                                         type="button"
                                                         className="tag-target-action-btn"
-                                                        title={t("rename")}
+                                                        title={t("tag_actions")}
+                                                        aria-label={`${tag.name}: ${t("tag_actions")}`}
+                                                        aria-haspopup="menu"
+                                                        aria-expanded={tagMenu?.name === tag.name}
+                                                        aria-controls={tagMenu?.name === tag.name ? tagMenuId : undefined}
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            setEditingTag(tag.name);
-                                                            setNewTagName(tag.name);
+                                                            if (tagMenu?.name === tag.name) {
+                                                                setTagMenu(null);
+                                                                return;
+                                                            }
+                                                            tagMenuTriggerRef.current = e.currentTarget;
+                                                            const bounds = e.currentTarget.getBoundingClientRect();
+                                                            setTagMenu({
+                                                                name: tag.name,
+                                                                left: Math.max(8, Math.min(bounds.left, window.innerWidth - 152)),
+                                                                top: Math.max(8, Math.min(bounds.bottom + 4, window.innerHeight - 88)),
+                                                            });
                                                         }}
                                                     >
-                                                        <Edit2 size={11} />
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        className="tag-target-action-btn danger"
-                                                        title={t("delete")}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            e.preventDefault();
-                                                            setDeleteConfirmation({ show: true, tagName: tag.name });
-                                                        }}
-                                                    >
-                                                        <Trash2 size={11} />
+                                                        <Ellipsis size={13} />
                                                     </button>
                                                 </span>
                                             )}
@@ -898,6 +932,62 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                     )}
                 </div>
             </div>
+
+            {tagMenu && createPortal(
+                <div
+                    ref={tagMenuRef}
+                    id={tagMenuId}
+                    role="menu"
+                    aria-label={t("tag_actions")}
+                    className="tag-manager-action-menu"
+                    style={{ left: tagMenu.left, top: tagMenu.top }}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Escape' || e.key === 'Tab') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setTagMenu(null);
+                            tagMenuTriggerRef.current?.focus();
+                        } else if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const buttons = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>('button'));
+                            const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
+                            const next = e.key === 'Home' ? 0 : e.key === 'End' ? buttons.length - 1
+                                : (index + (e.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length;
+                            buttons[next]?.focus();
+                        }
+                    }}
+                >
+                    <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                            const name = tagMenu.name;
+                            setTagMenu(null);
+                            void activateForInput().catch(console.error).finally(() => {
+                                setNewTagName(name);
+                                setEditingTag(name);
+                            });
+                        }}
+                    >
+                        <Edit2 size={13} aria-hidden="true" />
+                        {t("rename")}
+                    </button>
+                    <button
+                        type="button"
+                        role="menuitem"
+                        className="danger"
+                        onClick={() => {
+                            setDeleteConfirmation({ show: true, tagName: tagMenu.name });
+                            setTagMenu(null);
+                        }}
+                    >
+                        <Trash2 size={13} aria-hidden="true" />
+                        {t("delete")}
+                    </button>
+                </div>,
+                document.body
+            )}
 
             <AppModal
                 open={deleteConfirmation.show}
