@@ -11,8 +11,8 @@ html.platform-macos body {
 /* macOS uses the roomier grouped settings layout. The shared settings rules
    also serve Windows, whose compact density is intentionally different. */
 html.platform-macos .brand-mark {
-  height: 16px;
-  width: 46px;
+  height: 15px;
+  width: 44px;
   margin-left: 6px;
 }
 

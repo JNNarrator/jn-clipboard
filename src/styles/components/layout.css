@@ -65,11 +65,18 @@ header {
 
 .brand-mark {
   display: block;
-  height: 16px;
-  width: 44px;
+  height: 15px;
+  width: 42px;
   margin-left: 2px;
   flex: 0 0 auto;
   background-color: var(--brand-mark-color, var(--accent-color));
+  /* Keep the brand color theme-aware, but slightly quieter than the accent
+     used for actions so the logo does not compete with the content. */
+  background-color: color-mix(
+    in srgb,
+    var(--brand-mark-color, var(--accent-color)) 88%,
+    #000 12%
+  );
   -webkit-mask: url("../../assets/tiez-wordmark.svg") left center / contain no-repeat;
   mask: url("../../assets/tiez-wordmark.svg") left center / contain no-repeat;
   pointer-events: none;
@@ -235,8 +242,8 @@ header {
 
   .brand-mark,
   .windows-brand-mark {
-    height: 14px;
-    width: 38px;
+    height: 13px;
+    width: 36px;
   }
 
   .header-drag-region {
