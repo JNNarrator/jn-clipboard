@@ -359,7 +359,6 @@ body.theme-terminal .tag-manager-page {
 }
 
 .theme-terminal .history-item:hover {
-  background: var(--layout-item-hover-background) !important;
   transform: none !important;
   box-shadow: none !important;
 }

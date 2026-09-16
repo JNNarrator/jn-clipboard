@@ -146,10 +146,6 @@ body.theme-paper::before {
   position: relative;
 }
 
-.theme-paper .history-item:hover {
-  background-color: rgba(255, 255, 255, 0.3) !important;
-}
-
 .theme-paper .item-content {
   margin-left: 0;
   font-family: var(--font-main);

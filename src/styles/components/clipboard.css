@@ -10,11 +10,13 @@
   z-index: 10;
 }
 
-/* Mouse hover provides a gentle tint without clashing with the active keyboard selection */
+/* Hover is only a theme-accent frame, not a filled selection or raised card.
+   An inset outline works even in borderless themes without changing layout. */
 .history-item:hover:not(.selected) {
-  background: var(--layout-item-hover-background, var(--bg-input));
-  border-color: var(--line-strong);
-  box-shadow: var(--shadow-xs);
+  outline: 1px solid var(--accent-color) !important;
+  outline-offset: -1px;
+  border-color: var(--accent-color) !important;
+  box-shadow: var(--card-shadow) !important;
   color: inherit;
   transform: none !important;
   z-index: 5;
