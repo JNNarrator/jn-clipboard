@@ -82,7 +82,7 @@
 
 .tag-manager-search-trigger:hover,
 .tag-manager-search-close:hover {
-  background: color-mix(in srgb, var(--bg-input) 88%, var(--text-primary) 12%);
+  background: var(--bg-element);
   color: var(--accent-color);
 }
 
@@ -174,7 +174,7 @@
 }
 
 .tag-manager-chip:hover {
-  background: color-mix(in srgb, var(--bg-input) 86%, var(--accent-color) 14%);
+  background: var(--bg-input);
 }
 
 .tag-manager-chip.active {
@@ -697,10 +697,10 @@ body.dark-mode.theme-acrylic .tag-add-dialog {
   height: 18px;
   min-width: 18px;
   padding: 0;
-  background: var(--bg-element);
+  background: color-mix(in srgb, var(--bg-input) 88%, var(--text-primary) 12%);
   border: 1px solid color-mix(in srgb, var(--text-primary) 14%, transparent);
   border-radius: var(--button-radius);
-  color: var(--text-secondary);
+  color: var(--text-primary);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -717,7 +717,7 @@ body.dark-mode.theme-acrylic .tag-add-dialog {
 .tag-manager-card .card-action-btn:hover,
 .tag-manager-card .card-action-btn:focus-visible,
 .tag-manager-card .del-btn:focus-visible {
-  background: var(--bg-input);
+  background: color-mix(in srgb, var(--bg-input) 86%, var(--accent-color) 14%);
   border-color: color-mix(in srgb, var(--accent-color) 32%, var(--line-soft));
   color: var(--accent-color);
   outline: none;
