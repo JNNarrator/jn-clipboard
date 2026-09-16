@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef, useMemo, useCallback, type MouseEvent as ReactMouseEvent } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback, useId, type MouseEvent as ReactMouseEvent } from 'react';
 import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { listen, emit } from '@tauri-apps/api/event';
 import {
     Edit2, Trash2, X, LayoutGrid, List,
-    Clock, MousePointer2, Plus, ExternalLink, CheckSquare, Copy, StickyNote
+    Clock, MousePointer2, Plus, ExternalLink, CheckSquare, Copy, StickyNote, Search
 } from 'lucide-react';
 import AppModal from "../../../shared/components/AppModal";
 import { getTagColor } from "../../../shared/lib/utils";
@@ -29,6 +29,10 @@ export default function TagManager({ t, theme }: TagManagerProps) {
     const TAG_SIDEBAR_DEFAULT = 148;
     const [tags, setTags] = useState<TagInfo[]>([]);
     const [tagSearch, setTagSearch] = useState('');
+    const [isTagSearchOpen, setIsTagSearchOpen] = useState(false);
+    const tagSearchInputRef = useRef<HTMLInputElement | null>(null);
+    const tagSearchButtonRef = useRef<HTMLButtonElement | null>(null);
+    const tagSearchInputId = useId();
     const [selectedTag, setSelectedTag] = useState<string | null>(null);
     const [tagItems, setTagItems] = useState<ClipboardEntry[]>([]);
     const [tagColors, setTagColors] = useState<Record<string, string>>({});
@@ -65,6 +69,21 @@ export default function TagManager({ t, theme }: TagManagerProps) {
     const selectedTagRef = useRef<string | null>(null);
     useEffect(() => { selectedTagRef.current = selectedTag; }, [selectedTag]);
     useEffect(() => { sidebarWidthRef.current = sidebarWidth; }, [sidebarWidth]);
+
+    useEffect(() => {
+        if (!isTagSearchOpen) return;
+        let disposed = false;
+        void activateForInput().catch(console.error).finally(() => {
+            if (!disposed) tagSearchInputRef.current?.focus({ preventScroll: true });
+        });
+        return () => { disposed = true; };
+    }, [isTagSearchOpen]);
+
+    const closeTagSearch = () => {
+        setTagSearch('');
+        setIsTagSearchOpen(false);
+        tagSearchButtonRef.current?.focus({ preventScroll: true });
+    };
 
     useEffect(() => {
         try {
@@ -367,22 +386,69 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                 style={isSplit ? { ["--tag-sidebar-width" as string]: `${sidebarWidth}px` } : undefined}
             >
                 <div className="tag-manager-filter">
-                    <input
-                        className="search-input tag-manager-filter-search"
-                        placeholder={t("find_or_create")}
-                        value={tagSearch}
-                        onChange={(e) => setTagSearch(e.target.value)}
-                        onKeyDown={async (e) => {
-                            if (e.key === "Enter" && tagSearch.trim()) {
-                                const exactMatch = tags.find((tag) => tag.name.toLowerCase() === normalizedTagSearch);
-                                if (exactMatch) {
-                                    loadTagItems(exactMatch.name);
-                                } else {
-                                    await createTag(tagSearch);
-                                }
+                    <div
+                        className={`tag-manager-search-control${isTagSearchOpen ? " is-open" : ""}`}
+                        onBlur={(e) => {
+                            if (!e.currentTarget.contains(e.relatedTarget as Node | null) && !tagSearch.trim()) {
+                                setIsTagSearchOpen(false);
                             }
                         }}
-                    />
+                    >
+                        <button
+                            ref={tagSearchButtonRef}
+                            type="button"
+                            className="tag-manager-search-trigger"
+                            title={t("find_or_create")}
+                            aria-label={t("find_or_create")}
+                            aria-expanded={isTagSearchOpen}
+                            aria-controls={tagSearchInputId}
+                            onClick={() => {
+                                if (isTagSearchOpen) tagSearchInputRef.current?.focus();
+                                else setIsTagSearchOpen(true);
+                            }}
+                        >
+                            <Search size={14} aria-hidden="true" />
+                        </button>
+                        <input
+                            id={tagSearchInputId}
+                            ref={tagSearchInputRef}
+                            className="search-input tag-manager-filter-search"
+                            placeholder={t("find_or_create")}
+                            aria-label={t("find_or_create")}
+                            tabIndex={isTagSearchOpen ? 0 : -1}
+                            aria-hidden={!isTagSearchOpen}
+                            value={tagSearch}
+                            onChange={(e) => setTagSearch(e.target.value)}
+                            onKeyDown={async (e) => {
+                                if (e.key === "Escape") {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    closeTagSearch();
+                                    return;
+                                }
+                                if (e.nativeEvent.isComposing) return;
+                                if (e.key === "Enter" && tagSearch.trim()) {
+                                    const exactMatch = tags.find((tag) => tag.name.toLowerCase() === normalizedTagSearch);
+                                    if (exactMatch) {
+                                        loadTagItems(exactMatch.name);
+                                    } else {
+                                        await createTag(tagSearch);
+                                    }
+                                }
+                            }}
+                        />
+                        <button
+                            type="button"
+                            className="tag-manager-search-close"
+                            title={t("close")}
+                            aria-label={t("close")}
+                            tabIndex={isTagSearchOpen ? 0 : -1}
+                            aria-hidden={!isTagSearchOpen}
+                            onClick={closeTagSearch}
+                        >
+                            <X size={12} aria-hidden="true" />
+                        </button>
+                    </div>
                     <div className="tag-manager-chip-row custom-scrollbar">
                         {filteredTags.map((tag) => {
                             const isSelected = selectedTag === tag.name;
