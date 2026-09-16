@@ -4,6 +4,7 @@ import type { Dispatch, RefObject, SetStateAction } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import type { ClipboardEntry } from "../types";
 import type { VirtualClipboardListHandle } from "../../features/clipboard/types";
+import { reconcileHistoryTags } from "../lib/historyState";
 
 interface UseClipboardActionsOptions {
   t: (key: string) => string;
@@ -139,7 +140,7 @@ export const useClipboardActions = ({
       try {
         const newId = await invoke<number>("update_tags", { id, tags: newTags });
         setHistory((prev) =>
-          prev.map((item) => (item.id === id ? { ...item, id: newId, tags: newTags } : item))
+          reconcileHistoryTags(prev, id, newId, newTags)
         );
 
         setTimeout(() => {

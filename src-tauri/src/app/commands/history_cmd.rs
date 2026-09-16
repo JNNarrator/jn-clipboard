@@ -5,6 +5,7 @@ use crate::error::{AppError, AppResult};
 use crate::infrastructure::repository::clipboard_repo::{ClipboardRepository, ClipboardSortMode};
 use crate::infrastructure::repository::tag_repo::TagRepository;
 use crate::services::clipboard::{entry_matches_search, truncate_html_for_preview};
+use std::collections::HashSet;
 use tauri::{AppHandle, Emitter, State};
 
 #[derive(Clone, serde::Serialize)]
@@ -149,12 +150,15 @@ pub fn get_clipboard_history(
         db_limit, db_offset, content_type.as_deref(), sort_mode,
     )?;
     let mut history = {
-        let mut candidates: Vec<&ClipboardEntry> = session_items.iter()
-            .filter(|item| content_type.as_deref().map_or(true, |ct| item.content_type == ct))
-            .chain(db_items.iter())
-            .collect();
-        sorted_page(&mut candidates, (offset - db_offset) as usize, limit as usize,
-            |a, b| sort_mode.compare(a, b))
+        merged_history_page(
+            session_items.iter().filter(|item| {
+                content_type.as_deref().map_or(true, |ct| item.content_type == ct)
+            }),
+            &db_items,
+            (offset - db_offset) as usize,
+            limit as usize,
+            sort_mode,
+        )
     };
     drop(session_items);
 
@@ -202,9 +206,51 @@ fn sorted_page<T: Clone>(items: &mut Vec<&T>, offset: usize, limit: usize,
     items.iter().skip(offset).take(limit).map(|item| (*item).clone()).collect()
 }
 
+fn merged_history_page<'a>(
+    session_items: impl Iterator<Item = &'a ClipboardEntry>,
+    db_items: &'a [ClipboardEntry],
+    offset: usize,
+    limit: usize,
+    sort_mode: ClipboardSortMode,
+) -> Vec<ClipboardEntry> {
+    let mut seen = HashSet::new();
+    // Prefer database fields over any legacy in-memory copy. Deduplicate BEFORE
+    // slicing so duplicate IDs cannot consume page slots or shift later pages.
+    let mut candidates = db_items.iter().chain(session_items)
+        .filter(|item| item.id == 0 || seen.insert(item.id))
+        .collect();
+    sorted_page(&mut candidates, offset, limit, |a, b| sort_mode.compare(a, b))
+}
+
 #[cfg(test)]
 mod merged_page_tests {
-    use super::sorted_page;
+    use super::{merged_history_page, sorted_page, ClipboardEntry, ClipboardSortMode};
+
+    fn entry(id: i64, sort_at: i64, tags: &[&str]) -> ClipboardEntry {
+        serde_json::from_value(serde_json::json!({
+            "id": id, "content_type": "text", "content": "same content",
+            "source_app": "Test", "timestamp": sort_at, "sort_at": sort_at,
+            "preview": "same content", "is_pinned": false, "tags": tags,
+        })).unwrap()
+    }
+
+    #[test]
+    fn promoted_entry_appears_once_and_uses_database_tags() {
+        let session = [entry(12, 30, &["old"]), entry(-1, 20, &[])];
+        let database = [entry(12, 30, &["new"]), entry(13, 10, &[])];
+        let first = merged_history_page(session.iter(), &database, 0, 2, ClipboardSortMode::Manual);
+        assert_eq!(first.iter().map(|item| item.id).collect::<Vec<_>>(), vec![12, -1]);
+        assert_eq!(first[0].tags, vec!["new"]);
+        let next = merged_history_page(session.iter(), &database, 2, 2, ClipboardSortMode::Manual);
+        assert_eq!(next.iter().map(|item| item.id).collect::<Vec<_>>(), vec![13]);
+    }
+
+    #[test]
+    fn equal_content_with_different_ids_is_not_removed() {
+        let session = [entry(-1, 20, &[])];
+        let database = [entry(12, 30, &["tag"]), entry(13, 10, &[])];
+        assert_eq!(merged_history_page(session.iter(), &database, 0, 10, ClipboardSortMode::Manual).len(), 3);
+    }
 
     #[test]
     fn mixed_sources_are_sorted_before_pagination() {

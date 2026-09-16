@@ -62,9 +62,8 @@ pub fn toggle_clipboard_pin(
                 }
                 {
                     let mut session_items = session.inner().0.lock().unwrap();
-                    if let Some(item) = session_items.iter_mut().find(|i| i.id == id) {
-                        item.id = new_id;
-                    }
+                    // Once persisted, the database is the sole owner of this entry.
+                    session_items.retain(|item| item.id != id && item.id != new_id);
                 }
             }
         }
@@ -100,8 +99,10 @@ pub fn update_tags(
             let data_dir = app_data_dir.0.lock().unwrap().clone();
             let new_id = state.repo.save(&item, Some(&data_dir))?;
 
-            session_items[index].id = new_id;
-            session_items[index].tags = tags;
+            // Do not retain a second copy with the same persistent ID in memory.
+            session_items.retain(|entry| entry.id != id && entry.id != new_id);
+            drop(session_items);
+            let _ = app_handle.emit("clipboard-changed", ());
             crate::services::cloud_sync::request_cloud_sync(app_handle);
             return Ok(new_id);
         }
