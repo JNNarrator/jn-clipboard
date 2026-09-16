@@ -640,10 +640,13 @@ select.search-input option {
   cursor: pointer;
   box-shadow: var(--card-shadow);
   transition:
-    background 0.18s ease,
-    border-color 0.18s ease,
-    box-shadow 0.18s ease,
-    transform 0.18s ease;
+    background 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    outline-color 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    outline-offset 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    outline-width 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
   margin: 0 var(--layout-item-margin-x) var(--layout-item-margin-bottom) var(--layout-item-margin-x);
   height: auto;
   overflow: visible;
