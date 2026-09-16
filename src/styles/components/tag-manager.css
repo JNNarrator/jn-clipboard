@@ -187,77 +187,69 @@
   color: var(--accent-color);
 }
 
-/* Add-item modal: a focused writing surface instead of a generic confirm box. */
+/* Add-item modal: quiet native-style glass with one clear writing surface. */
 .tag-add-dialog {
-  width: min(440px, calc(100vw - 32px));
-  max-width: 440px;
-  padding: 20px;
+  width: min(420px, calc(100vw - 32px));
+  max-width: 420px;
+  padding: 22px;
+  border: 1px solid color-mix(in srgb, var(--line-strong) 72%, transparent);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--bg-panel) 72%, var(--bg-window) 28%);
+  backdrop-filter: blur(24px) saturate(135%);
+  -webkit-backdrop-filter: blur(24px) saturate(135%);
+  box-shadow: 0 20px 56px rgba(15, 23, 42, 0.2);
 }
 
 .tag-add-dialog-header {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 18px;
-}
-
-.tag-add-dialog-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  flex: 0 0 36px;
-  border: 1px solid rgba(var(--accent-color-rgb), 0.2);
-  border-radius: 11px;
-  background: color-mix(in srgb, var(--accent-color) 13%, transparent);
-  color: var(--accent-color);
+  min-width: 0;
+  margin-bottom: 14px;
 }
 
 .tag-add-dialog-heading {
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: 5px;
-  padding-top: 1px;
+  gap: 4px;
 }
 
 .tag-add-dialog-title {
   margin: 0;
   color: var(--text-primary);
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 750;
   line-height: 1.2;
   letter-spacing: -0.01em;
 }
 
 .tag-add-dialog-tag {
-  width: fit-content;
   max-width: 100%;
   overflow: hidden;
-  padding: 3px 8px;
-  border: 1px solid rgba(var(--accent-color-rgb), 0.18);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--accent-color) 9%, transparent);
-  color: var(--accent-color);
-  font-size: 11px;
-  font-weight: 650;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 550;
   line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.tag-add-dialog-tag > span {
+  margin-right: 2px;
+  color: var(--accent-color);
+  font-weight: 700;
+}
+
 .tag-add-dialog .modal-textarea {
   box-sizing: border-box;
-  min-height: 136px;
-  max-height: min(42vh, 320px);
-  padding: 13px 14px;
-  border: 1px solid rgba(var(--accent-color-rgb), 0.16);
-  border-radius: 13px;
-  background: color-mix(in srgb, var(--bg-input) 88%, transparent);
+  min-height: 128px;
+  max-height: min(42vh, 300px);
+  padding: 12px 13px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--bg-input) 72%, transparent);
   font-size: 14px;
   line-height: 1.55;
-  transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+  transition: border-color 0.16s ease, background 0.16s ease;
 }
 
 .tag-add-dialog .modal-textarea::placeholder {
@@ -265,9 +257,9 @@
 }
 
 .tag-add-dialog .modal-textarea:focus {
-  border-color: rgba(var(--accent-color-rgb), 0.5);
+  border-color: color-mix(in srgb, var(--accent-color) 62%, var(--line-soft));
   background: var(--bg-input);
-  box-shadow: 0 0 0 3px rgba(var(--accent-color-rgb), 0.1);
+  box-shadow: none;
 }
 
 .tag-add-dialog-footer {
@@ -275,7 +267,9 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-top: 14px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line-soft);
 }
 
 .tag-add-dialog-hint {
@@ -292,9 +286,9 @@
 }
 
 .tag-add-dialog-actions .modal-button {
-  min-height: 34px;
-  padding: 0 14px;
-  border-radius: 10px;
+  min-height: 32px;
+  padding: 0 13px;
+  border-radius: 9px;
   font-size: 12px;
 }
 

@@ -915,13 +915,11 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                 ariaLabel={t("add_item")}
             >
                 <div className="tag-add-dialog-header">
-                    <div className="tag-add-dialog-icon" aria-hidden="true">
-                        <Plus size={18} strokeWidth={2.4} />
-                    </div>
                     <div className="tag-add-dialog-heading">
                         <h3 className="tag-add-dialog-title">{t("add_item")}</h3>
                         {selectedTag && (
                             <span className="tag-add-dialog-tag" title={selectedTag}>
+                                <span aria-hidden="true">#</span>
                                 {selectedTag}
                             </span>
                         )}
@@ -942,7 +940,7 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                     autoFocus
                 />
                 <div className="tag-add-dialog-footer">
-                    <span className="tag-add-dialog-hint">⌘/Ctrl ↵ {t("confirm")}</span>
+                    <span className="tag-add-dialog-hint">⌘/Ctrl ↵</span>
                     <div className="tag-add-dialog-actions">
                         <button type="button" className="modal-button" onClick={() => setIsCreatingItem(false)}>
                             {t("cancel")}
