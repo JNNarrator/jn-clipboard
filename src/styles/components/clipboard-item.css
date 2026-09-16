@@ -471,8 +471,13 @@ body.hide-unselected-item-actions .history-item:not(.selected):not(:hover) .item
   pointer-events: none;
 }
 
-/* In this compact action mode, the hovered or active row uses the freed space for its
-   action buttons while unselected rows keep the source app label visible. */
+/* In this compact action mode, unselected rows keep the full source app label
+   when their actions are hidden. Once the row is hovered, the label gives
+   the space back to the action buttons. */
+body.hide-unselected-item-actions .history-item:not(.selected):not(:hover) .app-info > span {
+  text-overflow: clip;
+}
+
 body.hide-unselected-item-actions .history-item.selected .app-info > span,
 body.hide-unselected-item-actions .history-item:hover .app-info > span {
   display: none;
