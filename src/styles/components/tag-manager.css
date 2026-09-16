@@ -339,6 +339,17 @@
   gap: 6px;
 }
 
+/* The tag manager already provides the content surface. Keep its empty state
+   as text on that surface instead of nesting a second card inside it. */
+.tag-manager-items .advanced-empty-state {
+  width: auto;
+  max-width: 100%;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
 .tag-manager-sort-group {
   display: inline-flex;
   align-items: center;
