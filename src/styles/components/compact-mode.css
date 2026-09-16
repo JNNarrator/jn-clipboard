@@ -259,7 +259,7 @@
     transform: translateY(0);
 }
 
-body.hide-unselected-item-actions .history-item.compact:not(.selected) .item-actions {
+body.hide-unselected-item-actions .history-item.compact:not(.selected):not(:hover) .item-actions {
     opacity: 0 !important;
     visibility: hidden !important;
     transform: none !important;

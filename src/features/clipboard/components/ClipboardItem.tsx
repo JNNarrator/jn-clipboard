@@ -33,6 +33,7 @@ import {
     PictureInPicture2
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { isItemInteractionActive } from "../lib/itemInteraction";
 import type { ClipboardItemProps } from "../types";
 import {
     formatSensitivePreview,
@@ -764,7 +765,6 @@ const ClipboardItem = ({
     t,
     isAIProcessing,
     onSelect,
-    onHover,
     onCopy,
     onToggleReveal,
     onOpen,
@@ -1284,6 +1284,7 @@ const ClipboardItem = ({
     }, [useSnapshotPreviewImage, effectiveRichTextSnapshotSrc, item.id]);
 
     const showAIOptions = localAiOptionsOpen;
+    const isInteractionActive = isItemInteractionActive(isSelected, isEditingTags, isEditingNote, showAIOptions);
     const inlineAiVariants = {
         open: { opacity: 1, height: "auto", marginTop: 8, marginBottom: 8 },
         collapsed: { opacity: 0, height: 0, marginTop: 0, marginBottom: 0 }
@@ -1672,7 +1673,7 @@ const ClipboardItem = ({
             animate={{ marginBottom: 0 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.1 }}
-            className={`history-item ${isSelected ? "selected" : ""} ${compactMode ? "compact" : ""} ${item.is_pinned ? "pinned" : ""} ${className || ''}`}
+            className={`history-item ${isInteractionActive ? "selected" : ""} ${compactMode ? "compact" : ""} ${item.is_pinned ? "pinned" : ""} ${className || ''}`}
             onMouseDownCapture={(e) => {
                 const target = e.target as HTMLElement;
                 if (e.button !== 0) return;
@@ -1755,7 +1756,6 @@ const ClipboardItem = ({
                 onSelect();
             }}
             onMouseEnter={(e) => {
-                onHover?.();
                 if (!compactPreviewEnabled) return;
                 // Don't show preview if AI options are open to avoid interference
                 if (showAIOptions) return;

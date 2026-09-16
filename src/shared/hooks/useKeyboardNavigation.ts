@@ -314,6 +314,7 @@ export const useKeyboardNavigation = ({
     };
 
     const handleInteraction = () => {
+      isKeyboardModeRef.current = false;
       setIsKeyboardMode(false);
     };
 
@@ -398,20 +399,13 @@ export const useKeyboardNavigation = ({
     return () => { unlisten.then(f => f()); };
   }, [setIsKeyboardMode, setSearch, setSelectedIndex, setSelectedItemId]);
 
-  // Mouse hover / click highlight: update selected item without entering keyboard
-  // navigation mode, so typing in the previous app is undisturbed and Enter paste
-  // still requires an explicit arrow/nav activation.
-  const highlightItemByIndex = (index: number) => {
-    applySelection(index, false);
-  };
-
   const selectItemByIndex = (index: number) => {
-    // Clicks also only highlight; keyboard mode is reserved for arrow/nav keys.
+    // Remember the clicked paste target without leaving a persistent highlight.
+    // Hover is purely visual and must not overwrite a keyboard-selected target.
     applySelection(index, false);
   };
 
   return {
-    selectItemByIndex,
-    highlightItemByIndex
+    selectItemByIndex
   };
 };

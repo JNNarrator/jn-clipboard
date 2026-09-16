@@ -4,6 +4,7 @@ const EMPTY_TAG_SUGGESTIONS: string[] = [];
 import type { Dispatch, SetStateAction, MouseEvent, ReactNode } from "react";
 import type { DragControls } from "framer-motion";
 import ClipboardItem from "../../features/clipboard/components/ClipboardItem";
+import { isKeyboardSelectedItem } from "../../features/clipboard/lib/itemInteraction";
 import type { QuickPasteHint } from "../../features/clipboard/types";
 import type { ClipboardEntry } from "../types";
 import type { Locale } from "../types";
@@ -42,7 +43,6 @@ interface UseClipboardItemRendererOptions {
     tags?: string[]
   ) => Promise<void>;
   selectItemByIndex: (index: number) => void;
-  highlightItemByIndex: (index: number) => void;
   setRevealedIds: Dispatch<SetStateAction<Set<number>>>;
   openContent: (item: ClipboardEntry) => void;
   togglePin: (event: MouseEvent, id: number, isPinned: boolean) => void;
@@ -65,7 +65,7 @@ type RenderItemContent = (
 export const useClipboardItemRenderer = ({
   privacyProtection,
   revealedIds,
-  isKeyboardMode: _isKeyboardMode,
+  isKeyboardMode,
   selectedItemId,
   isWindowPinned,
   editingTagsId,
@@ -89,7 +89,6 @@ export const useClipboardItemRenderer = ({
   setAiOptionsOpenId,
   copyToClipboard,
   selectItemByIndex,
-  highlightItemByIndex,
   setRevealedIds,
   openContent,
   togglePin,
@@ -118,7 +117,7 @@ export const useClipboardItemRenderer = ({
           key={item.id}
           item={item}
           navigationIndex={index}
-          isSelected={selectedItemId !== null && item.id === selectedItemId}
+          isSelected={isKeyboardSelectedItem(item.id, selectedItemId, isKeyboardMode)}
           windowPinned={isWindowPinned}
           isSensitiveHidden={!!isSensitiveHidden}
           isRevealed={revealedIds.has(item.id)}
@@ -138,7 +137,6 @@ export const useClipboardItemRenderer = ({
           sensitiveMaskEmailDomain={sensitiveMaskEmailDomain}
           quickPasteHint={quickPasteHintsById[item.id]}
           onSelect={() => selectItemByIndex(index)}
-          onHover={() => highlightItemByIndex(index)}
           onCopy={(withFormat) =>
             copyToClipboard(item.id, item.content, item.content_type, withFormat, item.is_pinned, item.tags || [])
           }
@@ -228,6 +226,7 @@ export const useClipboardItemRenderer = ({
       privacyProtection,
       revealedIds,
       selectedItemId,
+      isKeyboardMode,
       isWindowPinned,
       editingTagsId,
       editingNoteId,
@@ -250,7 +249,6 @@ export const useClipboardItemRenderer = ({
       setAiOptionsOpenId,
       copyToClipboard,
       selectItemByIndex,
-      highlightItemByIndex,
       setRevealedIds,
       openContent,
       togglePin,

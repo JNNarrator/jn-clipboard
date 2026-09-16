@@ -1007,7 +1007,7 @@ const App = () => {
     virtualListRef
   });
 
-  const { selectItemByIndex, highlightItemByIndex } = useKeyboardNavigation({
+  const { selectItemByIndex } = useKeyboardNavigation({
     filteredHistory: navigableHistory,
     selectedIndex,
     selectedItemId,
@@ -1055,7 +1055,6 @@ const App = () => {
     setAiOptionsOpenId,
     copyToClipboard,
     selectItemByIndex,
-    highlightItemByIndex,
     setRevealedIds,
     openContent,
     togglePin,

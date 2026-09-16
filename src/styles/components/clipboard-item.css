@@ -482,15 +482,16 @@
   box-shadow: var(--button-shadow);
 }
 
-body.hide-unselected-item-actions .history-item:not(.selected) .item-actions {
+body.hide-unselected-item-actions .history-item:not(.selected):not(:hover) .item-actions {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
 }
 
-/* In this compact action mode, the selected row uses the freed space for its
+/* In this compact action mode, the hovered or active row uses the freed space for its
    action buttons while unselected rows keep the source app label visible. */
-body.hide-unselected-item-actions .history-item.selected .app-info > span {
+body.hide-unselected-item-actions .history-item.selected .app-info > span,
+body.hide-unselected-item-actions .history-item:hover .app-info > span {
   display: none;
 }
 
