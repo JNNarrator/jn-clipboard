@@ -638,7 +638,7 @@ select.search-input option {
     box-shadow 0.18s ease,
     transform 0.18s ease;
   margin: 0 var(--layout-item-margin-x) var(--layout-item-margin-bottom) var(--layout-item-margin-x);
-  height: 100%;
+  height: auto;
   overflow: visible;
   display: flex;
   flex-direction: column;

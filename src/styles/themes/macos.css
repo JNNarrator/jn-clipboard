@@ -102,7 +102,7 @@ body.theme-macos {
   --layout-item-divider: none;
   --layout-item-margin-x: 8px;
   --layout-item-margin-bottom: 6px;
-  --layout-item-padding: 9px 12px 8px;
+  --layout-item-padding: 9px 12px 5px;
   --layout-search-input-padding: 8px 12px 8px 34px;
 }
 

@@ -969,11 +969,9 @@ const ClipboardItem = ({
     const hasTagsSection = visibleTagCount > 0 || isEditingTags;
     const hasNoteSection = isEditingNote || (!!item.note && !compactMode);
     const hasMetaFooter = hasTagsSection || hasNoteSection;
-    // Overlay tags only when there is no note. Notes need document flow so the
-    // item grows taller instead of covering the clipboard content.
-    const overlayMetaInPreview =
-        !compactMode && !isEditingTags && !isEditingNote && visibleTagCount > 0 && !item.note;
-    const showFlowMetaFooter = !compactMode && hasMetaFooter && !overlayMetaInPreview;
+    // Keep metadata in document flow. An absolute tag overlay made the card
+    // reserve an artificial bottom band and introduced a second glass surface.
+    const showFlowMetaFooter = !compactMode && hasMetaFooter;
     const standaloneColorValue = useMemo(
         () => getStandaloneColorValue(item.content_type, item.content),
         [item.content, item.content_type]
@@ -1647,9 +1645,9 @@ const ClipboardItem = ({
         </div>
     );
 
-    const renderMetaFooter = (overlay = false) => (
+    const renderMetaFooter = () => (
         <div
-            className={`item-meta-footer${overlay ? " overlay" : ""}${isEditingNote ? " editing-note" : ""}${isEditingTags ? " editing-tags" : ""}`}
+            className={`item-meta-footer${isEditingNote ? " editing-note" : ""}${isEditingTags ? " editing-tags" : ""}`}
             onMouseDown={(e) => {
                 if ((e.target as HTMLElement).closest("button, input, textarea, .tag-chip, .tag-edit-anchor")) {
                     e.stopPropagation();
@@ -1934,7 +1932,7 @@ const ClipboardItem = ({
                     </div>
                 )
             }
-            <div className={`content-preview-shell${overlayMetaInPreview ? ' has-overlay-meta' : ''}`}>
+            <div className="content-preview-shell">
                 <div data-content-type={item.content_type} className={`content-preview ${item.content_type === 'rich_text' ? 'rich-text' : ''} ${item.content_type === 'file' ? 'file-preview' : ''} ${isSensitiveHidden ? 'sensitive-blur' : ''}`}>
                 {item.content_type === "image" ? (
                     <div style={{ position: 'relative' }}>
@@ -2102,10 +2100,9 @@ const ClipboardItem = ({
                         : item.preview
                 )}
                 </div>
-                {overlayMetaInPreview && renderMetaFooter(true)}
             </div>
 
-            {showFlowMetaFooter && renderMetaFooter(false)}
+            {showFlowMetaFooter && renderMetaFooter()}
 
             {compactMode && !!item.note && !isEditingNote && (
                 <button

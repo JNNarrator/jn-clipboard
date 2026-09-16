@@ -68,7 +68,7 @@
   --layout-list-padding-x: 8px;
   --layout-item-margin-x: 8px;
   --layout-item-margin-bottom: 2px;
-  --layout-item-padding: 10px 12px 8px 12px;
+  --layout-item-padding: 10px 12px 5px 12px;
   --layout-item-padding-compact: 6px 10px 4px 10px;
   --layout-item-background: var(--bg-element);
   --layout-item-hover-background: var(--bg-input);
@@ -81,11 +81,6 @@
   --layout-meta-padding-bottom: 0;
   --layout-tag-list-gap: 4px;
   --layout-tag-chip-padding: 1px 6px;
-  --layout-overlay-tag-padding: 1px 6px;
-  --layout-overlay-tag-min-height: 18px;
-  --layout-overlay-tag-font-size: var(--clipboard-tag-font-size);
-  --layout-overlay-tag-line-height: 1;
-  --layout-overlay-tag-reserve: 22px;
   --tag-chip-font-weight: 600;
   --tag-chip-font-family: inherit;
   --tag-chip-text-transform: none;
