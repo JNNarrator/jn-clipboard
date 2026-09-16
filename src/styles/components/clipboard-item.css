@@ -473,15 +473,20 @@ body.hide-unselected-item-actions .history-item:not(.selected):not(:hover) .item
 }
 
 /* In this compact action mode, unselected rows keep the full source app label
-   when their actions are hidden. Once the row is hovered, the label gives
-   the space back to the action buttons. */
+   when their actions are hidden. Once the row is hovered, the label shares
+   the remaining space with the action buttons and can be shortened. */
 body.hide-unselected-item-actions .history-item:not(.selected):not(:hover) .app-info > span {
   text-overflow: clip;
 }
 
 body.hide-unselected-item-actions .history-item.selected .app-info > span,
 body.hide-unselected-item-actions .history-item:hover .app-info > span {
-  display: none;
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .item-meta-right {
