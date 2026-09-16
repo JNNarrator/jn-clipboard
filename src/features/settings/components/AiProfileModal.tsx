@@ -13,43 +13,44 @@ const AiProfileModal = ({ editingProfile, t, onClose, onSave, setEditingProfile 
     <AppModal
         open={Boolean(editingProfile)}
         onClose={onClose}
-        panelClassName="modal-panel modal-panel-form"
+        panelClassName="modal-panel modal-form-dialog ai-profile-dialog"
         ariaLabel={editingProfile?.isNew ? t("ai_add_model") : t("ai_edit_model")}
     >
         {editingProfile && (
             <>
-                <h3 className="modal-title">{editingProfile.isNew ? t("ai_add_model") : t("ai_edit_model")}</h3>
+                <div className="modal-form-heading">
+                    <h3 className="modal-form-title">{editingProfile.isNew ? t("ai_add_model") : t("ai_edit_model")}</h3>
+                </div>
 
-                <div>
-                    <div className="modal-field-label">Endpoint URL</div>
-                    <input
-                        className="search-input"
-                        style={{ width: "100%" }}
-                        value={editingProfile.baseUrl}
-                        onChange={(e) => setEditingProfile({ ...editingProfile, baseUrl: e.target.value })}
-                    />
+                <div className="modal-form-fields">
+                    <label className="modal-form-field">
+                        <span className="modal-field-label">Endpoint URL</span>
+                        <input
+                            className="search-input modal-form-control"
+                            value={editingProfile.baseUrl}
+                            onChange={(e) => setEditingProfile({ ...editingProfile, baseUrl: e.target.value })}
+                        />
+                    </label>
+                    <label className="modal-form-field">
+                        <span className="modal-field-label">API Key</span>
+                        <input
+                            className="search-input modal-form-control"
+                            type="password"
+                            value={editingProfile.apiKey}
+                            onChange={(e) => setEditingProfile({ ...editingProfile, apiKey: e.target.value })}
+                        />
+                    </label>
+                    <label className="modal-form-field">
+                        <span className="modal-field-label">Model ID</span>
+                        <input
+                            className="search-input modal-form-control"
+                            value={editingProfile.model}
+                            onChange={(e) => setEditingProfile({ ...editingProfile, model: e.target.value })}
+                            placeholder="gpt-4o"
+                        />
+                    </label>
                 </div>
-                <div>
-                    <div className="modal-field-label">API Key</div>
-                    <input
-                        className="search-input"
-                        type="password"
-                        style={{ width: "100%" }}
-                        value={editingProfile.apiKey}
-                        onChange={(e) => setEditingProfile({ ...editingProfile, apiKey: e.target.value })}
-                    />
-                </div>
-                <div>
-                    <div className="modal-field-label">Model ID</div>
-                    <input
-                        className="search-input"
-                        style={{ width: "100%" }}
-                        value={editingProfile.model}
-                        onChange={(e) => setEditingProfile({ ...editingProfile, model: e.target.value })}
-                        placeholder="gpt-4o"
-                    />
-                </div>
-                <div className="modal-field-row">
+                <div className="modal-field-row modal-form-toggle-row">
                     <span style={{ fontSize: "13px", fontWeight: 600 }}>{t("ai_thinking_enabled")}</span>
                     <label className="switch">
                         <input
@@ -61,7 +62,7 @@ const AiProfileModal = ({ editingProfile, t, onClose, onSave, setEditingProfile 
                         <div className="toggle"><div className="left" /><div className="right" /></div>
                     </label>
                 </div>
-                <div className="modal-panel-actions split">
+                <div className="modal-form-actions split">
                     <button type="button" className="modal-button" onClick={onClose}>{t("cancel")}</button>
                     <button type="button" className="modal-button primary" onClick={() => onSave(editingProfile)}>
                         {t("ai_save_profile")}

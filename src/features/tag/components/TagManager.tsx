@@ -1071,21 +1071,21 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                 open={isCreatingItem}
                 onClose={() => setIsCreatingItem(false)}
                 theme={theme}
-                panelClassName="modal-panel tag-add-dialog"
+                panelClassName="modal-panel modal-form-dialog tag-add-dialog"
                 ariaLabel={t("add_item")}
             >
-                <div className="tag-add-dialog-header">
+                <div className="modal-form-heading">
                     <div className="tag-add-dialog-heading">
-                        <h3 className="tag-add-dialog-title">{t("add_item")}</h3>
+                        <h3 className="modal-form-title tag-add-dialog-title">{t("add_item")}</h3>
                         {selectedTag && (
-                            <p className="tag-add-dialog-tag">
+                            <p className="modal-form-subtitle tag-add-dialog-tag">
                                 {t("add_item_destination").replace("{tag}", selectedTag)}
                             </p>
                         )}
                     </div>
                 </div>
                 <textarea
-                    className="modal-textarea"
+                    className="modal-form-control modal-textarea"
                     value={newItemContent}
                     onChange={(e) => setNewItemContent(e.target.value)}
                     placeholder={t("input_content_placeholder")}
@@ -1099,20 +1099,18 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                     }}
                     autoFocus
                 />
-                <div className="tag-add-dialog-footer">
-                    <div className="tag-add-dialog-actions">
-                        <button type="button" className="modal-button" onClick={() => setIsCreatingItem(false)}>
-                            {t("cancel")}
-                        </button>
-                        <button
-                            type="button"
-                            className="modal-button primary"
-                            onClick={handleAddManualItem}
-                            disabled={!newItemContent.trim()}
-                        >
-                            {t("add_item_action")}
-                        </button>
-                    </div>
+                <div className="modal-form-actions tag-add-dialog-actions">
+                    <button type="button" className="modal-button" onClick={() => setIsCreatingItem(false)}>
+                        {t("cancel")}
+                    </button>
+                    <button
+                        type="button"
+                        className="modal-button primary"
+                        onClick={handleAddManualItem}
+                        disabled={!newItemContent.trim()}
+                    >
+                        {t("add_item_action")}
+                    </button>
                 </div>
             </AppModal>
 

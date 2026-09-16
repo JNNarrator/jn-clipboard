@@ -50,6 +50,142 @@ body:has(.modal-overlay) #root {
   background: var(--bg-window);
 }
 
+/* Shared compact form surface for add/edit/configuration dialogs. Feature
+   modals should share the same rhythm; theme tokens still define the surface
+   treatment, border language, and control shape. */
+.modal-form-dialog {
+  width: min(380px, calc(100vw - 32px));
+  max-width: 380px;
+  padding: 18px;
+  background: var(--bg-panel);
+  overflow: auto;
+}
+
+.modal-form-heading {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.modal-form-title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 16px;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+.modal-form-subtitle {
+  max-width: 100%;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.modal-form-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.modal-form-field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.modal-form-dialog .modal-field-label {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  text-transform: none;
+}
+
+.modal-form-control,
+.modal-form-dialog input.modal-form-control,
+.modal-form-dialog textarea.modal-form-control {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 11px;
+  border: var(--input-border);
+  border-radius: min(10px, var(--input-radius));
+  outline: none;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.45;
+  box-shadow: none;
+  transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
+}
+
+.modal-form-dialog textarea.modal-form-control {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.modal-form-control::placeholder {
+  color: var(--text-muted);
+}
+
+.modal-form-control:focus,
+.modal-form-control:focus-visible {
+  border-color: var(--input-focus-border-color, var(--accent-color));
+  background: var(--bg-input);
+  box-shadow: var(--input-focus-shadow, 0 0 0 2px rgba(var(--accent-color-rgb), 0.12));
+}
+
+.modal-form-toggle-row {
+  min-height: 34px;
+  margin-top: 2px;
+}
+
+.modal-form-actions,
+.modal-form-dialog .modal-panel-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--panel-divider-color);
+}
+
+.modal-form-actions.split,
+.modal-form-dialog .modal-panel-actions.split {
+  justify-content: stretch;
+}
+
+.modal-form-actions .modal-button,
+.modal-form-dialog .modal-panel-actions .modal-button {
+  min-height: 34px;
+  padding: 0 14px;
+  border-radius: min(8px, var(--dialog-button-radius));
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: none;
+}
+
+.modal-form-actions.split .modal-button,
+.modal-form-dialog .modal-panel-actions.split .modal-button {
+  flex: 1;
+}
+
+.modal-form-actions .modal-button:hover,
+.modal-form-actions .modal-button:active,
+.modal-form-dialog .modal-panel-actions .modal-button:hover,
+.modal-form-dialog .modal-panel-actions .modal-button:active {
+  transform: none;
+  box-shadow: none;
+}
+
 .modal-panel-header {
   display: flex;
   align-items: center;
