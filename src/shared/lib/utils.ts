@@ -135,6 +135,40 @@ const parseColor = (value: string): [number, number, number] | null => {
   return null;
 };
 
+const rgbToHsl = ([r, g, b]: [number, number, number]): [number, number, number] => {
+  const red = r / 255;
+  const green = g / 255;
+  const blue = b / 255;
+  const max = Math.max(red, green, blue);
+  const min = Math.min(red, green, blue);
+  const lightness = (max + min) / 2;
+  const delta = max - min;
+
+  if (delta === 0) return [0, 0, lightness * 100];
+
+  const saturation = delta / (1 - Math.abs(2 * lightness - 1));
+  let hue = 0;
+  if (max === red) hue = 60 * (((green - blue) / delta) % 6);
+  else if (max === green) hue = 60 * ((blue - red) / delta + 2);
+  else hue = 60 * ((red - green) / delta + 4);
+
+  return [((hue % 360) + 360) % 360, saturation * 100, lightness * 100];
+};
+
+const hslCss = (hue: number, saturation: number, lightness: number) =>
+  `hsl(${Math.round(hue)}, ${Math.round(saturation)}%, ${Math.round(lightness)}%)`;
+
+const getContrastRatio = (
+  foreground: [number, number, number],
+  background: [number, number, number]
+) => {
+  const foregroundLuminance = getRelativeLuminance(foreground);
+  const backgroundLuminance = getRelativeLuminance(background);
+  const lighter = Math.max(foregroundLuminance, backgroundLuminance);
+  const darker = Math.min(foregroundLuminance, backgroundLuminance);
+  return (lighter + 0.05) / (darker + 0.05);
+};
+
 const getRelativeLuminance = ([r, g, b]: [number, number, number]) => {
   const toLinear = (channel: number) => {
     const normalized = channel / 255;
@@ -166,8 +200,20 @@ export const getTagColor = (tag: string, _theme: string) => {
 
 export const getTagTextColor = (backgroundColor: string, _theme?: string) => {
   const rgb = parseColor(backgroundColor);
-  if (!rgb) return "#ffffff";
-  return getRelativeLuminance(rgb) > 0.6 ? "#111827" : "#ffffff";
+  if (!rgb) return "hsl(210 18% 28%)";
+
+  const [hue, saturation] = rgbToHsl(rgb);
+  const tagSaturation = Math.max(42, Math.min(78, saturation * 0.82));
+  const candidates = [24, 32, 76, 84].map((lightness) => hslCss(hue, tagSaturation, lightness));
+
+  // Keep the foreground in the tag's own hue family while choosing the more
+  // readable lightness. This avoids the abrupt black/white inversion between
+  // neighboring generated tags.
+  return candidates
+    .map((candidate) => ({ candidate, rgb: parseHslColor(candidate) }))
+    .filter((entry): entry is { candidate: string; rgb: [number, number, number] } => !!entry.rgb)
+    .sort((a, b) => getContrastRatio(b.rgb, rgb) - getContrastRatio(a.rgb, rgb))[0]
+    ?.candidate || hslCss(hue, tagSaturation, 32);
 };
 
 export const getConciseTime = (timestamp: number, language: Locale) => {
