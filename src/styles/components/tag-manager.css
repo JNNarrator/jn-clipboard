@@ -1,4 +1,12 @@
 .tag-manager-page {
+  /* Keep tag and item scrollers equally slim across all themes. */
+  --scrollbar-size: 2px;
+  --scrollbar-size-thin: 2px;
+  --scrollbar-thumb-border: 0;
+  --scrollbar-radius: 999px;
+  --scrollbar-track-background: transparent;
+  --scrollbar-thumb-color: color-mix(in srgb, var(--text-secondary) 35%, transparent);
+  --scrollbar-thumb-hover-color: color-mix(in srgb, var(--text-secondary) 60%, transparent);
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -123,7 +131,6 @@
 }
 
 .tag-manager-chip-row {
-  --scrollbar-size-thin: 2px;
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
@@ -135,6 +142,7 @@
   padding-bottom: 6px;
   /* Let the explicit WebKit dimensions control the native scroll indicator. */
   scrollbar-width: auto;
+  scrollbar-color: auto;
   scrollbar-gutter: stable;
 }
 
@@ -490,11 +498,13 @@ body.dark-mode.theme-acrylic .tag-add-dialog {
 }
 
 .tag-manager-editor .advanced-rule-list.tag-manager-items {
-  --scrollbar-size-thin: 4px;
-  padding: 8px 14px 40px 10px;
+  padding: 8px 10px 40px;
   min-width: 0;
+  overflow-x: hidden;
   scrollbar-width: auto;
-  scrollbar-gutter: stable;
+  scrollbar-color: auto;
+  /* Mirror classic scrollbar space; overlay scrollbars need no extra inset. */
+  scrollbar-gutter: stable both-edges;
   gap: 6px;
 }
 

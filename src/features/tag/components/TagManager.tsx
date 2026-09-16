@@ -67,6 +67,7 @@ export default function TagManager({ t, theme }: TagManagerProps) {
     const [selectedItemIds, setSelectedItemIds] = useState<Set<number>>(new Set());
     const [sidebarWidth, setSidebarWidth] = useState(TAG_SIDEBAR_DEFAULT);
     const [isSplit, setIsSplit] = useState(false);
+    const isTagSearchExpanded = isSplit || isTagSearchOpen || tagSearch.length > 0;
     const [isResizing, setIsResizing] = useState(false);
     const pageRef = useRef<HTMLDivElement | null>(null);
     const sidebarWidthRef = useRef(TAG_SIDEBAR_DEFAULT);
@@ -87,7 +88,8 @@ export default function TagManager({ t, theme }: TagManagerProps) {
     const closeTagSearch = () => {
         setTagSearch('');
         setIsTagSearchOpen(false);
-        tagSearchButtonRef.current?.focus({ preventScroll: true });
+        if (isSplit) tagSearchInputRef.current?.focus({ preventScroll: true });
+        else tagSearchButtonRef.current?.focus({ preventScroll: true });
     };
 
     useEffect(() => {
@@ -419,7 +421,7 @@ export default function TagManager({ t, theme }: TagManagerProps) {
             >
                 <div className="tag-manager-filter">
                     <div
-                        className={`tag-manager-search-control${isTagSearchOpen ? " is-open" : ""}`}
+                        className={`tag-manager-search-control${isTagSearchExpanded ? " is-open" : ""}`}
                         onBlur={(e) => {
                             if (!e.currentTarget.contains(e.relatedTarget as Node | null) && !tagSearch.trim()) {
                                 setIsTagSearchOpen(false);
@@ -432,7 +434,7 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                             className="tag-manager-search-trigger"
                             title={t("find_or_create")}
                             aria-label={t("find_or_create")}
-                            aria-expanded={isTagSearchOpen}
+                            aria-expanded={isTagSearchExpanded}
                             aria-controls={tagSearchInputId}
                             onClick={() => {
                                 if (isTagSearchOpen) tagSearchInputRef.current?.focus();
@@ -447,8 +449,8 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                             className="search-input tag-manager-filter-search"
                             placeholder={t("find_or_create")}
                             aria-label={t("find_or_create")}
-                            tabIndex={isTagSearchOpen ? 0 : -1}
-                            aria-hidden={!isTagSearchOpen}
+                            tabIndex={isTagSearchExpanded ? 0 : -1}
+                            aria-hidden={!isTagSearchExpanded}
                             value={tagSearch}
                             onChange={(e) => setTagSearch(e.target.value)}
                             onKeyDown={async (e) => {
@@ -472,10 +474,10 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                         <button
                             type="button"
                             className="tag-manager-search-close"
-                            title={t("close")}
-                            aria-label={t("close")}
-                            tabIndex={isTagSearchOpen ? 0 : -1}
-                            aria-hidden={!isTagSearchOpen}
+                            title={t(isSplit ? "clear_tag_search" : "close")}
+                            aria-label={t(isSplit ? "clear_tag_search" : "close")}
+                            tabIndex={isTagSearchExpanded ? 0 : -1}
+                            aria-hidden={!isTagSearchExpanded}
                             onClick={closeTagSearch}
                         >
                             <X size={12} aria-hidden="true" />
