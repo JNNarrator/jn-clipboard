@@ -466,6 +466,7 @@
 }
 
 body.hide-unselected-item-actions .history-item:not(.selected):not(:hover) .item-actions {
+  display: none !important;
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
