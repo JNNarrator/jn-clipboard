@@ -1,16 +1,19 @@
 /* Modal shell */
 .modal-overlay {
   position: fixed;
-  inset: -6px;
-  background: rgba(8, 12, 18, 0.56);
-  backdrop-filter: blur(10px) saturate(115%);
-  -webkit-backdrop-filter: blur(10px) saturate(115%);
+  inset: 0;
+  background: color-mix(in srgb, var(--bg-panel) 22%, transparent);
+  backdrop-filter: blur(16px) saturate(125%);
+  -webkit-backdrop-filter: blur(16px) saturate(125%);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 3000;
   padding: 20px;
-  border-radius: 0;
+  border-radius: var(--shell-radius);
+  overflow: hidden;
+  -webkit-clip-path: inset(0 round var(--shell-radius));
+  clip-path: inset(0 round var(--shell-radius));
   pointer-events: auto;
 }
 
