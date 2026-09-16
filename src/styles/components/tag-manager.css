@@ -697,7 +697,7 @@ body.dark-mode.theme-acrylic .tag-add-dialog {
   height: 18px;
   min-width: 18px;
   padding: 0;
-  background: color-mix(in srgb, var(--bg-input) 88%, var(--text-primary) 12%);
+  background: color-mix(in srgb, var(--bg-button) 64%, #fff 36%);
   border: 1px solid color-mix(in srgb, var(--text-primary) 14%, transparent);
   border-radius: var(--button-radius);
   color: var(--text-primary);
@@ -717,7 +717,7 @@ body.dark-mode.theme-acrylic .tag-add-dialog {
 .tag-manager-card .card-action-btn:hover,
 .tag-manager-card .card-action-btn:focus-visible,
 .tag-manager-card .del-btn:focus-visible {
-  background: color-mix(in srgb, var(--bg-input) 86%, var(--accent-color) 14%);
+  background: color-mix(in srgb, var(--bg-button) 56%, #fff 44%);
   border-color: color-mix(in srgb, var(--accent-color) 32%, var(--line-soft));
   color: var(--accent-color);
   outline: none;
