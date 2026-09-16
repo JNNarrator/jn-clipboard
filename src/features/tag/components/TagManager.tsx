@@ -920,10 +920,9 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                     <div className="tag-add-dialog-heading">
                         <h3 className="tag-add-dialog-title">{t("add_item")}</h3>
                         {selectedTag && (
-                            <span className="tag-add-dialog-tag" title={selectedTag}>
-                                <span aria-hidden="true">#</span>
-                                {selectedTag}
-                            </span>
+                            <p className="tag-add-dialog-tag">
+                                {t("add_item_destination").replace("{tag}", selectedTag)}
+                            </p>
                         )}
                     </div>
                 </div>
@@ -933,6 +932,7 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                     onChange={(e) => setNewItemContent(e.target.value)}
                     placeholder={t("input_content_placeholder")}
                     aria-label={t("input_content_placeholder")}
+                    rows={5}
                     onKeyDown={(e) => {
                         if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
                             e.preventDefault();
@@ -942,7 +942,6 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                     autoFocus
                 />
                 <div className="tag-add-dialog-footer">
-                    <span className="tag-add-dialog-hint">⌘/Ctrl ↵</span>
                     <div className="tag-add-dialog-actions">
                         <button type="button" className="modal-button" onClick={() => setIsCreatingItem(false)}>
                             {t("cancel")}
@@ -953,7 +952,7 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                             onClick={handleAddManualItem}
                             disabled={!newItemContent.trim()}
                         >
-                            {t("confirm")}
+                            {t("add_item_action")}
                         </button>
                     </div>
                 </div>
