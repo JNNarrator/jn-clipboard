@@ -57,7 +57,9 @@ body.theme-receipt {
   --layout-list-padding-x: 16px;
   --layout-item-margin-x: 0;
   --layout-item-margin-bottom: 0;
-  --layout-item-padding: 6px 4px 8px 4px;
+  /* The shared meta toolbar is optically lifted by 6px. Preserve the
+     receipt rhythm while keeping a stable inset above the controls. */
+  --layout-item-padding: 10px 4px 8px 4px;
   --layout-item-padding-compact: 4px 4px 6px 4px;
   --layout-item-background: transparent;
   --layout-item-hover-background: rgba(0, 0, 0, 0.03);

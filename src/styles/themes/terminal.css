@@ -56,7 +56,9 @@ body.theme-terminal {
   --layout-list-padding-x: 0;
   --layout-item-margin-x: 0;
   --layout-item-margin-bottom: 0;
-  --layout-item-padding: 6px 12px 5px 12px;
+  /* Keep the terminal toolbar aligned with the other themes; its visual
+     treatment remains terminal-like, but the top inset is shared. */
+  --layout-item-padding: 10px 12px 5px 12px;
   --layout-item-padding-compact: 4px 10px 3px 10px;
   --layout-item-background: transparent;
   --layout-item-hover-background: rgba(63, 185, 80, 0.06);

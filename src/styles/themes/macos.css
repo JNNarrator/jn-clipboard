@@ -102,7 +102,10 @@ body.theme-macos {
   --layout-item-divider: none;
   --layout-item-margin-x: 8px;
   --layout-item-margin-bottom: 6px;
-  --layout-item-padding: 9px 12px 5px;
+  /* The shared meta toolbar is optically lifted by 6px. Keep the same
+     top breathing room as the default theme so its controls do not hug
+     the card edge. */
+  --layout-item-padding: 10px 12px 5px;
   --layout-search-input-padding: 8px 12px 8px 34px;
 }
 
