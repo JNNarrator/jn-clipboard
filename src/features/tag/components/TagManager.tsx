@@ -1118,19 +1118,21 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                 open={Boolean(editingItem)}
                 onClose={() => setEditingItem(null)}
                 theme={theme}
-                panelClassName="modal-panel confirm-dialog"
+                panelClassName="modal-panel modal-form-dialog tag-edit-dialog"
                 ariaLabel={t("edit_item")}
             >
                 {editingItem && (
                     <>
-                        <h3 className="confirm-dialog-title">{t("edit_item")}</h3>
+                        <div className="modal-form-heading">
+                            <h3 className="modal-form-title">{t("edit_item")}</h3>
+                        </div>
                         <textarea
-                            className="modal-textarea"
+                            className="modal-form-control modal-textarea"
                             value={editingItem.content}
                             onChange={(e) => setEditingItem({ ...editingItem, content: e.target.value })}
                             autoFocus
                         />
-                        <div className="confirm-dialog-buttons">
+                        <div className="modal-form-actions">
                             <button type="button" className="modal-button" onClick={() => setEditingItem(null)}>
                                 {t("cancel")}
                             </button>
