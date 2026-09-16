@@ -83,7 +83,7 @@ body.theme-sakura {
   --card-selected-background: rgba(212, 96, 122, 0.1);
   --card-selected-border-color: rgba(212, 160, 175, 0.18);
   --card-selected-shadow: none;
-  --card-selected-outline: none;
+  --card-selected-outline: 2px solid var(--card-selected-border-color);
 
   --panel-border: 1px solid rgba(255, 255, 255, 0.45);
   --panel-radius: 16px;
@@ -271,7 +271,7 @@ body.has-custom-bg.theme-sakura #root::after {
     --card-selected-background: rgba(232, 112, 136, 0.12);
     --card-selected-border-color: rgba(255, 255, 255, 0.06);
     --card-selected-shadow: none;
-    --card-selected-outline: none;
+    --card-selected-outline: 2px solid var(--card-selected-border-color);
 
     --panel-border: 1px solid rgba(255, 255, 255, 0.06);
     --data-panel-border: 1px solid rgba(255, 255, 255, 0.07);
@@ -329,7 +329,7 @@ body.dark-mode.theme-sakura {
   --card-selected-background: rgba(232, 112, 136, 0.12);
   --card-selected-border-color: rgba(255, 255, 255, 0.06);
   --card-selected-shadow: none;
-  --card-selected-outline: none;
+  --card-selected-outline: 2px solid var(--card-selected-border-color);
 
   --panel-border: 1px solid rgba(255, 255, 255, 0.06);
   --data-panel-border: 1px solid rgba(255, 255, 255, 0.07);

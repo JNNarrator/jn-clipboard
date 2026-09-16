@@ -151,7 +151,7 @@
   --card-selected-background: rgba(var(--accent-color-rgb), 0.08);
   --card-selected-border-color: rgba(var(--accent-color-rgb), 0.5);
   --card-selected-shadow: 0 16px 32px rgba(var(--accent-color-rgb), 0.18);
-  --card-selected-outline: 2px solid rgba(var(--accent-color-rgb), 0.45);
+  --card-selected-outline: 2px solid var(--card-selected-border-color);
   --card-selected-outline-offset: -2px;
 
   --panel-border: 1px solid var(--line-soft);

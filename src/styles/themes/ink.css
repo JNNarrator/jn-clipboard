@@ -147,9 +147,9 @@ body.theme-ink {
   --card-hover-transform: none;
   --card-hover-border-color: transparent;
   --card-selected-background: var(--ink-mist);
-  --card-selected-border-color: transparent;
+  --card-selected-border-color: var(--ink-seal);
   --card-selected-shadow: none;
-  --card-selected-outline: none;
+  --card-selected-outline: 2px solid var(--card-selected-border-color);
 
   --panel-border: 1px solid var(--ink-line);
   --panel-radius: 2px;

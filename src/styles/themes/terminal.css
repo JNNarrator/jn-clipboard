@@ -159,9 +159,9 @@ body.theme-terminal {
   --card-active-shadow: none;
   --card-active-transform: none;
   --card-selected-background: var(--term-selection);
-  --card-selected-border-color: transparent;
+  --card-selected-border-color: var(--term-prompt);
   --card-selected-shadow: none;
-  --card-selected-outline: none;
+  --card-selected-outline: 2px solid var(--card-selected-border-color);
 
   --panel-border: 1px solid var(--term-border);
   --panel-radius: 0;
@@ -352,7 +352,6 @@ body.theme-terminal .tag-manager-page {
 .theme-terminal .history-item {
   border-radius: 0 !important;
   box-shadow: none !important;
-  border-left: 2px solid transparent;
 }
 
 .theme-terminal .history-item:hover {
@@ -363,7 +362,6 @@ body.theme-terminal .tag-manager-page {
 .theme-terminal .history-item.selected {
   transform: none !important;
   background: var(--term-selection) !important;
-  border-left-color: var(--term-prompt);
   box-shadow: none !important;
 }
 

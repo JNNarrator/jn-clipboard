@@ -74,7 +74,7 @@ body.theme-paper {
   --card-selected-background: #fbf1c7;
   --card-selected-border-color: #b57614;
   --card-selected-shadow: 0 4px 12px rgba(139, 90, 43, 0.15);
-  --card-selected-outline: 1px solid #b57614;
+  --card-selected-outline: 2px solid var(--card-selected-border-color);
 
   --panel-border: 1px solid #d5c4a1;
   --panel-radius: 2px;
