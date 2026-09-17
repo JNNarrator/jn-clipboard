@@ -35,7 +35,7 @@ export const TransferComposer = ({
     isChoosingFiles,
     t,
 }: TransferComposerProps) => {
-    const composerMinHeight = 36;
+    const composerMinHeight = 22;
     const [showFullScreen, setShowFullScreen] = useState(false);
     const [showExpandBtn, setShowExpandBtn] = useState(false);
     const [showFileSendOptions, setShowFileSendOptions] = useState(false);
@@ -54,8 +54,8 @@ export const TransferComposer = ({
                 setShowExpandBtn(false);
             }
 
-            textareaRef.current.style.height =
-                Math.min(Math.max(composerMinHeight, scrollHeight), 120) + "px";
+            const targetHeight = scrollHeight > 28 ? Math.min(scrollHeight, 120) : composerMinHeight;
+            textareaRef.current.style.height = `${targetHeight}px`;
         }
     }, [input]);
 

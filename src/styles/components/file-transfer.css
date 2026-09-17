@@ -1013,12 +1013,15 @@
 .wt-footer {
   position: relative;
   z-index: 20;
+  display: flex;
+  align-items: center;
   flex: 0 0 auto;
   min-height: 54px;
-  padding: 8px 10px;
+  padding: 9px 12px;
   border-top: 1px solid var(--im-border);
   background: var(--im-header);
   backdrop-filter: blur(18px) saturate(125%);
+  box-sizing: border-box;
 }
 
 .wt-composer {
@@ -1026,7 +1029,7 @@
   width: 100%;
   max-width: 900px;
   align-items: flex-end;
-  gap: 7px;
+  gap: 8px;
   margin: 0 auto;
 }
 
@@ -1035,49 +1038,49 @@
   display: flex;
   flex: 0 0 auto;
   align-items: stretch;
+  height: 36px;
+  border: 1px solid var(--im-border);
   border-radius: var(--im-control-radius);
+  background: var(--im-input);
   box-shadow: none;
+  box-sizing: border-box;
 }
 
 .wt-file-send-main {
-  color: var(--im-muted) !important;
-  border-color: var(--im-border) !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 100%;
+  padding: 0;
+  border: 0 !important;
+  border-right: 1px solid var(--im-border) !important;
   border-radius: var(--im-control-radius) 0 0 var(--im-control-radius) !important;
-  background: var(--im-input) !important;
+  color: var(--im-muted) !important;
+  background: transparent !important;
+  box-sizing: border-box;
 }
 
 .wt-file-send-toggle {
   display: inline-flex;
-  width: 25px;
+  width: 24px;
+  height: 100%;
   align-items: center;
   justify-content: center;
   padding: 0;
-  border: 1px solid var(--im-border);
-  border-left: 0;
+  border: 0;
   border-radius: 0 var(--im-control-radius) var(--im-control-radius) 0;
   color: var(--im-muted);
-  background: var(--im-input);
+  background: transparent;
   cursor: pointer;
+  box-sizing: border-box;
 }
 
-.wt-file-send-toggle::before {
-  position: absolute;
-  left: 35px;
-  width: 1px;
-  height: 18px;
-  content: "";
-  background: var(--im-border);
-}
-
+.wt-file-send-main:hover:not(:disabled),
 .wt-file-send-toggle:hover,
 .wt-file-send-toggle[aria-expanded="true"] {
-  color: var(--im-accent);
-  background: color-mix(in srgb, var(--im-accent) 6%, var(--im-input));
-}
-
-.wt-file-send-main:hover:not(:disabled) {
   color: var(--im-accent) !important;
-  background: color-mix(in srgb, var(--im-accent) 6%, var(--im-input)) !important;
+  background: color-mix(in srgb, var(--im-accent) 8%, transparent) !important;
 }
 
 .wt-file-send-toggle:disabled {
@@ -1158,10 +1161,11 @@
   min-height: 36px;
   flex: 1;
   align-items: center;
-  padding: 1px 11px;
+  padding: 6px 12px;
   border: 1px solid var(--im-border);
   border-radius: var(--im-control-radius);
   background: var(--im-input);
+  box-sizing: border-box;
   transition: border-color 140ms ease, box-shadow 140ms ease;
 }
 
@@ -1173,18 +1177,20 @@
 .wt-input {
   display: block;
   min-width: 0;
-  min-height: 32px;
+  height: 22px;
+  min-height: 22px;
   flex: 1;
   margin: 0;
-  padding: 7px 0;
+  padding: 0;
   overflow-y: hidden;
   border: 0 !important;
   outline: 0;
   color: var(--im-text) !important;
   background: transparent !important;
   box-shadow: none !important;
-  font: 12.5px/1.42 var(--font-main);
+  font: 13px/22px var(--font-main);
   resize: none;
+  box-sizing: border-box;
 }
 
 .wt-input::placeholder {
@@ -1210,9 +1216,11 @@
   width: 36px;
   height: 36px;
   min-width: 36px;
+  min-height: 36px;
   flex: 0 0 36px;
   padding: 0;
   border-radius: 50%;
+  box-sizing: border-box;
 }
 
 .wt-btn-icon {
@@ -1238,6 +1246,13 @@
   border: 0;
   color: #fff;
   background: var(--im-accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wt-btn.send svg {
+  transform: translate(-1px, 1px);
 }
 
 .wt-btn.send:hover:not(:disabled) {
