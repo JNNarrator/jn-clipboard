@@ -6,6 +6,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open } from "@tauri-apps/plugin-dialog";
 import { Folder, Wifi, Search } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { QRCodeCanvas } from "qrcode.react";
 
 import type {
     FileTransferChatViewProps,
@@ -1253,20 +1254,42 @@ const FileTransferChatView = ({
             <div className="wt-chat-box" ref={chatBoxRef}>
                 {messages.length === 0 && (
                     <div className="wt-empty-state">
-                        <div
-                            className={`wt-empty-icon${hasOnlineDevices ? "" : " is-waiting"}`}
-                            aria-hidden="true"
-                        >
-                            <Wifi size={22} strokeWidth={1.8} />
-                        </div>
-                        <div className="wt-empty-title">
-                            {hasOnlineDevices ? "开始传输" : "等待设备连接"}
-                        </div>
-                        <div className="wt-empty-copy">
-                            {hasOnlineDevices
-                                ? "输入消息、选择文件，或直接将文件拖到这里"
-                                : "使用上方二维码连接手机后，即可互传消息与文件"}
-                        </div>
+                        {hasOnlineDevices ? (
+                            <>
+                                <div className="wt-empty-icon" aria-hidden="true">
+                                    <Wifi size={22} strokeWidth={1.8} />
+                                </div>
+                                <div className="wt-empty-title">开始传输</div>
+                                <div className="wt-empty-copy">
+                                    输入消息、选择文件，或直接将文件拖到这里
+                                </div>
+                            </>
+                        ) : (
+                            <div className="wt-pairing-hero">
+                                <div className="wt-pairing-card">
+                                    <div className="wt-pairing-qr">
+                                        <QRCodeCanvas value={connectionUrl} size={132} />
+                                    </div>
+                                    <div className="wt-pairing-info">
+                                        <div className="wt-pairing-title">扫码连接手机</div>
+                                        <div className="wt-pairing-address-row">
+                                            <span className="wt-pairing-address">{activeIp}:{actualPort}</span>
+                                            <button
+                                                type="button"
+                                                className="wt-pairing-copy-btn"
+                                                onClick={() => handleCopyLink(connectionUrl)}
+                                                title="复制连接地址"
+                                            >
+                                                {copiedLink ? "已复制" : "复制地址"}
+                                            </button>
+                                        </div>
+                                        <div className="wt-pairing-tip">
+                                            手机与电脑在同一 Wi-Fi 下扫码即可互传
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 

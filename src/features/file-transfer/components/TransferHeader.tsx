@@ -1,11 +1,14 @@
+import { useState, useRef, useEffect } from "react";
 import { QRCodeCanvas } from "qrcode.react";
 import {
-    ChevronDown,
     FolderOpen,
     Trash2,
     QrCode,
     Search,
     Link as LinkIcon,
+    MoreHorizontal,
+    Globe,
+    Check,
 } from "lucide-react";
 import type { NetworkInterfaceInfo } from "../types";
 
@@ -52,179 +55,168 @@ export const TransferHeader = ({
     showQrCode,
     onToggleQrCode,
 }: TransferHeaderProps) => {
+    const [showMoreMenu, setShowMoreMenu] = useState(false);
+    const moreMenuRef = useRef<HTMLDivElement>(null);
+
+    // Close menu when clicking outside
+    useEffect(() => {
+        if (!showMoreMenu) return;
+        const handleClickOutside = (e: MouseEvent) => {
+            if (!moreMenuRef.current?.contains(e.target as Node)) {
+                setShowMoreMenu(false);
+            }
+        };
+        window.addEventListener("pointerdown", handleClickOutside);
+        return () => window.removeEventListener("pointerdown", handleClickOutside);
+    }, [showMoreMenu]);
+
     return (
-        <div className={`wt-header ${hasOnlineDevices ? 'is-connected' : 'is-onboarding'}`}>
-            {!hasOnlineDevices ? (
-                <div className="wt-onboarding-connect">
-                    <div className="wt-onboarding-identity">
-                        <div className="wt-onboarding-copy">
-                            <div className="wt-onboarding-title">局域网文件传输</div>
-                            <div className="wt-onboarding-status">等待设备连接</div>
-                            {interfaces.length > 1 ? (
-                                <div className="wt-onboarding-address-row">
-                                    <div className="wt-ip-picker">
-                                        <select
-                                            className="wt-ip-select"
-                                            value={selectedIp}
-                                            onChange={(e) => onSwitchIp(e.target.value)}
-                                            title="切换网卡 IP"
-                                        >
-                                            {interfaces.map((iface) => (
-                                                <option key={iface.ip} value={iface.ip}>
-                                                    {iface.label}
-                                                </option>
-                                            ))}
-                                        </select>
-                                        <ChevronDown size={12} className="wt-ip-select-arrow" />
-                                    </div>
-                                    <button
-                                        type="button"
-                                        className="wt-copy-link-btn"
-                                        title={copiedLink ? '已复制链接' : '复制连接地址'}
-                                        aria-label="复制连接地址"
-                                        onClick={() => onCopyLink(connectionUrl)}
-                                    >
-                                        <LinkIcon size={12} />
-                                    </button>
-                                </div>
-                            ) : (
-                                <div className="wt-onboarding-address-row">
-                                    <div className="wt-onboarding-address">{activeIp}:{actualPort}</div>
-                                    <button
-                                        type="button"
-                                        className="wt-copy-link-btn"
-                                        title={copiedLink ? '已复制链接' : '复制连接地址'}
-                                        aria-label="复制连接地址"
-                                        onClick={() => onCopyLink(connectionUrl)}
-                                    >
-                                        <LinkIcon size={12} />
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                    <div className="wt-header-actions">
-                        <button
-                            type="button"
-                            className={`wt-header-action ${showSearchBar || isFiltering ? 'is-active' : ''}`}
-                            title={showSearchBar ? '关闭搜索与筛选' : '搜索与筛选记录 (⌘F)'}
-                            aria-label="搜索与筛选记录"
-                            onClick={onToggleSearch}
-                        >
-                            <Search size={18} />
-                        </button>
-                        <button
-                            type="button"
-                            className="wt-header-action"
-                            title="打开保存目录"
-                            aria-label="打开保存目录"
-                            onClick={onOpenFolder}
-                        >
-                            <FolderOpen size={18} />
-                        </button>
-                        {hasMessages && (
-                            <button
-                                type="button"
-                                className="wt-header-action"
-                                title="清空传输记录"
-                                aria-label="清空传输记录"
-                                onClick={onClearHistory}
-                            >
-                                <Trash2 size={18} />
-                            </button>
-                        )}
-                    </div>
-                    <div className="wt-onboarding-qr" title="手机扫码连接">
-                        <QRCodeCanvas value={connectionUrl} size={54} />
-                    </div>
+        <div className="wt-header">
+            {/* Left: Clear connection status indicator */}
+            <div className="wt-header-status-group">
+                <span
+                    className={`wt-status-dot ${hasOnlineDevices ? "is-online" : "is-waiting"}`}
+                    aria-hidden="true"
+                />
+                <div className="wt-header-status-copy">
+                    <span className="wt-status-primary">
+                        {hasOnlineDevices
+                            ? (conversationTitle || "设备已就绪")
+                            : "等待设备连接"}
+                    </span>
+                    <span className="wt-status-secondary">
+                        {hasOnlineDevices
+                            ? (onlineDevicesCount === 1 ? "局域网高速传输中" : `${onlineDevicesCount} 台设备在线`)
+                            : `${activeIp}:${actualPort}`}
+                    </span>
                 </div>
-            ) : (
-                <>
-                    <div className="wt-conversation-identity">
-                        <div className="wt-conversation-copy">
-                            <div className="wt-conversation-title">{conversationTitle}</div>
-                            <div className="wt-presence-line">
-                                {onlineDevicesCount === 1 ? '在线 · 局域网传输' : `${onlineDevicesCount} 台设备在线`}
-                            </div>
-                        </div>
-                    </div>
-                    <div className="wt-header-actions">
+            </div>
+
+            {/* Right: Only primary Search button + "三个点" (...) More Menu button */}
+            <div className="wt-header-actions" ref={moreMenuRef}>
+                <button
+                    type="button"
+                    className={`wt-header-action ${showSearchBar || isFiltering ? "is-active" : ""}`}
+                    title={showSearchBar ? "关闭搜索与筛选" : "搜索与筛选记录 (⌘F)"}
+                    aria-label="搜索与筛选记录"
+                    onClick={onToggleSearch}
+                >
+                    <Search size={15} />
+                </button>
+
+                <button
+                    type="button"
+                    className={`wt-header-action ${showMoreMenu ? "is-active" : ""}`}
+                    title="更多操作"
+                    aria-label="更多操作"
+                    aria-expanded={showMoreMenu}
+                    onClick={() => setShowMoreMenu((prev) => !prev)}
+                >
+                    <MoreHorizontal size={16} />
+                </button>
+
+                {/* "三个点" 更多操作下拉菜单 */}
+                {showMoreMenu && (
+                    <div className="wt-more-menu" role="menu">
                         <button
                             type="button"
-                            className={`wt-header-action ${showSearchBar || isFiltering ? 'is-active' : ''}`}
-                            title={showSearchBar ? '关闭搜索与筛选' : '搜索与筛选记录 (⌘F)'}
-                            aria-label="搜索与筛选记录"
-                            onClick={onToggleSearch}
+                            className="wt-more-menu-item"
+                            role="menuitem"
+                            onClick={() => {
+                                setShowMoreMenu(false);
+                                onOpenFolder();
+                            }}
                         >
-                            <Search size={18} />
+                            <FolderOpen size={14} />
+                            <span>在访达中打开保存目录</span>
                         </button>
+
                         <button
                             type="button"
-                            className="wt-header-action"
-                            title="打开保存目录"
-                            aria-label="打开保存目录"
-                            onClick={onOpenFolder}
+                            className="wt-more-menu-item"
+                            role="menuitem"
+                            onClick={() => {
+                                setShowMoreMenu(false);
+                                onToggleQrCode();
+                            }}
                         >
-                            <FolderOpen size={18} />
+                            <QrCode size={14} />
+                            <span>查看连接二维码</span>
                         </button>
-                        {hasMessages && (
-                            <button
-                                type="button"
-                                className="wt-header-action"
-                                title="清空传输记录"
-                                aria-label="清空传输记录"
-                                onClick={onClearHistory}
-                            >
-                                <Trash2 size={18} />
-                            </button>
-                        )}
+
                         <button
                             type="button"
-                            className={`wt-header-action ${showQrCode ? 'is-active' : ''}`}
-                            title="显示连接二维码"
-                            aria-label="显示连接二维码"
-                            aria-expanded={showQrCode}
-                            onClick={onToggleQrCode}
+                            className="wt-more-menu-item"
+                            role="menuitem"
+                            onClick={() => {
+                                onCopyLink(connectionUrl);
+                            }}
                         >
-                            <QrCode size={19} />
+                            <LinkIcon size={14} />
+                            <span>{copiedLink ? "已复制连接地址" : "复制连接地址"}</span>
                         </button>
-                    </div>
-                    {showQrCode && (
-                        <div className="wt-qr-popover">
-                            <div className="wt-qr-popover-code">
-                                <QRCodeCanvas value={connectionUrl} size={112} />
-                            </div>
-                            <div className="wt-qr-popover-title">连接其他设备</div>
-                            {interfaces.length > 1 ? (
-                                <div className="wt-ip-picker wt-ip-picker-popover">
-                                    <select
-                                        className="wt-ip-select"
-                                        value={selectedIp}
-                                        onChange={(e) => onSwitchIp(e.target.value)}
-                                        title="切换网卡 IP"
+
+                        {interfaces.length > 1 && (
+                            <>
+                                <div className="wt-more-menu-divider" role="separator" />
+                                <div className="wt-more-menu-section-label">切换网络地址</div>
+                                {interfaces.map((iface) => (
+                                    <button
+                                        key={iface.ip}
+                                        type="button"
+                                        className={`wt-more-menu-item ${selectedIp === iface.ip ? "is-selected" : ""}`}
+                                        role="menuitemradio"
+                                        aria-checked={selectedIp === iface.ip}
+                                        onClick={() => {
+                                            onSwitchIp(iface.ip);
+                                        }}
                                     >
-                                        {interfaces.map((iface) => (
-                                            <option key={iface.ip} value={iface.ip}>
-                                                {iface.label}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <ChevronDown size={12} className="wt-ip-select-arrow" />
-                                </div>
-                            ) : (
-                                <div className="wt-qr-popover-address">{activeIp}:{actualPort}</div>
-                            )}
-                            <button
-                                type="button"
-                                className="wt-copy-link-action"
-                                onClick={() => onCopyLink(connectionUrl)}
-                            >
-                                <LinkIcon size={12} />
-                                <span>{copiedLink ? '已复制链接' : '复制连接地址'}</span>
-                            </button>
-                        </div>
-                    )}
-                </>
+                                        <Globe size={14} />
+                                        <span className="wt-more-menu-ip-label">{iface.label}</span>
+                                        {selectedIp === iface.ip && <Check size={12} className="wt-more-menu-check" />}
+                                    </button>
+                                ))}
+                            </>
+                        )}
+
+                        {hasMessages && (
+                            <>
+                                <div className="wt-more-menu-divider" role="separator" />
+                                <button
+                                    type="button"
+                                    className="wt-more-menu-item is-danger"
+                                    role="menuitem"
+                                    onClick={() => {
+                                        setShowMoreMenu(false);
+                                        onClearHistory();
+                                    }}
+                                >
+                                    <Trash2 size={14} />
+                                    <span>清空传输记录</span>
+                                </button>
+                            </>
+                        )}
+                    </div>
+                )}
+            </div>
+
+            {/* QR Code Popover */}
+            {showQrCode && (
+                <div className="wt-qr-popover">
+                    <div className="wt-qr-popover-code">
+                        <QRCodeCanvas value={connectionUrl} size={130} />
+                    </div>
+                    <div className="wt-qr-popover-title">手机扫码连接</div>
+                    <div className="wt-qr-popover-address">{activeIp}:{actualPort}</div>
+                    <button
+                        type="button"
+                        className="wt-copy-link-action"
+                        onClick={() => onCopyLink(connectionUrl)}
+                    >
+                        <LinkIcon size={12} />
+                        <span>{copiedLink ? "已复制地址" : "复制连接地址"}</span>
+                    </button>
+                </div>
             )}
         </div>
     );
