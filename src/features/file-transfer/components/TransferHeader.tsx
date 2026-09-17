@@ -119,8 +119,8 @@ export const TransferHeader = ({
                                 onOpenFolder();
                             }}
                         >
-                            <FolderOpen size={14} />
-                            <span>在访达中打开保存目录</span>
+                            <FolderOpen size={16} strokeWidth={1.8} />
+                            <span>打开保存目录</span>
                         </button>
 
                         {interfaces.length > 1 && (
@@ -138,9 +138,9 @@ export const TransferHeader = ({
                                             onSwitchIp(iface.ip);
                                         }}
                                     >
-                                        <Globe size={14} />
+                                        <Globe size={16} strokeWidth={1.8} />
                                         <span className="wt-more-menu-ip-label">{iface.label}</span>
-                                        {selectedIp === iface.ip && <Check size={12} className="wt-more-menu-check" />}
+                                        {selectedIp === iface.ip && <Check size={15} strokeWidth={2.4} className="wt-more-menu-check" />}
                                     </button>
                                 ))}
                             </>
@@ -158,7 +158,7 @@ export const TransferHeader = ({
                                         onClearHistory();
                                     }}
                                 >
-                                    <Trash2 size={14} />
+                                    <Trash2 size={16} strokeWidth={1.8} />
                                     <span>清空传输记录</span>
                                 </button>
                             </>

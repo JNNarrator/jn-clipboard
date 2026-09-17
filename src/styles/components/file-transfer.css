@@ -237,26 +237,40 @@
 .wt-more-menu {
   position: absolute;
   z-index: 600;
-  top: calc(100% + 6px);
+  top: calc(100% + 8px);
   right: 0;
-  min-width: 195px;
-  padding: 5px;
-  border: 1px solid var(--im-border);
-  border-radius: 10px;
-  color: var(--im-text);
-  background: var(--im-surface);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
-  backdrop-filter: blur(18px);
+  min-width: 220px;
+  max-width: 280px;
+  padding: 6px;
+  border: 1px solid var(--im-strong-border);
+  border-radius: 12px;
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--bg-input) 94%, var(--bg-panel) 6%);
+  box-shadow:
+    0 12px 36px rgba(0, 0, 0, 0.18),
+    0 3px 10px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
   display: flex;
   flex-direction: column;
-  gap: 1px;
-  animation: wt-menu-in 140ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  gap: 2px;
+  transform-origin: top right;
+  animation: wt-menu-in 150ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+:root.dark-mode .wt-more-menu {
+  background: color-mix(in srgb, var(--bg-input) 96%, var(--bg-panel) 4%);
+  box-shadow:
+    0 16px 42px rgba(0, 0, 0, 0.48),
+    0 4px 14px rgba(0, 0, 0, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 @keyframes wt-menu-in {
   from {
     opacity: 0;
-    transform: translateY(-4px) scale(0.98);
+    transform: translateY(-6px) scale(0.96);
   }
   to {
     opacity: 1;
@@ -267,65 +281,112 @@
 .wt-more-menu-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
-  padding: 6px 10px;
+  min-height: 34px;
+  padding: 7px 11px;
   border: 0;
-  border-radius: 6px;
+  border-radius: 8px;
   background: transparent;
-  color: var(--im-text);
-  font-size: 11.5px;
+  color: var(--text-primary);
+  font-size: 13px;
   font-weight: 500;
+  line-height: 1.4;
   text-align: left;
   cursor: pointer;
-  transition: background 120ms ease, color 120ms ease;
+  transition: background 120ms ease, color 120ms ease, transform 100ms ease;
+  user-select: none;
+}
+
+.wt-more-menu-item svg {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  transition: color 120ms ease;
+}
+
+.wt-more-menu-item span {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .wt-more-menu-item:hover {
-  background: rgba(var(--im-accent-rgb), 0.08);
+  background: rgba(var(--im-accent-rgb), 0.1);
+  color: var(--text-primary);
+}
+
+.wt-more-menu-item:hover svg {
   color: var(--im-accent);
 }
 
+.wt-more-menu-item:active {
+  transform: scale(0.99);
+}
+
 .wt-more-menu-item.is-selected {
-  font-weight: 600;
   color: var(--im-accent);
+  background: rgba(var(--im-accent-rgb), 0.08);
+  font-weight: 600;
+}
+
+.wt-more-menu-item.is-selected svg {
+  color: var(--im-accent);
+}
+
+.wt-more-menu-item.is-selected:hover {
+  background: rgba(var(--im-accent-rgb), 0.14);
 }
 
 .wt-more-menu-item.is-danger {
   color: #ef4444;
 }
 
-.wt-more-menu-item.is-danger:hover {
-  background: rgba(239, 68, 68, 0.1);
+.wt-more-menu-item.is-danger svg {
   color: #ef4444;
+}
+
+.wt-more-menu-item.is-danger:hover {
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+}
+
+.wt-more-menu-item.is-danger:hover svg {
+  color: #dc2626;
 }
 
 .wt-more-menu-divider {
   height: 1px;
-  margin: 4px 6px;
+  margin: 5px 6px;
   background: var(--im-border);
+  opacity: 0.85;
 }
 
 .wt-more-menu-section-label {
-  padding: 4px 10px 2px;
-  color: var(--im-muted);
-  font-size: 9.5px;
+  padding: 7px 11px 3px;
+  color: var(--text-secondary);
+  font-size: 11px;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
+  user-select: none;
 }
 
 .wt-more-menu-ip-label {
   flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
 }
 
 .wt-more-menu-check {
   margin-left: auto;
+  flex-shrink: 0;
   color: var(--im-accent);
 }
 
