@@ -4,8 +4,9 @@ import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { emit, listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open } from "@tauri-apps/plugin-dialog";
-import { Folder, Wifi, Search } from "lucide-react";
+import { Folder, Wifi, Search, ChevronDown, Link as LinkIcon, Radio } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { QRCodeCanvas } from "qrcode.react";
 
 import type {
     FileTransferChatViewProps,
@@ -1251,21 +1252,81 @@ const FileTransferChatView = ({
 
             {/* Chat Box */}
             <div className="wt-chat-box" ref={chatBoxRef}>
-                {messages.length === 0 && (
-                    <div className="wt-empty-state">
-                        <div
-                            className={`wt-empty-icon${hasOnlineDevices ? "" : " is-waiting"}`}
-                            aria-hidden="true"
-                        >
-                            <Wifi size={22} strokeWidth={1.8} />
+                {messages.length === 0 && !hasOnlineDevices && (
+                    <div className="wt-airdrop-hero">
+                        <div className="wt-radar-container" aria-hidden="true">
+                            <div className="wt-radar-ring wt-radar-ring-1" />
+                            <div className="wt-radar-ring wt-radar-ring-2" />
+                            <div className="wt-radar-ring wt-radar-ring-3" />
+                            <div className="wt-radar-center">
+                                <Radio size={24} className="wt-radar-icon" />
+                            </div>
                         </div>
-                        <div className="wt-empty-title">
-                            {hasOnlineDevices ? "开始传输" : "等待设备连接"}
+
+                        <div className="wt-airdrop-card">
+                            <div className="wt-airdrop-header">
+                                <div className="wt-airdrop-title">隔空互传</div>
+                                <div className="wt-airdrop-desc">
+                                    用手机相机或浏览器扫码，在局域网内无缝收发文件
+                                </div>
+                            </div>
+
+                            <div className="wt-airdrop-qr-box">
+                                <QRCodeCanvas
+                                    value={connectionUrl}
+                                    size={144}
+                                    level="M"
+                                />
+                            </div>
+
+                            <div className="wt-airdrop-footer">
+                                {interfaces.length > 1 ? (
+                                    <div className="wt-ip-picker">
+                                        <select
+                                            className="wt-ip-select"
+                                            value={selectedIp}
+                                            onChange={(e) => handleSwitchIp(e.target.value)}
+                                            title="切换网卡 IP"
+                                        >
+                                            {interfaces.map((iface) => (
+                                                <option key={iface.ip} value={iface.ip}>
+                                                    {iface.label}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <ChevronDown size={12} className="wt-ip-select-arrow" />
+                                    </div>
+                                ) : (
+                                    <div className="wt-airdrop-address-tag">{activeIp}:{actualPort}</div>
+                                )}
+
+                                <button
+                                    type="button"
+                                    className="wt-airdrop-copy-btn"
+                                    onClick={() => handleCopyLink(connectionUrl)}
+                                    title="复制连接网址"
+                                >
+                                    <LinkIcon size={12} />
+                                    <span>{copiedLink ? "已复制地址" : "复制地址"}</span>
+                                </button>
+                            </div>
                         </div>
+
+                        <div className="wt-airdrop-hint">
+                            <span>提示：支持直接拖拽文件或文件夹到窗口中发送</span>
+                        </div>
+                    </div>
+                )}
+
+                {messages.length === 0 && hasOnlineDevices && (
+                    <div className="wt-empty-state wt-empty-connected">
+                        <div className="wt-empty-icon is-connected-radar" aria-hidden="true">
+                            <Wifi size={24} strokeWidth={2} />
+                        </div>
+                        <div className="wt-empty-title">设备已就绪</div>
                         <div className="wt-empty-copy">
-                            {hasOnlineDevices
-                                ? "输入消息、选择文件，或直接将文件拖到这里"
-                                : "使用上方二维码连接手机后，即可互传消息与文件"}
+                            已与「{primaryDeviceName}」建立局域网直连<br />
+                            直接拖入文件或在下方输入消息即可立即发送
                         </div>
                     </div>
                 )}
