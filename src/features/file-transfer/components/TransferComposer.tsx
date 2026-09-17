@@ -39,23 +39,37 @@ export const TransferComposer = ({
     const [showFullScreen, setShowFullScreen] = useState(false);
     const [showExpandBtn, setShowExpandBtn] = useState(false);
     const [showFileSendOptions, setShowFileSendOptions] = useState(false);
+    const [isMultiLine, setIsMultiLine] = useState(false);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const fileSendOptionsRef = useRef<HTMLDivElement>(null);
 
     // Auto-adjust textarea height
     useEffect(() => {
-        if (textareaRef.current) {
-            textareaRef.current.style.height = `${composerMinHeight}px`;
-            const scrollHeight = textareaRef.current.scrollHeight;
+        const textarea = textareaRef.current;
+        if (!textarea) return;
 
-            if (scrollHeight > 120) {
-                setShowExpandBtn(true);
-            } else {
-                setShowExpandBtn(false);
-            }
+        // When input is empty, strictly enforce single line
+        if (!input) {
+            textarea.style.height = `${composerMinHeight}px`;
+            setIsMultiLine(false);
+            setShowExpandBtn(false);
+            return;
+        }
 
-            const targetHeight = scrollHeight > 28 ? Math.min(scrollHeight, 120) : composerMinHeight;
-            textareaRef.current.style.height = `${targetHeight}px`;
+        // Reset to minimum height to read scrollHeight accurately
+        textarea.style.height = `${composerMinHeight}px`;
+        const scrollHeight = textarea.scrollHeight;
+
+        const multiLine = input.includes("\n") || scrollHeight > 35;
+        setIsMultiLine(multiLine);
+
+        if (multiLine) {
+            const targetHeight = Math.min(Math.max(scrollHeight, composerMinHeight), 120);
+            textarea.style.height = `${targetHeight}px`;
+            setShowExpandBtn(scrollHeight > 120);
+        } else {
+            textarea.style.height = `${composerMinHeight}px`;
+            setShowExpandBtn(false);
         }
     }, [input]);
 
@@ -109,6 +123,7 @@ export const TransferComposer = ({
         if (!input.trim()) return;
         onSend();
         setShowFullScreen(false);
+        setIsMultiLine(false);
         if (textareaRef.current) {
             textareaRef.current.style.height = `${composerMinHeight}px`;
         }
@@ -193,7 +208,7 @@ export const TransferComposer = ({
                         )}
                     </div>
 
-                    <div className="wt-input-wrap">
+                    <div className={`wt-input-wrap ${isMultiLine ? "is-multiline" : ""}`}>
                         <textarea
                             ref={textareaRef}
                             className="wt-input"
