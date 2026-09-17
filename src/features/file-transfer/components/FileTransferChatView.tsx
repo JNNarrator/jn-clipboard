@@ -1,43 +1,12 @@
 import { Fragment, useState, useEffect, useRef } from "react";
-import type { ReactNode, MouseEvent as ReactMouseEvent } from "react";
+import type { MouseEvent as ReactMouseEvent } from "react";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { emit, listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { open, save as saveDialog } from "@tauri-apps/plugin-dialog";
-import {
-    Plus,
-    Maximize2,
-    Minimize2,
-    ExternalLink,
-    Folder,
-    Download,
-    Image as ImageIcon,
-    Link as LinkIcon,
-    Clipboard,
-    Video,
-    Send,
-    Wifi,
-    FileText,
-    LoaderCircle,
-    QrCode,
-    FileArchive,
-    Music,
-    FileCode,
-    Cpu,
-    FileSpreadsheet,
-    Presentation,
-    File as FileIcon,
-    ChevronDown,
-    ChevronRight,
-    Trash2,
-    FolderOpen,
-    AlertCircle,
-    RotateCcw,
-    Search,
-    X,
-} from "lucide-react";
+import { open } from "@tauri-apps/plugin-dialog";
+import { Folder, Wifi, Search } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { QRCodeCanvas } from "qrcode.react";
+
 import type {
     FileTransferChatViewProps,
     FileTransferContextMenu,
@@ -47,163 +16,41 @@ import type {
     ExpandedTransferItem,
     FileTransferFilterType,
 } from "../types";
-import { getFileIcon as getSystemFileIcon, peekFileIcon } from "../../../shared/lib/fileIcon";
 import { withNativeDialog } from "../../../shared/lib/focus";
+import {
+    getTransferFileKind,
+    formatTransferSpeed,
+    MultiFileSendMode,
+    MULTI_FILE_SEND_MODE_KEY,
+    isLocalTransferPath,
+    formatMessageTime,
+    getMessageDayKey,
+    formatMessageDay,
+    messagesBelongToSameGroup,
+    resolveDesktopDownloadUrl,
+    mediaFallbackKey,
+    resolveShareableDownloadUrl,
+} from "../utils/transferHelpers";
+import {
+    PendingTransferItem,
+    resolveDropPaths,
+    getDroppedTransferItems,
+    isExternalFileDrag,
+} from "../utils/dragDropHelpers";
 
-type TransferFileKind =
-    | 'archive'
-    | 'audio'
-    | 'executable'
-    | 'pdf'
-    | 'document'
-    | 'spreadsheet'
-    | 'presentation'
-    | 'code'
-    | 'image'
-    | 'video'
-    | 'file';
+import { TransferHeader } from "./TransferHeader";
+import { TransferFilterBar } from "./TransferFilterBar";
+import { TransferBatchBubble } from "./TransferBatchBubble";
+import { TransferMessageItem } from "./TransferMessageItem";
+import { TransferComposer } from "./TransferComposer";
+import { TransferContextMenu } from "./TransferContextMenu";
 
-const getTransferFileKind = (fileName: string): TransferFileKind => {
-    const extension = fileName.split('.').pop()?.toLowerCase() || '';
-    if (['zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz'].includes(extension)) return 'archive';
-    if (['mp3', 'wav', 'flac', 'm4a', 'aac', 'ogg'].includes(extension)) return 'audio';
-    if (['exe', 'msi', 'bat', 'sh', 'app', 'dmg', 'pkg'].includes(extension)) return 'executable';
-    if (extension === 'pdf') return 'pdf';
-    if (['doc', 'docx', 'txt', 'rtf', 'md'].includes(extension)) return 'document';
-    if (['xls', 'xlsx', 'csv', 'numbers'].includes(extension)) return 'spreadsheet';
-    if (['ppt', 'pptx', 'key'].includes(extension)) return 'presentation';
-    if (['js', 'ts', 'tsx', 'jsx', 'py', 'rs', 'c', 'cpp', 'go', 'java', 'html', 'css', 'json', 'yaml', 'yml', 'toml', 'sql'].includes(extension)) return 'code';
-    if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'heic', 'avif'].includes(extension)) return 'image';
-    if (['mp4', 'mov', 'avi', 'mkv', 'webm', 'm4v'].includes(extension)) return 'video';
-    return 'file';
-};
-
-const TransferFileTypeIcon = ({
-    filePath,
-    fileName,
-    preparing
-}: {
-    filePath?: string;
-    fileName: string;
-    preparing?: boolean;
-}) => {
-    const [systemIcon, setSystemIcon] = useState<string | null>(() => peekFileIcon(filePath) ?? null);
-    const kind = getTransferFileKind(fileName);
-
-    useEffect(() => {
-        let cancelled = false;
-        if (!filePath) {
-            setSystemIcon(null);
-            return () => { cancelled = true; };
-        }
-
-        const cached = peekFileIcon(filePath);
-        if (cached !== undefined) {
-            setSystemIcon(cached ?? null);
-            return () => { cancelled = true; };
-        }
-
-        setSystemIcon(null);
-        getSystemFileIcon(filePath).then(icon => {
-            if (!cancelled) setSystemIcon(icon);
-        });
-        return () => { cancelled = true; };
-    }, [filePath]);
-
-    if (preparing) return <LoaderCircle size={22} className="wt-spin" />;
-    if (systemIcon) {
-        return <img src={systemIcon} alt="" className="wt-file-system-icon" loading="lazy" />;
-    }
-
-    const iconByKind: Record<TransferFileKind, ReactNode> = {
-        archive: <FileArchive size={23} />,
-        audio: <Music size={23} />,
-        executable: <Cpu size={23} />,
-        pdf: <FileText size={23} />,
-        document: <FileText size={23} />,
-        spreadsheet: <FileSpreadsheet size={23} />,
-        presentation: <Presentation size={23} />,
-        code: <FileCode size={23} />,
-        image: <ImageIcon size={23} />,
-        video: <Video size={23} />,
-        file: <FileIcon size={23} />
-    };
-
-    return <span className={`wt-file-fallback-icon is-${kind}`}>{iconByKind[kind]}</span>;
-};
-
-const isLocalTransferPath = (path?: string) => {
-    if (!path || /^(?:https?:|data:|blob:|asset:|file:|\/download\/)/i.test(path)) {
-        return false;
-    }
-    return /^[a-z]:[\\/]/i.test(path) || /^\\\\/.test(path) || path.startsWith('/');
-};
-
-const decodeFileName = (value: string) => {
-    try {
-        return decodeURIComponent(value.replace(/\+/g, ' '));
-    } catch {
-        return value;
-    }
-};
-
-const getTransferFileName = (message: FileTransferMessage) => {
-    if (message._fileName?.trim()) return message._fileName.trim();
-
-    for (const value of [message.content, message.file_path]) {
-        if (!value) continue;
-        const queryName = value.match(/(?:^|[?&])name=([^&]+)/i)?.[1];
-        if (queryName) return decodeFileName(queryName);
-
-        const withoutQuery = value.split(/[?#]/)[0];
-        const baseName = withoutQuery.split(/[/\\]/).pop();
-        if (baseName && !['download', 'file'].includes(baseName.toLowerCase())) {
-            return decodeFileName(baseName);
-        }
-    }
-
-    return '文件';
-};
-
-const getTransferFileIconPath = (message: FileTransferMessage) => {
-    if (isLocalTransferPath(message.file_path)) return message.file_path;
-    if (isLocalTransferPath(message.content)) return message.content;
-    return undefined;
-};
-
-const formatTransferBytes = (bytes?: number) => {
-    if (!bytes || bytes <= 0) return '';
-    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const unitIndex = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-    const value = bytes / Math.pow(1024, unitIndex);
-    return `${value >= 10 || unitIndex === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[unitIndex]}`;
-};
-
-const formatTransferSpeed = (bytesPerSec: number): string => {
-    if (bytesPerSec <= 0 || !Number.isFinite(bytesPerSec)) return '';
-    if (bytesPerSec >= 1024 * 1024 * 1024) {
-        return `${(bytesPerSec / (1024 * 1024 * 1024)).toFixed(1)} GB/s`;
-    }
-    if (bytesPerSec >= 1024 * 1024) {
-        return `${(bytesPerSec / (1024 * 1024)).toFixed(1)} MB/s`;
-    }
-    if (bytesPerSec >= 1024) {
-        return `${(bytesPerSec / 1024).toFixed(0)} KB/s`;
-    }
-    return `${Math.round(bytesPerSec)} B/s`;
-};
-
-type MultiFileSendMode = 'package' | 'separate';
-const MULTI_FILE_SEND_MODE_KEY = 'tiez.file-transfer.multi-file-send-mode';
-
-// File Transfer Chat View Component
 const FileTransferChatView = ({
     t,
     localIp,
     actualPort,
-    accessToken
+    accessToken,
 }: FileTransferChatViewProps) => {
-    const composerMinHeight = 32;
     const [interfaces, setInterfaces] = useState<NetworkInterfaceInfo[]>([]);
     const [selectedIp, setSelectedIp] = useState<string>(localIp);
     const [copiedMessageId, setCopiedMessageId] = useState<number | null>(null);
@@ -218,49 +65,45 @@ const FileTransferChatView = ({
     const chatBoxRef = useRef<HTMLDivElement>(null);
     const [isUserScrolling, setIsUserScrolling] = useState(false);
     const prevMessagesLengthRef = useRef(0);
-    const [showFullScreen, setShowFullScreen] = useState(false);
-    const [showExpandBtn, setShowExpandBtn] = useState(false);
-    const textareaRef = useRef<HTMLTextAreaElement>(null);
-    const contextMenuRef = useRef<HTMLDivElement>(null);
     const [contextMenu, setContextMenu] = useState<FileTransferContextMenu | null>(null);
     const [onlineDevices, setOnlineDevices] = useState<FileTransferDevice[]>([]);
     const [isDragging, setIsDragging] = useState(false);
     const isDraggingRef = useRef(false);
+
     const setDragging = (value: boolean) => {
         isDraggingRef.current = value;
         setIsDragging(value);
     };
-    const isExternalFileDrag = (dataTransfer: DataTransfer | null | undefined) => {
-        if (!dataTransfer) return false;
-        return Array.from(dataTransfer.types).includes('Files');
-    };
+
     const [showQrCode, setShowQrCode] = useState(false);
     const [isChoosingFiles, setIsChoosingFiles] = useState(false);
-    const [showFileSendOptions, setShowFileSendOptions] = useState(false);
     const [multiFileSendMode, setMultiFileSendMode] = useState<MultiFileSendMode>(() => {
         try {
-            return localStorage.getItem(MULTI_FILE_SEND_MODE_KEY) === 'separate' ? 'separate' : 'package';
+            return localStorage.getItem(MULTI_FILE_SEND_MODE_KEY) === "separate" ? "separate" : "package";
         } catch {
-            return 'package';
+            return "package";
         }
     });
-    const fileSendOptionsRef = useRef<HTMLDivElement>(null);
     const [expandedBatches, setExpandedBatches] = useState<Set<string>>(() => new Set());
     const [savingBatchId, setSavingBatchId] = useState<string | null>(null);
     const [showClearConfirm, setShowClearConfirm] = useState(false);
     const [isClearing, setIsClearing] = useState(false);
-    const [filterType, setFilterType] = useState<FileTransferFilterType>('all');
-    const [searchQuery, setSearchQuery] = useState<string>('');
+    const [filterType, setFilterType] = useState<FileTransferFilterType>("all");
+    const [searchQuery, setSearchQuery] = useState<string>("");
     const [showSearchBar, setShowSearchBar] = useState<boolean>(false);
     const searchInputRef = useRef<HTMLInputElement>(null);
-    const hasOnlineDevices = onlineDevices.length > 0;
-    const primaryDeviceName = typeof onlineDevices[0]?.name === 'string' && onlineDevices[0].name.trim()
-        ? onlineDevices[0].name.trim()
-        : '已连接设备';
-    const conversationTitle = onlineDevices.length > 1
-        ? `${primaryDeviceName} 等 ${onlineDevices.length} 台设备`
-        : primaryDeviceName;
 
+    const hasOnlineDevices = onlineDevices.length > 0;
+    const primaryDeviceName =
+        typeof onlineDevices[0]?.name === "string" && onlineDevices[0].name.trim()
+            ? onlineDevices[0].name.trim()
+            : "已连接设备";
+    const conversationTitle =
+        onlineDevices.length > 1
+            ? `${primaryDeviceName} 等 ${onlineDevices.length} 台设备`
+            : primaryDeviceName;
+
+    // Load available network interfaces
     useEffect(() => {
         let mounted = true;
         const loadInterfaces = async () => {
@@ -274,7 +117,9 @@ const FileTransferChatView = ({
             }
         };
         loadInterfaces();
-        return () => { mounted = false; };
+        return () => {
+            mounted = false;
+        };
     }, []);
 
     useEffect(() => {
@@ -300,70 +145,6 @@ const FileTransferChatView = ({
         } catch (e) {
             console.warn("Copy link failed:", e);
         }
-    };
-
-    const URL_REGEX = /((https?:\/\/|www\.)[^\s<]+|(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(?:[a-z]{2,})(?:\/[^\s<]*)?)/gi;
-
-    type PendingTransferItem = {
-        name: string;
-        path?: string;
-        file?: File;
-        folderName?: string;
-    };
-
-    const resolveDropPaths = (payload: unknown): string[] => {
-        if (Array.isArray(payload)) {
-            return payload.filter((p): p is string => typeof p === "string" && p.trim().length > 0);
-        }
-        if (payload && typeof payload === "object" && "paths" in payload) {
-            const maybePaths = (payload as { paths?: unknown }).paths;
-            if (Array.isArray(maybePaths)) {
-                return maybePaths.filter((p): p is string => typeof p === "string" && p.trim().length > 0);
-            }
-        }
-        return [];
-    };
-
-    const getFilesFromDataTransfer = (dt: DataTransfer | null): File[] => {
-        if (!dt) return [];
-        const files: File[] = [];
-        if (dt.items) {
-            for (let i = 0; i < dt.items.length; i++) {
-                const item = dt.items[i];
-                if (item.kind !== "file") continue;
-                const file = item.getAsFile();
-                if (file) {
-                    files.push(file);
-                }
-            }
-            if (files.length > 0) {
-                return files;
-            }
-        }
-        if (dt.files && dt.files.length > 0) {
-            return Array.from(dt.files);
-        }
-        return [];
-    };
-
-    const getDroppedTransferItems = (dt: DataTransfer | null): PendingTransferItem[] => {
-        const files = getFilesFromDataTransfer(dt);
-        const seen = new Set<string>();
-        const items: PendingTransferItem[] = [];
-
-        files.forEach((file) => {
-            const maybePath = (file as File & { path?: string }).path?.trim();
-            const key = maybePath || `${file.name}:${file.size}:${file.lastModified}`;
-            if (seen.has(key)) return;
-            seen.add(key);
-            items.push({
-                name: file.name || maybePath?.split(/[/\\]/).pop() || "File",
-                path: maybePath || undefined,
-                file: maybePath ? undefined : file
-            });
-        });
-
-        return items;
     };
 
     const handleOpenFolder = async () => {
@@ -413,21 +194,24 @@ const FileTransferChatView = ({
             const chunk = file.slice(start, end);
             const formData = new FormData();
             formData.append("file", chunk, file.name);
-            formData.append("metadata", JSON.stringify({
-                upload_id: uploadId,
-                chunk_index: i,
-                total_chunks: totalChunks,
-                file_name: file.name,
-                sender_id: "pc",
-                sender_name: "电脑",
-                total_size: file.size,
-                content_type: file.type || "application/octet-stream",
-                batch_id: batch?.id,
-                batch_name: batch?.name,
-                batch_index: batch?.index,
-                batch_total: batch?.total,
-                batch_size: batch?.totalSize
-            }));
+            formData.append(
+                "metadata",
+                JSON.stringify({
+                    upload_id: uploadId,
+                    chunk_index: i,
+                    total_chunks: totalChunks,
+                    file_name: file.name,
+                    sender_id: "pc",
+                    sender_name: "电脑",
+                    total_size: file.size,
+                    content_type: file.type || "application/octet-stream",
+                    batch_id: batch?.id,
+                    batch_name: batch?.name,
+                    batch_index: batch?.index,
+                    batch_total: batch?.total,
+                    batch_size: batch?.totalSize,
+                })
+            );
 
             let lastErr: Error | null = null;
             let success = false;
@@ -436,7 +220,7 @@ const FileTransferChatView = ({
                     const response = await fetch(`http://127.0.0.1:${port}/share-chunk`, {
                         method: "POST",
                         headers: { Authorization: `Bearer ${accessToken}` },
-                        body: formData
+                        body: formData,
                     });
 
                     if (response.ok) {
@@ -445,14 +229,19 @@ const FileTransferChatView = ({
                     }
                     const errorText = await response.text().catch(() => "");
                     lastErr = new Error(errorText || `Share chunk upload failed: ${response.status}`);
-                    if (response.status >= 400 && response.status < 500 && response.status !== 408 && response.status !== 429) {
+                    if (
+                        response.status >= 400 &&
+                        response.status < 500 &&
+                        response.status !== 408 &&
+                        response.status !== 429
+                    ) {
                         break;
                     }
                 } catch (err) {
                     lastErr = err instanceof Error ? err : new Error(String(err));
                 }
                 if (attempt < 2) {
-                    await new Promise(r => setTimeout(r, 400 * (attempt + 1)));
+                    await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
                 }
             }
 
@@ -478,57 +267,65 @@ const FileTransferChatView = ({
     const retrySendFile = async (message: FileTransferMessage) => {
         if (!message._rawFile) return;
         const file = message._rawFile;
-        setMessages(prev => prev.map(m => {
-            if (m.id === message.id) {
-                return {
-                    ...m,
-                    _preparing: true,
-                    _error: undefined,
-                    _progress: 0,
-                    _speed: '',
-                    _transferredBytes: 0,
-                };
-            }
-            return m;
-        }));
+        setMessages((prev) =>
+            prev.map((m) => {
+                if (m.id === message.id) {
+                    return {
+                        ...m,
+                        _preparing: true,
+                        _error: undefined,
+                        _progress: 0,
+                        _speed: "",
+                        _transferredBytes: 0,
+                    };
+                }
+                return m;
+            })
+        );
 
         try {
             await uploadDroppedFile(
                 file,
-                message.batch_id ? {
-                    id: message.batch_id,
-                    name: message.batch_name || '文件包',
-                    index: message.batch_index || 0,
-                    total: message.batch_total || 1,
-                    totalSize: message.batch_size || file.size
-                } : undefined,
+                message.batch_id
+                    ? {
+                          id: message.batch_id,
+                          name: message.batch_name || "文件包",
+                          index: message.batch_index || 0,
+                          total: message.batch_total || 1,
+                          totalSize: message.batch_size || file.size,
+                      }
+                    : undefined,
                 (progress, speed, transferredBytes) => {
-                    setMessages(prev => prev.map(m => {
-                        if (m.id === message.id) {
-                            return {
-                                ...m,
-                                _progress: progress,
-                                _speed: speed || m._speed,
-                                _transferredBytes: transferredBytes,
-                            };
-                        }
-                        return m;
-                    }));
+                    setMessages((prev) =>
+                        prev.map((m) => {
+                            if (m.id === message.id) {
+                                return {
+                                    ...m,
+                                    _progress: progress,
+                                    _speed: speed || m._speed,
+                                    _transferredBytes: transferredBytes,
+                                };
+                            }
+                            return m;
+                        })
+                    );
                 }
             );
             setTimeout(fetchMessages, 300);
         } catch (err) {
-            const reason = err instanceof Error ? err.message : '上传失败';
-            setMessages(prev => prev.map(m => {
-                if (m.id === message.id) {
-                    return {
-                        ...m,
-                        _preparing: false,
-                        _error: reason,
-                    };
-                }
-                return m;
-            }));
+            const reason = err instanceof Error ? err.message : "上传失败";
+            setMessages((prev) =>
+                prev.map((m) => {
+                    if (m.id === message.id) {
+                        return {
+                            ...m,
+                            _preparing: false,
+                            _error: reason,
+                        };
+                    }
+                    return m;
+                })
+            );
         }
     };
 
@@ -542,26 +339,30 @@ const FileTransferChatView = ({
             return !!item.file;
         });
         if (items.length === 0) return;
-        const folderBatchName = items.find(i => i.folderName)?.folderName
-            ? `${items.find(i => i.folderName)?.folderName} (${items.length} 个文件)`
+        const folderBatchName = items.find((i) => i.folderName)?.folderName
+            ? `${items.find((i) => i.folderName)?.folderName} (${items.length} 个文件)`
             : undefined;
-        const shouldPackage = items.length > 1 && (sendMode === 'package' || !!customBatchName || !!folderBatchName);
+        const shouldPackage =
+            items.length > 1 &&
+            (sendMode === "package" || !!customBatchName || !!folderBatchName);
         const batchId = shouldPackage
             ? `desktop_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
             : undefined;
-        const batchName = shouldPackage ? (customBatchName || folderBatchName || `${items.length} 个文件`) : undefined;
+        const batchName = shouldPackage
+            ? customBatchName || folderBatchName || `${items.length} 个文件`
+            : undefined;
         const batchSize = items.reduce((total, item) => total + (item.file?.size || 0), 0);
 
         const tempMessages: FileTransferMessage[] = items.map((item, index) => ({
             id: Date.now() + Math.random(),
-            direction: 'out',
-            msg_type: 'file',
-            content: 'Preparing...',
+            direction: "out",
+            msg_type: "file",
+            content: "Preparing...",
             timestamp: Date.now(),
             _fileName: item.name,
             _preparing: true,
             _progress: 0,
-            _speed: '',
+            _speed: "",
             _transferredBytes: 0,
             _rawFile: item.file,
             batch_id: batchId,
@@ -569,19 +370,19 @@ const FileTransferChatView = ({
             batch_index: batchId ? index : undefined,
             batch_total: batchId ? items.length : undefined,
             batch_size: batchId ? batchSize : undefined,
-            file_size: item.file?.size
+            file_size: item.file?.size,
         }));
 
-        setMessages(prev => [...prev, ...tempMessages]);
+        setMessages((prev) => [...prev, ...tempMessages]);
         setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
 
         let results: PromiseSettledResult<unknown>[];
-        if (shouldPackage && items.every(item => !!item.path)) {
+        if (shouldPackage && items.every((item) => !!item.path)) {
             const result = await Promise.allSettled([
                 invoke("send_files_to_client", {
-                    filePaths: items.map(item => item.path!),
-                    batchName
-                })
+                    filePaths: items.map((item) => item.path!),
+                    batchName,
+                }),
             ]);
             results = items.map(() => result[0]);
         } else {
@@ -592,25 +393,33 @@ const FileTransferChatView = ({
                     }
                     if (item.file) {
                         const tempMsgId = tempMessages[index].id;
-                        return uploadDroppedFile(item.file, batchId ? {
-                            id: batchId,
-                            name: batchName!,
-                            index,
-                            total: items.length,
-                            totalSize: batchSize
-                        } : undefined, (progress, speed, transferredBytes) => {
-                            setMessages(prev => prev.map(msg => {
-                                if (msg.id === tempMsgId) {
-                                    return {
-                                        ...msg,
-                                        _progress: progress,
-                                        _speed: speed || msg._speed,
-                                        _transferredBytes: transferredBytes,
-                                    };
-                                }
-                                return msg;
-                            }));
-                        });
+                        return uploadDroppedFile(
+                            item.file,
+                            batchId
+                                ? {
+                                      id: batchId,
+                                      name: batchName!,
+                                      index,
+                                      total: items.length,
+                                      totalSize: batchSize,
+                                  }
+                                : undefined,
+                            (progress, speed, transferredBytes) => {
+                                setMessages((prev) =>
+                                    prev.map((msg) => {
+                                        if (msg.id === tempMsgId) {
+                                            return {
+                                                ...msg,
+                                                _progress: progress,
+                                                _speed: speed || msg._speed,
+                                                _transferredBytes: transferredBytes,
+                                            };
+                                        }
+                                        return msg;
+                                    })
+                                );
+                            }
+                        );
                     }
                     return Promise.reject(new Error("No valid file source"));
                 })
@@ -620,17 +429,20 @@ const FileTransferChatView = ({
         results.forEach((result, index) => {
             if (result.status === "rejected") {
                 const targetId = tempMessages[index].id;
-                const reason = result.reason instanceof Error ? result.reason.message : '发送失败';
-                setMessages(prev => prev.map(msg => {
-                    if (msg.id === targetId) {
-                        return {
-                            ...msg,
-                            _preparing: false,
-                            _error: reason,
-                        };
-                    }
-                    return msg;
-                }));
+                const reason =
+                    result.reason instanceof Error ? result.reason.message : "发送失败";
+                setMessages((prev) =>
+                    prev.map((msg) => {
+                        if (msg.id === targetId) {
+                            return {
+                                ...msg,
+                                _preparing: false,
+                                _error: reason,
+                            };
+                        }
+                        return msg;
+                    })
+                );
                 console.error(`Failed to send file: ${items[index].name}`, result.reason);
             }
         });
@@ -642,40 +454,44 @@ const FileTransferChatView = ({
 
     const selectMultiFileSendMode = (mode: MultiFileSendMode) => {
         setMultiFileSendMode(mode);
-        setShowFileSendOptions(false);
         try {
             localStorage.setItem(MULTI_FILE_SEND_MODE_KEY, mode);
         } catch {
-            // The preference is optional; sending still works when storage is unavailable.
+            // Optional preference
         }
         void chooseFilesToSend(mode);
     };
 
-    const normalizeUrl = (raw: string) => {
-        if (/^https?:\/\//i.test(raw)) return raw;
-        return `http://${raw}`;
-    };
+    const chooseFilesToSend = async (sendMode: MultiFileSendMode = multiFileSendMode) => {
+        if (isChoosingFiles) return;
+        setIsChoosingFiles(true);
 
-    const formatHttpHost = (host: string) => (
-        host.includes(':') && !host.startsWith('[') ? `[${host}]` : host
-    );
+        try {
+            const selected = await withNativeDialog(
+                () =>
+                    open({
+                        multiple: true,
+                        title: "选择要发送的文件",
+                    }),
+                "file-transfer:choose-files"
+            );
 
-    const resolveShareableDownloadUrl = (content: string) => {
-        if (!content.startsWith('/download/')) return content;
-        if (localIp && actualPort) {
-            return `http://${formatHttpHost(localIp)}:${actualPort}${content}`;
+            if (!selected) return;
+            const paths = Array.isArray(selected) ? selected : [selected];
+            await queueFilesForSending(
+                paths.map((path) => ({
+                    name: path.split(/[/\\]/).pop() || "文件",
+                    path,
+                })),
+                sendMode
+            );
+        } catch (error) {
+            console.error("Failed to choose files", error);
+            await emit("toast", "无法打开文件选择器，请重试");
+        } finally {
+            setIsChoosingFiles(false);
         }
-        return content;
     };
-
-    const resolveDesktopDownloadUrl = (content: string) => {
-        if (!content.startsWith('/download/') || !actualPort) return content;
-        return `http://127.0.0.1:${actualPort}${content}`;
-    };
-
-    const mediaFallbackKey = (message: FileTransferMessage) => (
-        `${message.id}:${message.content}:${message.file_path || ''}`
-    );
 
     useEffect(() => {
         const activeKeys = new Set(messages.map(mediaFallbackKey));
@@ -689,8 +505,8 @@ const FileTransferChatView = ({
     const getMessageMediaSrc = (message: FileTransferMessage) => {
         const fallback = mediaFallbackSources[mediaFallbackKey(message)];
         if (fallback) return fallback;
-        if (message.content.startsWith('data:')) return message.content;
-        if (message.content.startsWith('/download/')) {
+        if (message.content.startsWith("data:")) return message.content;
+        if (message.content.startsWith("/download/")) {
             return resolveDesktopDownloadUrl(message.content);
         }
         if (isLocalTransferPath(message.file_path)) return convertFileSrc(message.file_path!);
@@ -702,24 +518,22 @@ const FileTransferChatView = ({
         message: FileTransferMessage,
         target: HTMLImageElement | HTMLVideoElement
     ) => {
-        if (target.dataset.fallbackAttempted === 'true') return;
-        target.dataset.fallbackAttempted = 'true';
+        if (target.dataset.fallbackAttempted === "true") return;
+        target.dataset.fallbackAttempted = "true";
 
-        const localPath = [message.file_path, message.content]
-            .find((value) => isLocalTransferPath(value));
+        const localPath = [message.file_path, message.content].find((value) =>
+            isLocalTransferPath(value)
+        );
         let fallbackPath: string | undefined;
 
-        // Refresh the capability URL when a local path is available. Besides
-        // avoiding Windows asset-protocol path quirks, this also repairs stale
-        // preview tokens after the transfer server has restarted.
         if (localPath) {
             try {
-                fallbackPath = await invoke<string>('get_download_url', { filePath: localPath });
+                fallbackPath = await invoke<string>("get_download_url", { filePath: localPath });
             } catch (error) {
-                console.error('Failed to create media preview URL', error);
+                console.error("Failed to create media preview URL", error);
             }
         }
-        fallbackPath ||= message.content.startsWith('/download/')
+        fallbackPath ||= message.content.startsWith("/download/")
             ? message.content
             : undefined;
         if (!fallbackPath) return;
@@ -728,23 +542,23 @@ const FileTransferChatView = ({
         if (!/^http:\/\/127\.0\.0\.1:/i.test(fallbackSource)) return;
         setMediaFallbackSources((current) => ({
             ...current,
-            [mediaFallbackKey(message)]: fallbackSource
+            [mediaFallbackKey(message)]: fallbackSource,
         }));
     };
 
     const openTransferContent = async ({
         filePath,
         content,
-        type
+        type,
     }: {
         filePath?: string;
         content?: string;
         type?: string;
     }) => {
-        const localTarget = [filePath, content].find(value => isLocalTransferPath(value));
+        const localTarget = [filePath, content].find((value) => isLocalTransferPath(value));
         const rawTarget = localTarget || filePath || content;
         if (!rawTarget) {
-            await emit('toast', '没有可打开的文件');
+            await emit("toast", "没有可打开的文件");
             return;
         }
 
@@ -752,614 +566,40 @@ const FileTransferChatView = ({
         const target = isRemoteTarget ? resolveShareableDownloadUrl(rawTarget) : rawTarget;
 
         try {
-            // File-transfer message IDs are session-local sequence numbers, not
-            // clipboard database IDs. Passing them to open_content can replace
-            // the supplied path with an unrelated clipboard entry.
-            await invoke('open_content', {
+            await invoke("open_content", {
                 id: 0,
                 content: target,
-                contentType: isRemoteTarget ? 'url' : (type || 'file')
+                contentType: isRemoteTarget ? "url" : type || "file",
             });
         } catch (error) {
-            console.error('Failed to open transferred content', error);
-            await emit('toast', '无法打开此内容，请确认文件仍然存在');
+            console.error("Failed to open transferred content", error);
+            await emit("toast", "无法打开此内容，请确认文件仍然存在");
         }
-    };
-
-    const normalizeTimestamp = (timestamp: number) => (
-        timestamp < 1_000_000_000_000 ? timestamp * 1000 : timestamp
-    );
-
-    const formatMessageTime = (timestamp: number) => {
-        if (!timestamp) return '';
-        const normalized = normalizeTimestamp(timestamp);
-        const date = new Date(normalized);
-        if (Number.isNaN(date.getTime())) return '';
-        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    };
-
-    const getMessageDayKey = (timestamp: number) => {
-        if (!timestamp) return '';
-        const date = new Date(normalizeTimestamp(timestamp));
-        if (Number.isNaN(date.getTime())) return '';
-        return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
-    };
-
-    const formatMessageDay = (timestamp: number) => {
-        const date = new Date(normalizeTimestamp(timestamp));
-        const today = new Date();
-        const yesterday = new Date(today);
-        yesterday.setDate(today.getDate() - 1);
-
-        const key = getMessageDayKey(timestamp);
-        if (key === getMessageDayKey(today.getTime())) return '今天';
-        if (key === getMessageDayKey(yesterday.getTime())) return '昨天';
-        return date.toLocaleDateString([], {
-            month: 'numeric',
-            day: 'numeric',
-            ...(date.getFullYear() === today.getFullYear() ? {} : { year: 'numeric' })
-        });
-    };
-
-    const messagesBelongToSameGroup = (
-        previous: FileTransferMessage | undefined,
-        next: FileTransferMessage | undefined
-    ) => {
-        if (!previous || !next || previous.direction !== next.direction) return false;
-
-        const previousSender = previous.sender_id || previous.sender_name || previous.direction;
-        const nextSender = next.sender_id || next.sender_name || next.direction;
-        if (previousSender !== nextSender) return false;
-
-        const previousTime = normalizeTimestamp(previous.timestamp);
-        const nextTime = normalizeTimestamp(next.timestamp);
-        return Math.abs(nextTime - previousTime) <= 5 * 60 * 1000;
     };
 
     const openContextMenu = (
         event: ReactMouseEvent<HTMLElement>,
-        menu: Omit<FileTransferContextMenu, 'x' | 'y'>
+        menu: Omit<FileTransferContextMenu, "x" | "y">
     ) => {
         event.preventDefault();
         event.stopPropagation();
         setContextMenu({
             ...menu,
             x: event.clientX,
-            y: event.clientY
+            y: event.clientY,
         });
     };
 
-    const isLocalFilePath = isLocalTransferPath;
-
-    const splitTrailingPunctuation = (raw: string) => {
-        let url = raw;
-        let trailing = '';
-        while (url.length > 0 && /[)\]}>.,;!?]$/.test(url)) {
-            trailing = url.slice(-1) + trailing;
-            url = url.slice(0, -1);
-        }
-        return { url, trailing };
+    const handleCopyText = async (messageId: number, text: string) => {
+        await navigator.clipboard.writeText(text);
+        setCopiedMessageId(messageId);
+        setTimeout(() => {
+            setCopiedMessageId((prev) => (prev === messageId ? null : prev));
+        }, 1500);
     };
-
-    const renderTextWithLinks = (text: string) => {
-        const parts: ReactNode[] = [];
-        let lastIndex = 0;
-
-        text.replace(URL_REGEX, (match, _group, _proto, offset) => {
-            if (match.includes('@')) {
-                return match;
-            }
-            const prevChar = offset > 0 ? text[offset - 1] : '';
-            if (prevChar && /[a-z0-9@]/i.test(prevChar)) {
-                return match;
-            }
-            if (offset > lastIndex) {
-                parts.push(text.slice(lastIndex, offset));
-            }
-
-            const { url, trailing } = splitTrailingPunctuation(match);
-            const href = normalizeUrl(url);
-
-            parts.push(
-                <a
-                    key={`link-${offset}`}
-                    href={href}
-                    className="wt-link"
-                    onClick={(e) => {
-                        e.preventDefault();
-                        if (window.getSelection()?.toString()) return;
-                        invoke('open_content', { id: 0, content: href, contentType: 'url' }).catch(console.error);
-                    }}
-                >
-                    {url}
-                </a>
-            );
-
-            if (trailing) {
-                parts.push(trailing);
-            }
-
-            lastIndex = offset + match.length;
-            return match;
-        });
-
-        if (lastIndex < text.length) {
-            parts.push(text.slice(lastIndex));
-        }
-
-        return parts.length > 0 ? parts : text;
-    };
-
-    useEffect(() => {
-        invoke("set_navigation_enabled", { enabled: false }).catch(console.error);
-        return () => {
-            invoke("set_navigation_enabled", { enabled: true }).catch(console.error);
-        };
-    }, []);
-
-    useEffect(() => {
-        const handleCopy = (e: KeyboardEvent) => {
-            const isCopy = (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'c';
-            if (!isCopy) return;
-
-            const selection = window.getSelection();
-            const text = selection?.toString() || '';
-            if (!text) return;
-
-            const root = chatBoxRef.current;
-            const anchor = selection?.anchorNode;
-            const focus = selection?.focusNode;
-            if (!root || !anchor || !focus) return;
-            if (!root.contains(anchor) || !root.contains(focus)) return;
-
-            e.preventDefault();
-            e.stopPropagation();
-            navigator.clipboard.writeText(text).catch(console.error);
-        };
-
-        window.addEventListener('keydown', handleCopy, true);
-        return () => window.removeEventListener('keydown', handleCopy, true);
-    }, []);
-
-    useEffect(() => {
-        const handleSearchHotkey = (e: KeyboardEvent) => {
-            const isFind = (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'f';
-            if (isFind) {
-                e.preventDefault();
-                e.stopPropagation();
-                setShowSearchBar(prev => {
-                    const next = !prev;
-                    if (next) setTimeout(() => searchInputRef.current?.focus(), 50);
-                    return next;
-                });
-            } else if (e.key === 'Escape' && showSearchBar) {
-                setShowSearchBar(false);
-            }
-        };
-
-        window.addEventListener('keydown', handleSearchHotkey);
-        return () => window.removeEventListener('keydown', handleSearchHotkey);
-    }, [showSearchBar]);
-
-
-    const getAvatarConfig = (m: FileTransferMessage) => {
-        if (m.sender_id === 'pc' || m.direction === 'out') {
-            return { isImg: !!appLogo, content: appLogo || 'PC', color: 'var(--accent-color)', initial: 'PC' };
-        }
-
-        let initial = 'M';
-        if (m.sender_name) {
-            const name = m.sender_name.toLowerCase();
-            if (name.includes('iphone')) initial = 'iP';
-            else if (name.includes('ipad')) initial = 'iD';
-            else if (name.includes('android')) initial = 'An';
-            else if (name.includes('手机')) initial = 'M';
-            else initial = m.sender_name.charAt(0).toUpperCase();
-        }
-
-        return {
-            isImg: false,
-            color: 'color-mix(in srgb, var(--accent-color) 74%, var(--text-secondary))',
-            initial
-        };
-    };
-
-    const fetchMessages = async () => {
-        try {
-            const msgs = await invoke<FileTransferMessage[]>("get_chat_history");
-            setMessages(prev => {
-                const pending = prev.filter(m => m._preparing || m._error);
-                if (pending.length === 0) return msgs;
-                const remainingPending = pending.filter(p => {
-                    const match = msgs.some(m => {
-                        if (p._uploadId && m.content.includes(p._uploadId)) return true;
-                        if (p._fileName && (m.file_path?.endsWith(p._fileName) || m.content.includes(p._fileName))) return true;
-                        return false;
-                    });
-                    return !match;
-                });
-                return [...msgs, ...remainingPending];
-            });
-        } catch (e) { }
-    };
-
-    useEffect(() => {
-        console.log("FileTransferChatView Mounted - initializing listeners (Dual Mode)");
-        const appWindow = getCurrentWindow();
-        console.log("[DEBUG] appWindow label:", appWindow.label);
-        fetchMessages();
-        invoke<string>("get_app_logo").then(setAppLogo).catch(console.error);
-
-        // Define handlers to be reused
-        const handleDragDrop = async (event: { payload: unknown }) => {
-            console.log("[DRAG] Drop event received:", event);
-            setDragging(false);
-
-            const paths = resolveDropPaths(event.payload);
-            console.log("[DRAG] Parsed paths:", paths);
-
-            if (paths && paths.length > 0) {
-                try {
-                    const expanded = await invoke<ExpandedTransferItem[]>("expand_transfer_paths", { paths });
-                    if (expanded.length === 0) {
-                        await emit("toast", "文件夹为空或未包含可传输的文件");
-                        return;
-                    }
-
-                    const folderGroups = new Map<string, PendingTransferItem[]>();
-                    const looseItems: PendingTransferItem[] = [];
-
-                    for (const item of expanded) {
-                        const transferItem: PendingTransferItem = {
-                            name: item.name,
-                            path: item.path,
-                            folderName: item.folder_name || undefined,
-                        };
-                        if (item.folder_name) {
-                            const list = folderGroups.get(item.folder_name) || [];
-                            list.push(transferItem);
-                            folderGroups.set(item.folder_name, list);
-                        } else {
-                            looseItems.push(transferItem);
-                        }
-                    }
-
-                    for (const [folderName, items] of folderGroups.entries()) {
-                        await queueFilesForSending(items, 'package', `${folderName} (${items.length} 个文件)`);
-                    }
-                    if (looseItems.length > 0) {
-                        await queueFilesForSending(looseItems);
-                    }
-                } catch (err) {
-                    console.error("Failed to expand dropped paths", err);
-                    void queueFilesForSending(
-                        paths.map((path) => ({
-                            name: path.split(/[/\\]/).pop() || "File",
-                            path
-                        }))
-                    );
-                }
-            }
-        };
-
-        const handleDragEnter = (event: { payload: unknown }) => {
-            console.log("[DRAG] Enter event received:", event);
-            setDragging(true);
-        };
-
-        const handleDragLeave = (event: { payload: unknown }) => {
-            console.log("[DRAG] Leave event received:", event);
-            setDragging(false);
-        };
-
-        // Listen to BOTH v1 and v2 events just to be safe
-        console.log("[DEBUG] Registering drag-drop event listeners...");
-
-        // v1 event names (some versions still use these)
-        const unlistenV1Drop = appWindow.listen("tauri://file-drop", (e) => {
-            console.log("[v1] file-drop received");
-            handleDragDrop(e);
-        });
-        const unlistenV1Hover = appWindow.listen("tauri://file-drop-hover", (e) => {
-            console.log("[v1] file-drop-hover received");
-            handleDragEnter(e);
-        });
-        const unlistenV1Cancel = appWindow.listen("tauri://file-drop-cancelled", (e) => {
-            console.log("[v1] file-drop-cancelled received");
-            handleDragLeave(e);
-        });
-
-        // v2 event names
-        const unlistenV2Drop = appWindow.listen("tauri://drag-drop", (e) => {
-            console.log("[v2] drag-drop received");
-            handleDragDrop(e);
-        });
-        const unlistenV2Enter = appWindow.listen("tauri://drag-enter", (e) => {
-            console.log("[v2] drag-enter received");
-            handleDragEnter(e);
-        });
-        const unlistenV2Leave = appWindow.listen("tauri://drag-leave", (e) => {
-            console.log("[v2] drag-leave received");
-            handleDragLeave(e);
-        });
-
-        console.log("[DEBUG] All drag-drop listeners registered successfully");
-
-        const unlistenDevices = listen<FileTransferDevice[]>("online-devices-updated", (event) => {
-            setOnlineDevices(event.payload || []);
-        });
-
-        const unlistenNewMsg = listen<FileTransferMessage>("new-chat-message", () => {
-            fetchMessages();
-        });
-
-        const unlistenClearHistory = listen("chat-history-cleared", () => {
-            setMessages([]);
-        });
-
-        interface ChunkProgressPayload {
-            upload_id: string;
-            file_name: string;
-            chunk_index: number;
-            total_chunks: number;
-            total_size: number;
-            sender_id: string;
-            sender_name: string;
-            batch_id?: string;
-            batch_name?: string;
-            batch_index?: number;
-            batch_total?: number;
-            batch_size?: number;
-        }
-
-        const unlistenChunkProgress = listen<ChunkProgressPayload>("file-transfer-chunk-progress", (event) => {
-            const p = event.payload;
-            if (!p || !p.upload_id) return;
-            const percent = Math.min(100, Math.round(((p.chunk_index + 1) / p.total_chunks) * 100));
-            const transferred = Math.min(p.total_size, (p.chunk_index + 1) * 1024 * 512);
-
-            setMessages(prev => {
-                const existingIndex = prev.findIndex(m => m._uploadId === p.upload_id);
-                if (existingIndex >= 0) {
-                    const existing = prev[existingIndex];
-                    const updated = [...prev];
-                    updated[existingIndex] = {
-                        ...existing,
-                        _progress: percent,
-                        _transferredBytes: transferred,
-                    };
-                    return updated;
-                } else {
-                    const kind = getTransferFileKind(p.file_name);
-                    const msgType = kind === 'image' ? 'image' : kind === 'video' ? 'video' : 'file';
-                    const newPending: FileTransferMessage = {
-                        id: Date.now() + Math.random(),
-                        direction: 'in',
-                        msg_type: msgType,
-                        content: '正在接收...',
-                        timestamp: Date.now(),
-                        sender_id: p.sender_id,
-                        sender_name: p.sender_name || '手机设备',
-                        _fileName: p.file_name,
-                        _uploadId: p.upload_id,
-                        _preparing: true,
-                        _progress: percent,
-                        _transferredBytes: transferred,
-                        file_size: p.total_size,
-                        batch_id: p.batch_id,
-                        batch_name: p.batch_name,
-                        batch_index: p.batch_index,
-                        batch_total: p.batch_total,
-                        batch_size: p.batch_size,
-                    };
-                    return [...prev, newPending];
-                }
-            });
-        });
-
-        return () => {
-            unlistenV1Drop.then(f => f());
-            unlistenV1Hover.then(f => f());
-            unlistenV1Cancel.then(f => f());
-            unlistenV2Drop.then(f => f());
-            unlistenV2Enter.then(f => f());
-            unlistenV2Leave.then(f => f());
-            unlistenDevices.then(f => f());
-            unlistenNewMsg.then(f => f());
-            unlistenClearHistory.then(f => f());
-            unlistenChunkProgress.then(f => f());
-        };
-    }, []);
-
-    // Detect if user is at bottom
-    useEffect(() => {
-        const chatBox = chatBoxRef.current;
-        if (!chatBox) return;
-
-        const handleScroll = () => {
-            const { scrollTop, scrollHeight, clientHeight } = chatBox;
-            const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
-            setIsUserScrolling(!isAtBottom);
-        };
-
-        chatBox.addEventListener('scroll', handleScroll);
-        return () => chatBox.removeEventListener('scroll', handleScroll);
-    }, []);
-
-    // Smart Scroll
-    useEffect(() => {
-        const hasNewMessages = messages.length > prevMessagesLengthRef.current;
-        prevMessagesLengthRef.current = messages.length;
-
-        if (hasNewMessages && !isUserScrolling) {
-            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-        }
-    }, [messages, isUserScrolling]);
-
-    // Adjust textarea height
-    useEffect(() => {
-        if (textareaRef.current) {
-            textareaRef.current.style.height = `${composerMinHeight}px`;
-            const scrollHeight = textareaRef.current.scrollHeight;
-
-            // Check if text is overflowing (more content than fits in max height)
-            if (scrollHeight > 120) {
-                setShowExpandBtn(true);
-            } else {
-                setShowExpandBtn(false);
-            }
-
-            textareaRef.current.style.height =
-                Math.min(Math.max(composerMinHeight, scrollHeight), 120) + 'px';
-        }
-    }, [composerMinHeight, input]);
-
-    const chooseFilesToSend = async (sendMode: MultiFileSendMode = multiFileSendMode) => {
-        if (isChoosingFiles) return;
-        setIsChoosingFiles(true);
-        setShowFileSendOptions(false);
-
-        try {
-            const selected = await withNativeDialog(() => open({
-                multiple: true,
-                title: '选择要发送的文件'
-            }), 'file-transfer:choose-files');
-
-            if (!selected) return;
-            const paths = Array.isArray(selected) ? selected : [selected];
-            await queueFilesForSending(
-                paths.map(path => ({
-                    name: path.split(/[/\\]/).pop() || '文件',
-                    path
-                })),
-                sendMode
-            );
-        } catch (error) {
-            console.error('Failed to choose files', error);
-            await emit('toast', '无法打开文件选择器，请重试');
-        } finally {
-            setIsChoosingFiles(false);
-        }
-    };
-
-    useEffect(() => {
-        if (!showFileSendOptions) return;
-        const closeOptions = (event: globalThis.MouseEvent) => {
-            if (!fileSendOptionsRef.current?.contains(event.target as Node)) {
-                setShowFileSendOptions(false);
-            }
-        };
-        window.addEventListener('pointerdown', closeOptions);
-        return () => window.removeEventListener('pointerdown', closeOptions);
-    }, [showFileSendOptions]);
-
-    const send = async () => {
-        if (!input.trim()) return;
-        try {
-            await invoke("send_chat_message", { msgType: "text", content: input });
-            setInput("");
-            setShowFullScreen(false);
-            fetchMessages();
-            // Reset height
-            if (textareaRef.current) textareaRef.current.style.height = `${composerMinHeight}px`;
-        } catch (e) { }
-    };
-
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            send();
-        }
-    };
-
-    const handlePaste = async (e: React.ClipboardEvent) => {
-        if (e.clipboardData.files.length > 0) {
-            const files = Array.from(e.clipboardData.files);
-            const imageFiles = files.filter(f => f.type.startsWith('image/'));
-
-            if (imageFiles.length > 0) {
-                e.preventDefault();
-
-                for (const file of imageFiles) {
-                    const reader = new FileReader();
-                    reader.onload = async (ev) => {
-                        const base64 = ev.target?.result as string;
-                        if (base64) {
-                            try {
-                                const savedPath = await invoke<string>("save_temp_image", { base64Data: base64 });
-                                await invoke("send_file_to_client", { filePath: savedPath });
-                            } catch (err) {
-                                console.error("Failed to paste image", err);
-                            }
-                        }
-                    };
-                    reader.readAsDataURL(file);
-                }
-            }
-        }
-    };
-
-    // Keep the contextual menu inside the window and dismiss it like a native IM menu.
-    useEffect(() => {
-        if (!contextMenu) return;
-
-        const frame = requestAnimationFrame(() => {
-            const menu = contextMenuRef.current;
-            if (!menu) return;
-
-            const edge = 8;
-            const nextX = Math.max(edge, Math.min(contextMenu.x, window.innerWidth - menu.offsetWidth - edge));
-            const nextY = Math.max(edge, Math.min(contextMenu.y, window.innerHeight - menu.offsetHeight - edge));
-
-            if (nextX !== contextMenu.x || nextY !== contextMenu.y) {
-                setContextMenu(current => current ? { ...current, x: nextX, y: nextY } : current);
-            }
-
-            if (!menu.contains(document.activeElement)) menu.focus({ preventScroll: true });
-        });
-
-        const handlePointerDown = (event: PointerEvent) => {
-            if (!contextMenuRef.current?.contains(event.target as Node)) {
-                setContextMenu(null);
-            }
-        };
-        const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') {
-                setContextMenu(null);
-                return;
-            }
-
-            if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
-            const items = Array.from(
-                contextMenuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') || []
-            );
-            if (items.length === 0) return;
-
-            event.preventDefault();
-            const activeIndex = items.indexOf(document.activeElement as HTMLElement);
-            if (event.key === 'Home') items[0].focus();
-            if (event.key === 'End') items[items.length - 1].focus();
-            if (event.key === 'ArrowDown') items[activeIndex < 0 ? 0 : (activeIndex + 1) % items.length].focus();
-            if (event.key === 'ArrowUp') items[activeIndex < 0 ? items.length - 1 : (activeIndex - 1 + items.length) % items.length].focus();
-        };
-        const closeMenu = () => setContextMenu(null);
-
-        document.addEventListener('pointerdown', handlePointerDown, true);
-        window.addEventListener('keydown', handleKeyDown);
-        window.addEventListener('resize', closeMenu);
-        window.addEventListener('scroll', closeMenu, true);
-
-        return () => {
-            cancelAnimationFrame(frame);
-            document.removeEventListener('pointerdown', handlePointerDown, true);
-            window.removeEventListener('keydown', handleKeyDown);
-            window.removeEventListener('resize', closeMenu);
-            window.removeEventListener('scroll', closeMenu, true);
-        };
-    }, [contextMenu]);
 
     const toggleBatchExpanded = (batchId: string) => {
-        setExpandedBatches(current => {
+        setExpandedBatches((current) => {
             const next = new Set(current);
             if (next.has(batchId)) next.delete(batchId);
             else next.add(batchId);
@@ -1371,30 +611,30 @@ const FileTransferChatView = ({
         const batchId = batchMessages[0]?.batch_id;
         if (!batchId || savingBatchId) return;
         const sourcePaths = batchMessages
-            .map(message => message.file_path)
+            .map((message) => message.file_path)
             .filter((path): path is string => !!path && isLocalTransferPath(path));
         if (sourcePaths.length !== batchMessages.length) {
-            await emit('toast', '文件包中有文件尚未准备好或已不可用');
+            await emit("toast", "文件包中有文件尚未准备好或已不可用");
             return;
         }
 
         const targetDir = await withNativeDialog(
-            () => open({ directory: true, multiple: false, title: '选择文件包保存位置' }),
-            'file-transfer:save-batch'
+            () => open({ directory: true, multiple: false, title: "选择文件包保存位置" }),
+            "file-transfer:save-batch"
         );
         if (!targetDir || Array.isArray(targetDir)) return;
 
         setSavingBatchId(batchId);
         try {
-            const savedPath = await invoke<string>('save_file_batch', {
+            const savedPath = await invoke<string>("save_file_batch", {
                 sourcePaths,
                 targetDir,
-                batchName: batchMessages[0].batch_name || `${batchMessages.length} 个文件`
+                batchName: batchMessages[0].batch_name || `${batchMessages.length} 个文件`,
             });
-            await emit('toast', `文件包已保存到 ${savedPath}`);
+            await emit("toast", `文件包已保存到 ${savedPath}`);
         } catch (error) {
-            console.error('Failed to save file package', error);
-            await emit('toast', '文件包保存失败，请检查目标目录空间和权限');
+            console.error("Failed to save file package", error);
+            await emit("toast", "文件包保存失败，请检查目标目录空间和权限");
         } finally {
             setSavingBatchId(null);
         }
@@ -1442,7 +682,7 @@ const FileTransferChatView = ({
                     }
                 }
                 for (const [folderName, items] of folderGroups.entries()) {
-                    await queueFilesForSending(items, 'package', `${folderName} (${items.length} 个文件)`);
+                    await queueFilesForSending(items, "package", `${folderName} (${items.length} 个文件)`);
                 }
                 if (looseItems.length > 0) {
                     await queueFilesForSending(looseItems);
@@ -1462,6 +702,314 @@ const FileTransferChatView = ({
         void emit("toast", "未识别到拖入文件，请重启应用后重试");
     };
 
+    const send = async () => {
+        if (!input.trim()) return;
+        try {
+            await invoke("send_chat_message", { msgType: "text", content: input });
+            setInput("");
+            fetchMessages();
+        } catch (e) {
+            console.error("Failed to send message", e);
+        }
+    };
+
+    const getAvatarConfig = (m: FileTransferMessage) => {
+        if (m.sender_id === "pc" || m.direction === "out") {
+            return {
+                isImg: !!appLogo,
+                content: appLogo || "PC",
+                color: "var(--accent-color)",
+                initial: "PC",
+            };
+        }
+
+        let initial = "M";
+        if (m.sender_name) {
+            const name = m.sender_name.toLowerCase();
+            if (name.includes("iphone")) initial = "iP";
+            else if (name.includes("ipad")) initial = "iD";
+            else if (name.includes("android")) initial = "An";
+            else if (name.includes("手机")) initial = "M";
+            else initial = m.sender_name.charAt(0).toUpperCase();
+        }
+
+        return {
+            isImg: false,
+            color: "color-mix(in srgb, var(--accent-color) 74%, var(--text-secondary))",
+            initial,
+        };
+    };
+
+    const fetchMessages = async () => {
+        try {
+            const msgs = await invoke<FileTransferMessage[]>("get_chat_history");
+            setMessages((prev) => {
+                const pending = prev.filter((m) => m._preparing || m._error);
+                if (pending.length === 0) return msgs;
+                const remainingPending = pending.filter((p) => {
+                    const match = msgs.some((m) => {
+                        if (p._uploadId && m.content.includes(p._uploadId)) return true;
+                        if (
+                            p._fileName &&
+                            (m.file_path?.endsWith(p._fileName) || m.content.includes(p._fileName))
+                        )
+                            return true;
+                        return false;
+                    });
+                    return !match;
+                });
+                return [...msgs, ...remainingPending];
+            });
+        } catch (e) {
+            console.warn("fetchMessages failed", e);
+        }
+    };
+
+    // Global drag & drop, device listeners, chunk progress
+    useEffect(() => {
+        const appWindow = getCurrentWindow();
+        fetchMessages();
+        invoke<string>("get_app_logo").then(setAppLogo).catch(console.error);
+
+        const handleDragDrop = async (event: { payload: unknown }) => {
+            setDragging(false);
+            const paths = resolveDropPaths(event.payload);
+
+            if (paths && paths.length > 0) {
+                try {
+                    const expanded = await invoke<ExpandedTransferItem[]>("expand_transfer_paths", { paths });
+                    if (expanded.length === 0) {
+                        await emit("toast", "文件夹为空或未包含可传输的文件");
+                        return;
+                    }
+
+                    const folderGroups = new Map<string, PendingTransferItem[]>();
+                    const looseItems: PendingTransferItem[] = [];
+
+                    for (const item of expanded) {
+                        const transferItem: PendingTransferItem = {
+                            name: item.name,
+                            path: item.path,
+                            folderName: item.folder_name || undefined,
+                        };
+                        if (item.folder_name) {
+                            const list = folderGroups.get(item.folder_name) || [];
+                            list.push(transferItem);
+                            folderGroups.set(item.folder_name, list);
+                        } else {
+                            looseItems.push(transferItem);
+                        }
+                    }
+
+                    for (const [folderName, items] of folderGroups.entries()) {
+                        await queueFilesForSending(items, "package", `${folderName} (${items.length} 个文件)`);
+                    }
+                    if (looseItems.length > 0) {
+                        await queueFilesForSending(looseItems);
+                    }
+                } catch (err) {
+                    console.error("Failed to expand dropped paths", err);
+                    void queueFilesForSending(
+                        paths.map((path) => ({
+                            name: path.split(/[/\\]/).pop() || "File",
+                            path,
+                        }))
+                    );
+                }
+            }
+        };
+
+        const handleDragEnter = () => setDragging(true);
+        const handleDragLeave = () => setDragging(false);
+
+        const unlistenV1Drop = appWindow.listen("tauri://file-drop", handleDragDrop);
+        const unlistenV1Hover = appWindow.listen("tauri://file-drop-hover", handleDragEnter);
+        const unlistenV1Cancel = appWindow.listen("tauri://file-drop-cancelled", handleDragLeave);
+        const unlistenV2Drop = appWindow.listen("tauri://drag-drop", handleDragDrop);
+        const unlistenV2Enter = appWindow.listen("tauri://drag-enter", handleDragEnter);
+        const unlistenV2Leave = appWindow.listen("tauri://drag-leave", handleDragLeave);
+
+        const unlistenDevices = listen<FileTransferDevice[]>("online-devices-updated", (event) => {
+            setOnlineDevices(event.payload || []);
+        });
+
+        const unlistenNewMsg = listen<FileTransferMessage>("new-chat-message", () => {
+            fetchMessages();
+        });
+
+        const unlistenClearHistory = listen("chat-history-cleared", () => {
+            setMessages([]);
+        });
+
+        interface ChunkProgressPayload {
+            upload_id: string;
+            file_name: string;
+            chunk_index: number;
+            total_chunks: number;
+            total_size: number;
+            sender_id: string;
+            sender_name: string;
+            batch_id?: string;
+            batch_name?: string;
+            batch_index?: number;
+            batch_total?: number;
+            batch_size?: number;
+        }
+
+        const unlistenChunkProgress = listen<ChunkProgressPayload>(
+            "file-transfer-chunk-progress",
+            (event) => {
+                const p = event.payload;
+                if (!p || !p.upload_id) return;
+                const percent = Math.min(
+                    100,
+                    Math.round(((p.chunk_index + 1) / p.total_chunks) * 100)
+                );
+                const transferred = Math.min(p.total_size, (p.chunk_index + 1) * 1024 * 512);
+
+                setMessages((prev) => {
+                    const existingIndex = prev.findIndex((m) => m._uploadId === p.upload_id);
+                    if (existingIndex >= 0) {
+                        const existing = prev[existingIndex];
+                        const updated = [...prev];
+                        updated[existingIndex] = {
+                            ...existing,
+                            _progress: percent,
+                            _transferredBytes: transferred,
+                        };
+                        return updated;
+                    } else {
+                        const kind = getTransferFileKind(p.file_name);
+                        const msgType =
+                            kind === "image" ? "image" : kind === "video" ? "video" : "file";
+                        const newPending: FileTransferMessage = {
+                            id: Date.now() + Math.random(),
+                            direction: "in",
+                            msg_type: msgType,
+                            content: "正在接收...",
+                            timestamp: Date.now(),
+                            sender_id: p.sender_id,
+                            sender_name: p.sender_name || "手机设备",
+                            _fileName: p.file_name,
+                            _uploadId: p.upload_id,
+                            _preparing: true,
+                            _progress: percent,
+                            _transferredBytes: transferred,
+                            file_size: p.total_size,
+                            batch_id: p.batch_id,
+                            batch_name: p.batch_name,
+                            batch_index: p.batch_index,
+                            batch_total: p.batch_total,
+                            batch_size: p.batch_size,
+                        };
+                        return [...prev, newPending];
+                    }
+                });
+            }
+        );
+
+        return () => {
+            unlistenV1Drop.then((f) => f());
+            unlistenV1Hover.then((f) => f());
+            unlistenV1Cancel.then((f) => f());
+            unlistenV2Drop.then((f) => f());
+            unlistenV2Enter.then((f) => f());
+            unlistenV2Leave.then((f) => f());
+            unlistenDevices.then((f) => f());
+            unlistenNewMsg.then((f) => f());
+            unlistenClearHistory.then((f) => f());
+            unlistenChunkProgress.then((f) => f());
+        };
+    }, []);
+
+    // Disable navigation gestures inside file transfer view
+    useEffect(() => {
+        invoke("set_navigation_enabled", { enabled: false }).catch(console.error);
+        return () => {
+            invoke("set_navigation_enabled", { enabled: true }).catch(console.error);
+        };
+    }, []);
+
+    // Copy hotkey handling
+    useEffect(() => {
+        const handleCopy = (e: KeyboardEvent) => {
+            const isCopy =
+                (e.ctrlKey || e.metaKey) &&
+                !e.altKey &&
+                !e.shiftKey &&
+                e.key.toLowerCase() === "c";
+            if (!isCopy) return;
+
+            const selection = window.getSelection();
+            const text = selection?.toString() || "";
+            if (!text) return;
+
+            const root = chatBoxRef.current;
+            const anchor = selection?.anchorNode;
+            const focus = selection?.focusNode;
+            if (!root || !anchor || !focus) return;
+            if (!root.contains(anchor) || !root.contains(focus)) return;
+
+            e.preventDefault();
+            e.stopPropagation();
+            navigator.clipboard.writeText(text).catch(console.error);
+        };
+
+        window.addEventListener("keydown", handleCopy, true);
+        return () => window.removeEventListener("keydown", handleCopy, true);
+    }, []);
+
+    // Search hotkey (Ctrl/Cmd+F)
+    useEffect(() => {
+        const handleSearchHotkey = (e: KeyboardEvent) => {
+            const isFind =
+                (e.ctrlKey || e.metaKey) &&
+                !e.altKey &&
+                !e.shiftKey &&
+                e.key.toLowerCase() === "f";
+            if (isFind) {
+                e.preventDefault();
+                e.stopPropagation();
+                setShowSearchBar((prev) => {
+                    const next = !prev;
+                    if (next) setTimeout(() => searchInputRef.current?.focus(), 50);
+                    return next;
+                });
+            } else if (e.key === "Escape" && showSearchBar) {
+                setShowSearchBar(false);
+            }
+        };
+
+        window.addEventListener("keydown", handleSearchHotkey);
+        return () => window.removeEventListener("keydown", handleSearchHotkey);
+    }, [showSearchBar]);
+
+    // Detect if user scrolled away from bottom
+    useEffect(() => {
+        const chatBox = chatBoxRef.current;
+        if (!chatBox) return;
+
+        const handleScroll = () => {
+            const { scrollTop, scrollHeight, clientHeight } = chatBox;
+            const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
+            setIsUserScrolling(!isAtBottom);
+        };
+
+        chatBox.addEventListener("scroll", handleScroll);
+        return () => chatBox.removeEventListener("scroll", handleScroll);
+    }, []);
+
+    // Smart Scroll to bottom on new messages
+    useEffect(() => {
+        const hasNewMessages = messages.length > prevMessagesLengthRef.current;
+        prevMessagesLengthRef.current = messages.length;
+
+        if (hasNewMessages && !isUserScrolling) {
+            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        }
+    }, [messages, isUserScrolling]);
+
+    // Drag-over, drag-leave, and drop window listeners
     useEffect(() => {
         const handleWindowDragOver = (event: globalThis.DragEvent) => {
             if (!isExternalFileDrag(event.dataTransfer)) return;
@@ -1499,43 +1047,41 @@ const FileTransferChatView = ({
         };
     }, []);
 
-    // Safety net: drag-leave/cancel can be missed (esp. Esc / leave window),
-    // leaving the full-screen overlay stuck and blocking custom context menus.
+    // Safety net for cancelled drag
     useEffect(() => {
         if (!isDragging) return;
 
         const clearDragging = () => setDragging(false);
         const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') clearDragging();
+            if (event.key === "Escape") clearDragging();
         };
 
-        window.addEventListener('keydown', handleKeyDown);
-        window.addEventListener('dragend', clearDragging);
-        window.addEventListener('blur', clearDragging);
+        window.addEventListener("keydown", handleKeyDown);
+        window.addEventListener("dragend", clearDragging);
+        window.addEventListener("blur", clearDragging);
 
         return () => {
-            window.removeEventListener('keydown', handleKeyDown);
-            window.removeEventListener('dragend', clearDragging);
-            window.removeEventListener('blur', clearDragging);
+            window.removeEventListener("keydown", handleKeyDown);
+            window.removeEventListener("dragend", clearDragging);
+            window.removeEventListener("blur", clearDragging);
         };
     }, [isDragging]);
 
-    const isFiltering = filterType !== 'all' || searchQuery.trim().length > 0;
+    // Filter and search logic
+    const isFiltering = filterType !== "all" || searchQuery.trim().length > 0;
     const normalizedQuery = searchQuery.trim().toLowerCase();
 
     const matchesFilterCriteria = (m: FileTransferMessage): boolean => {
-        // Type filter
-        if (filterType === 'file') {
-            const isFile = m.msg_type === 'file' || !!m.batch_id;
+        if (filterType === "file") {
+            const isFile = m.msg_type === "file" || !!m.batch_id;
             if (!isFile) return false;
-        } else if (filterType === 'media') {
-            const isMedia = m.msg_type === 'image' || m.msg_type === 'video';
+        } else if (filterType === "media") {
+            const isMedia = m.msg_type === "image" || m.msg_type === "video";
             if (!isMedia) return false;
-        } else if (filterType === 'text') {
-            if (m.msg_type !== 'text') return false;
+        } else if (filterType === "text") {
+            if (m.msg_type !== "text") return false;
         }
 
-        // Query filter
         if (normalizedQuery) {
             const contentMatch = m.content?.toLowerCase().includes(normalizedQuery);
             const fileNameMatch = m._fileName?.toLowerCase().includes(normalizedQuery);
@@ -1552,14 +1098,15 @@ const FileTransferChatView = ({
     const filteredMessages = messages.filter((m) => {
         if (!isFiltering) return true;
         if (m.batch_id) {
-            const batchSiblings = messages.filter(s => s.batch_id === m.batch_id);
+            const batchSiblings = messages.filter((s) => s.batch_id === m.batch_id);
             const batchNameMatches = m.batch_name?.toLowerCase().includes(normalizedQuery);
             if (batchNameMatches) {
-                if (filterType === 'text') return false;
-                if (filterType === 'media') return m.msg_type === 'image' || m.msg_type === 'video';
+                if (filterType === "text") return false;
+                if (filterType === "media")
+                    return m.msg_type === "image" || m.msg_type === "video";
                 return true;
             }
-            const anySiblingMatches = batchSiblings.some(s => matchesFilterCriteria(s));
+            const anySiblingMatches = batchSiblings.some((s) => matchesFilterCriteria(s));
             if (anySiblingMatches) {
                 return matchesFilterCriteria(m);
             }
@@ -1571,24 +1118,21 @@ const FileTransferChatView = ({
     return (
         <div
             className="wt-chat-view"
-            style={{ position: 'relative' }}
+            style={{ position: "relative" }}
             onContextMenu={(e) => {
-                // Blank areas have no custom menu; always block WKWebView "Reload".
-                if (!(e.target as HTMLElement).closest('.wt-context-menu')) {
+                if (!(e.target as HTMLElement).closest(".wt-context-menu")) {
                     e.preventDefault();
                 }
             }}
             onDragOver={(e) => {
                 if (!isExternalFileDrag(e.dataTransfer)) return;
-                // Critical: Prevent default browser behavior to allow drop
                 e.preventDefault();
                 if (e.dataTransfer) {
-                    e.dataTransfer.dropEffect = 'copy';
+                    e.dataTransfer.dropEffect = "copy";
                 }
                 if (!isDraggingRef.current) setDragging(true);
             }}
             onDragLeave={(e) => {
-                // Check if leaving the main container
                 if (e.currentTarget.contains(e.relatedTarget as Node)) return;
                 setDragging(false);
             }}
@@ -1622,265 +1166,48 @@ const FileTransferChatView = ({
                 )}
             </AnimatePresence>
 
+            {/* Header */}
             {localIp && actualPort && accessToken && (
-                <div className={`wt-header ${hasOnlineDevices ? 'is-connected' : 'is-onboarding'}`}>
-                    {!hasOnlineDevices ? (
-                        <div className="wt-onboarding-connect">
-                            <div className="wt-onboarding-identity">
-                                <div className="wt-onboarding-copy">
-                                    <div className="wt-onboarding-title">局域网文件传输</div>
-                                    <div className="wt-onboarding-status">等待设备连接</div>
-                                    {interfaces.length > 1 ? (
-                                        <div className="wt-onboarding-address-row">
-                                            <div className="wt-ip-picker">
-                                                <select
-                                                    className="wt-ip-select"
-                                                    value={selectedIp}
-                                                    onChange={(e) => handleSwitchIp(e.target.value)}
-                                                    title="切换网卡 IP"
-                                                >
-                                                    {interfaces.map((iface) => (
-                                                        <option key={iface.ip} value={iface.ip}>
-                                                            {iface.label}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                                <ChevronDown size={12} className="wt-ip-select-arrow" />
-                                            </div>
-                                            <button
-                                                type="button"
-                                                className="wt-copy-link-btn"
-                                                title={copiedLink ? '已复制链接' : '复制连接地址'}
-                                                aria-label="复制连接地址"
-                                                onClick={() => handleCopyLink(connectionUrl)}
-                                            >
-                                                <LinkIcon size={12} />
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <div className="wt-onboarding-address-row">
-                                            <div className="wt-onboarding-address">{activeIp}:{actualPort}</div>
-                                            <button
-                                                type="button"
-                                                className="wt-copy-link-btn"
-                                                title={copiedLink ? '已复制链接' : '复制连接地址'}
-                                                aria-label="复制连接地址"
-                                                onClick={() => handleCopyLink(connectionUrl)}
-                                            >
-                                                <LinkIcon size={12} />
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                            <div className="wt-header-actions">
-                                <button
-                                    type="button"
-                                    className={`wt-header-action ${showSearchBar || isFiltering ? 'is-active' : ''}`}
-                                    title={showSearchBar ? '关闭搜索与筛选' : '搜索与筛选记录 (⌘F)'}
-                                    aria-label="搜索与筛选记录"
-                                    onClick={() => {
-                                        setShowSearchBar(v => {
-                                            const next = !v;
-                                            if (next) setTimeout(() => searchInputRef.current?.focus(), 60);
-                                            return next;
-                                        });
-                                    }}
-                                >
-                                    <Search size={18} />
-                                </button>
-                                <button
-                                    type="button"
-                                    className="wt-header-action"
-                                    title="打开保存目录"
-                                    aria-label="打开保存目录"
-                                    onClick={handleOpenFolder}
-                                >
-                                    <FolderOpen size={18} />
-                                </button>
-                                {messages.length > 0 && (
-                                    <button
-                                        type="button"
-                                        className="wt-header-action"
-                                        title="清空传输记录"
-                                        aria-label="清空传输记录"
-                                        onClick={() => setShowClearConfirm(true)}
-                                    >
-                                        <Trash2 size={18} />
-                                    </button>
-                                )}
-                            </div>
-                            <div className="wt-onboarding-qr" title="手机扫码连接">
-                                <QRCodeCanvas value={connectionUrl} size={54} />
-                            </div>
-                        </div>
-                    ) : (
-                        <>
-                            <div className="wt-conversation-identity">
-                                <div className="wt-conversation-copy">
-                                    <div className="wt-conversation-title">{conversationTitle}</div>
-                                    <div className="wt-presence-line">
-                                        {onlineDevices.length === 1 ? '在线 · 局域网传输' : `${onlineDevices.length} 台设备在线`}
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="wt-header-actions">
-                                <button
-                                    type="button"
-                                    className={`wt-header-action ${showSearchBar || isFiltering ? 'is-active' : ''}`}
-                                    title={showSearchBar ? '关闭搜索与筛选' : '搜索与筛选记录 (⌘F)'}
-                                    aria-label="搜索与筛选记录"
-                                    onClick={() => {
-                                        setShowSearchBar(v => {
-                                            const next = !v;
-                                            if (next) setTimeout(() => searchInputRef.current?.focus(), 60);
-                                            return next;
-                                        });
-                                    }}
-                                >
-                                    <Search size={18} />
-                                </button>
-                                <button
-                                    type="button"
-                                    className="wt-header-action"
-                                    title="打开保存目录"
-                                    aria-label="打开保存目录"
-                                    onClick={handleOpenFolder}
-                                >
-                                    <FolderOpen size={18} />
-                                </button>
-                                {messages.length > 0 && (
-                                    <button
-                                        type="button"
-                                        className="wt-header-action"
-                                        title="清空传输记录"
-                                        aria-label="清空传输记录"
-                                        onClick={() => setShowClearConfirm(true)}
-                                    >
-                                        <Trash2 size={18} />
-                                    </button>
-                                )}
-                                <button
-                                    type="button"
-                                    className={`wt-header-action ${showQrCode ? 'is-active' : ''}`}
-                                    title="显示连接二维码"
-                                    aria-label="显示连接二维码"
-                                    aria-expanded={showQrCode}
-                                    onClick={() => setShowQrCode(value => !value)}
-                                >
-                                    <QrCode size={19} />
-                                </button>
-                            </div>
-                            {showQrCode && (
-                                <div className="wt-qr-popover">
-                                    <div className="wt-qr-popover-code">
-                                        <QRCodeCanvas value={connectionUrl} size={112} />
-                                    </div>
-                                    <div className="wt-qr-popover-title">连接其他设备</div>
-                                    {interfaces.length > 1 ? (
-                                        <div className="wt-ip-picker wt-ip-picker-popover">
-                                            <select
-                                                className="wt-ip-select"
-                                                value={selectedIp}
-                                                onChange={(e) => handleSwitchIp(e.target.value)}
-                                                title="切换网卡 IP"
-                                            >
-                                                {interfaces.map((iface) => (
-                                                    <option key={iface.ip} value={iface.ip}>
-                                                        {iface.label}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                            <ChevronDown size={12} className="wt-ip-select-arrow" />
-                                        </div>
-                                    ) : (
-                                        <div className="wt-qr-popover-address">{activeIp}:{actualPort}</div>
-                                    )}
-                                    <button
-                                        type="button"
-                                        className="wt-copy-link-action"
-                                        onClick={() => handleCopyLink(connectionUrl)}
-                                    >
-                                        <LinkIcon size={12} />
-                                        <span>{copiedLink ? '已复制链接' : '复制连接地址'}</span>
-                                    </button>
-                                </div>
-                            )}
-                        </>
-                    )}
-                </div>
+                <TransferHeader
+                    hasOnlineDevices={hasOnlineDevices}
+                    conversationTitle={conversationTitle}
+                    onlineDevicesCount={onlineDevices.length}
+                    connectionUrl={connectionUrl}
+                    activeIp={activeIp}
+                    actualPort={actualPort}
+                    selectedIp={selectedIp}
+                    interfaces={interfaces}
+                    onSwitchIp={handleSwitchIp}
+                    copiedLink={copiedLink}
+                    onCopyLink={handleCopyLink}
+                    showSearchBar={showSearchBar}
+                    isFiltering={isFiltering}
+                    onToggleSearch={() => {
+                        setShowSearchBar((prev) => {
+                            const next = !prev;
+                            if (next) setTimeout(() => searchInputRef.current?.focus(), 50);
+                            return next;
+                        });
+                    }}
+                    onOpenFolder={handleOpenFolder}
+                    hasMessages={messages.length > 0}
+                    onClearHistory={() => setShowClearConfirm(true)}
+                    showQrCode={showQrCode}
+                    onToggleQrCode={() => setShowQrCode((prev) => !prev)}
+                />
             )}
 
-            {/* Filter & Search Bar */}
-            <AnimatePresence>
-                {showSearchBar && (
-                    <motion.div
-                        className="wt-filter-bar"
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.16, ease: "easeOut" }}
-                    >
-                        <div className="wt-filter-bar-inner">
-                            <div className="wt-filter-pills" role="tablist">
-                                {(
-                                    [
-                                        { id: 'all', label: '全部' },
-                                        { id: 'file', label: '文件' },
-                                        { id: 'media', label: '媒体' },
-                                        { id: 'text', label: '文本' },
-                                    ] as const
-                                ).map(pill => (
-                                    <button
-                                        key={pill.id}
-                                        type="button"
-                                        role="tab"
-                                        aria-selected={filterType === pill.id}
-                                        className={`wt-filter-pill ${filterType === pill.id ? 'is-active' : ''}`}
-                                        onClick={() => setFilterType(pill.id)}
-                                    >
-                                        {pill.label}
-                                    </button>
-                                ))}
-                            </div>
-
-                            <div className="wt-filter-search-wrap">
-                                <div className="wt-search-input-box">
-                                    <Search size={13} className="wt-search-icon" />
-                                    <input
-                                        ref={searchInputRef}
-                                        type="text"
-                                        className="wt-search-input"
-                                        placeholder="搜索记录、文件名..."
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                    />
-                                    {searchQuery && (
-                                        <button
-                                            type="button"
-                                            className="wt-search-clear-btn"
-                                            onClick={() => {
-                                                setSearchQuery('');
-                                                searchInputRef.current?.focus();
-                                            }}
-                                            title="清除搜索"
-                                            aria-label="清除搜索"
-                                        >
-                                            <X size={12} />
-                                        </button>
-                                    )}
-                                </div>
-
-                                {isFiltering && (
-                                    <div className="wt-filter-badge">
-                                        {filteredMessages.length} 条
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+            {/* Search & Filter Bar */}
+            <TransferFilterBar
+                showSearchBar={showSearchBar}
+                filterType={filterType}
+                onSelectFilterType={setFilterType}
+                searchQuery={searchQuery}
+                onSearchQueryChange={setSearchQuery}
+                searchInputRef={searchInputRef}
+                isFiltering={isFiltering}
+                filteredCount={filteredMessages.length}
+            />
 
             {/* Clear History Confirmation Modal */}
             <AnimatePresence>
@@ -1914,7 +1241,7 @@ const FileTransferChatView = ({
                                     onClick={handleClearHistory}
                                     disabled={isClearing}
                                 >
-                                    {isClearing ? '正在清空…' : '清空记录'}
+                                    {isClearing ? "正在清空…" : "清空记录"}
                                 </button>
                             </div>
                         </motion.div>
@@ -1922,18 +1249,27 @@ const FileTransferChatView = ({
                 )}
             </AnimatePresence>
 
+            {/* Chat Box */}
             <div className="wt-chat-box" ref={chatBoxRef}>
                 {messages.length === 0 && (
                     <div className="wt-empty-state">
-                        <div className={`wt-empty-icon${hasOnlineDevices ? '' : ' is-waiting'}`} aria-hidden="true">
+                        <div
+                            className={`wt-empty-icon${hasOnlineDevices ? "" : " is-waiting"}`}
+                            aria-hidden="true"
+                        >
                             <Wifi size={22} strokeWidth={1.8} />
                         </div>
-                        <div className="wt-empty-title">{hasOnlineDevices ? '开始传输' : '等待设备连接'}</div>
+                        <div className="wt-empty-title">
+                            {hasOnlineDevices ? "开始传输" : "等待设备连接"}
+                        </div>
                         <div className="wt-empty-copy">
-                            {hasOnlineDevices ? '输入消息、选择文件，或直接将文件拖到这里' : '使用上方二维码连接手机后，即可互传消息与文件'}
+                            {hasOnlineDevices
+                                ? "输入消息、选择文件，或直接将文件拖到这里"
+                                : "使用上方二维码连接手机后，即可互传消息与文件"}
                         </div>
                     </div>
                 )}
+
                 {messages.length > 0 && filteredMessages.length === 0 && (
                     <div className="wt-empty-state wt-empty-search">
                         <div className="wt-empty-icon" aria-hidden="true">
@@ -1947,801 +1283,203 @@ const FileTransferChatView = ({
                             type="button"
                             className="wt-clear-filter-btn"
                             onClick={() => {
-                                setSearchQuery('');
-                                setFilterType('all');
+                                setSearchQuery("");
+                                setFilterType("all");
                             }}
                         >
                             清除筛选
                         </button>
                     </div>
                 )}
+
                 {filteredMessages.map((m, index) => {
                     const avatar = getAvatarConfig(m);
-                    const transferFileName = getTransferFileName(m);
                     const batchMessages = m.batch_id
                         ? filteredMessages
-                            .filter(message => message.batch_id === m.batch_id)
-                            .sort((left, right) => (left.batch_index ?? 0) - (right.batch_index ?? 0))
+                              .filter((message) => message.batch_id === m.batch_id)
+                              .sort(
+                                  (left, right) =>
+                                      (left.batch_index ?? 0) - (right.batch_index ?? 0)
+                              )
                         : [];
                     const isBatch = !!m.batch_id && (m.batch_total ?? batchMessages.length) > 1;
-                    if (isBatch && filteredMessages.findIndex(message => message.batch_id === m.batch_id) !== index) {
+                    if (
+                        isBatch &&
+                        filteredMessages.findIndex((message) => message.batch_id === m.batch_id) !== index
+                    ) {
                         return null;
                     }
-                    const groupedWithPrevious = messagesBelongToSameGroup(filteredMessages[index - 1], m);
-                    const groupedWithNext = messagesBelongToSameGroup(m, filteredMessages[index + 1]);
-                    const startsNewDay = index === 0
-                        || getMessageDayKey(filteredMessages[index - 1].timestamp) !== getMessageDayKey(m.timestamp);
+                    const groupedWithPrevious = messagesBelongToSameGroup(
+                        filteredMessages[index - 1],
+                        m
+                    );
+                    const groupedWithNext = messagesBelongToSameGroup(
+                        m,
+                        filteredMessages[index + 1]
+                    );
+                    const startsNewDay =
+                        index === 0 ||
+                        getMessageDayKey(filteredMessages[index - 1].timestamp) !==
+                            getMessageDayKey(m.timestamp);
+
                     if (isBatch) {
-                        const batchId = m.batch_id!;
-                        const expanded = expandedBatches.has(batchId);
-                        const availableCount = batchMessages.filter(message =>
-                            !!message.file_path && isLocalTransferPath(message.file_path)
-                        ).length;
-                        const totalSize = m.batch_size
-                            || batchMessages.reduce((total, message) => total + (message.file_size || 0), 0);
                         return (
-                            <Fragment key={`batch-${batchId}`}>
+                            <Fragment key={`batch-${m.batch_id}`}>
                                 {startsNewDay && m.timestamp > 0 && (
                                     <div className="wt-day-separator" role="separator">
                                         <span>{formatMessageDay(m.timestamp)}</span>
                                     </div>
                                 )}
-                                <div className={`wt-message ${m.direction === 'out' ? 'sent' : 'received'} is-group-start is-group-end`}>
+                                <div
+                                    className={`wt-message ${
+                                        m.direction === "out" ? "sent" : "received"
+                                    } is-group-start is-group-end`}
+                                >
                                     <div
                                         className="wt-avatar"
-                                        style={{ background: avatar.isImg ? 'transparent' : avatar.color }}
-                                        aria-label={m.direction === 'out' ? '我的设备' : (m.sender_name || '对方设备')}
+                                        style={{
+                                            background: avatar.isImg
+                                                ? "transparent"
+                                                : avatar.color,
+                                        }}
+                                        aria-label={
+                                            m.direction === "out"
+                                                ? "我的设备"
+                                                : m.sender_name || "对方设备"
+                                        }
                                     >
-                                        {avatar.isImg
-                                            ? <img src={avatar.content} loading="lazy" alt="" />
-                                            : avatar.initial}
+                                        {avatar.isImg ? (
+                                            <img
+                                                src={avatar.content}
+                                                loading="lazy"
+                                                alt=""
+                                            />
+                                        ) : (
+                                            avatar.initial
+                                        )}
                                     </div>
                                     <div className="wt-message-stack">
-                                        <div
-                                            className="wt-bubble wt-bubble-file wt-batch-bubble"
-                                            onContextMenu={(event) => openContextMenu(event, {
-                                                type: 'batch',
-                                                batchId,
-                                                batchMessages
-                                            })}
-                                        >
-                                            {m.sender_name && m.direction === 'in' && (
-                                                <div className="wt-sender-name">{m.sender_name}</div>
-                                            )}
-                                            <button
-                                                type="button"
-                                                className="wt-batch-header"
-                                                onClick={() => toggleBatchExpanded(batchId)}
-                                                aria-expanded={expanded}
-                                            >
-                                                <span className="wt-batch-icon"><FileArchive size={24} /></span>
-                                                <span className="wt-batch-summary">
-                                                    <strong>{m.batch_name || `${m.batch_total || batchMessages.length} 个文件`}</strong>
-                                                    <small>
-                                                        {m.batch_total || batchMessages.length} 个文件
-                                                        {totalSize > 0 ? ` · ${formatTransferBytes(totalSize)}` : ''}
-                                                    </small>
-                                                </span>
-                                                {expanded ? <ChevronDown size={17} /> : <ChevronRight size={17} />}
-                                            </button>
-                                            {expanded && (
-                                                <div className="wt-batch-files">
-                                                    {batchMessages.map(fileMessage => (
-                                                        <button
-                                                            type="button"
-                                                            className="wt-batch-file"
-                                                            key={fileMessage.id}
-                                                            disabled={fileMessage._preparing}
-                                                            onClick={() => {
-                                                                if (fileMessage._preparing) return;
-                                                                void openTransferContent({
-                                                                    filePath: fileMessage.file_path,
-                                                                    content: fileMessage.content,
-                                                                    type: fileMessage.msg_type
-                                                                });
-                                                            }}
-                                                        >
-                                                            <TransferFileTypeIcon
-                                                                filePath={getTransferFileIconPath(fileMessage)}
-                                                                fileName={getTransferFileName(fileMessage)}
-                                                                preparing={fileMessage._preparing}
-                                                            />
-                                                            <span>
-                                                                <strong>{getTransferFileName(fileMessage)}</strong>
-                                                                <small>{fileMessage._error ? fileMessage._error : fileMessage._preparing && fileMessage._progress !== undefined ? `${fileMessage._progress}% ${fileMessage._speed ? `· ${fileMessage._speed}` : ''}` : (formatTransferBytes(fileMessage.file_size) || (fileMessage._preparing ? '准备中…' : '点击打开'))}</small>
-                                                            </span>
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            )}
-                                            <div className="wt-batch-actions">
-                                                <span>{availableCount}/{m.batch_total || batchMessages.length} 可用</span>
-                                                <button
-                                                    type="button"
-                                                    disabled={savingBatchId === batchId || availableCount !== batchMessages.length}
-                                                    onClick={() => void saveBatchAs(batchMessages)}
-                                                >
-                                                    <Folder size={13} />
-                                                    {savingBatchId === batchId ? '正在保存…' : '整包另存为'}
-                                                </button>
-                                            </div>
-                                        </div>
-                                        <div className="wt-message-meta">
+                                        <TransferBatchBubble
+                                            message={m}
+                                            batchMessages={batchMessages}
+                                            expanded={expandedBatches.has(m.batch_id!)}
+                                            onToggleExpand={toggleBatchExpanded}
+                                            onOpenContent={openTransferContent}
+                                            onSaveBatchAs={saveBatchAs}
+                                            isSaving={savingBatchId === m.batch_id}
+                                            onContextMenu={openContextMenu}
+                                        />
+                                        <div className="wt-meta">
                                             <span>{formatMessageTime(m.timestamp)}</span>
-                                            {m.direction === 'out' && <span className="wt-delivery-mark">✓</span>}
+                                            {m.direction === "out" && (
+                                                <span className="wt-delivery-mark">✓</span>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
                             </Fragment>
                         );
                     }
+
                     return (
                         <Fragment key={m.id}>
-                        {startsNewDay && m.timestamp > 0 && (
-                            <div className="wt-day-separator" role="separator">
-                                <span>{formatMessageDay(m.timestamp)}</span>
-                            </div>
-                        )}
-                        <div
-                            className={`wt-message ${m.direction === 'out' ? 'sent' : 'received'} ${groupedWithPrevious ? 'is-grouped-with-previous' : 'is-group-start'} ${groupedWithNext ? 'is-grouped-with-next' : 'is-group-end'}`}
-                        >
-                            {!groupedWithNext ? (
-                                <div
-                                    className="wt-avatar"
-                                    style={{
-                                        background: avatar.isImg ? 'transparent' : avatar.color,
-                                    }}
-                                    aria-label={m.direction === 'out' ? '我的设备' : (m.sender_name || '对方设备')}
-                                >
-                                    {avatar.isImg ? (
-                                        <img
-                                            src={avatar.content}
-                                            loading="lazy"
-                                            alt={m.direction === 'out' ? '我的设备' : (m.sender_name || '对方设备')}
-                                        />
-                                    ) : (
-                                        avatar.initial
-                                    )}
+                            {startsNewDay && m.timestamp > 0 && (
+                                <div className="wt-day-separator" role="separator">
+                                    <span>{formatMessageDay(m.timestamp)}</span>
                                 </div>
-                            ) : (
-                                <div className="wt-avatar-spacer" aria-hidden="true" />
                             )}
-                            <div className="wt-message-stack">
-                                <div
-                                    className={`wt-bubble wt-bubble-${m.msg_type}`}
-                                    onContextMenu={(event) => {
-                                        if (m._preparing) {
-                                            event.preventDefault();
-                                            event.stopPropagation();
-                                            return;
+                            <div
+                                className={`wt-message ${
+                                    m.direction === "out" ? "sent" : "received"
+                                } ${
+                                    groupedWithPrevious
+                                        ? "is-grouped-with-previous"
+                                        : "is-group-start"
+                                } ${
+                                    groupedWithNext ? "is-grouped-with-next" : "is-group-end"
+                                }`}
+                            >
+                                {!groupedWithNext ? (
+                                    <div
+                                        className="wt-avatar"
+                                        style={{
+                                            background: avatar.isImg
+                                                ? "transparent"
+                                                : avatar.color,
+                                        }}
+                                        aria-label={
+                                            m.direction === "out"
+                                                ? "我的设备"
+                                                : m.sender_name || "对方设备"
                                         }
-                                        const menuType = m.msg_type === 'text' || m.msg_type === 'image' || m.msg_type === 'video'
-                                            ? m.msg_type
-                                            : 'file';
-                                        openContextMenu(event, {
-                                            filePath: menuType === 'text' ? undefined : (m.file_path || m.content),
-                                            content: m.content,
-                                            id: m.id,
-                                            type: menuType
-                                        });
-                                    }}
-                                >
-                                {m.sender_name && m.direction === 'in' && !groupedWithPrevious && (
-                                    <div className="wt-sender-name">{m.sender_name}</div>
-                                )}
-                                {m.msg_type === 'text' && (
-                                    <div className="wt-text-wrapper">
-                                        <div
-                                            className="wt-text-content"
-                                            onContextMenu={(e) => openContextMenu(e, {
-                                                content: m.content,
-                                                type: 'text'
-                                            })}
-                                        >{renderTextWithLinks(m.content)}</div>
-                                        <button
-                                            type="button"
-                                            className={`wt-bubble-copy-btn ${copiedMessageId === m.id ? 'is-copied' : ''}`}
-                                            title={copiedMessageId === m.id ? '已复制' : '复制内容'}
-                                            aria-label={copiedMessageId === m.id ? '已复制' : '复制内容'}
-                                            onClick={async (e) => {
-                                                e.stopPropagation();
-                                                await navigator.clipboard.writeText(m.content);
-                                                setCopiedMessageId(m.id);
-                                                setTimeout(() => {
-                                                    setCopiedMessageId(prev => prev === m.id ? null : prev);
-                                                }, 1500);
-                                            }}
-                                        >
-                                            {copiedMessageId === m.id ? (
-                                                <span className="wt-copy-check">✓</span>
-                                            ) : (
-                                                <Clipboard size={12} />
-                                            )}
-                                        </button>
+                                    >
+                                        {avatar.isImg ? (
+                                            <img
+                                                src={avatar.content}
+                                                loading="lazy"
+                                                alt={
+                                                    m.direction === "out"
+                                                        ? "我的设备"
+                                                        : m.sender_name || "对方设备"
+                                                }
+                                            />
+                                        ) : (
+                                            avatar.initial
+                                        )}
                                     </div>
+                                ) : (
+                                    <div className="wt-avatar-spacer" aria-hidden="true" />
                                 )}
-                                {m.msg_type === 'image' && !m._preparing && !m._error && (
-                                    <>
-                                        <img
-                                            src={getMessageMediaSrc(m)}
-                                            className="wt-img-preview"
-                                            loading="lazy"
-                                            draggable={false}
-                                            style={{ cursor: 'pointer' }}
-                                            alt="Image"
-                                            onClick={async () => {
-                                                await openTransferContent({
-                                                    filePath: m.file_path,
-                                                    content: m.content,
-                                                    type: 'image'
-                                                });
-                                            }}
-                                            onError={(event) => {
-                                                void handleMediaPreviewError(m, event.currentTarget);
-                                            }}
-                                            onContextMenu={(e) => openContextMenu(e, {
-                                                    filePath: m.file_path || m.content,
-                                                    content: m.content,
-                                                    id: m.id,
-                                                    type: 'image'
-                                                })}
-                                        />
-                                        <div className="wt-media-footer">
-                                            <ImageIcon size={12} />
-                                            <span>图片</span>
-                                        </div>
-                                    </>
-                                )}
-                                {m.msg_type === 'video' && !m._preparing && !m._error && (
-                                    <>
-                                        <video
-                                            src={getMessageMediaSrc(m)}
-                                            className="wt-video-preview"
-                                            controls
-                                            onError={(event) => {
-                                                void handleMediaPreviewError(m, event.currentTarget);
-                                            }}
-                                            onContextMenu={(e) => openContextMenu(e, {
-                                                    filePath: m.file_path || m.content,
-                                                    content: m.content,
-                                                    id: m.id,
-                                                    type: 'video'
-                                                })}
-                                        />
-                                        <div className="wt-media-footer">
-                                            <Video size={12} />
-                                            <span>视频</span>
-                                        </div>
-                                    </>
-                                )}
-                                {((m.msg_type === 'file' || (m.msg_type !== 'text' && m.msg_type !== 'image' && m.msg_type !== 'video')) || m._preparing || m._error) && (
-                                    <>
-                                        <div className="wt-file-card"
-                                            style={{ cursor: m.direction === 'in' && !m._preparing && !m._error ? 'pointer' : 'default' }}
-                                            onClick={async () => {
-                                                if (m.direction === 'in' && !m._preparing && !m._error) {
-                                                    await openTransferContent({
-                                                        filePath: m.file_path,
-                                                        content: m.content,
-                                                        type: 'file'
-                                                    });
-                                                }
-                                            }}
-
-                                            onContextMenu={(e) => {
-                                                if (m._preparing || m._error) {
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                    return;
-                                                }
-                                                openContextMenu(e, {
-                                                    filePath: m.file_path || m.content,
-                                                    content: m.content,
-                                                    id: m.id,
-                                                    type: 'file'
-                                                });
-                                            }}
-                                        >
-                                            <div className="wt-file-icon">
-                                                <TransferFileTypeIcon
-                                                    filePath={getTransferFileIconPath(m)}
-                                                    fileName={transferFileName}
-                                                    preparing={m._preparing}
-                                                />
-                                            </div>
-                                            <div className="wt-file-info">
-                                                <div className="wt-file-name">{transferFileName}</div>
-                                                {!m._preparing && !m._error && (
-                                                    <div className="wt-file-status">
-                                                        {m.direction === 'in' ? '已接收 · 点击打开' : '可供下载'}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                        {m._preparing && (
-                                            <div className="progress-wrapper">
-                                                <div className="progress-container">
-                                                    <div
-                                                        className={`progress-bar${m._progress === undefined ? ' is-indeterminate' : ''}`}
-                                                        style={{
-                                                            width: m._progress !== undefined ? `${Math.max(2, m._progress)}%` : '100%'
-                                                        }}
-                                                    />
-                                                </div>
-                                                <div className="status-text">
-                                                    <span className="status-label">
-                                                        {m.direction === 'in' ? '正在接收' : '正在发送'}
-                                                        {m._speed ? ` · ${m._speed}` : ''}
-                                                        {m._transferredBytes && m.file_size
-                                                            ? ` (${formatTransferBytes(m._transferredBytes)} / ${formatTransferBytes(m.file_size)})`
-                                                            : m.file_size ? ` (${formatTransferBytes(m.file_size)})` : ''}
-                                                    </span>
-                                                    <span className="percent">
-                                                        {m._progress !== undefined ? `${m._progress}%` : ''}
-                                                    </span>
-                                                </div>
-                                            </div>
+                                <div className="wt-message-stack">
+                                    <TransferMessageItem
+                                        message={m}
+                                        groupedWithPrevious={groupedWithPrevious}
+                                        copiedMessageId={copiedMessageId}
+                                        onCopyText={handleCopyText}
+                                        getMessageMediaSrc={getMessageMediaSrc}
+                                        onMediaPreviewError={handleMediaPreviewError}
+                                        onOpenContent={openTransferContent}
+                                        onRetrySend={retrySendFile}
+                                        onContextMenu={openContextMenu}
+                                    />
+                                    <div className="wt-meta">
+                                        <span>{formatMessageTime(m.timestamp)}</span>
+                                        {m.direction === "out" && (
+                                            <span className="wt-delivery-mark">✓</span>
                                         )}
-                                        {m._error && (
-                                            <div className="wt-transfer-error">
-                                                <div className="wt-transfer-error-text" title={m._error}>
-                                                    <AlertCircle size={13} />
-                                                    <span>{m._error}</span>
-                                                </div>
-                                                {m._rawFile && (
-                                                    <button
-                                                        type="button"
-                                                        className="wt-transfer-retry-btn"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            void retrySendFile(m);
-                                                        }}
-                                                    >
-                                                        <RotateCcw size={11} />
-                                                        <span>重试</span>
-                                                    </button>
-                                                )}
-                                            </div>
-                                        )}
-                                    </>
-                                )}
-                                </div>
-                                <div className="wt-message-meta">
-                                    <span>{formatMessageTime(m.timestamp)}</span>
-                                    {m.direction === 'out' && <span className="wt-delivery-mark">✓</span>}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
                         </Fragment>
                     );
                 })}
                 <div ref={messagesEndRef} />
             </div>
 
-            <div className="wt-footer">
-                <div className="wt-composer">
-                    <div className="wt-file-send-control" ref={fileSendOptionsRef}>
-                        <button
-                            type="button"
-                            className="wt-btn-icon wt-file-send-main"
-                            title={isChoosingFiles
-                                ? '正在打开文件选择器'
-                                : multiFileSendMode === 'package' ? '发送文件（多文件组成文件包）' : '发送文件（多文件分别发送）'}
-                            aria-label={isChoosingFiles ? '正在打开文件选择器' : '发送文件'}
-                            disabled={isChoosingFiles}
-                            onClick={() => void chooseFilesToSend()}
-                        >
-                            {isChoosingFiles
-                                ? <LoaderCircle size={18} className="wt-spin" />
-                                : <Plus size={18} />}
-                        </button>
-                        <button
-                            type="button"
-                            className="wt-file-send-toggle"
-                            aria-label="选择多文件发送方式"
-                            aria-expanded={showFileSendOptions}
-                            disabled={isChoosingFiles}
-                            onClick={() => setShowFileSendOptions(value => !value)}
-                        >
-                            <ChevronDown size={12} />
-                        </button>
-                        {showFileSendOptions && (
-                            <div className="wt-file-send-options" role="menu">
-                                <button
-                                    type="button"
-                                    className={multiFileSendMode === 'package' ? 'is-active' : ''}
-                                    role="menuitemradio"
-                                    aria-checked={multiFileSendMode === 'package'}
-                                    onClick={() => selectMultiFileSendMode('package')}
-                                >
-                                    <FileArchive size={17} />
-                                    <span>
-                                        <strong>作为文件包发送</strong>
-                                        <small>多文件折叠显示，可整包保存</small>
-                                    </span>
-                                    {multiFileSendMode === 'package' && <span className="wt-option-check">✓</span>}
-                                </button>
-                                <button
-                                    type="button"
-                                    className={multiFileSendMode === 'separate' ? 'is-active' : ''}
-                                    role="menuitemradio"
-                                    aria-checked={multiFileSendMode === 'separate'}
-                                    onClick={() => selectMultiFileSendMode('separate')}
-                                >
-                                    <FileIcon size={17} />
-                                    <span>
-                                        <strong>分别发送</strong>
-                                        <small>每个文件独立显示</small>
-                                    </span>
-                                    {multiFileSendMode === 'separate' && <span className="wt-option-check">✓</span>}
-                                </button>
-                            </div>
-                        )}
-                    </div>
+            {/* Composer */}
+            <TransferComposer
+                input={input}
+                setInput={setInput}
+                onSend={send}
+                multiFileSendMode={multiFileSendMode}
+                onSelectMultiFileSendMode={selectMultiFileSendMode}
+                chooseFilesToSend={chooseFilesToSend}
+                isChoosingFiles={isChoosingFiles}
+                t={t}
+            />
 
-                    <div className="wt-input-wrap">
-                        <textarea
-                            ref={textareaRef}
-                            className="wt-input"
-                            value={input}
-                            onChange={e => setInput(e.target.value)}
-                            onKeyDown={handleKeyDown}
-                            onPaste={handlePaste}
-                            placeholder={t ? (t('type_message') || "Type a message...") : "Type..."}
-                            rows={1}
-                        />
-                    </div>
-                        {showExpandBtn && (
-                            <button
-                                type="button"
-                                className="wt-btn-icon"
-                                onClick={() => setShowFullScreen(true)}
-                                title="展开编辑"
-                                aria-label="展开编辑"
-                            >
-                                <Maximize2 size={16} />
-                            </button>
-                        )}
-
-                    <button
-                        type="button"
-                        onClick={send}
-                        className="wt-btn send"
-                        disabled={!input.trim()}
-                        title="发送消息"
-                        aria-label="发送消息"
-                    >
-                        <Send size={18} />
-                    </button>
-                </div>
-            </div>
-
-            <AnimatePresence>
-                {showFullScreen && (
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.95 }}
-                        className="wt-fullscreen-editor"
-                    >
-                        <div className="wt-fullscreen-header">
-                            <div className="wt-fullscreen-title">编辑消息</div>
-                            <button
-                                onClick={() => setShowFullScreen(false)}
-                                className="wt-overlay-icon-btn"
-                                title="收起编辑器"
-                                aria-label="收起编辑器"
-                            >
-                                <Minimize2 size={16} />
-                            </button>
-                        </div>
-
-                        <textarea
-                            value={input}
-                            onChange={e => setInput(e.target.value)}
-                            placeholder="输入消息…"
-                            className="wt-fullscreen-textarea"
-                            onPaste={handlePaste}
-                        />
-
-                        <div className="wt-fullscreen-footer">
-                            <button
-                                onClick={() => setShowFullScreen(false)}
-                                className="wt-btn"
-                            >
-                                取消
-                            </button>
-                            <button
-                                onClick={send}
-                                className="wt-btn send"
-                            >
-                                发送
-                            </button>
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            <AnimatePresence>
-                {contextMenu && (
-                    <motion.div
-                        ref={contextMenuRef}
-                        className="wt-context-menu"
-                        role="menu"
-                        aria-label="消息操作"
-                        tabIndex={-1}
-                        initial={{ opacity: 0, scale: 0.97 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.97 }}
-                        transition={{ duration: 0.12 }}
-                        style={{ top: contextMenu.y, left: contextMenu.x }}
-                        onContextMenu={(event) => event.preventDefault()}
-                    >
-                        {contextMenu.type === 'batch' && contextMenu.batchId && (
-                            <>
-                                <button
-                                    type="button"
-                                    className="wt-context-item"
-                                    role="menuitem"
-                                    onClick={() => {
-                                        const batchId = contextMenu.batchId!;
-                                        setContextMenu(null);
-                                        toggleBatchExpanded(batchId);
-                                    }}
-                                >
-                                    {expandedBatches.has(contextMenu.batchId)
-                                        ? <ChevronRight size={16} />
-                                        : <ChevronDown size={16} />}
-                                    <span>{expandedBatches.has(contextMenu.batchId) ? '收起文件包' : '展开文件包'}</span>
-                                </button>
-                                <button
-                                    type="button"
-                                    className="wt-context-item"
-                                    role="menuitem"
-                                    disabled={
-                                        savingBatchId === contextMenu.batchId
-                                        || !contextMenu.batchMessages?.length
-                                        || contextMenu.batchMessages.some(message =>
-                                            !message.file_path || !isLocalTransferPath(message.file_path)
-                                        )
-                                    }
-                                    onClick={() => {
-                                        const selected = contextMenu.batchMessages || [];
-                                        setContextMenu(null);
-                                        void saveBatchAs(selected);
-                                    }}
-                                >
-                                    <Folder size={16} />
-                                    <span>{savingBatchId === contextMenu.batchId ? '正在保存…' : '整包另存为…'}</span>
-                                </button>
-                            </>
-                        )}
-
-                        {(contextMenu.type === 'file' || contextMenu.type === 'image' || contextMenu.type === 'video') && (
-                            <>
-                                <button
-                                    type="button"
-                                    className="wt-context-item"
-                                    role="menuitem"
-                                    onClick={async () => {
-                                        const selected = contextMenu;
-                                        setContextMenu(null);
-                                        await openTransferContent({
-                                            filePath: selected.filePath,
-                                            content: selected.content,
-                                            type: selected.type
-                                        });
-                                    }}
-                                >
-                                    <ExternalLink size={16} />
-                                    <span>{t ? (t('open') || '打开') : '打开'}</span>
-                                </button>
-                                {isLocalFilePath(contextMenu.filePath) && (
-                                    <button
-                                        type="button"
-                                        className="wt-context-item"
-                                        role="menuitem"
-                                        onClick={async () => {
-                                            const selected = contextMenu;
-                                            setContextMenu(null);
-                                            try {
-                                                await invoke('open_file_location', { filePath: selected.filePath });
-                                            } catch (error) {
-                                                console.error('Failed to reveal file', error);
-                                            }
-                                        }}
-                                    >
-                                        <Folder size={16} />
-                                        <span>{t ? (t('show_in_finder') || '在访达中显示') : '在访达中显示'}</span>
-                                    </button>
-                                )}
-                                <div className="wt-context-separator" role="separator" />
-                            </>
-                        )}
-
-                        {contextMenu.type === 'image' && (
-                            <>
-                                {isLocalFilePath(contextMenu.filePath) && (
-                                    <button
-                                        type="button"
-                                        className="wt-context-item"
-                                        role="menuitem"
-                                        onClick={async () => {
-                                            const selected = contextMenu;
-                                            setContextMenu(null);
-                                            try {
-                                                const target = await withNativeDialog(() => saveDialog({
-                                                    defaultPath: selected.filePath?.split(/[/\\]/).pop() || 'image.png',
-                                                    filters: [{ name: '图片', extensions: ['png', 'jpg', 'jpeg', 'webp'] }]
-                                                }), 'file-transfer:save-image');
-                                                if (target && selected.filePath) {
-                                                    await invoke('save_file_copy', { sourcePath: selected.filePath, targetPath: target });
-                                                }
-                                            } catch (error) {
-                                                console.error('Failed to save image', error);
-                                            }
-                                        }}
-                                    >
-                                        <Download size={16} />
-                                        <span>{t ? (t('save_image_as') || '图片另存为…') : '图片另存为…'}</span>
-                                    </button>
-                                )}
-                                <button
-                                    type="button"
-                                    className="wt-context-item"
-                                    role="menuitem"
-                                    onClick={async () => {
-                                        const selected = contextMenu;
-                                        setContextMenu(null);
-                                        if (selected.filePath) {
-                                            await invoke('copy_to_clipboard', { content: selected.filePath, contentType: 'image', paste: false, id: 0, deleteAfterUse: false })
-                                                .catch(error => console.error('Failed to copy image', error));
-                                        }
-                                    }}
-                                >
-                                    <ImageIcon size={16} />
-                                    <span>{t ? (t('copy_image') || '复制图片') : '复制图片'}</span>
-                                </button>
-                                <button
-                                    type="button"
-                                    className="wt-context-item"
-                                    role="menuitem"
-                                    onClick={async () => {
-                                        const selected = contextMenu;
-                                        setContextMenu(null);
-                                        const link = resolveShareableDownloadUrl(selected.content || selected.filePath || '');
-                                        if (link) await navigator.clipboard.writeText(link);
-                                    }}
-                                >
-                                    <LinkIcon size={16} />
-                                    <span>{t ? (t('copy_image_link') || '复制图片链接') : '复制图片链接'}</span>
-                                </button>
-                            </>
-                        )}
-
-                        {contextMenu.type === 'video' && (
-                            <>
-                                {isLocalFilePath(contextMenu.filePath) && (
-                                    <button
-                                        type="button"
-                                        className="wt-context-item"
-                                        role="menuitem"
-                                        onClick={async () => {
-                                            const selected = contextMenu;
-                                            setContextMenu(null);
-                                            try {
-                                                const target = await withNativeDialog(() => saveDialog({
-                                                    defaultPath: selected.filePath?.split(/[/\\]/).pop() || 'video.mp4',
-                                                    filters: [{ name: '视频', extensions: ['mp4', 'mov', 'avi', 'mkv', 'webm'] }]
-                                                }), 'file-transfer:save-video');
-                                                if (target && selected.filePath) {
-                                                    await invoke('save_file_copy', { sourcePath: selected.filePath, targetPath: target });
-                                                }
-                                            } catch (error) {
-                                                console.error('Failed to save video', error);
-                                            }
-                                        }}
-                                    >
-                                        <Download size={16} />
-                                        <span>{t ? (t('save_video_as') || '视频另存为…') : '视频另存为…'}</span>
-                                    </button>
-                                )}
-                                <button
-                                    type="button"
-                                    className="wt-context-item"
-                                    role="menuitem"
-                                    onClick={async () => {
-                                        const selected = contextMenu;
-                                        setContextMenu(null);
-                                        if (selected.filePath) {
-                                            await invoke('copy_to_clipboard', { content: selected.filePath, contentType: 'video', paste: false, id: 0, deleteAfterUse: false })
-                                                .catch(error => console.error('Failed to copy video', error));
-                                        }
-                                    }}
-                                >
-                                    <Video size={16} />
-                                    <span>{t ? (t('copy_video') || '复制视频') : '复制视频'}</span>
-                                </button>
-                                <button
-                                    type="button"
-                                    className="wt-context-item"
-                                    role="menuitem"
-                                    onClick={async () => {
-                                        const selected = contextMenu;
-                                        setContextMenu(null);
-                                        const link = resolveShareableDownloadUrl(selected.content || selected.filePath || '');
-                                        if (link) await navigator.clipboard.writeText(link);
-                                    }}
-                                >
-                                    <LinkIcon size={16} />
-                                    <span>{t ? (t('copy_video_link') || '复制视频链接') : '复制视频链接'}</span>
-                                </button>
-                            </>
-                        )}
-
-                        {contextMenu.type === 'text' && (
-                            <>
-                                <button
-                                    type="button"
-                                    className="wt-context-item"
-                                    role="menuitem"
-                                    onClick={async () => {
-                                        const selected = contextMenu;
-                                        setContextMenu(null);
-                                        if (selected.content) await navigator.clipboard.writeText(selected.content);
-                                    }}
-                                >
-                                    <Clipboard size={16} />
-                                    <span>{t ? (t('copy_text') || '复制文本') : '复制文本'}</span>
-                                </button>
-                                <button
-                                    type="button"
-                                    className="wt-context-item"
-                                    role="menuitem"
-                                    onClick={async () => {
-                                        const selected = contextMenu;
-                                        setContextMenu(null);
-                                        if (selected.content) {
-                                            try {
-                                                await invoke("copy_to_clipboard", {
-                                                    content: selected.content,
-                                                    contentType: "text",
-                                                    paste: true,
-                                                    id: 0,
-                                                    deleteAfterUse: false,
-                                                });
-                                            } catch (e) {
-                                                await navigator.clipboard.writeText(selected.content);
-                                            }
-                                        }
-                                    }}
-                                >
-                                    <Send size={16} />
-                                    <span>复制并粘贴</span>
-                                </button>
-                            </>
-                        )}
-
-                        {contextMenu.type === 'file' && (
-                            <button
-                                type="button"
-                                className="wt-context-item"
-                                role="menuitem"
-                                onClick={async () => {
-                                    const selected = contextMenu;
-                                    setContextMenu(null);
-                                    const link = resolveShareableDownloadUrl(selected.content || selected.filePath || '');
-                                    if (link) await navigator.clipboard.writeText(link);
-                                }}
-                            >
-                                <LinkIcon size={16} />
-                                <span>{t ? (t('copy_link') || '复制下载链接') : '复制下载链接'}</span>
-                            </button>
-                        )}
-                    </motion.div>
-                )}
-            </AnimatePresence>
-        </div >
+            {/* Context Menu */}
+            <TransferContextMenu
+                contextMenu={contextMenu}
+                onClose={() => setContextMenu(null)}
+                expandedBatches={expandedBatches}
+                toggleBatchExpanded={toggleBatchExpanded}
+                savingBatchId={savingBatchId}
+                saveBatchAs={saveBatchAs}
+                openTransferContent={openTransferContent}
+                t={t}
+            />
+        </div>
     );
 };
 
