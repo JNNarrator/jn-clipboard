@@ -1266,27 +1266,23 @@ const FileTransferChatView = ({
                             </>
                         ) : (
                             <div className="wt-pairing-hero">
-                                <div className="wt-pairing-card">
-                                    <div className="wt-pairing-qr">
-                                        <QRCodeCanvas value={connectionUrl} size={132} />
-                                    </div>
-                                    <div className="wt-pairing-info">
-                                        <div className="wt-pairing-title">扫码连接手机</div>
-                                        <div className="wt-pairing-address-row">
-                                            <span className="wt-pairing-address">{activeIp}:{actualPort}</span>
-                                            <button
-                                                type="button"
-                                                className="wt-pairing-copy-btn"
-                                                onClick={() => handleCopyLink(connectionUrl)}
-                                                title="复制连接地址"
-                                            >
-                                                {copiedLink ? "已复制" : "复制地址"}
-                                            </button>
-                                        </div>
-                                        <div className="wt-pairing-tip">
-                                            手机与电脑在同一 Wi-Fi 下扫码即可互传
-                                        </div>
-                                    </div>
+                                <div className="wt-pairing-qr">
+                                    <QRCodeCanvas value={connectionUrl} size={128} />
+                                </div>
+                                <div className="wt-pairing-title">扫码连接手机</div>
+                                <div className="wt-pairing-tip">
+                                    手机与电脑在同一 Wi-Fi 下扫码即可互传
+                                </div>
+                                <div className="wt-pairing-address-row">
+                                    <span className="wt-pairing-address">{activeIp}:{actualPort}</span>
+                                    <button
+                                        type="button"
+                                        className="wt-pairing-copy-btn"
+                                        onClick={() => handleCopyLink(connectionUrl)}
+                                        title="复制连接地址"
+                                    >
+                                        {copiedLink ? "已复制" : "复制地址"}
+                                    </button>
                                 </div>
                             </div>
                         )}

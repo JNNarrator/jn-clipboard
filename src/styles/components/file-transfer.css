@@ -527,79 +527,67 @@
   line-height: 1.5;
 }
 
-/* Pairing hero in empty state */
+/* Pairing hero in empty state (borderless, native empty-state flow) */
 .wt-pairing-hero {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 7px;
   width: 100%;
-}
-
-.wt-pairing-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-  width: 100%;
-  padding: 20px 18px;
-  border: 1px solid var(--im-border);
-  border-radius: var(--im-panel-radius);
-  background: var(--im-surface);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  text-align: center;
 }
 
 .wt-pairing-qr {
   display: grid;
   place-items: center;
   padding: 8px;
-  border-radius: 10px;
+  border-radius: 12px;
   background: #ffffff;
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
-}
-
-.wt-pairing-info {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  text-align: center;
+  border: 1px solid var(--im-border);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+  margin-bottom: 3px;
 }
 
 .wt-pairing-title {
-  font-size: 13px;
-  font-weight: 650;
   color: var(--im-text);
+  font-size: 13.5px;
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+.wt-pairing-tip {
+  color: var(--im-muted);
+  font-size: 11px;
+  line-height: 1.45;
+  max-width: 240px;
 }
 
 .wt-pairing-address-row {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
   gap: 6px;
-  width: 100%;
-  padding: 4px 8px;
+  margin-top: 4px;
+  padding: 3px 8px;
   border: 1px solid var(--im-border);
   border-radius: 6px;
   background: rgba(var(--im-accent-rgb), 0.05);
 }
 
 .wt-pairing-address {
-  color: var(--im-text);
-  font: 10.5px/1.2 var(--font-mono);
+  color: var(--im-muted);
+  font: 10px/1.2 var(--font-mono);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .wt-pairing-copy-btn {
-  padding: 2px 7px;
+  padding: 1.5px 6px;
   border: 0;
   border-radius: 4px;
   background: rgba(var(--im-accent-rgb), 0.12);
   color: var(--im-accent);
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 600;
   cursor: pointer;
   flex-shrink: 0;
@@ -608,13 +596,6 @@
 
 .wt-pairing-copy-btn:hover {
   background: rgba(var(--im-accent-rgb), 0.22);
-}
-
-.wt-pairing-tip {
-  color: var(--im-muted);
-  font-size: 10.5px;
-  line-height: 1.4;
-  text-align: center;
 }
 
 /* Message grouping */
