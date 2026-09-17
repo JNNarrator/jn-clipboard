@@ -1,11 +1,8 @@
 import { useState, useRef, useEffect } from "react";
-import { QRCodeCanvas } from "qrcode.react";
 import {
     FolderOpen,
     Trash2,
-    QrCode,
     Search,
-    Link as LinkIcon,
     MoreHorizontal,
     Globe,
     Check,
@@ -16,44 +13,39 @@ export interface TransferHeaderProps {
     hasOnlineDevices: boolean;
     conversationTitle: string;
     onlineDevicesCount: number;
-    connectionUrl: string;
     activeIp: string;
     actualPort: string;
     selectedIp: string;
     interfaces: NetworkInterfaceInfo[];
     onSwitchIp: (ip: string) => void;
-    copiedLink: boolean;
-    onCopyLink: (url: string) => void;
     showSearchBar: boolean;
     isFiltering: boolean;
     onToggleSearch: () => void;
     onOpenFolder: () => void;
     hasMessages: boolean;
     onClearHistory: () => void;
-    showQrCode: boolean;
-    onToggleQrCode: () => void;
+    connectionUrl?: string;
+    copiedLink?: boolean;
+    onCopyLink?: (url: string) => void;
+    showQrCode?: boolean;
+    onToggleQrCode?: () => void;
 }
 
 export const TransferHeader = ({
     hasOnlineDevices,
     conversationTitle,
     onlineDevicesCount,
-    connectionUrl,
     activeIp,
     actualPort,
     selectedIp,
     interfaces,
     onSwitchIp,
-    copiedLink,
-    onCopyLink,
     showSearchBar,
     isFiltering,
     onToggleSearch,
     onOpenFolder,
     hasMessages,
     onClearHistory,
-    showQrCode,
-    onToggleQrCode,
 }: TransferHeaderProps) => {
     const [showMoreMenu, setShowMoreMenu] = useState(false);
     const moreMenuRef = useRef<HTMLDivElement>(null);
@@ -101,7 +93,7 @@ export const TransferHeader = ({
                     aria-label="搜索与筛选记录"
                     onClick={onToggleSearch}
                 >
-                    <Search size={15} />
+                    <Search size={15} strokeWidth={2.2} />
                 </button>
 
                 <button
@@ -112,7 +104,7 @@ export const TransferHeader = ({
                     aria-expanded={showMoreMenu}
                     onClick={() => setShowMoreMenu((prev) => !prev)}
                 >
-                    <MoreHorizontal size={16} />
+                    <MoreHorizontal size={18} strokeWidth={2.4} />
                 </button>
 
                 {/* "三个点" 更多操作下拉菜单 */}
@@ -129,31 +121,6 @@ export const TransferHeader = ({
                         >
                             <FolderOpen size={14} />
                             <span>在访达中打开保存目录</span>
-                        </button>
-
-                        <button
-                            type="button"
-                            className="wt-more-menu-item"
-                            role="menuitem"
-                            onClick={() => {
-                                setShowMoreMenu(false);
-                                onToggleQrCode();
-                            }}
-                        >
-                            <QrCode size={14} />
-                            <span>查看连接二维码</span>
-                        </button>
-
-                        <button
-                            type="button"
-                            className="wt-more-menu-item"
-                            role="menuitem"
-                            onClick={() => {
-                                onCopyLink(connectionUrl);
-                            }}
-                        >
-                            <LinkIcon size={14} />
-                            <span>{copiedLink ? "已复制连接地址" : "复制连接地址"}</span>
                         </button>
 
                         {interfaces.length > 1 && (
@@ -199,25 +166,6 @@ export const TransferHeader = ({
                     </div>
                 )}
             </div>
-
-            {/* QR Code Popover */}
-            {showQrCode && (
-                <div className="wt-qr-popover">
-                    <div className="wt-qr-popover-code">
-                        <QRCodeCanvas value={connectionUrl} size={130} />
-                    </div>
-                    <div className="wt-qr-popover-title">手机扫码连接</div>
-                    <div className="wt-qr-popover-address">{activeIp}:{actualPort}</div>
-                    <button
-                        type="button"
-                        className="wt-copy-link-action"
-                        onClick={() => onCopyLink(connectionUrl)}
-                    >
-                        <LinkIcon size={12} />
-                        <span>{copiedLink ? "已复制地址" : "复制连接地址"}</span>
-                    </button>
-                </div>
-            )}
         </div>
     );
 };

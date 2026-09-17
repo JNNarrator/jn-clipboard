@@ -195,23 +195,31 @@
 
 .wt-header-action {
   display: grid;
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   flex: 0 0 auto;
   place-items: center;
   padding: 0;
-  border: 0;
-  border-radius: 8px;
-  color: var(--im-muted);
-  background: transparent;
+  border: 1px solid var(--im-border);
+  border-radius: 7px;
+  color: var(--im-text);
+  background: color-mix(in srgb, var(--im-surface) 75%, transparent);
   cursor: pointer;
-  transition: color 140ms ease, background 140ms ease, transform 140ms ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  transition: color 140ms ease, background 140ms ease, border-color 140ms ease, transform 140ms ease, box-shadow 140ms ease;
 }
 
-.wt-header-action:hover,
-.wt-header-action.is-active {
+.wt-header-action:hover {
   color: var(--im-accent);
-  background: rgba(var(--im-accent-rgb), 0.1);
+  border-color: rgba(var(--im-accent-rgb), 0.3);
+  background: rgba(var(--im-accent-rgb), 0.09);
+}
+
+.wt-header-action.is-active {
+  color: #ffffff;
+  background: var(--im-accent);
+  border-color: var(--im-accent);
+  box-shadow: 0 2px 6px rgba(var(--im-accent-rgb), 0.32);
 }
 
 .wt-header-action:active {
@@ -222,7 +230,7 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
 }
 
 /* "···" More Menu */
@@ -319,77 +327,6 @@
 .wt-more-menu-check {
   margin-left: auto;
   color: var(--im-accent);
-}
-
-.wt-qr-popover {
-  position: absolute;
-  z-index: 500;
-  top: 44px;
-  right: 10px;
-  display: grid;
-  width: 175px;
-  justify-items: center;
-  padding: 12px;
-  border: 1px solid var(--im-border);
-  border-radius: var(--im-panel-radius);
-  color: var(--im-text);
-  background: var(--im-surface);
-  box-shadow: var(--im-menu-shadow);
-}
-
-.wt-qr-popover-code {
-  display: grid;
-  width: 120px;
-  height: 120px;
-  place-items: center;
-  padding: 4px;
-  border-radius: 8px;
-  background: #fff;
-}
-
-.wt-qr-popover-title {
-  margin-top: 8px;
-  font-size: 11px;
-  font-weight: 650;
-}
-
-.wt-qr-popover-address {
-  margin-top: 2px;
-}
-
-.wt-ip-picker-popover {
-  margin-top: 6px;
-  width: 100%;
-}
-
-.wt-ip-picker-popover .wt-ip-select {
-  width: 100%;
-  max-width: 100%;
-  text-align: left;
-}
-
-.wt-copy-link-action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  margin-top: 8px;
-  width: 100%;
-  padding: 5px 8px;
-  border: 1px solid var(--im-border);
-  border-radius: 6px;
-  background: transparent;
-  color: var(--im-text);
-  font-size: 10px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: color 140ms ease, background 140ms ease, border-color 140ms ease;
-}
-
-.wt-copy-link-action:hover {
-  color: var(--im-accent);
-  border-color: var(--im-accent);
-  background: rgba(var(--im-accent-rgb), 0.08);
 }
 
 /* Conversation canvas */
