@@ -154,7 +154,7 @@ const AppHeader = ({
     : showTagManager && tagManagerEnabled
       ? (t('tag_manager') || '标签管理')
       : showSettings
-        ? settingsTitle
+        ? (chatMode ? (t('file_transfer') || '局域网文件传输') : settingsTitle)
         : t('app_name');
 
   const hideWindow = (e: MouseEvent<HTMLButtonElement>) => {

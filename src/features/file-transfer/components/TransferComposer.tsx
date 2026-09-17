@@ -118,11 +118,11 @@ export const TransferComposer = ({
         <>
             <div className="wt-footer">
                 <div className="wt-composer">
-                    {/* Apple Style Unified Circular '+' Attachment Button */}
+                    {/* Attachment control with TieZ standard btn-icon */}
                     <div className="wt-file-send-control" ref={fileSendOptionsRef}>
                         <button
                             type="button"
-                            className={`wt-composer-add-btn ${showFileSendOptions ? "is-active" : ""}`}
+                            className={`btn-icon wt-composer-add-btn ${showFileSendOptions ? "active" : ""}`}
                             title="选择与发送文件"
                             aria-label="选择与发送文件"
                             aria-expanded={showFileSendOptions}
@@ -130,9 +130,9 @@ export const TransferComposer = ({
                             onClick={() => setShowFileSendOptions((value) => !value)}
                         >
                             {isChoosingFiles ? (
-                                <LoaderCircle size={17} className="wt-spin" />
+                                <LoaderCircle size={15} className="wt-spin" />
                             ) : (
-                                <Plus size={17} />
+                                <Plus size={15} />
                             )}
                         </button>
 
@@ -141,9 +141,9 @@ export const TransferComposer = ({
                                 <motion.div
                                     className="wt-file-send-options"
                                     role="menu"
-                                    initial={{ opacity: 0, scale: 0.95, y: 6 }}
+                                    initial={{ opacity: 0, scale: 0.96, y: 4 }}
                                     animate={{ opacity: 1, scale: 1, y: 0 }}
-                                    exit={{ opacity: 0, scale: 0.95, y: 6 }}
+                                    exit={{ opacity: 0, scale: 0.96, y: 4 }}
                                     transition={{ duration: 0.12 }}
                                 >
                                     <button
@@ -155,10 +155,10 @@ export const TransferComposer = ({
                                             void chooseFilesToSend();
                                         }}
                                     >
-                                        <FolderOpen size={16} />
+                                        <FolderOpen size={15} />
                                         <span>
                                             <strong>选择文件发送…</strong>
-                                            <small>从访达中选取文件或照片</small>
+                                            <small>从访达或本地目录选取</small>
                                         </span>
                                     </button>
 
@@ -176,7 +176,7 @@ export const TransferComposer = ({
                                             setShowFileSendOptions(false);
                                         }}
                                     >
-                                        <FileArchive size={16} />
+                                        <FileArchive size={15} />
                                         <span>
                                             <strong>作为文件包发送</strong>
                                             <small>多文件自动折叠，支持整包保存</small>
@@ -196,7 +196,7 @@ export const TransferComposer = ({
                                             setShowFileSendOptions(false);
                                         }}
                                     >
-                                        <FileIcon size={16} />
+                                        <FileIcon size={15} />
                                         <span>
                                             <strong>逐个独立发送</strong>
                                             <small>每个文件作为单独卡片发送</small>
@@ -210,8 +210,8 @@ export const TransferComposer = ({
                         </AnimatePresence>
                     </div>
 
-                    {/* Apple Style Capsule Text Input */}
-                    <div className="wt-input-capsule">
+                    {/* TieZ Native Input Field */}
+                    <div className="wt-input-wrapper">
                         <textarea
                             ref={textareaRef}
                             className="wt-input"
@@ -226,26 +226,26 @@ export const TransferComposer = ({
                         {showExpandBtn && (
                             <button
                                 type="button"
-                                className="wt-input-expand-btn"
+                                className="btn-icon wt-input-expand-btn"
                                 onClick={() => setShowFullScreen(true)}
                                 title="展开全屏编辑"
                                 aria-label="展开全屏编辑"
                             >
-                                <Maximize2 size={14} />
+                                <Maximize2 size={13} />
                             </button>
                         )}
                     </div>
 
-                    {/* Apple Style Upward Arrow Send Button */}
+                    {/* Send Button */}
                     <button
                         type="button"
-                        onClick={handleSend}
-                        className={`wt-send-circle-btn ${input.trim() ? "is-active" : ""}`}
+                        className={`btn-icon wt-send-btn ${input.trim() ? "active" : ""}`}
                         disabled={!input.trim()}
-                        title="发送消息"
+                        onClick={handleSend}
+                        title="发送 (Enter)"
                         aria-label="发送消息"
                     >
-                        <ArrowUp size={16} strokeWidth={2.4} />
+                        <ArrowUp size={15} />
                     </button>
                 </div>
             </div>

@@ -54,94 +54,94 @@ export const TransferHeader = ({
     onToggleQrCode,
 }: TransferHeaderProps) => {
     return (
-        <div className={`wt-header ${hasOnlineDevices ? "is-connected" : "is-standby"}`}>
-            <div className="wt-header-left">
-                <div className="wt-presence-status">
-                    <span
-                        className={`wt-presence-dot ${hasOnlineDevices ? "is-online" : "is-waiting"}`}
-                        aria-hidden="true"
-                    />
-                </div>
-                <div className="wt-header-title-group">
-                    <div className="wt-header-title">
-                        {hasOnlineDevices ? conversationTitle : "局域网投送"}
-                    </div>
-                    <div className="wt-header-subtitle">
-                        {hasOnlineDevices
-                            ? onlineDevicesCount === 1
-                                ? "已就绪 · 可直接收发"
-                                : `${onlineDevicesCount} 台设备在线`
-                            : "等待手机扫码连接"}
-                    </div>
-                </div>
-            </div>
-
-            <div className="wt-header-actions">
+        <div className="wt-sub-toolbar">
+            {/* Left: Minimal status indicator */}
+            <div className="wt-toolbar-left">
                 <button
                     type="button"
-                    className={`wt-header-action ${showSearchBar || isFiltering ? "is-active" : ""}`}
-                    title={showSearchBar ? "关闭搜索 (⌘F)" : "搜索与筛选 (⌘F)"}
+                    className="wt-status-pill"
+                    onClick={onToggleQrCode}
+                    title="点击查看连接二维码与网卡地址"
+                >
+                    <span
+                        className={`wt-status-dot ${hasOnlineDevices ? "is-online" : "is-waiting"}`}
+                        aria-hidden="true"
+                    />
+                    <span className="wt-status-text">
+                        {hasOnlineDevices
+                            ? (onlineDevicesCount === 1 ? (conversationTitle || "设备已连接") : `${onlineDevicesCount} 台设备在线`)
+                            : `${activeIp}:${actualPort}`}
+                    </span>
+                </button>
+            </div>
+
+            {/* Right: Standard TieZ btn-icon actions */}
+            <div className="wt-toolbar-actions">
+                <button
+                    type="button"
+                    className={`btn-icon ${showSearchBar || isFiltering ? "active" : ""}`}
+                    title={showSearchBar ? "关闭搜索与筛选" : "搜索与筛选记录"}
                     aria-label="搜索与筛选"
                     onClick={onToggleSearch}
                 >
-                    <Search size={15} />
+                    <Search size={14} />
                 </button>
 
                 <button
                     type="button"
-                    className="wt-header-action"
+                    className="btn-icon"
                     title="在访达中打开保存目录"
                     aria-label="打开保存目录"
                     onClick={onOpenFolder}
                 >
-                    <FolderOpen size={15} />
+                    <FolderOpen size={14} />
                 </button>
 
                 <button
                     type="button"
-                    className={`wt-header-action ${showQrCode ? "is-active" : ""}`}
-                    title="连接设备二维码"
-                    aria-label="连接设备二维码"
+                    className={`btn-icon ${showQrCode ? "active" : ""}`}
+                    title="连接二维码与地址"
+                    aria-label="连接二维码与地址"
                     aria-expanded={showQrCode}
                     onClick={onToggleQrCode}
                 >
-                    <QrCode size={15} />
+                    <QrCode size={14} />
                 </button>
 
                 {hasMessages && (
                     <button
                         type="button"
-                        className="wt-header-action wt-header-action-danger"
+                        className="btn-icon"
                         title="清空传输记录"
                         aria-label="清空传输记录"
                         onClick={onClearHistory}
                     >
-                        <Trash2 size={15} />
+                        <Trash2 size={14} />
                     </button>
                 )}
             </div>
 
-            {/* Apple style Frosted Popover for QR / Network selection */}
+            {/* Clean, minimalist QR Code popover */}
             <AnimatePresence>
                 {showQrCode && (
                     <motion.div
                         className="wt-qr-popover"
-                        initial={{ opacity: 0, scale: 0.95, y: -6 }}
+                        initial={{ opacity: 0, scale: 0.96, y: -4 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.95, y: -6 }}
-                        transition={{ duration: 0.15 }}
+                        exit={{ opacity: 0, scale: 0.96, y: -4 }}
+                        transition={{ duration: 0.12 }}
                     >
                         <div className="wt-qr-popover-header">
                             <span className="wt-qr-popover-title">连接新设备</span>
-                            <span className="wt-qr-popover-desc">用手机相机或浏览器扫码</span>
+                            <span className="wt-qr-popover-desc">局域网内扫码或浏览器访问</span>
                         </div>
 
                         <div className="wt-qr-popover-code">
-                            <QRCodeCanvas value={connectionUrl} size={132} />
+                            <QRCodeCanvas value={connectionUrl} size={130} />
                         </div>
 
                         {interfaces.length > 1 ? (
-                            <div className="wt-ip-picker wt-ip-picker-popover">
+                            <div className="wt-ip-picker">
                                 <select
                                     className="wt-ip-select"
                                     value={selectedIp}
@@ -164,7 +164,7 @@ export const TransferHeader = ({
 
                         <button
                             type="button"
-                            className="wt-copy-link-action"
+                            className="wt-copy-link-btn"
                             onClick={() => onCopyLink(connectionUrl)}
                         >
                             <LinkIcon size={12} />

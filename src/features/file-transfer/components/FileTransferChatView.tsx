@@ -1253,33 +1253,22 @@ const FileTransferChatView = ({
             {/* Chat Box */}
             <div className="wt-chat-box" ref={chatBoxRef}>
                 {messages.length === 0 && !hasOnlineDevices && (
-                    <div className="wt-airdrop-hero">
-                        <div className="wt-radar-container" aria-hidden="true">
-                            <div className="wt-radar-ring wt-radar-ring-1" />
-                            <div className="wt-radar-ring wt-radar-ring-2" />
-                            <div className="wt-radar-ring wt-radar-ring-3" />
-                            <div className="wt-radar-center">
-                                <Radio size={24} className="wt-radar-icon" />
-                            </div>
-                        </div>
+                    <div className="empty-state wt-empty-stage">
+                        <Radio size={36} opacity={0.3} style={{ marginBottom: "10px" }} />
+                        <p className="wt-empty-title">等待设备连接</p>
+                        <p className="wt-empty-desc">
+                            在同一局域网下用手机或其他设备扫码访问
+                        </p>
 
-                        <div className="wt-airdrop-card">
-                            <div className="wt-airdrop-header">
-                                <div className="wt-airdrop-title">隔空互传</div>
-                                <div className="wt-airdrop-desc">
-                                    用手机相机或浏览器扫码，在局域网内无缝收发文件
-                                </div>
-                            </div>
-
-                            <div className="wt-airdrop-qr-box">
+                        <div className="wt-pairing-card">
+                            <div className="wt-pairing-qr">
                                 <QRCodeCanvas
                                     value={connectionUrl}
-                                    size={144}
+                                    size={120}
                                     level="M"
                                 />
                             </div>
-
-                            <div className="wt-airdrop-footer">
+                            <div className="wt-pairing-info">
                                 {interfaces.length > 1 ? (
                                     <div className="wt-ip-picker">
                                         <select
@@ -1297,37 +1286,32 @@ const FileTransferChatView = ({
                                         <ChevronDown size={12} className="wt-ip-select-arrow" />
                                     </div>
                                 ) : (
-                                    <div className="wt-airdrop-address-tag">{activeIp}:{actualPort}</div>
+                                    <span className="wt-pairing-address">{activeIp}:{actualPort}</span>
                                 )}
 
                                 <button
                                     type="button"
-                                    className="wt-airdrop-copy-btn"
+                                    className="wt-pairing-copy-btn"
                                     onClick={() => handleCopyLink(connectionUrl)}
-                                    title="复制连接网址"
+                                    title="复制连接地址"
                                 >
                                     <LinkIcon size={12} />
-                                    <span>{copiedLink ? "已复制地址" : "复制地址"}</span>
+                                    <span>{copiedLink ? "已复制" : "复制地址"}</span>
                                 </button>
                             </div>
                         </div>
 
-                        <div className="wt-airdrop-hint">
-                            <span>提示：支持直接拖拽文件或文件夹到窗口中发送</span>
-                        </div>
+                        <p className="wt-drag-hint">支持直接拖拽文件或文件夹到窗口发送</p>
                     </div>
                 )}
 
                 {messages.length === 0 && hasOnlineDevices && (
-                    <div className="wt-empty-state wt-empty-connected">
-                        <div className="wt-empty-icon is-connected-radar" aria-hidden="true">
-                            <Wifi size={24} strokeWidth={2} />
-                        </div>
-                        <div className="wt-empty-title">设备已就绪</div>
-                        <div className="wt-empty-copy">
-                            已与「{primaryDeviceName}」建立局域网直连<br />
-                            直接拖入文件或在下方输入消息即可立即发送
-                        </div>
+                    <div className="empty-state wt-empty-stage">
+                        <Wifi size={36} opacity={0.3} style={{ marginBottom: "10px" }} />
+                        <p className="wt-empty-title">设备已连接</p>
+                        <p className="wt-empty-desc">
+                            已与「{primaryDeviceName}」建立连接，可直接拖入文件或输入文字发送
+                        </p>
                     </div>
                 )}
 
