@@ -394,6 +394,10 @@ enum WsIncoming {
         device_id: String,
         device_name: String,
     },
+    #[serde(rename = "ping")]
+    Ping,
+    #[serde(other)]
+    Unknown,
 }
 
 pub async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
@@ -415,6 +419,17 @@ pub async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
             if let WsMessage::Text(text) = msg {
                 if let Ok(incoming) = serde_json::from_str::<WsIncoming>(&text) {
                     match incoming {
+                        WsIncoming::Ping => {
+                            if let Some(ref id) = current_device_id {
+                                let online_devices = state_inner.app_handle.state::<OnlineDevices>();
+                                if let Ok(mut guard) = online_devices.0.lock() {
+                                    if let Some(device) = guard.get_mut(id) {
+                                        device.last_seen = chrono::Utc::now().timestamp_millis();
+                                    }
+                                };
+                            }
+                        }
+                        WsIncoming::Unknown => {}
                         WsIncoming::Identity {
                             device_id,
                             device_name,
@@ -858,6 +873,24 @@ async fn process_upload_chunk(
 
         return (StatusCode::OK, "Upload complete").into_response();
     }
+
+    let _ = state.app_handle.emit(
+        "file-transfer-chunk-progress",
+        serde_json::json!({
+            "upload_id": meta.upload_id,
+            "file_name": safe_name,
+            "chunk_index": meta.chunk_index,
+            "total_chunks": meta.total_chunks,
+            "total_size": meta.total_size,
+            "sender_id": meta.sender_id,
+            "sender_name": meta.sender_name,
+            "batch_id": meta.batch_id,
+            "batch_name": meta.batch_name,
+            "batch_index": meta.batch_index,
+            "batch_total": meta.batch_total,
+            "batch_size": meta.batch_size,
+        }),
+    );
 
     (StatusCode::OK, "Chunk received").into_response()
 }

@@ -719,7 +719,27 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
             position: absolute; left: 16px; top: 50%; transform: translateY(-50%);
             display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: bold;
         }}
-        .status-dot {{ width: 8px; height: 8px; background: #4caf50; border-radius: 50%; box-shadow: 0 0 5px #4caf50; }}
+        .status-dot {{
+            width: 8px; height: 8px; border-radius: 50%;
+            transition: background-color 0.3s ease, box-shadow 0.3s ease;
+        }}
+        .status-dot.connected {{
+            background: #4caf50;
+            box-shadow: 0 0 6px #4caf50;
+        }}
+        .status-dot.connecting {{
+            background: #f59e0b;
+            box-shadow: 0 0 6px #f59e0b;
+            animation: status-pulse 1.5s infinite ease-in-out;
+        }}
+        .status-dot.disconnected {{
+            background: #ef4444;
+            box-shadow: 0 0 6px #ef4444;
+        }}
+        @keyframes status-pulse {{
+            0%, 100% {{ opacity: 0.4; transform: scale(0.85); }}
+            50% {{ opacity: 1; transform: scale(1.15); }}
+        }}
 
         #chat-box {{
             flex: 1; overflow-y: auto; padding: 16px;
@@ -953,6 +973,12 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
             border: var(--send-button-border, var(--button-border, 2px solid var(--border-dark)));
             box-shadow: var(--send-button-shadow, var(--button-active-filled-shadow, 2px 2px 0 0 var(--shadow-color)));
         }}
+        .paste-btn {{
+            width: 40px; height: 40px;
+            font-size: 16px; flex-shrink: 0;
+            display: inline-flex; align-items: center; justify-content: center;
+            padding: 0; cursor: pointer;
+        }}
         
         .text-input {{ 
             flex: 1; height: 40px; min-height: 40px; max-height: 100px; padding: 10px 12px;
@@ -1039,9 +1065,9 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
 </head>
 <body class="theme-{theme} {mode_class}">
     <header>
-        <div class="header-status">
-            <div class="status-dot"></div>
-            <span id="device-count">Linked</span>
+        <div class="header-status" id="header-status">
+            <div class="status-dot connected" id="status-dot"></div>
+            <span id="device-count">已连接</span>
         </div>
         <h1>TieZ 终端</h1>
     </header>
@@ -1087,6 +1113,7 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
             <textarea class="text-input" id="text-input" placeholder="输入文字..." rows="1"></textarea>
             <div class="expand-btn" id="expand-btn" onclick="openFullscreen()">⤢</div>
         </div>
+        <button type="button" class="retro-btn paste-btn" id="paste-btn" title="粘贴剪贴板" aria-label="粘贴剪贴板">📋</button>
         <button class="retro-btn send-btn" id="send-btn">SEND</button>
         <input type="file" id="file-input" multiple style="display:none">
     </footer>
@@ -1106,6 +1133,7 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
         const fileInput = document.getElementById('file-input');
         const textInput = document.getElementById('text-input');
         const sendBtn = document.getElementById('send-btn');
+        const pasteBtn = document.getElementById('paste-btn');
         const chatBox = document.getElementById('chat-box');
         const fileModeToggle = document.getElementById('file-mode-toggle');
         const fileModeMenu = document.getElementById('file-mode-menu');
@@ -1313,6 +1341,7 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
                 row = document.createElement(url ? 'a' : 'div');
                 row.className = 'batch-file-row';
                 row.dataset.batchIndex = String(index);
+                if (msg.id) row.setAttribute('data-msg-id', String(msg.id));
                 if (url) row.href = url;
                 row.innerHTML = `
                     <span class="batch-file-icon">📄</span>
@@ -1323,6 +1352,7 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
                 entry.files.appendChild(row);
                 entry.indices.add(index);
             }} else {{
+                if (msg.id) row.setAttribute('data-msg-id', String(msg.id));
                 if (url) {{
                     if (row.tagName === 'A') row.href = url;
                     else {{
@@ -1336,9 +1366,10 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
             entry.bubble.querySelector('.batch-count').textContent = String(entry.indices.size);
             return row;
         }}
-        function createMessageElement(direction, content, senderName, msgType, file_path) {{
+        function createMessageElement(direction, content, senderName, msgType, file_path, msgId) {{
             const div = document.createElement('div');
             div.className = `message ${{direction}}`;
+            if (msgId) div.setAttribute('data-msg-id', String(msgId));
             
             let bubbleContent = escapeHTML(content);
             if (msgType === 'image' || (content.match(/\.(jpg|jpeg|png|gif|webp)$/i) && file_path)) {{
@@ -1437,58 +1468,162 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
         }}
         syncViewportMetrics();
 
+        // Connection & Message Synchronization
+        const statusDot = document.getElementById('status-dot');
+        const deviceCount = document.getElementById('device-count');
+
+        function updateConnectionStatus(status) {{
+            if (!statusDot || !deviceCount) return;
+            statusDot.className = 'status-dot ' + status;
+            if (status === 'connected') {{
+                deviceCount.textContent = '已连接';
+            }} else if (status === 'connecting') {{
+                deviceCount.textContent = '连接中…';
+            }} else {{
+                deviceCount.textContent = '已断开';
+            }}
+        }}
+
+        function handleIncomingMessage(msg) {{
+            if (!msg) return;
+            if (msg.type === 'clear_history') {{
+                chatBox.innerHTML = '';
+                lastId = 0;
+                return;
+            }}
+            if (msg.type === 'devices_update') return;
+            if (msg.id && typeof msg.id === 'number') {{
+                if (msg.id > lastId) lastId = msg.id;
+                if (document.querySelector(`[data-msg-id="${{msg.id}}"]`)) return;
+            }}
+            if (msg.batch_id) {{
+                if (msg.direction === 'in' && msg.sender_id === deviceId) {{
+                    const rawName = extractNameFromContent(msg.content, msg.file_path);
+                    const pending = takePendingUpload(normalizeFileName(rawName));
+                    if (pending) pending.remove();
+                }}
+                appendBatchMessage(
+                    msg,
+                    msg.direction === 'out' ? 'received' : 'sent',
+                    msg.direction === 'out' ? msg.sender_name : 'You'
+                );
+                return;
+            }}
+            if (msg.direction === 'in' && msg.sender_id === deviceId && (msg.msg_type === 'file' || msg.msg_type === 'image' || msg.msg_type === 'video')) {{
+                const rawName = extractNameFromContent(msg.content, msg.file_path);
+                const maybeName = normalizeFileName(rawName);
+                const pending = takePendingUpload(maybeName);
+                if (pending) {{
+                    const replacement = createMessageElement('sent', msg.content, 'You', msg.msg_type, msg.file_path, msg.id);
+                    pending.replaceWith(replacement);
+                    return;
+                }}
+            }}
+            if (msg.direction === 'out') {{
+                const el = createMessageElement('received', msg.content, msg.sender_name, msg.msg_type, msg.file_path, msg.id);
+                chatBox.appendChild(el);
+            }} else if (msg.direction === 'in') {{
+                const el = createMessageElement('sent', msg.content, 'You', msg.msg_type, msg.file_path, msg.id);
+                chatBox.appendChild(el);
+            }}
+        }}
+
+        let isSyncing = false;
+        async function syncMissedMessages() {{
+            if (isSyncing) return;
+            isSyncing = true;
+            try {{
+                const res = await fetch(`/poll?last_id=${{lastId}}`);
+                if (res.ok) {{
+                    const list = await res.json();
+                    if (Array.isArray(list) && list.length > 0) {{
+                        for (const m of list) {{
+                            handleIncomingMessage(m);
+                        }}
+                        scrollToBottom();
+                    }}
+                }}
+            }} catch (e) {{
+                console.warn('Sync missed messages failed:', e);
+            }} finally {{
+                isSyncing = false;
+            }}
+        }}
+
         // WebSocket Setup
         let socket;
+        let pingTimer = null;
+        let reconnectTimer = null;
         function connectWS() {{
+            if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {{
+                return;
+            }}
+            if (reconnectTimer) {{
+                clearTimeout(reconnectTimer);
+                reconnectTimer = null;
+            }}
+            updateConnectionStatus('connecting');
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             socket = new WebSocket(`${{protocol}}//${{window.location.host}}/ws`);
             
             socket.onopen = () => {{
+                updateConnectionStatus('connected');
                 socket.send(JSON.stringify({{ type: 'identity', device_id: deviceId, device_name: deviceName }}));
                 console.log('WS Connected');
+                clearInterval(pingTimer);
+                pingTimer = setInterval(() => {{
+                    if (socket && socket.readyState === WebSocket.OPEN) {{
+                        socket.send(JSON.stringify({{ type: 'ping' }}));
+                    }}
+                }}, 20000);
+                syncMissedMessages();
             }};
             
             socket.onmessage = (e) => {{
-                const msg = JSON.parse(e.data);
-                if (msg.batch_id) {{
-                    if (msg.direction === 'in' && msg.sender_id === deviceId) {{
-                        const rawName = extractNameFromContent(msg.content, msg.file_path);
-                        const pending = takePendingUpload(normalizeFileName(rawName));
-                        if (pending) pending.remove();
-                    }}
-                    appendBatchMessage(
-                        msg,
-                        msg.direction === 'out' ? 'received' : 'sent',
-                        msg.direction === 'out' ? msg.sender_name : 'You'
-                    );
+                try {{
+                    const msg = JSON.parse(e.data);
+                    handleIncomingMessage(msg);
                     scrollToBottom();
-                    return;
-                }}
-                if (msg.direction === 'in' && msg.sender_id === deviceId && (msg.msg_type === 'file' || msg.msg_type === 'image' || msg.msg_type === 'video')) {{
-                    const rawName = extractNameFromContent(msg.content, msg.file_path);
-                    const maybeName = normalizeFileName(rawName);
-                    const pending = takePendingUpload(maybeName);
-                    if (pending) {{
-                        const replacement = createMessageElement('sent', msg.content, 'You', msg.msg_type, msg.file_path);
-                        pending.replaceWith(replacement);
-                        scrollToBottom();
-                        return;
-                    }}
-                }}
-                if (msg.direction === 'out') {{
-                    const el = createMessageElement('received', msg.content, msg.sender_name, msg.msg_type, msg.file_path);
-                    chatBox.appendChild(el);
-                    scrollToBottom();
-                }} else if (msg.direction === 'in') {{
-                    const el = createMessageElement('sent', msg.content, 'You', msg.msg_type, msg.file_path);
-                    chatBox.appendChild(el);
-                    scrollToBottom();
+                }} catch (err) {{
+                    console.error('Failed to parse WS message:', err);
                 }}
             }};
             
-            socket.onclose = () => setTimeout(connectWS, 3000);
+            socket.onclose = () => {{
+                updateConnectionStatus('disconnected');
+                clearInterval(pingTimer);
+                if (!reconnectTimer) {{
+                    reconnectTimer = setTimeout(() => {{
+                        reconnectTimer = null;
+                        connectWS();
+                    }}, 3000);
+                }}
+            }};
+
+            socket.onerror = () => {{
+                updateConnectionStatus('disconnected');
+            }};
         }}
         connectWS();
+        syncMissedMessages();
+
+        document.addEventListener('visibilitychange', () => {{
+            if (document.visibilityState === 'visible') {{
+                if (!socket || socket.readyState !== WebSocket.OPEN) {{
+                    connectWS();
+                }} else {{
+                    syncMissedMessages();
+                }}
+            }}
+        }});
+
+        window.addEventListener('online', () => {{
+            if (!socket || socket.readyState !== WebSocket.OPEN) {{
+                connectWS();
+            }} else {{
+                syncMissedMessages();
+            }}
+        }});
 
         sendBtn.onclick = async () => {{
             const text = textInput.value.trim();
@@ -1506,6 +1641,30 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
                 }});
             }} catch(e) {{ alert('Send failed'); }}
         }};
+
+        if (pasteBtn) {{
+            pasteBtn.onclick = async () => {{
+                try {{
+                    if (navigator.clipboard && navigator.clipboard.readText) {{
+                        const text = await navigator.clipboard.readText();
+                        if (text && text.trim()) {{
+                            const current = textInput.value;
+                            textInput.value = current ? current + '\n' + text : text;
+                            textInput.style.height = '40px';
+                            const newHeight = Math.min(textInput.scrollHeight, 100);
+                            textInput.style.height = newHeight + 'px';
+                            document.getElementById('expand-btn').style.display = newHeight > 50 ? 'flex' : 'none';
+                            textInput.focus();
+                            return;
+                        }}
+                    }}
+                    alert('剪贴板为空或未获取读取权限');
+                }} catch (err) {{
+                    console.warn('Clipboard read failed:', err);
+                    textInput.focus();
+                }}
+            }};
+        }}
 
         fileInput.onchange = async () => {{
             if (!fileInput.files.length || isUploading) return;

@@ -40,10 +40,33 @@ pub fn score_interface(name: &str, ip: &str) -> i32 {
     score
 }
 
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct NetworkInterfaceInfo {
+    pub name: String,
+    pub ip: String,
+    pub is_virtual: bool,
+    pub label: String,
+}
+
+fn get_interface_label(name: &str, ip: &str, is_virtual: bool) -> String {
+    let name_lower = name.to_lowercase();
+    let type_desc = if is_virtual {
+        "VPN / 虚拟网卡"
+    } else if name_lower.contains("wi-fi") || name_lower.contains("wlan") || name_lower == "en0" {
+        "Wi-Fi"
+    } else if name_lower.contains("eth") || name_lower.contains("ethernet") || name_lower.starts_with("en") {
+        "以太网 / 局域网"
+    } else {
+        "局域网"
+    };
+
+    format!("{} · {} ({})", ip, name, type_desc)
+}
+
 #[tauri::command]
-pub fn get_available_ips() -> Vec<String> {
+pub fn get_available_network_interfaces() -> Vec<NetworkInterfaceInfo> {
     if let Ok(ifas) = list_afinet_netifas() {
-        let mut candidates = Vec::new();
+        let mut list = Vec::new();
         for (name, ip) in ifas {
             let ip_str = ip.to_string();
             let name_lower = name.to_lowercase();
@@ -51,7 +74,6 @@ pub fn get_available_ips() -> Vec<String> {
                 continue;
             }
 
-            // 过滤掉明显的虚拟网卡
             let is_virtual = name_lower.contains("vnet")
                 || name_lower.contains("vbox")
                 || name_lower.contains("virtual")
@@ -64,29 +86,50 @@ pub fn get_available_ips() -> Vec<String> {
                 || name_lower.contains("vethernet")
                 || name_lower.contains("docker")
                 || name_lower.contains("hyper-v")
-                || name_lower.contains("radmin");
+                || name_lower.contains("radmin")
+                || name_lower.contains("utun")
+                || ip_str.starts_with("198.18.");
 
-            if is_virtual {
-                continue;
-            }
-
-            if ip_str.starts_with("192.168.")
-                || ip_str.starts_with("10.")
-                || ip_str.starts_with("172.")
-            {
-                candidates.push((name_lower, ip_str));
-            }
+            let label = get_interface_label(&name, &ip_str, is_virtual);
+            list.push((name_lower, ip_str, is_virtual, name, label));
         }
 
-        candidates.sort_by(|(name_a, ip_a), (name_b, ip_b)| {
+        // Sort: physical/LAN interfaces first, then by priority score
+        list.sort_by(|(name_a, ip_a, is_virt_a, _, _), (name_b, ip_b, is_virt_b, _, _)| {
+            if *is_virt_a != *is_virt_b {
+                return is_virt_a.cmp(is_virt_b);
+            }
             let score_a = score_interface(name_a, ip_a);
             let score_b = score_interface(name_b, ip_b);
             score_b.cmp(&score_a)
         });
 
-        return candidates.into_iter().map(|(_, ip)| ip).collect();
+        return list
+            .into_iter()
+            .map(|(_, ip, is_virtual, name, label)| NetworkInterfaceInfo {
+                name,
+                ip,
+                is_virtual,
+                label,
+            })
+            .collect();
     }
     vec![]
+}
+
+#[tauri::command]
+pub fn get_available_ips() -> Vec<String> {
+    let interfaces = get_available_network_interfaces();
+    let physical: Vec<String> = interfaces
+        .iter()
+        .filter(|iface| !iface.is_virtual)
+        .map(|iface| iface.ip.clone())
+        .collect();
+    if !physical.is_empty() {
+        physical
+    } else {
+        interfaces.into_iter().map(|iface| iface.ip).collect()
+    }
 }
 
 pub async fn bind_listener(start_port: u16) -> (tokio::net::TcpListener, u16) {

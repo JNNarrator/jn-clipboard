@@ -167,6 +167,56 @@ pub fn get_chat_history(app_handle: AppHandle) -> Vec<Message> {
 }
 
 #[tauri::command]
+pub fn clear_chat_history(app_handle: AppHandle) -> Result<(), String> {
+    if let Ok(mut msgs) = app_handle.state::<ChatState>().0.lock() {
+        msgs.clear();
+    }
+    if let Some(ws_state) = app_handle.try_state::<WsBroadcaster>() {
+        if let Ok(guard) = ws_state.0.lock() {
+            if let Some(tx) = guard.as_ref() {
+                let clear_event = serde_json::json!({
+                    "type": "clear_history"
+                });
+                let _ = tx.send(clear_event.to_string());
+            }
+        }
+    }
+    let _ = app_handle.emit("chat-history-cleared", ());
+    Ok(())
+}
+
+#[tauri::command]
+pub fn open_file_transfer_folder(app_handle: AppHandle) -> Result<(), String> {
+    let folder_path = get_active_file_transfer_path(app_handle);
+    let path = std::path::Path::new(&folder_path);
+    if !path.exists() {
+        let _ = std::fs::create_dir_all(path);
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(&folder_path)
+            .spawn()
+            .map_err(|e| format!("Failed to open folder: {}", e))?;
+    }
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("explorer")
+            .arg(&folder_path)
+            .spawn()
+            .map_err(|e| format!("Failed to open folder: {}", e))?;
+    }
+    #[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(&folder_path)
+            .spawn()
+            .map_err(|e| format!("Failed to open folder: {}", e))?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
 pub fn send_file_to_client(app_handle: AppHandle, file_path: String) -> Result<(), String> {
     if !std::path::Path::new(&file_path).is_file() {
         return Err("File does not exist or is not a regular file".to_string());
@@ -477,6 +527,7 @@ pub async fn run_server(listener: tokio::net::TcpListener, app_handle: AppHandle
         .route("/", get(handlers::index))
         .route("/ws", get(handlers::ws_handler))
         .route("/poll", get(handlers::poll_messages))
+        .route("/messages", get(handlers::poll_messages))
         .route("/upload", post(handlers::upload))
         .route("/upload_chunk", post(handlers::upload_chunk))
         .route("/upload-chunk", post(handlers::upload_chunk))
@@ -731,7 +782,14 @@ pub async fn register_received_file(
             ]);
         }
 
-        #[cfg(not(target_os = "windows"))]
+        #[cfg(target_os = "macos")]
+        {
+            let _ = crate::infrastructure::macos_api::clipboard::set_clipboard_files(vec![
+                saved_path.clone(),
+            ]);
+        }
+
+        #[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
         {
             // Keep the existing path-text fallback where no native file pasteboard adapter exists.
             if let Ok(mut cb) = arboard::Clipboard::new() {

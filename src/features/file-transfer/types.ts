@@ -5,6 +5,13 @@ export interface FileTransferChatViewProps {
   accessToken: string;
 }
 
+export interface NetworkInterfaceInfo {
+  name: string;
+  ip: string;
+  is_virtual: boolean;
+  label: string;
+}
+
 export type FileTransferMessageDirection = "in" | "out";
 
 export interface FileTransferMessage {
@@ -24,6 +31,12 @@ export interface FileTransferMessage {
   file_size?: number;
   _preparing?: boolean;
   _fileName?: string;
+  _progress?: number;
+  _speed?: string;
+  _transferredBytes?: number;
+  _error?: string;
+  _rawFile?: File;
+  _uploadId?: string;
 }
 
 export type FileTransferDragPayload = string[] | { paths: string[] };
