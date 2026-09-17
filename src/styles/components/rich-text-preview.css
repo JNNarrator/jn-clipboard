@@ -58,4 +58,6 @@ body.compact-preview .rich-text-preview {
   border-radius: inherit;
   object-position: top left;
   pointer-events: none;
+  -webkit-user-drag: none;
+  user-select: none;
 }

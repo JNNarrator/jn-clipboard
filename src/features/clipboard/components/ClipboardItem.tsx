@@ -703,6 +703,7 @@ const renderSourceAppIcon = (iconSrc: string | null, contentType: string, source
             alt={`${sourceApp} icon`}
             className="source-app-icon"
             loading="lazy"
+            draggable={false}
         />
     );
 };
@@ -1403,6 +1404,7 @@ const ClipboardItem = ({
                             alt={`${fileName || "file"} icon`}
                             className="file-icon-image"
                             loading="lazy"
+                            draggable={false}
                         />
                     ) : (
                         getFallbackFileIcon(filePath)
@@ -2125,6 +2127,7 @@ const ClipboardItem = ({
                                 src={richTextPreviewSrc}
                                 alt={item.preview || item.content || "rich text preview"}
                                 className="rich-text-snapshot-image"
+                                draggable={false}
                                 onLoad={() => {
                                     if (useSnapshotPreviewImage && richSnapshotFallbackTimerRef.current) {
                                         clearTimeout(richSnapshotFallbackTimerRef.current);

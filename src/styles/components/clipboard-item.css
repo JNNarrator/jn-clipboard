@@ -37,6 +37,9 @@
 .app-info svg,
 .source-app-icon {
   flex-shrink: 0;
+  pointer-events: none;
+  -webkit-user-drag: none;
+  user-select: none;
 }
 
 .app-info span {
@@ -44,6 +47,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
 }
 
 .source-app-icon {
@@ -52,6 +57,9 @@
   object-fit: contain;
   display: block;
   border-radius: 3px;
+  pointer-events: none;
+  -webkit-user-drag: none;
+  user-select: none;
 }
 
 /* Clipboard Item Content Preview */
@@ -408,6 +416,9 @@
   object-fit: contain;
   object-position: center;
   display: block;
+  pointer-events: none;
+  -webkit-user-drag: none;
+  user-select: none;
 }
 
 .file-icon-wrapper-system .file-icon-image {
