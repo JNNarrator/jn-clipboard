@@ -187,6 +187,7 @@ fn main() -> AppResult<()> {
             services::file_transfer::open_file_transfer_folder,
             services::file_transfer::send_file_to_client,
             services::file_transfer::send_files_to_client,
+            services::file_transfer::expand_transfer_paths,
             services::file_transfer::get_app_logo,
             services::file_transfer::get_local_ip_addr,
             services::file_transfer::get_available_ips,

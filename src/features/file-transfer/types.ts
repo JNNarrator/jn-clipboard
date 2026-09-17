@@ -57,3 +57,11 @@ export interface FileTransferContextMenu {
   batchId?: string;
   batchMessages?: FileTransferMessage[];
 }
+
+export interface ExpandedTransferItem {
+  path: string;
+  name: string;
+  folder_name?: string | null;
+}
+
+export type FileTransferFilterType = 'all' | 'file' | 'media' | 'text';

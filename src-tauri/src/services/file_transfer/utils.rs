@@ -152,3 +152,86 @@ pub async fn bind_listener(start_port: u16) -> (tokio::net::TcpListener, u16) {
     }
     (tokio::net::TcpListener::bind("0.0.0.0:0").await.unwrap(), 0)
 }
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct ExpandedTransferItem {
+    pub path: String,
+    pub name: String,
+    pub folder_name: Option<String>,
+}
+
+#[tauri::command]
+pub fn expand_transfer_paths(paths: Vec<String>) -> Result<Vec<ExpandedTransferItem>, String> {
+    let mut items = Vec::new();
+    const MAX_FILES: usize = 2000;
+
+    for path_str in paths {
+        let path = std::path::PathBuf::from(&path_str);
+        if !path.exists() {
+            continue;
+        }
+        if path.is_file() {
+            let name = path
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_else(|| "file".to_string());
+            items.push(ExpandedTransferItem {
+                path: path_str,
+                name,
+                folder_name: None,
+            });
+        } else if path.is_dir() {
+            let folder_name = path
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_else(|| "文件夹".to_string());
+            collect_files_from_dir(&path, &folder_name, &mut items, MAX_FILES);
+        }
+        if items.len() >= MAX_FILES {
+            break;
+        }
+    }
+
+    Ok(items)
+}
+
+fn collect_files_from_dir(
+    dir: &std::path::Path,
+    root_folder: &str,
+    items: &mut Vec<ExpandedTransferItem>,
+    max_files: usize,
+) {
+    if items.len() >= max_files {
+        return;
+    }
+    let entries = match std::fs::read_dir(dir) {
+        Ok(e) => e,
+        Err(_) => return,
+    };
+
+    for entry in entries.flatten() {
+        if items.len() >= max_files {
+            break;
+        }
+        let p = entry.path();
+        let file_name = entry.file_name().to_string_lossy().to_string();
+        // Skip hidden files/directories and OS metadata
+        if file_name.starts_with('.')
+            || file_name == "Thumbs.db"
+            || file_name == "desktop.ini"
+            || file_name == "$RECYCLE.BIN"
+        {
+            continue;
+        }
+        if p.is_dir() {
+            collect_files_from_dir(&p, root_folder, items, max_files);
+        } else if p.is_file() {
+            items.push(ExpandedTransferItem {
+                path: p.to_string_lossy().to_string(),
+                name: file_name,
+                folder_name: Some(root_folder.to_string()),
+            });
+        }
+    }
+}
+

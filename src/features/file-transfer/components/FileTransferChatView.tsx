@@ -33,6 +33,8 @@ import {
     FolderOpen,
     AlertCircle,
     RotateCcw,
+    Search,
+    X,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { QRCodeCanvas } from "qrcode.react";
@@ -41,7 +43,9 @@ import type {
     FileTransferContextMenu,
     FileTransferMessage,
     FileTransferDevice,
-    NetworkInterfaceInfo
+    NetworkInterfaceInfo,
+    ExpandedTransferItem,
+    FileTransferFilterType,
 } from "../types";
 import { getFileIcon as getSystemFileIcon, peekFileIcon } from "../../../shared/lib/fileIcon";
 import { withNativeDialog } from "../../../shared/lib/focus";
@@ -245,6 +249,10 @@ const FileTransferChatView = ({
     const [savingBatchId, setSavingBatchId] = useState<string | null>(null);
     const [showClearConfirm, setShowClearConfirm] = useState(false);
     const [isClearing, setIsClearing] = useState(false);
+    const [filterType, setFilterType] = useState<FileTransferFilterType>('all');
+    const [searchQuery, setSearchQuery] = useState<string>('');
+    const [showSearchBar, setShowSearchBar] = useState<boolean>(false);
+    const searchInputRef = useRef<HTMLInputElement>(null);
     const hasOnlineDevices = onlineDevices.length > 0;
     const primaryDeviceName = typeof onlineDevices[0]?.name === 'string' && onlineDevices[0].name.trim()
         ? onlineDevices[0].name.trim()
@@ -300,6 +308,7 @@ const FileTransferChatView = ({
         name: string;
         path?: string;
         file?: File;
+        folderName?: string;
     };
 
     const resolveDropPaths = (payload: unknown): string[] => {
@@ -525,18 +534,22 @@ const FileTransferChatView = ({
 
     const queueFilesForSending = async (
         rawItems: PendingTransferItem[],
-        sendMode: MultiFileSendMode = multiFileSendMode
+        sendMode: MultiFileSendMode = multiFileSendMode,
+        customBatchName?: string
     ) => {
         const items = rawItems.filter((item) => {
             if (item.path && item.path.trim().length > 0) return true;
             return !!item.file;
         });
         if (items.length === 0) return;
-        const shouldPackage = items.length > 1 && sendMode === 'package';
+        const folderBatchName = items.find(i => i.folderName)?.folderName
+            ? `${items.find(i => i.folderName)?.folderName} (${items.length} 个文件)`
+            : undefined;
+        const shouldPackage = items.length > 1 && (sendMode === 'package' || !!customBatchName || !!folderBatchName);
         const batchId = shouldPackage
             ? `desktop_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
             : undefined;
-        const batchName = shouldPackage ? `${items.length} 个文件` : undefined;
+        const batchName = shouldPackage ? (customBatchName || folderBatchName || `${items.length} 个文件`) : undefined;
         const batchSize = items.reduce((total, item) => total + (item.file?.size || 0), 0);
 
         const tempMessages: FileTransferMessage[] = items.map((item, index) => ({
@@ -908,6 +921,27 @@ const FileTransferChatView = ({
         return () => window.removeEventListener('keydown', handleCopy, true);
     }, []);
 
+    useEffect(() => {
+        const handleSearchHotkey = (e: KeyboardEvent) => {
+            const isFind = (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'f';
+            if (isFind) {
+                e.preventDefault();
+                e.stopPropagation();
+                setShowSearchBar(prev => {
+                    const next = !prev;
+                    if (next) setTimeout(() => searchInputRef.current?.focus(), 50);
+                    return next;
+                });
+            } else if (e.key === 'Escape' && showSearchBar) {
+                setShowSearchBar(false);
+            }
+        };
+
+        window.addEventListener('keydown', handleSearchHotkey);
+        return () => window.removeEventListener('keydown', handleSearchHotkey);
+    }, [showSearchBar]);
+
+
     const getAvatarConfig = (m: FileTransferMessage) => {
         if (m.sender_id === 'pc' || m.direction === 'out') {
             return { isImg: !!appLogo, content: appLogo || 'PC', color: 'var(--accent-color)', initial: 'PC' };
@@ -957,23 +991,54 @@ const FileTransferChatView = ({
         invoke<string>("get_app_logo").then(setAppLogo).catch(console.error);
 
         // Define handlers to be reused
-        const handleDragDrop = (event: { payload: unknown }) => {
+        const handleDragDrop = async (event: { payload: unknown }) => {
             console.log("[DRAG] Drop event received:", event);
-            console.log("[DRAG] Event payload type:", typeof event.payload);
-            console.log("[DRAG] Event payload:", JSON.stringify(event.payload, null, 2));
             setDragging(false);
 
             const paths = resolveDropPaths(event.payload);
-
             console.log("[DRAG] Parsed paths:", paths);
 
             if (paths && paths.length > 0) {
-                void queueFilesForSending(
-                    paths.map((path) => ({
-                        name: path.split(/[/\\]/).pop() || "File",
-                        path
-                    }))
-                );
+                try {
+                    const expanded = await invoke<ExpandedTransferItem[]>("expand_transfer_paths", { paths });
+                    if (expanded.length === 0) {
+                        await emit("toast", "文件夹为空或未包含可传输的文件");
+                        return;
+                    }
+
+                    const folderGroups = new Map<string, PendingTransferItem[]>();
+                    const looseItems: PendingTransferItem[] = [];
+
+                    for (const item of expanded) {
+                        const transferItem: PendingTransferItem = {
+                            name: item.name,
+                            path: item.path,
+                            folderName: item.folder_name || undefined,
+                        };
+                        if (item.folder_name) {
+                            const list = folderGroups.get(item.folder_name) || [];
+                            list.push(transferItem);
+                            folderGroups.set(item.folder_name, list);
+                        } else {
+                            looseItems.push(transferItem);
+                        }
+                    }
+
+                    for (const [folderName, items] of folderGroups.entries()) {
+                        await queueFilesForSending(items, 'package', `${folderName} (${items.length} 个文件)`);
+                    }
+                    if (looseItems.length > 0) {
+                        await queueFilesForSending(looseItems);
+                    }
+                } catch (err) {
+                    console.error("Failed to expand dropped paths", err);
+                    void queueFilesForSending(
+                        paths.map((path) => ({
+                            name: path.split(/[/\\]/).pop() || "File",
+                            path
+                        }))
+                    );
+                }
             }
         };
 
@@ -1335,6 +1400,68 @@ const FileTransferChatView = ({
         }
     };
 
+    const handleProcessDroppedDataTransfer = async (dt: DataTransfer | null) => {
+        if (!dt) return;
+        const paths: string[] = [];
+        if (dt.items) {
+            for (let i = 0; i < dt.items.length; i++) {
+                const item = dt.items[i];
+                const file = item.getAsFile();
+                const p = (file as File & { path?: string })?.path;
+                if (p) paths.push(p);
+            }
+        }
+        if (paths.length === 0 && dt.files) {
+            for (let i = 0; i < dt.files.length; i++) {
+                const p = (dt.files[i] as File & { path?: string })?.path;
+                if (p) paths.push(p);
+            }
+        }
+
+        if (paths.length > 0) {
+            try {
+                const expanded = await invoke<ExpandedTransferItem[]>("expand_transfer_paths", { paths });
+                if (expanded.length === 0) {
+                    await emit("toast", "文件夹为空或未包含可传输的文件");
+                    return;
+                }
+                const folderGroups = new Map<string, PendingTransferItem[]>();
+                const looseItems: PendingTransferItem[] = [];
+                for (const item of expanded) {
+                    const transferItem: PendingTransferItem = {
+                        name: item.name,
+                        path: item.path,
+                        folderName: item.folder_name || undefined,
+                    };
+                    if (item.folder_name) {
+                        const list = folderGroups.get(item.folder_name) || [];
+                        list.push(transferItem);
+                        folderGroups.set(item.folder_name, list);
+                    } else {
+                        looseItems.push(transferItem);
+                    }
+                }
+                for (const [folderName, items] of folderGroups.entries()) {
+                    await queueFilesForSending(items, 'package', `${folderName} (${items.length} 个文件)`);
+                }
+                if (looseItems.length > 0) {
+                    await queueFilesForSending(looseItems);
+                }
+                return;
+            } catch (e) {
+                console.warn("expand_transfer_paths failed in HTML drop, falling back", e);
+            }
+        }
+
+        const items = getDroppedTransferItems(dt);
+        if (items.length > 0) {
+            void queueFilesForSending(items);
+            return;
+        }
+
+        void emit("toast", "未识别到拖入文件，请重启应用后重试");
+    };
+
     useEffect(() => {
         const handleWindowDragOver = (event: globalThis.DragEvent) => {
             if (!isExternalFileDrag(event.dataTransfer)) return;
@@ -1358,14 +1485,7 @@ const FileTransferChatView = ({
             event.preventDefault();
             event.stopPropagation();
             setDragging(false);
-
-            const items = getDroppedTransferItems(event.dataTransfer);
-            if (items.length > 0) {
-                void queueFilesForSending(items);
-                return;
-            }
-
-            void emit("toast", "未识别到拖入文件，请重启应用后重试");
+            void handleProcessDroppedDataTransfer(event.dataTransfer);
         };
 
         window.addEventListener("dragover", handleWindowDragOver);
@@ -1400,6 +1520,54 @@ const FileTransferChatView = ({
         };
     }, [isDragging]);
 
+    const isFiltering = filterType !== 'all' || searchQuery.trim().length > 0;
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+
+    const matchesFilterCriteria = (m: FileTransferMessage): boolean => {
+        // Type filter
+        if (filterType === 'file') {
+            const isFile = m.msg_type === 'file' || !!m.batch_id;
+            if (!isFile) return false;
+        } else if (filterType === 'media') {
+            const isMedia = m.msg_type === 'image' || m.msg_type === 'video';
+            if (!isMedia) return false;
+        } else if (filterType === 'text') {
+            if (m.msg_type !== 'text') return false;
+        }
+
+        // Query filter
+        if (normalizedQuery) {
+            const contentMatch = m.content?.toLowerCase().includes(normalizedQuery);
+            const fileNameMatch = m._fileName?.toLowerCase().includes(normalizedQuery);
+            const filePathMatch = m.file_path?.toLowerCase().includes(normalizedQuery);
+            const batchNameMatch = m.batch_name?.toLowerCase().includes(normalizedQuery);
+            if (!contentMatch && !fileNameMatch && !filePathMatch && !batchNameMatch) {
+                return false;
+            }
+        }
+
+        return true;
+    };
+
+    const filteredMessages = messages.filter((m) => {
+        if (!isFiltering) return true;
+        if (m.batch_id) {
+            const batchSiblings = messages.filter(s => s.batch_id === m.batch_id);
+            const batchNameMatches = m.batch_name?.toLowerCase().includes(normalizedQuery);
+            if (batchNameMatches) {
+                if (filterType === 'text') return false;
+                if (filterType === 'media') return m.msg_type === 'image' || m.msg_type === 'video';
+                return true;
+            }
+            const anySiblingMatches = batchSiblings.some(s => matchesFilterCriteria(s));
+            if (anySiblingMatches) {
+                return matchesFilterCriteria(m);
+            }
+            return false;
+        }
+        return matchesFilterCriteria(m);
+    });
+
     return (
         <div
             className="wt-chat-view"
@@ -1428,12 +1596,7 @@ const FileTransferChatView = ({
                 e.preventDefault();
                 e.stopPropagation();
                 setDragging(false);
-                const items = getDroppedTransferItems(e.dataTransfer);
-                if (items.length > 0) {
-                    void queueFilesForSending(items);
-                    return;
-                }
-                void emit("toast", "未识别到拖入文件，请重启应用后重试");
+                void handleProcessDroppedDataTransfer(e.dataTransfer);
             }}
         >
             {/* Drag Overlay */}
@@ -1513,6 +1676,21 @@ const FileTransferChatView = ({
                             <div className="wt-header-actions">
                                 <button
                                     type="button"
+                                    className={`wt-header-action ${showSearchBar || isFiltering ? 'is-active' : ''}`}
+                                    title={showSearchBar ? '关闭搜索与筛选' : '搜索与筛选记录 (⌘F)'}
+                                    aria-label="搜索与筛选记录"
+                                    onClick={() => {
+                                        setShowSearchBar(v => {
+                                            const next = !v;
+                                            if (next) setTimeout(() => searchInputRef.current?.focus(), 60);
+                                            return next;
+                                        });
+                                    }}
+                                >
+                                    <Search size={18} />
+                                </button>
+                                <button
+                                    type="button"
                                     className="wt-header-action"
                                     title="打开保存目录"
                                     aria-label="打开保存目录"
@@ -1547,6 +1725,21 @@ const FileTransferChatView = ({
                                 </div>
                             </div>
                             <div className="wt-header-actions">
+                                <button
+                                    type="button"
+                                    className={`wt-header-action ${showSearchBar || isFiltering ? 'is-active' : ''}`}
+                                    title={showSearchBar ? '关闭搜索与筛选' : '搜索与筛选记录 (⌘F)'}
+                                    aria-label="搜索与筛选记录"
+                                    onClick={() => {
+                                        setShowSearchBar(v => {
+                                            const next = !v;
+                                            if (next) setTimeout(() => searchInputRef.current?.focus(), 60);
+                                            return next;
+                                        });
+                                    }}
+                                >
+                                    <Search size={18} />
+                                </button>
                                 <button
                                     type="button"
                                     className="wt-header-action"
@@ -1618,6 +1811,77 @@ const FileTransferChatView = ({
                 </div>
             )}
 
+            {/* Filter & Search Bar */}
+            <AnimatePresence>
+                {showSearchBar && (
+                    <motion.div
+                        className="wt-filter-bar"
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.16, ease: "easeOut" }}
+                    >
+                        <div className="wt-filter-bar-inner">
+                            <div className="wt-filter-pills" role="tablist">
+                                {(
+                                    [
+                                        { id: 'all', label: '全部' },
+                                        { id: 'file', label: '文件' },
+                                        { id: 'media', label: '媒体' },
+                                        { id: 'text', label: '文本' },
+                                    ] as const
+                                ).map(pill => (
+                                    <button
+                                        key={pill.id}
+                                        type="button"
+                                        role="tab"
+                                        aria-selected={filterType === pill.id}
+                                        className={`wt-filter-pill ${filterType === pill.id ? 'is-active' : ''}`}
+                                        onClick={() => setFilterType(pill.id)}
+                                    >
+                                        {pill.label}
+                                    </button>
+                                ))}
+                            </div>
+
+                            <div className="wt-filter-search-wrap">
+                                <div className="wt-search-input-box">
+                                    <Search size={13} className="wt-search-icon" />
+                                    <input
+                                        ref={searchInputRef}
+                                        type="text"
+                                        className="wt-search-input"
+                                        placeholder="搜索记录、文件名..."
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                    />
+                                    {searchQuery && (
+                                        <button
+                                            type="button"
+                                            className="wt-search-clear-btn"
+                                            onClick={() => {
+                                                setSearchQuery('');
+                                                searchInputRef.current?.focus();
+                                            }}
+                                            title="清除搜索"
+                                            aria-label="清除搜索"
+                                        >
+                                            <X size={12} />
+                                        </button>
+                                    )}
+                                </div>
+
+                                {isFiltering && (
+                                    <div className="wt-filter-badge">
+                                        {filteredMessages.length} 条
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
             {/* Clear History Confirmation Modal */}
             <AnimatePresence>
                 {showClearConfirm && (
@@ -1670,22 +1934,43 @@ const FileTransferChatView = ({
                         </div>
                     </div>
                 )}
-                {messages.map((m, index) => {
+                {messages.length > 0 && filteredMessages.length === 0 && (
+                    <div className="wt-empty-state wt-empty-search">
+                        <div className="wt-empty-icon" aria-hidden="true">
+                            <Search size={22} strokeWidth={1.8} />
+                        </div>
+                        <div className="wt-empty-title">未找到匹配的传输记录</div>
+                        <div className="wt-empty-copy">
+                            没有找到符合当前筛选条件的记录，请尝试更换关键词或类型
+                        </div>
+                        <button
+                            type="button"
+                            className="wt-clear-filter-btn"
+                            onClick={() => {
+                                setSearchQuery('');
+                                setFilterType('all');
+                            }}
+                        >
+                            清除筛选
+                        </button>
+                    </div>
+                )}
+                {filteredMessages.map((m, index) => {
                     const avatar = getAvatarConfig(m);
                     const transferFileName = getTransferFileName(m);
                     const batchMessages = m.batch_id
-                        ? messages
+                        ? filteredMessages
                             .filter(message => message.batch_id === m.batch_id)
                             .sort((left, right) => (left.batch_index ?? 0) - (right.batch_index ?? 0))
                         : [];
                     const isBatch = !!m.batch_id && (m.batch_total ?? batchMessages.length) > 1;
-                    if (isBatch && messages.findIndex(message => message.batch_id === m.batch_id) !== index) {
+                    if (isBatch && filteredMessages.findIndex(message => message.batch_id === m.batch_id) !== index) {
                         return null;
                     }
-                    const groupedWithPrevious = messagesBelongToSameGroup(messages[index - 1], m);
-                    const groupedWithNext = messagesBelongToSameGroup(m, messages[index + 1]);
+                    const groupedWithPrevious = messagesBelongToSameGroup(filteredMessages[index - 1], m);
+                    const groupedWithNext = messagesBelongToSameGroup(m, filteredMessages[index + 1]);
                     const startsNewDay = index === 0
-                        || getMessageDayKey(messages[index - 1].timestamp) !== getMessageDayKey(m.timestamp);
+                        || getMessageDayKey(filteredMessages[index - 1].timestamp) !== getMessageDayKey(m.timestamp);
                     if (isBatch) {
                         const batchId = m.batch_id!;
                         const expanded = expandedBatches.has(batchId);
