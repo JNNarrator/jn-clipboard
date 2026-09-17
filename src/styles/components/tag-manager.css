@@ -258,9 +258,9 @@
   padding: 4px;
   border: var(--menu-border);
   border-radius: var(--button-radius);
-  background: var(--bg-window);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: var(--menu-background, var(--popover-background));
+  backdrop-filter: var(--popover-backdrop-filter, blur(28px) saturate(180%));
+  -webkit-backdrop-filter: var(--popover-backdrop-filter, blur(28px) saturate(180%));
   box-shadow: var(--menu-shadow);
 }
 

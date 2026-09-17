@@ -60,6 +60,8 @@
     width: 320px;
     max-width: 80vw;
     background: var(--popover-background);
+    backdrop-filter: var(--popover-backdrop-filter, none);
+    -webkit-backdrop-filter: var(--popover-backdrop-filter, none);
     color: var(--popover-color);
     border: var(--popover-border);
     box-shadow: var(--popover-shadow);

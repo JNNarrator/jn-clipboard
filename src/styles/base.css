@@ -240,16 +240,18 @@
   --menu-item-hover-background: var(--accent-color);
   --menu-item-hover-color: #ffffff;
 
-  /* Shared sub-surface tokens. Keep component CSS theme-neutral by deriving
-     these from the active theme's existing button/card/menu language. */
-  --popover-background: var(--bg-panel);
+  /* Shared elevated surface tokens for popovers, dropdowns, menus, modals & toasts.
+     Elevated surfaces float above window content and must never be transparent. */
+  --popover-background: color-mix(in srgb, var(--bg-input) 94%, var(--bg-panel) 6%);
+  --modal-background: color-mix(in srgb, var(--bg-input) 96%, var(--bg-panel) 4%);
+  --toast-background: color-mix(in srgb, var(--bg-input) 96%, var(--bg-panel) 4%);
+  --menu-background: color-mix(in srgb, var(--bg-input) 94%, var(--bg-panel) 6%);
   --popover-color: var(--text-primary);
   --popover-border: var(--menu-border);
   --popover-radius: var(--menu-radius);
   --popover-shadow: var(--menu-shadow);
-  --popover-backdrop-filter: none;
+  --popover-backdrop-filter: blur(28px) saturate(180%);
 
-  --toast-background: var(--bg-panel);
   --toast-color: var(--text-primary);
   --toast-border: var(--menu-border);
   --toast-radius: var(--menu-radius);
@@ -399,6 +401,12 @@ body.dark-mode {
   --segment-active-background: rgba(255, 255, 255, 0.12);
   --switch-thumb-border: 1px solid rgba(255, 255, 255, 0.08);
   --data-panel-hover-background: rgba(34, 40, 52, 0.98);
+
+  --popover-background: color-mix(in srgb, var(--bg-input) 95%, var(--bg-panel) 5%);
+  --modal-background: color-mix(in srgb, var(--bg-input) 97%, var(--bg-panel) 3%);
+  --toast-background: color-mix(in srgb, var(--bg-input) 95%, var(--bg-panel) 5%);
+  --menu-background: color-mix(in srgb, var(--bg-input) 95%, var(--bg-panel) 5%);
+  --popover-backdrop-filter: blur(28px) saturate(180%);
 }
 
 * {

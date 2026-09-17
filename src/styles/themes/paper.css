@@ -99,6 +99,12 @@ body.theme-paper {
   --menu-radius: 2px;
   --menu-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
 
+  --popover-background: #fffdf7;
+  --modal-background: #fffdf7;
+  --toast-background: #fffdf7;
+  --menu-background: #fffdf7;
+  --popover-backdrop-filter: none;
+
   --scrollbar-size: 10px;
   --scrollbar-radius: 0px;
   --scrollbar-thumb-color: #d5c4a1;
@@ -217,4 +223,10 @@ body.dark-mode.theme-paper {
   --card-selected-border-color: rgba(215, 153, 33, 0.3);
   --data-panel-border: 1px solid #504945;
   --data-panel-hover-background: #3c3836;
+
+  --popover-background: #32302f;
+  --modal-background: #32302f;
+  --toast-background: #32302f;
+  --menu-background: #32302f;
+  --popover-backdrop-filter: none;
 }

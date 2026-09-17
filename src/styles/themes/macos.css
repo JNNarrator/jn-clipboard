@@ -56,7 +56,11 @@ body.theme-macos {
   --dialog-button-hover-shadow: none;
   --dialog-button-active-shadow: none;
   --compact-action-backdrop-filter: none;
-  --popover-backdrop-filter: blur(24px) saturate(190%);
+  --popover-background: rgba(255, 255, 255, 0.94);
+  --modal-background: rgba(255, 255, 255, 0.96);
+  --toast-background: rgba(255, 255, 255, 0.94);
+  --menu-background: rgba(255, 255, 255, 0.94);
+  --popover-backdrop-filter: blur(28px) saturate(190%);
 
   --card-border: 1px solid rgba(0, 0, 0, 0.1);
   --card-radius: 8px;
@@ -267,6 +271,12 @@ body.dark-mode.theme-macos {
   --layout-item-hover-background: rgba(255, 255, 255, 0.08);
   --scrollbar-thumb-color: rgba(255, 255, 255, 0.28);
   --scrollbar-thumb-hover-color: rgba(255, 255, 255, 0.42);
+
+  --popover-background: rgba(44, 44, 46, 0.94);
+  --modal-background: rgba(40, 40, 42, 0.96);
+  --toast-background: rgba(44, 44, 46, 0.94);
+  --menu-background: rgba(44, 44, 46, 0.94);
+  --popover-backdrop-filter: blur(28px) saturate(190%);
 }
 
 html.platform-macos.dark-mode body.theme-macos,

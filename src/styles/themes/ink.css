@@ -94,6 +94,12 @@ body.theme-ink {
   --bg-element: transparent;
   --bg-button: transparent;
 
+  --popover-background: #ffffff;
+  --modal-background: #fdfcf9;
+  --toast-background: #ffffff;
+  --menu-background: #ffffff;
+  --popover-backdrop-filter: none;
+
   --text-primary: var(--ink-fg);
   --text-secondary: var(--ink-dim);
   --text-muted: var(--ink-muted);
@@ -224,6 +230,12 @@ body.dark-mode.theme-ink {
   --bg-input: rgba(22, 25, 23, 0.98);
   --bg-element: transparent;
   --bg-button: transparent;
+
+  --popover-background: #242826;
+  --modal-background: #1c1f1d;
+  --toast-background: #242826;
+  --menu-background: #242826;
+  --popover-backdrop-filter: none;
 
   --text-primary: var(--ink-fg);
   --text-secondary: var(--ink-dim);

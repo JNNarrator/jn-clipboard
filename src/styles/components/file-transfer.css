@@ -245,13 +245,13 @@
   border: 1px solid var(--im-strong-border);
   border-radius: 12px;
   color: var(--text-primary);
-  background: color-mix(in srgb, var(--bg-input) 94%, var(--bg-panel) 6%);
+  background: var(--menu-background, var(--popover-background));
   box-shadow:
     0 12px 36px rgba(0, 0, 0, 0.18),
     0 3px 10px rgba(0, 0, 0, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.35);
-  backdrop-filter: blur(28px) saturate(180%);
-  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  backdrop-filter: var(--popover-backdrop-filter, blur(28px) saturate(180%));
+  -webkit-backdrop-filter: var(--popover-backdrop-filter, blur(28px) saturate(180%));
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -260,7 +260,7 @@
 }
 
 :root.dark-mode .wt-more-menu {
-  background: color-mix(in srgb, var(--bg-input) 96%, var(--bg-panel) 4%);
+  background: var(--menu-background, var(--popover-background));
   box-shadow:
     0 16px 42px rgba(0, 0, 0, 0.48),
     0 4px 14px rgba(0, 0, 0, 0.32),
@@ -995,16 +995,19 @@
   place-items: center;
   padding: 20px;
   background: rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .wt-confirm-modal {
   width: 100%;
   max-width: 320px;
   padding: 18px;
-  border: 1px solid var(--im-border);
+  border: 1px solid var(--im-strong-border);
   border-radius: var(--im-panel-radius);
-  background: var(--im-surface);
+  background: var(--modal-background, var(--popover-background));
+  backdrop-filter: var(--popover-backdrop-filter, blur(28px) saturate(180%));
+  -webkit-backdrop-filter: var(--popover-backdrop-filter, blur(28px) saturate(180%));
   box-shadow: var(--im-menu-shadow);
   color: var(--im-text);
 }
@@ -1162,9 +1165,10 @@
   padding: 5px;
   border: 1px solid var(--im-strong-border);
   border-radius: var(--im-control-radius);
-  background: color-mix(in srgb, var(--im-surface) 97%, transparent);
+  background: var(--menu-background, var(--popover-background));
   box-shadow: var(--im-menu-shadow);
-  backdrop-filter: blur(22px) saturate(130%);
+  backdrop-filter: var(--popover-backdrop-filter, blur(28px) saturate(180%));
+  -webkit-backdrop-filter: var(--popover-backdrop-filter, blur(28px) saturate(180%));
 }
 
 .wt-file-send-options button {
@@ -1378,7 +1382,9 @@
   overflow: hidden;
   border: 1px solid var(--im-strong-border);
   border-radius: var(--im-panel-radius);
-  background: var(--im-surface);
+  background: var(--modal-background, var(--bg-input));
+  backdrop-filter: var(--popover-backdrop-filter, none);
+  -webkit-backdrop-filter: var(--popover-backdrop-filter, none);
   box-shadow: var(--im-menu-shadow);
 }
 
@@ -1448,7 +1454,9 @@
   border: 2px dashed var(--im-accent);
   border-radius: var(--im-panel-radius);
   color: var(--im-accent);
-  background: var(--im-surface);
+  background: var(--modal-background, var(--bg-input));
+  backdrop-filter: var(--popover-backdrop-filter, none);
+  -webkit-backdrop-filter: var(--popover-backdrop-filter, none);
   box-shadow: var(--im-menu-shadow);
 }
 
@@ -1468,9 +1476,10 @@
   overflow: hidden;
   border: 1px solid var(--im-strong-border);
   border-radius: var(--im-control-radius);
-  background: color-mix(in srgb, var(--im-surface) 96%, transparent);
+  background: var(--menu-background, var(--popover-background));
   box-shadow: var(--im-menu-shadow);
-  backdrop-filter: blur(22px) saturate(130%);
+  backdrop-filter: var(--popover-backdrop-filter, blur(28px) saturate(180%));
+  -webkit-backdrop-filter: var(--popover-backdrop-filter, blur(28px) saturate(180%));
   transform-origin: top left;
 }
 
@@ -1669,10 +1678,10 @@
   --im-canvas: transparent;
   --im-canvas-shade: color-mix(in srgb, var(--bg-window) 68%, transparent);
   --im-header: color-mix(in srgb, var(--bg-toolbar) 78%, transparent);
-  --im-surface: color-mix(in srgb, var(--bg-panel) 86%, transparent);
-  --im-input: color-mix(in srgb, var(--bg-input) 82%, transparent);
-  --im-incoming: color-mix(in srgb, var(--bg-panel) 84%, transparent);
-  --im-outgoing: color-mix(in srgb, var(--accent-color) 18%, var(--bg-panel) 72%);
+  --im-surface: color-mix(in srgb, var(--bg-input) 86%, transparent);
+  --im-input: color-mix(in srgb, var(--bg-input) 92%, transparent);
+  --im-incoming: color-mix(in srgb, var(--bg-input) 88%, var(--bg-panel) 12%);
+  --im-outgoing: color-mix(in srgb, var(--accent-color) 22%, var(--bg-input) 78%);
 }
 
 .theme-sakura .wt-chat-view {

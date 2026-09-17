@@ -102,6 +102,12 @@ body.theme-sticky-note {
   --menu-border: 1px solid rgba(199, 163, 93, 0.58);
   --menu-shadow: 0 16px 26px rgba(93, 64, 55, 0.12);
 
+  --popover-background: #fff9d3;
+  --modal-background: #fff9d3;
+  --toast-background: #fff9d3;
+  --menu-background: #fff9d3;
+  --popover-backdrop-filter: none;
+
   --scrollbar-size: 8px;
   --scrollbar-size-thin: 4px;
   --scrollbar-radius: 999px;
@@ -279,6 +285,12 @@ body.dark-mode.theme-sticky-note {
   --panel-border: 1px solid rgba(255, 255, 255, 0.1);
   --data-panel-border: 1px solid rgba(255, 255, 255, 0.12);
   --data-panel-hover-background: rgba(255, 255, 255, 0.06);
+
+  --popover-background: #2f2f33;
+  --modal-background: #2f2f33;
+  --toast-background: #2f2f33;
+  --menu-background: #2f2f33;
+  --popover-backdrop-filter: none;
 }
 
 body.dark-mode.theme-sticky-note .history-item {

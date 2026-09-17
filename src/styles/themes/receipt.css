@@ -94,6 +94,12 @@ body.theme-receipt {
   --bg-element: transparent;
   --bg-button: transparent;
 
+  --popover-background: #ffffff;
+  --modal-background: #fffef9;
+  --toast-background: #ffffff;
+  --menu-background: #ffffff;
+  --popover-backdrop-filter: none;
+
   --text-primary: var(--rc-ink);
   --text-secondary: var(--rc-ink-fade);
   --text-muted: var(--rc-ink-ghost);
@@ -230,6 +236,11 @@ body.dark-mode.theme-receipt {
      recessed/control surface for night mode so settings fields, default-app
      rows and portalled selectors stay part of the dark ticket. */
   --bg-input: #1b1b1b;
+  --popover-background: #202020;
+  --modal-background: #242424;
+  --toast-background: #202020;
+  --menu-background: #202020;
+  --popover-backdrop-filter: none;
   --data-panel-hover-background: #2b2b2b;
   --title-color: var(--rc-ink);
 

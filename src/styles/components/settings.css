@@ -1482,7 +1482,7 @@
 }
 
 .settings-view select.search-input option {
-  background: var(--bg-window);
+  background: var(--popover-background, var(--bg-window));
   color: var(--text-primary);
 }
 

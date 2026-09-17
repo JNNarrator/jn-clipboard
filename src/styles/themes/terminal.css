@@ -103,6 +103,12 @@ body.theme-terminal {
   --bg-element: transparent;
   --bg-button: transparent;
 
+  --popover-background: #161b22;
+  --modal-background: #0d1117;
+  --toast-background: #161b22;
+  --menu-background: #161b22;
+  --popover-backdrop-filter: none;
+
   --text-primary: var(--term-fg);
   --text-secondary: var(--term-fg-dim);
   --text-muted: var(--term-fg-muted);
@@ -281,6 +287,12 @@ body.light-mode.theme-terminal {
   --term-border-subtle: #eaeef2;
   --term-selection: rgba(9, 105, 218, 0.14);
   --term-prompt: #1a7f37;
+
+  --popover-background: #ffffff;
+  --modal-background: #f6f8fa;
+  --toast-background: #ffffff;
+  --menu-background: #ffffff;
+  --popover-backdrop-filter: none;
 
   --layout-item-hover-background: rgba(26, 127, 55, 0.06);
   --layout-item-divider: 1px solid rgba(0, 0, 0, 0.05);

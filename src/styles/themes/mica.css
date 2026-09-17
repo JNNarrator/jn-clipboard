@@ -55,7 +55,11 @@ body.theme-mica {
   --dialog-button-hover-shadow: none;
   --dialog-button-active-shadow: none;
   --compact-action-backdrop-filter: none;
-  --popover-backdrop-filter: blur(12px) saturate(150%);
+  --popover-background: rgba(255, 255, 255, 0.94);
+  --modal-background: rgba(255, 255, 255, 0.96);
+  --toast-background: rgba(255, 255, 255, 0.94);
+  --menu-background: rgba(255, 255, 255, 0.94);
+  --popover-backdrop-filter: blur(24px) saturate(160%);
 
   --card-border: 1px solid rgba(0, 0, 0, 0.1);
   --card-radius: 8px;
@@ -237,6 +241,12 @@ body.dark-mode.theme-mica {
   --card-selected-shadow: none;
   --layout-item-background: rgba(255, 255, 255, 0.05);
   --layout-item-hover-background: rgba(255, 255, 255, 0.08);
+
+  --popover-background: rgba(36, 36, 36, 0.94);
+  --modal-background: rgba(32, 32, 32, 0.96);
+  --toast-background: rgba(36, 36, 36, 0.94);
+  --menu-background: rgba(36, 36, 36, 0.94);
+  --popover-backdrop-filter: blur(24px) saturate(160%);
 }
 
 body.compact-preview.theme-mica #root,

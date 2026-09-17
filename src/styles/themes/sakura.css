@@ -16,6 +16,12 @@ body.theme-sakura {
   --bg-element: rgba(255, 239, 243, 0.72);
   --bg-button: rgba(255, 255, 255, 0.78);
 
+  --popover-background: rgba(255, 250, 252, 0.95);
+  --modal-background: rgba(255, 248, 250, 0.97);
+  --toast-background: rgba(255, 250, 252, 0.95);
+  --menu-background: rgba(255, 250, 252, 0.95);
+  --popover-backdrop-filter: blur(24px) saturate(160%);
+
   --text-primary: #4a343a;
   --text-secondary: #7f5a66;
   --text-muted: #b89ca4;
@@ -239,6 +245,12 @@ body.has-custom-bg.theme-sakura #root::after {
     --bg-element: rgba(65, 45, 52, 0.7);
     --bg-button: rgba(255, 255, 255, 0.06);
 
+    --popover-background: rgba(40, 28, 33, 0.95);
+    --modal-background: rgba(34, 24, 28, 0.97);
+    --toast-background: rgba(40, 28, 33, 0.95);
+    --menu-background: rgba(40, 28, 33, 0.95);
+    --popover-backdrop-filter: blur(24px) saturate(160%);
+
     --text-primary: #fcecef;
     --text-secondary: #d4a5b2;
     --text-muted: #a67d8a;
@@ -296,6 +308,12 @@ body.dark-mode.theme-sakura {
   --bg-input: rgba(255, 255, 255, 0.06);
   --bg-element: rgba(55, 38, 44, 0.72);
   --bg-button: rgba(255, 255, 255, 0.04);
+
+  --popover-background: rgba(40, 28, 33, 0.95);
+  --modal-background: rgba(34, 24, 28, 0.97);
+  --toast-background: rgba(40, 28, 33, 0.95);
+  --menu-background: rgba(40, 28, 33, 0.95);
+  --popover-backdrop-filter: blur(24px) saturate(160%);
 
   --text-primary: #eddce2;
   --text-secondary: #b89aa4;
