@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { getTagColor, getTagTextColor } from "../../../shared/lib/utils";
+import { getTagColor } from "../../../shared/lib/utils";
 import { isMacPlatform } from "../../../shared/lib/platform";
 import type { ClipboardSortMode } from "../types";
 
@@ -368,12 +368,11 @@ const AppHeader = ({
                     <div className="tags-dropdown">
                       <div className="tags-list">
                         {allTags.map(tag => {
-                          const tagBackground = tagColors[tag] || getTagColor(tag, theme);
-                          const tagTextColor = getTagTextColor(tagBackground, theme);
+                          const tagColor = tagColors[tag] || getTagColor(tag, theme);
                           return (
                             <button
                               type="button"
-                              className="tag-chip"
+                              className="tag-chip tag-filter-chip"
                               key={tag}
                               onMouseDown={(e) => {
                                 e.preventDefault();
@@ -382,13 +381,15 @@ const AppHeader = ({
                               }}
                               data-tag={tag}
                               style={{
-                                background: tagBackground,
-                                color: tagTextColor,
-                                '--tag-color': tagBackground,
-                                '--tag-text-color': tagTextColor
+                                '--tag-color': tagColor,
                               } as CSSProperties}
                             >
-                              {tag}
+                              <span
+                                className="tag-color-dot"
+                                style={{ backgroundColor: tagColor }}
+                                aria-hidden="true"
+                              />
+                              <span className="tag-name">{tag}</span>
                             </button>
                           );
                         })}

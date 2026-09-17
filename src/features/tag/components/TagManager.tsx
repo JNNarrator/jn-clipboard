@@ -10,6 +10,7 @@ import AppModal from "../../../shared/components/AppModal";
 import { getTagColor } from "../../../shared/lib/utils";
 import { toTauriLocalImageSrc, withImageCacheBust } from "../../../shared/lib/localImageSrc";
 import { activateForInput } from "../../../shared/lib/focus";
+import { getNotePlaceholder } from "../../../shared/lib/platform";
 import type { ClipboardEntry } from "../../../shared/types";
 
 interface TagManagerProps {
@@ -44,6 +45,7 @@ export default function TagManager({ t, theme }: TagManagerProps) {
     const tagMenuId = useId();
     const [newTagName, setNewTagName] = useState('');
     const [loading, setLoading] = useState(false);
+    const [initialLoading, setInitialLoading] = useState(true);
     const [viewMode, setViewMode] = useState<'list' | 'grid'>(() => {
         try {
             const saved = window.localStorage.getItem(TAG_MANAGER_VIEW_MODE_KEY);
@@ -235,6 +237,7 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                 loadTagItems(tagArray[0].name);
             }
         } catch (err) { console.error(err); }
+        finally { setInitialLoading(false); }
     };
 
     const loadTagItems = async (tagName: string) => {
@@ -595,7 +598,7 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                                 </span>
                             </button>
                         )}
-                        {filteredTags.length === 0 && !tagSearch.trim() && (
+                        {!initialLoading && filteredTags.length === 0 && !tagSearch.trim() && (
                             <span className="tag-manager-chip-empty">{t("no_tags")}</span>
                         )}
                     </div>
@@ -727,12 +730,12 @@ export default function TagManager({ t, theme }: TagManagerProps) {
 
                     <div
                         className={
-                            loading || sortedItems.length > 0
-                                ? `advanced-rule-list tag-manager-items custom-scrollbar${loading ? " is-empty" : ""}${isManageMode ? " manage-mode" : ""}`
+                            loading || initialLoading || sortedItems.length > 0
+                                ? `advanced-rule-list tag-manager-items custom-scrollbar${loading || initialLoading ? " is-empty" : ""}${isManageMode ? " manage-mode" : ""}`
                                 : "tag-manager-empty-panel"
                         }
                     >
-                        {loading ? (
+                        {loading || initialLoading ? (
                             <div className="tag-manager-status">{t("processing")}</div>
                         ) : sortedItems.length === 0 ? (
                             <div className="tag-manager-empty-state">
@@ -786,7 +789,7 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                                                         )}
                                                         <button
                                                             className={`card-action-btn${item.note || editingNoteId === item.id ? " active" : ""}`}
-                                                            title={t("edit_note") || "Note"}
+                                                            title={item.note ? (t("edit_note") || "编辑备注") : (t("add_note") || "添加备注")}
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 if (editingNoteId === item.id) {
@@ -860,7 +863,7 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                                                         ref={noteInputRef}
                                                         className="card-note-input"
                                                         value={noteDraft}
-                                                        placeholder={t("note_placeholder") || "Add a note…"}
+                                                        placeholder={getNotePlaceholder(t)}
                                                         rows={2}
                                                         onMouseDown={(e) => {
                                                             e.stopPropagation();

@@ -1,15 +1,14 @@
-import { lazy, Suspense, memo, useCallback, type ComponentProps, type RefObject, type ReactNode } from "react";
+import { memo, useCallback, type ComponentProps, type RefObject, type ReactNode } from "react";
 import { motion, Reorder, useDragControls } from "framer-motion";
 import type { DragControls } from "framer-motion";
 import { ArrowUp, Clipboard } from "lucide-react";
 import SettingsPanel from "../../settings/components/SettingsPanel";
 import { VirtualClipboardList } from "../../clipboard/components/VirtualClipboardList";
+import FileTransferChatView from "../../file-transfer/components/FileTransferChatView";
+import TagManager from "../../tag/components/TagManager";
+import EmojiPanel from "../../emoji/components/EmojiPanel";
 import type { ClipboardEntry } from "../../../shared/types";
 import type { VirtualClipboardListHandle } from "../../clipboard/types";
-
-const FileTransferChatView = lazy(() => import("../../file-transfer/components/FileTransferChatView"));
-const TagManager = lazy(() => import("../../tag/components/TagManager"));
-const EmojiPanel = lazy(() => import("../../emoji/components/EmojiPanel"));
 
 type SettingsPanelProps = ComponentProps<typeof SettingsPanel>;
 type RenderItem = (
@@ -97,24 +96,6 @@ const SortableItem = memo(({
   );
 });
 
-const ViewLoading = ({ label }: { label: string }) => (
-  <div className="view-loading" role="status" aria-live="polite">
-    {label}
-  </div>
-);
-
-const SettingsSkeleton = ({ label }: { label: string }) => (
-  <div className="settings-skeleton" role="status" aria-label={label} aria-busy="true">
-    {Array.from({ length: 7 }, (_, index) => (
-      <div className="settings-skeleton-group" key={index} aria-hidden="true">
-        <span className="settings-skeleton-icon" />
-        <span className="settings-skeleton-title" style={{ width: `${104 + (index % 3) * 28}px` }} />
-        <span className="settings-skeleton-chevron" />
-      </div>
-    ))}
-  </div>
-);
-
 const AppMainContent = ({
   t,
   theme,
@@ -162,9 +143,7 @@ const AppMainContent = ({
         animate={{ opacity: 1, x: 0 }}
         style={{ height: "100%", overflow: "hidden", boxSizing: "border-box", display: "flex", flexDirection: "column" }}
       >
-        <Suspense fallback={<ViewLoading label={t("loading")} />}>
-          <TagManager t={t} theme={theme} />
-        </Suspense>
+        <TagManager t={t} theme={theme} />
       </motion.div>
     );
   }
@@ -176,16 +155,15 @@ const AppMainContent = ({
         animate={{ opacity: 1, x: 0 }}
         style={{ height: "100%", overflow: "hidden" }}
       >
-        <Suspense fallback={<ViewLoading label={t("loading")} />}>
-          <EmojiPanel
-            t={t}
-            favorites={emojiFavorites}
-            setFavorites={setEmojiFavorites}
-            activeTab={emojiPanelTab}
-            setActiveTab={setEmojiPanelTab}
-            saveSetting={saveSetting}
-          />
-        </Suspense>
+        <EmojiPanel
+          t={t}
+          language={settingsPanelProps.language}
+          favorites={emojiFavorites}
+          setFavorites={setEmojiFavorites}
+          activeTab={emojiPanelTab}
+          setActiveTab={setEmojiPanelTab}
+          saveSetting={saveSetting}
+        />
       </motion.div>
     );
   }
@@ -198,14 +176,12 @@ const AppMainContent = ({
           animate={{ opacity: 1 }}
           style={{ height: "100%", overflow: "hidden" }}
         >
-          <Suspense fallback={<ViewLoading label={t("loading")} />}>
-            <FileTransferChatView
-              t={t}
-              localIp={localIp}
-              actualPort={actualPort}
-              accessToken={fileTransferAccessToken}
-            />
-          </Suspense>
+          <FileTransferChatView
+            t={t}
+            localIp={localIp}
+            actualPort={actualPort}
+            accessToken={fileTransferAccessToken}
+          />
         </motion.div>
       );
     }
@@ -217,9 +193,7 @@ const AppMainContent = ({
           maxWidth: settingsPanelProps.settingsSubpage === "advanced" ? "min(1120px, 100%)" : undefined
         }}
       >
-        <Suspense fallback={<SettingsSkeleton label={t("loading")} />}>
-          <SettingsPanel {...settingsPanelProps} />
-        </Suspense>
+        <SettingsPanel {...settingsPanelProps} />
       </div>
     );
   }

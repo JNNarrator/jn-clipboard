@@ -1,11 +1,13 @@
 #[cfg(target_os = "macos")]
 use objc2::rc::{autoreleasepool, Retained};
 #[cfg(target_os = "macos")]
+use objc2::runtime::ProtocolObject;
+#[cfg(target_os = "macos")]
 use objc2::ClassType;
 #[cfg(target_os = "macos")]
 use objc2_app_kit::{
     NSPasteboard, NSPasteboardTypeHTML, NSPasteboardTypePNG, NSPasteboardTypeRTF,
-    NSPasteboardTypeRTFD, NSPasteboardTypeString,
+    NSPasteboardTypeRTFD, NSPasteboardTypeString, NSPasteboardWriting,
 };
 #[cfg(target_os = "macos")]
 use objc2_foundation::{NSArray, NSData, NSDictionary, NSString, NSURL};
@@ -170,8 +172,38 @@ pub fn get_clipboard_rtf() -> Option<Vec<u8>> {
     None
 }
 
-pub fn set_clipboard_files(_paths: Vec<String>) -> Result<(), String> {
-    Ok(())
+pub fn set_clipboard_files(paths: Vec<String>) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    return autoreleasepool(|_| {
+        if paths.is_empty() {
+            return Ok(());
+        }
+
+        let pb = NSPasteboard::generalPasteboard();
+        pb.clearContents();
+
+        let mut objects: Vec<Retained<ProtocolObject<dyn NSPasteboardWriting>>> =
+            Vec::with_capacity(paths.len());
+        for path in &paths {
+            let ns_path = NSString::from_str(path);
+            let url = NSURL::fileURLWithPath(&ns_path);
+            let proto = ProtocolObject::from_retained(url);
+            objects.push(proto);
+        }
+
+        let ns_array = NSArray::from_retained_slice(&objects);
+        if pb.writeObjects(&ns_array) {
+            Ok(())
+        } else {
+            Err("Failed to write file objects to pasteboard".to_string())
+        }
+    });
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = paths;
+        Err("Not supported on this platform".to_string())
+    }
 }
 
 pub fn set_clipboard_text_html_and_image(

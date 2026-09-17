@@ -57,6 +57,17 @@ fn capture_clipboard_snapshot() -> ClipboardSnapshot {
         }
     }
 
+    #[cfg(target_os = "macos")]
+    {
+        if let Some(files) =
+            crate::infrastructure::macos_api::clipboard::get_clipboard_files()
+        {
+            if !files.is_empty() {
+                return ClipboardSnapshot::Files { paths: files };
+            }
+        }
+    }
+
     let text = Clipboard::new()
         .ok()
         .and_then(|mut clipboard| clipboard.get_text().ok())
@@ -808,10 +819,16 @@ async fn copy_content_to_system_clipboard(
                         .map_err(AppError::Internal)?;
                     }
 
-                    #[cfg(not(target_os = "windows"))]
+                    #[cfg(target_os = "macos")]
                     {
-                        // Native macOS file pasteboard support is handled separately. Keep the
-                        // textual fallback on other platforms until an equivalent adapter exists.
+                        crate::infrastructure::macos_api::clipboard::set_clipboard_files(
+                            file_paths,
+                        )
+                        .map_err(AppError::Internal)?;
+                    }
+
+                    #[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
+                    {
                         let mut clipboard = arboard::Clipboard::new().map_err(AppError::from)?;
                         clipboard
                             .set_text(content.to_string())

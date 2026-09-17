@@ -50,6 +50,8 @@ import { stripRichStorageMarkers } from "../../../shared/lib/repairHtmlFragment"
 import { registerCompactPreviewControls } from "../lib/compactPreviewControls";
 import { openPinStickerWindow } from "../lib/pinStickerControls";
 import { activateForInput } from "../../../shared/lib/focus";
+import { getNotePlaceholder } from "../../../shared/lib/platform";
+import { setupDragDataTransfer, createDragGhostBadge } from "../lib/dragDrop";
 
 const COMPACT_PREVIEW_LABEL = "compact-preview";
 const COMPACT_PREVIEW_HOVER_DELAY_MS = 320;
@@ -807,6 +809,10 @@ const ClipboardItem = ({
     const [snapshotFailed, setSnapshotFailed] = useState(false);
     const [richImageFallbackFailed, setRichImageFallbackFailed] = useState(false);
     const [imageLoadFailed, setImageLoadFailed] = useState(false);
+    const [isDragging, setIsDragging] = useState(false);
+    const isDraggingRef = useRef(false);
+    const pointerDownPosRef = useRef<{ x: number; y: number; time: number } | null>(null);
+    const lastPasteTriggeredRef = useRef(0);
     const [sourceAppIcon, setSourceAppIcon] = useState<string | null>(() => peekSourceAppIcon(item.source_app_path) ?? null);
     const filePaths = useMemo(
         () => item.content_type === "file" ? item.content.split('\n').filter((p) => p.trim()) : [],
@@ -1600,7 +1606,7 @@ const ClipboardItem = ({
                     ref={noteInputRef}
                     className="item-note-input"
                     value={localNoteInput}
-                    placeholder={t('note_placeholder') || 'Add a note…'}
+                    placeholder={getNotePlaceholder(t)}
                     rows={2}
                     onMouseDown={(e) => e.stopPropagation()}
                     onChange={(e) => setLocalNoteInput(e.target.value)}
@@ -1673,7 +1679,8 @@ const ClipboardItem = ({
             animate={{ marginBottom: 0 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.1 }}
-            className={`history-item ${isInteractionActive ? "selected" : ""} ${compactMode ? "compact" : ""} ${item.is_pinned ? "pinned" : ""} ${className || ''}`}
+            draggable={!isEditingTags && !isEditingNote}
+            className={`history-item ${isInteractionActive ? "selected" : ""} ${compactMode ? "compact" : ""} ${item.is_pinned ? "pinned" : ""} ${isDragging ? "is-dragging" : ""} ${className || ''}`}
             onMouseDownCapture={(e) => {
                 const target = e.target as HTMLElement;
                 if (e.button !== 0) return;
@@ -1714,24 +1721,113 @@ const ClipboardItem = ({
                 if (target.closest('a')) {
                     return;
                 }
-                // Capture phase + preventDefault so clicks on image/video media still paste:
-                // WebKit handles media mousedown defaults before bubble reaches this node.
+
+                // Record pointer down location to distinguish click vs drag
+                isDraggingRef.current = false;
+                pointerDownPosRef.current = { x: e.clientX, y: e.clientY, time: Date.now() };
+            }}
+            onDragStart={(event) => {
+                const e = event as unknown as React.DragEvent<HTMLDivElement>;
+                if (isEditingTags || isEditingNote) {
+                    e.preventDefault();
+                    return;
+                }
+                const target = e.target as HTMLElement;
+                if (target.closest('button, input, textarea, [role="button"], .drag-handle')) {
+                    e.preventDefault();
+                    return;
+                }
+                if (!e.dataTransfer) return;
+
+                isDraggingRef.current = true;
+                setIsDragging(true);
+                void hideCompactPreview();
+
+                // Prevent panel from hiding when dragging across other windows
+                invoke("acquire_blur_guard", { owner: "drag" }).catch(() => {});
+
+                // Setup payload for external windows (Finder, VSCode, Browser, Slack, etc.)
+                setupDragDataTransfer(e.dataTransfer, item, filePaths);
+
+                // Set custom drag preview badge
+                try {
+                    const badge = createDragGhostBadge(item, filePaths, theme, t);
+                    document.body.appendChild(badge);
+                    e.dataTransfer.setDragImage(badge, 24, 20);
+                    setTimeout(() => {
+                        badge.remove();
+                    }, 0);
+                } catch {}
+
+                // Sync native system clipboard in background without pasting
+                invoke("copy_to_clipboard", {
+                    id: item.id,
+                    contentType: item.content_type,
+                    content: item.content,
+                    paste: false,
+                    source: "drag"
+                }).catch(() => {});
+            }}
+            onDragEnd={() => {
+                setIsDragging(false);
+                invoke("release_blur_guard", { owner: "drag" }).catch(() => {});
+                setTimeout(() => {
+                    isDraggingRef.current = false;
+                    pointerDownPosRef.current = null;
+                }, 80);
+            }}
+            onMouseUpCapture={(e) => {
+                if (e.button !== 0) return;
+                if (isEditingTags || isEditingNote) return;
+                if (isDraggingRef.current) return;
+
+                const target = e.target as HTMLElement;
+                if (target.closest('button, input, textarea, [role="button"], .drag-handle')) {
+                    return;
+                }
+                if (target.closest('a')) return;
+
+                if (pointerDownPosRef.current) {
+                    const dx = Math.abs(e.clientX - pointerDownPosRef.current.x);
+                    const dy = Math.abs(e.clientY - pointerDownPosRef.current.y);
+                    if (dx > 6 || dy > 6) {
+                        return; // Was drag attempt
+                    }
+                }
+
+                const now = Date.now();
+                if (now - lastPasteTriggeredRef.current < 400) return;
+                lastPasteTriggeredRef.current = now;
+
                 e.preventDefault();
                 void hideCompactPreview();
-                onCopy(false); // Plain text by default
+                onCopy(false);
                 onSelect();
             }}
             onClick={(e) => {
                 if (isEditingTags || isEditingNote) return;
+                if (isDraggingRef.current) return;
                 const target = e.target as HTMLElement;
-                if (target.closest('button') || target.closest('input') || target.closest('textarea')) {
+                if (target.closest('button, input, textarea, [role="button"], .drag-handle')) {
                     return;
                 }
-                // Prevent link navigation - we want to copy, not open links
                 if (target.closest('a')) {
                     e.preventDefault();
                 }
-                // Copy is handled on mousedown so the source app keeps focus.
+
+                if (pointerDownPosRef.current) {
+                    const dx = Math.abs(e.clientX - pointerDownPosRef.current.x);
+                    const dy = Math.abs(e.clientY - pointerDownPosRef.current.y);
+                    if (dx > 6 || dy > 6) return;
+                }
+
+                const now = Date.now();
+                if (now - lastPasteTriggeredRef.current < 400) return;
+                lastPasteTriggeredRef.current = now;
+
+                void hideCompactPreview();
+                onCopy(false);
+                onSelect();
             }}
             onContextMenu={(e) => {
                 const target = e.target as HTMLElement;
@@ -1742,17 +1838,17 @@ const ClipboardItem = ({
                     onTagEditCancel?.();
                     return;
                 }
-                if (target.closest('button') || target.closest('input') || target.closest('textarea')) {
+                if (target.closest('button, input, textarea, [role="button"], .drag-handle')) {
                     return;
                 }
                 void hideCompactPreview();
                 e.preventDefault();
-                // Prevent link navigation on right-click too
                 if (target.closest('a')) {
                     e.stopPropagation();
                 }
+                const now = Date.now();
+                lastPasteTriggeredRef.current = now;
                 onCopy(true); // Formatted text for right-click
-
                 onSelect();
             }}
             onMouseEnter={(e) => {
@@ -1886,7 +1982,7 @@ const ClipboardItem = ({
                                     onToggleNoteEditor(e);
                                 }
                             }}
-                            title={t('edit_note') || 'Note'}
+                            title={item.note ? (t('edit_note') || '编辑备注') : (t('add_note') || '添加备注')}
                         >
                             <StickyNote size={12} />
                         </button>

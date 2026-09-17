@@ -7,9 +7,12 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { withNativeDialog } from "../../../shared/lib/focus";
 import { Plus, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import type { Locale } from "../../../shared/types";
+import { getEmojiName } from "../lib/emojiNames";
 
 interface EmojiPanelProps {
   t: (key: string) => string;
+  language?: Locale;
   favorites: string[];
   setFavorites: (val: string[] | ((prev: string[]) => string[])) => void;
   activeTab: "emoji" | "favorites";
@@ -322,7 +325,7 @@ const resolveDropPaths = (payload: unknown): string[] => {
   return [];
 };
 
-const EmojiPanel = ({ t, favorites, setFavorites, activeTab, setActiveTab, saveSetting }: EmojiPanelProps) => {
+const EmojiPanel = ({ t, language = "zh", favorites, setFavorites, activeTab, setActiveTab, saveSetting }: EmojiPanelProps) => {
   const [isDragging, setIsDragging] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [emojiGroups, setEmojiGroups] = useState<EmojiGroup[]>(FALLBACK_GROUPS);
@@ -728,18 +731,22 @@ const EmojiPanel = ({ t, favorites, setFavorites, activeTab, setActiveTab, saveS
                 <div key={`${group.name}-${groupIndex}`} className="emoji-group">
                   <div className="emoji-group-title">{group.name}</div>
                   <div className="emoji-grid">
-                    {group.emojis.map((emoji, emojiIndex) => (
-                      <motion.button
-                        key={`${group.name}-${groupIndex}-${emojiIndex}-${emoji}`}
-                        className="emoji-btn"
-                        onClick={() => handleSend(emoji, "text")}
-                        title={emoji}
-                        whileHover={{ scale: 1.15 }}
-                        whileTap={{ scale: 0.9 }}
-                      >
-                        {emoji}
-                      </motion.button>
-                    ))}
+                    {group.emojis.map((emoji, emojiIndex) => {
+                      const emojiTitle = getEmojiName(emoji, language, group.name);
+                      return (
+                        <motion.button
+                          key={`${group.name}-${groupIndex}-${emojiIndex}-${emoji}`}
+                          className="emoji-btn"
+                          onClick={() => handleSend(emoji, "text")}
+                          title={emojiTitle}
+                          aria-label={emojiTitle}
+                          whileHover={{ scale: 1.15 }}
+                          whileTap={{ scale: 0.9 }}
+                        >
+                          {emoji}
+                        </motion.button>
+                      );
+                    })}
                   </div>
                 </div>
               ))}

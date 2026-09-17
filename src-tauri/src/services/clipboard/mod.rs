@@ -449,6 +449,27 @@ pub fn start_clipboard_monitor(app_handle: AppHandle) {
         #[cfg(target_os = "macos")]
         {
             if let Some(file_paths) = clipboard_files_snapshot {
+                let file_content = file_paths.join("\n");
+                let mut hasher = std::collections::hash_map::DefaultHasher::new();
+                use std::hash::{Hash, Hasher};
+                utils::normalize_clipboard_line_endings(&file_content).hash(&mut hasher);
+                let current_hash = hasher.finish();
+
+                let last_app_hash = crate::LAST_APP_SET_HASH.load(Ordering::SeqCst);
+                let last_app_time = crate::LAST_APP_SET_TIMESTAMP.load(Ordering::SeqCst);
+                let now_secs = SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs();
+
+                if (last_app_hash != 0 && current_hash == last_app_hash)
+                    && (now_secs - last_app_time) < 10
+                {
+                    crate::LAST_APP_SET_HASH.store(0, Ordering::SeqCst);
+                    crate::LAST_APP_SET_HASH_ALT.store(0, Ordering::SeqCst);
+                    return;
+                }
+
                 let settings = app.state::<SettingsState>();
                 if settings.capture_files.load(Ordering::Relaxed) {
                     process_new_entry(&app, ClipboardData::Files(file_paths), None);
@@ -465,6 +486,27 @@ pub fn start_clipboard_monitor(app_handle: AppHandle) {
         #[cfg(target_os = "windows")]
         {
             if let Some(file_paths) = clipboard_files_snapshot {
+                let file_content = file_paths.join("\n");
+                let mut hasher = std::collections::hash_map::DefaultHasher::new();
+                use std::hash::{Hash, Hasher};
+                utils::normalize_clipboard_line_endings(&file_content).hash(&mut hasher);
+                let current_hash = hasher.finish();
+
+                let last_app_hash = crate::LAST_APP_SET_HASH.load(Ordering::SeqCst);
+                let last_app_time = crate::LAST_APP_SET_TIMESTAMP.load(Ordering::SeqCst);
+                let now_secs = SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs();
+
+                if (last_app_hash != 0 && current_hash == last_app_hash)
+                    && (now_secs - last_app_time) < 10
+                {
+                    crate::LAST_APP_SET_HASH.store(0, Ordering::SeqCst);
+                    crate::LAST_APP_SET_HASH_ALT.store(0, Ordering::SeqCst);
+                    return;
+                }
+
                 let settings = app.state::<SettingsState>();
                 if settings.capture_files.load(Ordering::Relaxed) {
                     println!(
