@@ -4,9 +4,8 @@ import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { emit, listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open } from "@tauri-apps/plugin-dialog";
-import { Folder, Wifi, Search, ChevronDown, Link as LinkIcon, Radio } from "lucide-react";
+import { Folder, Wifi, Search } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { QRCodeCanvas } from "qrcode.react";
 
 import type {
     FileTransferChatViewProps,
@@ -1252,66 +1251,22 @@ const FileTransferChatView = ({
 
             {/* Chat Box */}
             <div className="wt-chat-box" ref={chatBoxRef}>
-                {messages.length === 0 && !hasOnlineDevices && (
-                    <div className="empty-state wt-empty-stage">
-                        <Radio size={36} opacity={0.3} style={{ marginBottom: "10px" }} />
-                        <p className="wt-empty-title">等待设备连接</p>
-                        <p className="wt-empty-desc">
-                            在同一局域网下用手机或其他设备扫码访问
-                        </p>
-
-                        <div className="wt-pairing-card">
-                            <div className="wt-pairing-qr">
-                                <QRCodeCanvas
-                                    value={connectionUrl}
-                                    size={120}
-                                    level="M"
-                                />
-                            </div>
-                            <div className="wt-pairing-info">
-                                {interfaces.length > 1 ? (
-                                    <div className="wt-ip-picker">
-                                        <select
-                                            className="wt-ip-select"
-                                            value={selectedIp}
-                                            onChange={(e) => handleSwitchIp(e.target.value)}
-                                            title="切换网卡 IP"
-                                        >
-                                            {interfaces.map((iface) => (
-                                                <option key={iface.ip} value={iface.ip}>
-                                                    {iface.label}
-                                                </option>
-                                            ))}
-                                        </select>
-                                        <ChevronDown size={12} className="wt-ip-select-arrow" />
-                                    </div>
-                                ) : (
-                                    <span className="wt-pairing-address">{activeIp}:{actualPort}</span>
-                                )}
-
-                                <button
-                                    type="button"
-                                    className="wt-pairing-copy-btn"
-                                    onClick={() => handleCopyLink(connectionUrl)}
-                                    title="复制连接地址"
-                                >
-                                    <LinkIcon size={12} />
-                                    <span>{copiedLink ? "已复制" : "复制地址"}</span>
-                                </button>
-                            </div>
+                {messages.length === 0 && (
+                    <div className="wt-empty-state">
+                        <div
+                            className={`wt-empty-icon${hasOnlineDevices ? "" : " is-waiting"}`}
+                            aria-hidden="true"
+                        >
+                            <Wifi size={22} strokeWidth={1.8} />
                         </div>
-
-                        <p className="wt-drag-hint">支持直接拖拽文件或文件夹到窗口发送</p>
-                    </div>
-                )}
-
-                {messages.length === 0 && hasOnlineDevices && (
-                    <div className="empty-state wt-empty-stage">
-                        <Wifi size={36} opacity={0.3} style={{ marginBottom: "10px" }} />
-                        <p className="wt-empty-title">设备已连接</p>
-                        <p className="wt-empty-desc">
-                            已与「{primaryDeviceName}」建立连接，可直接拖入文件或输入文字发送
-                        </p>
+                        <div className="wt-empty-title">
+                            {hasOnlineDevices ? "开始传输" : "等待设备连接"}
+                        </div>
+                        <div className="wt-empty-copy">
+                            {hasOnlineDevices
+                                ? "输入消息、选择文件，或直接将文件拖到这里"
+                                : "使用上方二维码连接手机后，即可互传消息与文件"}
+                        </div>
                     </div>
                 )}
 

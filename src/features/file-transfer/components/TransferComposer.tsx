@@ -4,11 +4,11 @@ import {
     Plus,
     Maximize2,
     Minimize2,
-    ArrowUp,
+    Send,
     LoaderCircle,
+    ChevronDown,
     FileArchive,
     File as FileIcon,
-    FolderOpen,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { invoke } from "@tauri-apps/api/core";
@@ -118,100 +118,82 @@ export const TransferComposer = ({
         <>
             <div className="wt-footer">
                 <div className="wt-composer">
-                    {/* Attachment control with TieZ standard btn-icon */}
                     <div className="wt-file-send-control" ref={fileSendOptionsRef}>
                         <button
                             type="button"
-                            className={`btn-icon wt-composer-add-btn ${showFileSendOptions ? "active" : ""}`}
-                            title="选择与发送文件"
-                            aria-label="选择与发送文件"
+                            className="wt-btn-icon wt-file-send-main"
+                            title={
+                                isChoosingFiles
+                                    ? "正在打开文件选择器"
+                                    : multiFileSendMode === "package"
+                                        ? "发送文件（多文件组成文件包）"
+                                        : "发送文件（多文件分别发送）"
+                            }
+                            aria-label={isChoosingFiles ? "正在打开文件选择器" : "发送文件"}
+                            disabled={isChoosingFiles}
+                            onClick={() => void chooseFilesToSend()}
+                        >
+                            {isChoosingFiles ? (
+                                <LoaderCircle size={18} className="wt-spin" />
+                            ) : (
+                                <Plus size={18} />
+                            )}
+                        </button>
+                        <button
+                            type="button"
+                            className="wt-file-send-toggle"
+                            aria-label="选择多文件发送方式"
                             aria-expanded={showFileSendOptions}
                             disabled={isChoosingFiles}
                             onClick={() => setShowFileSendOptions((value) => !value)}
                         >
-                            {isChoosingFiles ? (
-                                <LoaderCircle size={15} className="wt-spin" />
-                            ) : (
-                                <Plus size={15} />
-                            )}
+                            <ChevronDown size={12} />
                         </button>
-
-                        <AnimatePresence>
-                            {showFileSendOptions && (
-                                <motion.div
-                                    className="wt-file-send-options"
-                                    role="menu"
-                                    initial={{ opacity: 0, scale: 0.96, y: 4 }}
-                                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                                    exit={{ opacity: 0, scale: 0.96, y: 4 }}
-                                    transition={{ duration: 0.12 }}
+                        {showFileSendOptions && (
+                            <div className="wt-file-send-options" role="menu">
+                                <button
+                                    type="button"
+                                    className={multiFileSendMode === "package" ? "is-active" : ""}
+                                    role="menuitemradio"
+                                    aria-checked={multiFileSendMode === "package"}
+                                    onClick={() => {
+                                        onSelectMultiFileSendMode("package");
+                                        setShowFileSendOptions(false);
+                                    }}
                                 >
-                                    <button
-                                        type="button"
-                                        className="wt-file-send-option-primary"
-                                        role="menuitem"
-                                        onClick={() => {
-                                            setShowFileSendOptions(false);
-                                            void chooseFilesToSend();
-                                        }}
-                                    >
-                                        <FolderOpen size={15} />
-                                        <span>
-                                            <strong>选择文件发送…</strong>
-                                            <small>从访达或本地目录选取</small>
-                                        </span>
-                                    </button>
-
-                                    <div className="wt-menu-divider" role="separator" />
-
-                                    <div className="wt-menu-section-label">多文件发送模式</div>
-
-                                    <button
-                                        type="button"
-                                        className={multiFileSendMode === "package" ? "is-active" : ""}
-                                        role="menuitemradio"
-                                        aria-checked={multiFileSendMode === "package"}
-                                        onClick={() => {
-                                            onSelectMultiFileSendMode("package");
-                                            setShowFileSendOptions(false);
-                                        }}
-                                    >
-                                        <FileArchive size={15} />
-                                        <span>
-                                            <strong>作为文件包发送</strong>
-                                            <small>多文件自动折叠，支持整包保存</small>
-                                        </span>
-                                        {multiFileSendMode === "package" && (
-                                            <span className="wt-option-check">✓</span>
-                                        )}
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        className={multiFileSendMode === "separate" ? "is-active" : ""}
-                                        role="menuitemradio"
-                                        aria-checked={multiFileSendMode === "separate"}
-                                        onClick={() => {
-                                            onSelectMultiFileSendMode("separate");
-                                            setShowFileSendOptions(false);
-                                        }}
-                                    >
-                                        <FileIcon size={15} />
-                                        <span>
-                                            <strong>逐个独立发送</strong>
-                                            <small>每个文件作为单独卡片发送</small>
-                                        </span>
-                                        {multiFileSendMode === "separate" && (
-                                            <span className="wt-option-check">✓</span>
-                                        )}
-                                    </button>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
+                                    <FileArchive size={17} />
+                                    <span>
+                                        <strong>作为文件包发送</strong>
+                                        <small>多文件折叠显示，可整包保存</small>
+                                    </span>
+                                    {multiFileSendMode === "package" && (
+                                        <span className="wt-option-check">✓</span>
+                                    )}
+                                </button>
+                                <button
+                                    type="button"
+                                    className={multiFileSendMode === "separate" ? "is-active" : ""}
+                                    role="menuitemradio"
+                                    aria-checked={multiFileSendMode === "separate"}
+                                    onClick={() => {
+                                        onSelectMultiFileSendMode("separate");
+                                        setShowFileSendOptions(false);
+                                    }}
+                                >
+                                    <FileIcon size={17} />
+                                    <span>
+                                        <strong>分别发送</strong>
+                                        <small>每个文件独立显示</small>
+                                    </span>
+                                    {multiFileSendMode === "separate" && (
+                                        <span className="wt-option-check">✓</span>
+                                    )}
+                                </button>
+                            </div>
+                        )}
                     </div>
 
-                    {/* TieZ Native Input Field */}
-                    <div className="wt-input-wrapper">
+                    <div className="wt-input-wrap">
                         <textarea
                             ref={textareaRef}
                             className="wt-input"
@@ -219,33 +201,32 @@ export const TransferComposer = ({
                             onChange={(e) => setInput(e.target.value)}
                             onKeyDown={handleKeyDown}
                             onPaste={handlePaste}
-                            placeholder={t ? t("type_message") || "输入消息或拖入文件…" : "输入消息或拖入文件…"}
+                            placeholder={t ? t("type_message") || "Type a message..." : "Type..."}
                             rows={1}
                         />
-
-                        {showExpandBtn && (
-                            <button
-                                type="button"
-                                className="btn-icon wt-input-expand-btn"
-                                onClick={() => setShowFullScreen(true)}
-                                title="展开全屏编辑"
-                                aria-label="展开全屏编辑"
-                            >
-                                <Maximize2 size={13} />
-                            </button>
-                        )}
                     </div>
 
-                    {/* Send Button */}
+                    {showExpandBtn && (
+                        <button
+                            type="button"
+                            className="wt-btn-icon"
+                            onClick={() => setShowFullScreen(true)}
+                            title="展开编辑"
+                            aria-label="展开编辑"
+                        >
+                            <Maximize2 size={16} />
+                        </button>
+                    )}
+
                     <button
                         type="button"
-                        className={`btn-icon wt-send-btn ${input.trim() ? "active" : ""}`}
-                        disabled={!input.trim()}
                         onClick={handleSend}
-                        title="发送 (Enter)"
+                        className="wt-btn send"
+                        disabled={!input.trim()}
+                        title="发送消息"
                         aria-label="发送消息"
                     >
-                        <ArrowUp size={15} />
+                        <Send size={18} />
                     </button>
                 </div>
             </div>
