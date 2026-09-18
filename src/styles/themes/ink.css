@@ -148,6 +148,8 @@ body.theme-ink {
 
   --card-border: none;
   --card-radius: 0;
+  --compact-card-radius: 0;
+  --compact-media-radius: 0;
   --card-shadow: none;
   --card-hover-shadow: none;
   --card-hover-transform: none;

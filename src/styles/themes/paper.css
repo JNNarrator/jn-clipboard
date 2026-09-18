@@ -66,6 +66,8 @@ body.theme-paper {
 
   --card-border: 1px solid #ebdbb2;
   --card-radius: 0px;
+  --compact-card-radius: 0;
+  --compact-media-radius: 0;
   --card-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
   --card-hover-shadow: 0 3px 10px rgba(139, 90, 43, 0.08);
   --card-hover-transform: none;

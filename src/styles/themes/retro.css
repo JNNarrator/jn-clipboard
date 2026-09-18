@@ -71,6 +71,8 @@ body.theme-retro {
 
   --card-border: 3px solid var(--border-dark);
   --card-radius: 0;
+  --compact-card-radius: 0;
+  --compact-media-radius: 0;
   --card-shadow: none;
   --card-hover-border-color: var(--border-dark);
   --card-hover-shadow: 5px 5px 0 0 var(--shadow-color);

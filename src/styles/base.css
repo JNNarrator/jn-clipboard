@@ -283,6 +283,9 @@
   --advanced-input-border: var(--input-border);
   --advanced-input-radius: var(--input-radius);
 
+  --compact-card-radius: 8px;
+  --compact-media-radius: 6px;
+
   --compact-action-background: var(--bg-button);
   --compact-action-color: var(--text-primary);
   --compact-action-border: var(--button-border);

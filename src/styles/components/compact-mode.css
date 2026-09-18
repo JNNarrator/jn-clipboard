@@ -11,6 +11,7 @@
     position: relative;
     gap: 0;
     overflow: visible !important;
+    border-radius: var(--compact-card-radius, 8px) !important;
     /* Base items use `contain: content`, whose paint containment clips the
        action strip that intentionally floats above the compact row. Keep the
        layout/style containment without clipping descendants. */
@@ -41,7 +42,7 @@
     width: auto;
     min-width: 44px;
     max-width: 100%;
-    border-radius: 0;
+    border-radius: var(--compact-media-radius, 6px) !important;
     margin-top: 0;
     display: block;
     object-fit: contain !important;
@@ -547,6 +548,7 @@ html.compact-show-time .history-item.compact .content-preview.rich-text {
     width: 32px !important;
     height: 32px !important;
     min-width: 32px !important;
+    border-radius: var(--compact-media-radius, 6px) !important;
 }
 
 /* Compact mode - make video thumbnail smaller */
@@ -554,6 +556,7 @@ html.compact-show-time .history-item.compact .content-preview.rich-text {
     width: 48px !important;
     height: 36px !important;
     min-width: 48px !important;
+    border-radius: var(--compact-media-radius, 6px) !important;
 }
 
 /* Compact mode - file info styling */
@@ -575,9 +578,10 @@ html.compact-show-time .history-item.compact .content-preview.rich-text {
 .history-item.compact .file-icon-image {
     width: 100% !important;
     height: 100% !important;
+    border-radius: inherit !important;
 }
 
-/* Pinned Indicator - Compact Mode */
+/* Pinned Indicator - Compact Mode (matches card corner curve exactly) */
 .compact-pinned-indicator {
     position: absolute;
     top: 0;
@@ -587,16 +591,7 @@ html.compact-show-time .history-item.compact .content-preview.rich-text {
     background: var(--accent-color);
     z-index: 10;
     pointer-events: none;
-}
-
-/* Rounded corners for modern themes - top and bottom left to match item border radius */
-body.theme-mica .history-item.compact .compact-pinned-indicator,
-body.theme-acrylic .history-item.compact .compact-pinned-indicator,
-body.theme-macos .history-item.compact .compact-pinned-indicator,
-html.theme-mica .history-item.compact .compact-pinned-indicator,
-html.theme-acrylic .history-item.compact .compact-pinned-indicator,
-html.theme-macos .history-item.compact .compact-pinned-indicator {
-    border-radius: 4px 0 0 4px;
+    border-radius: var(--compact-card-radius, 8px) 0 0 var(--compact-card-radius, 8px) !important;
 }
 
 .compact-pinned-indicator svg {
@@ -660,6 +655,14 @@ html.theme-macos .history-item.compact .compact-pinned-indicator {
     width: var(--scrollbar-size-thin);
 }
 
+.history-item.compact .rich-text-snapshot-viewport {
+    border-radius: var(--compact-media-radius, 6px) !important;
+}
+
+.history-item.compact .color-code-swatch {
+    border-radius: var(--compact-media-radius, 6px) !important;
+}
+
 body.theme-mica .history-item.compact,
 body.theme-acrylic .history-item.compact,
 body.theme-macos .history-item.compact,
@@ -668,7 +671,6 @@ html.theme-acrylic .history-item.compact,
 html.theme-macos .history-item.compact {
     padding-top: 1px !important;
     padding-bottom: 1px !important;
-    border-radius: 10px !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
