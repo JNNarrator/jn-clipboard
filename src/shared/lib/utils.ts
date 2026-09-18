@@ -216,21 +216,67 @@ export const getTagTextColor = (backgroundColor: string, _theme?: string) => {
     ?.candidate || hslCss(hue, tagSaturation, 32);
 };
 
-export const getConciseTime = (timestamp: number, language: Locale) => {
-  const diff = Date.now() - timestamp;
+export const getConciseTime = (timestamp: number, language: Locale = "zh") => {
+  if (!timestamp || isNaN(timestamp)) return "";
+
+  const ms = timestamp < 1e11 ? timestamp * 1000 : timestamp;
+  const now = new Date();
+  const date = new Date(ms);
+  const diff = now.getTime() - date.getTime();
   const seconds = Math.floor(diff / 1000);
 
-  if (language === "zh") {
-    if (seconds < 60) return "< 1分钟";
-    if (seconds < 3600) return `${Math.floor(seconds / 60)}分钟前`;
-    if (seconds < 86400) return `${Math.floor(seconds / 3600)}小时前`;
-    return `${Math.floor(seconds / 86400)}天前`;
-  } else {
-    if (seconds < 60) return "< 1m";
-    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-    return `${Math.floor(seconds / 86400)}d ago`;
+  // Less than 1 minute or future timestamp (due to clock skew)
+  if (seconds < 60) {
+    if (language === "en") return "Just now";
+    if (language === "tw") return "剛剛";
+    return "刚刚";
   }
+
+  // Within 1 hour
+  if (seconds < 3600) {
+    const mins = Math.floor(seconds / 60);
+    if (language === "en") return `${mins}m ago`;
+    if (language === "tw") return `${mins}分鐘前`;
+    return `${mins}分钟前`;
+  }
+
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  const hours = pad(date.getHours());
+  const minutes = pad(date.getMinutes());
+
+  // Same calendar day
+  const isSameDay =
+    now.getFullYear() === date.getFullYear() &&
+    now.getMonth() === date.getMonth() &&
+    now.getDate() === date.getDate();
+
+  if (isSameDay) {
+    return `${hours}:${minutes}`;
+  }
+
+  // Yesterday
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const isYesterday =
+    yesterday.getFullYear() === date.getFullYear() &&
+    yesterday.getMonth() === date.getMonth() &&
+    yesterday.getDate() === date.getDate();
+
+  if (isYesterday) {
+    if (language === "en") return `Yesterday ${hours}:${minutes}`;
+    return `昨天 ${hours}:${minutes}`;
+  }
+
+  const month = pad(date.getMonth() + 1);
+  const day = pad(date.getDate());
+
+  // Same year: MM-DD
+  if (now.getFullYear() === date.getFullYear()) {
+    return `${month}-${day}`;
+  }
+
+  // Different year: YYYY-MM-DD
+  return `${date.getFullYear()}-${month}-${day}`;
 };
 
 export const formatSensitivePreview = (

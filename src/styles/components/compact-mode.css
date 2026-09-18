@@ -112,11 +112,11 @@
 .history-item.compact .item-tags-container {
     position: absolute;
     bottom: 2px;
-    right: 4px;
+    right: 76px;
     margin: 0 !important;
     z-index: 5;
     opacity: 0.85;
-    max-width: 60%;
+    max-width: 45%;
     flex-wrap: nowrap !important;
     overflow: hidden;
 }
@@ -209,34 +209,42 @@
     color: var(--accent-color) !important;
 }
 
-/* The right side wrapper (Buttons) */
+/* The right side wrapper (Buttons + Timestamp) */
+.history-item.compact .item-meta-right,
 .history-item.compact .item-meta>div:last-child {
-    position: absolute;
-    top: -8px;
-    right: 8px;
-    height: auto;
-    z-index: 200;
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    pointer-events: none;
+    position: absolute !important;
+    top: 50% !important;
+    right: 8px !important;
+    bottom: auto !important;
+    transform: translateY(-50%) !important;
+    height: auto !important;
+    z-index: 200 !important;
+    display: grid !important;
+    grid-template-areas: "overlap" !important;
+    align-items: center !important;
+    justify-items: end !important;
+    pointer-events: none !important;
 }
 
-/* Fix for first item buttons being clipped */
+/* Maintain vertical center for first item */
+.first-virtual-item .history-item.compact .item-meta-right,
 .first-virtual-item .history-item.compact .item-meta>div:last-child {
-    top: -4px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
 }
 
 /* Button Actions Styling */
 .history-item.compact .item-actions {
+    grid-area: overlap !important;
     display: flex !important;
     flex-direction: row !important;
+    align-items: center !important;
     gap: 4px !important;
     opacity: 0;
     visibility: hidden;
-    transform: translateY(5px);
-    transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.2s;
-    pointer-events: auto;
+    transform: translateX(6px);
+    transition: opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1), transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.18s;
+    pointer-events: none;
 
     /* Position relative for AI dropdown positioning */
     position: relative;
@@ -254,24 +262,80 @@
     border-color: transparent;
 }
 
-.history-item.compact:hover .item-actions {
-    opacity: 1;
-    visibility: visible;
-    transform: translateY(0);
+.history-item.compact:hover .item-actions,
+.history-item.compact.selected .item-actions {
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: translateX(0) !important;
+    pointer-events: auto !important;
 }
 
 body.hide-unselected-item-actions .history-item.compact:not(.selected):not(:hover) .item-actions {
     opacity: 0 !important;
     visibility: hidden !important;
-    transform: none !important;
+    transform: translateX(6px) !important;
     pointer-events: none !important;
 }
 
-body.hide-unselected-item-actions .history-item.compact.selected .item-actions {
-    opacity: 1;
-    visibility: visible;
-    transform: none;
-    pointer-events: auto;
+body.hide-unselected-item-actions .history-item.compact.selected .item-actions,
+body.hide-unselected-item-actions .history-item.compact:hover .item-actions {
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: translateX(0) !important;
+    pointer-events: auto !important;
+}
+
+.history-item.compact:has(.ai-options-dropdown) .item-actions {
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    transform: translateX(0) !important;
+}
+
+/* Timestamp & Quick Paste Hint in Compact Mode */
+.history-item.compact .item-meta-right-info {
+    grid-area: overlap !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    font-size: 11px !important;
+    line-height: 1 !important;
+    font-variant-numeric: tabular-nums !important;
+    color: var(--text-secondary) !important;
+    opacity: 0.68 !important;
+    white-space: nowrap !important;
+    user-select: none !important;
+    pointer-events: none !important;
+    transform: translateX(0) !important;
+    transition: opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1), transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.18s !important;
+}
+
+.history-item.compact .item-meta-right-info > span {
+    white-space: nowrap !important;
+    line-height: 1 !important;
+}
+
+.history-item.compact:hover .item-meta-right-info,
+.history-item.compact.selected .item-meta-right-info,
+.history-item.compact:has(.ai-options-dropdown) .item-meta-right-info {
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    transform: translateX(4px) !important;
+}
+
+body.hide-unselected-item-actions .history-item.compact:not(.selected):not(:hover) .item-meta-right-info {
+    opacity: 0.68 !important;
+    visibility: visible !important;
+    transform: translateX(0) !important;
+}
+
+body.hide-unselected-item-actions .history-item.compact.selected .item-meta-right-info,
+body.hide-unselected-item-actions .history-item.compact:hover .item-meta-right-info {
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    transform: translateX(4px) !important;
 }
 
 
@@ -348,11 +412,6 @@ body.hide-unselected-item-actions .history-item.compact.selected .item-actions {
     color: var(--menu-item-hover-color) !important;
 }
 
-/* Hide Timestamp */
-.history-item.compact .app-info:last-child {
-    display: none !important;
-}
-
 /* Popover Content Styling */
 .popover-meta .meta-row {
     display: flex;
@@ -415,6 +474,8 @@ body.hide-unselected-item-actions .history-item.compact.selected .item-actions {
     -webkit-box-orient: vertical;
     justify-content: flex-start;
     overflow: hidden !important;
+    padding-right: 76px;
+    box-sizing: border-box;
 }
 
 /* Allow full height for media/file cards in compact mode */
@@ -437,6 +498,8 @@ body.hide-unselected-item-actions .history-item.compact.selected .item-actions {
     line-clamp: unset !important;
     max-height: 64px;
     overflow: hidden !important;
+    padding-right: 76px;
+    box-sizing: border-box;
 }
 
 /* Reduced padding for sensitive blur in compact mode to save height */

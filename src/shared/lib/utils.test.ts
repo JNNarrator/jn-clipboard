@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatSensitivePreview } from "./utils";
+import { formatSensitivePreview, getConciseTime } from "./utils";
 
 describe("formatSensitivePreview", () => {
   describe("空值处理", () => {
@@ -148,5 +148,73 @@ describe("formatSensitivePreview", () => {
       const result = formatSensitivePreview("😀😁😂🤣😃😄😅", "text");
       expect(result).toContain("...");
     });
+  });
+});
+
+describe("getConciseTime", () => {
+  it("空值或非法时间戳返回空字符串", () => {
+    expect(getConciseTime(0, "zh")).toBe("");
+    expect(getConciseTime(NaN, "zh")).toBe("");
+  });
+
+  it("1分钟内或轻微时钟偏差返回'刚刚' / 'Just now' / '剛剛'", () => {
+    const now = Date.now();
+    expect(getConciseTime(now - 10_000, "zh")).toBe("刚刚");
+    expect(getConciseTime(now - 10_000, "en")).toBe("Just now");
+    expect(getConciseTime(now - 10_000, "tw")).toBe("剛剛");
+    expect(getConciseTime(now + 5_000, "zh")).toBe("刚刚");
+  });
+
+  it("1小时内返回相对分钟", () => {
+    const now = Date.now();
+    expect(getConciseTime(now - 15 * 60 * 1000, "zh")).toBe("15分钟前");
+    expect(getConciseTime(now - 15 * 60 * 1000, "en")).toBe("15m ago");
+    expect(getConciseTime(now - 15 * 60 * 1000, "tw")).toBe("15分鐘前");
+  });
+
+  it("当天超过1小时显示具体时间 HH:mm", () => {
+    const d = new Date();
+    d.setHours(14, 30, 0, 0);
+    // If current time is 14:30, set d to 2 hours ago if it's afternoon, or test against fixed date
+    const pad = (n: number) => n.toString().padStart(2, "0");
+    const expected = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    // As long as it's > 1h ago and same day
+    const twoHoursAgo = Date.now() - 2 * 3600 * 1000;
+    const twoHoursAgoDate = new Date(twoHoursAgo);
+    if (twoHoursAgoDate.getDate() === new Date().getDate()) {
+      const h = pad(twoHoursAgoDate.getHours());
+      const m = pad(twoHoursAgoDate.getMinutes());
+      expect(getConciseTime(twoHoursAgo, "zh")).toBe(`${h}:${m}`);
+    }
+  });
+
+  it("昨天显示昨天和时分", () => {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    yesterday.setHours(9, 15, 0, 0);
+    expect(getConciseTime(yesterday.getTime(), "zh")).toBe("昨天 09:15");
+    expect(getConciseTime(yesterday.getTime(), "en")).toBe("Yesterday 09:15");
+  });
+
+  it("今年其他日期显示 MM-DD", () => {
+    const pastDate = new Date();
+    // 30 days ago, making sure it stays in current year
+    pastDate.setMonth(0, 15); // Jan 15 of this year
+    pastDate.setHours(10, 0, 0, 0);
+    if (new Date().getMonth() > 0 || new Date().getDate() > 16) {
+      expect(getConciseTime(pastDate.getTime(), "zh")).toBe("01-15");
+    }
+  });
+
+  it("跨年显示完整年月日 YYYY-MM-DD", () => {
+    const pastYear = new Date();
+    pastYear.setFullYear(2023, 4, 20); // 2023-05-20
+    expect(getConciseTime(pastYear.getTime(), "zh")).toBe("2023-05-20");
+    expect(getConciseTime(pastYear.getTime(), "en")).toBe("2023-05-20");
+  });
+
+  it("支持以秒为单位的时间戳", () => {
+    const seconds = Math.floor(Date.now() / 1000) - 20;
+    expect(getConciseTime(seconds, "zh")).toBe("刚刚");
   });
 });
