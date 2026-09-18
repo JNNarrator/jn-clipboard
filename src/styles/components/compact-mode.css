@@ -116,10 +116,15 @@
     right: 8px;
     margin: 0 !important;
     z-index: 5;
-    opacity: 0.85;
+    opacity: 0.9;
     max-width: 55%;
+    display: flex;
+    align-items: center;
+    gap: 4px;
     flex-wrap: nowrap !important;
     overflow: hidden;
+    pointer-events: auto;
+    transition: right 0.18s cubic-bezier(0.16, 1, 0.3, 1), max-width 0.18s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.18s ease;
 }
 
 body.compact-show-time .history-item.compact .item-tags-container,
@@ -128,11 +133,38 @@ html.compact-show-time .history-item.compact .item-tags-container {
     max-width: 45%;
 }
 
+/* When hovered or selected, action buttons appear at right: 8px (~136px wide).
+   Keep tags visible by smoothly shifting them to the left of the action strip. */
+.history-item.compact:hover .item-tags-container:not(.tag-edit-active),
+.history-item.compact.selected .item-tags-container:not(.tag-edit-active) {
+    right: 148px;
+    max-width: 38%;
+}
+
 /* Allow tag suggestion popover to extend outside the tag strip while editing */
 .history-item.compact .item-tags-container.tag-edit-active {
-    overflow: visible;
-    z-index: 60;
-    opacity: 1;
+    overflow: visible !important;
+    z-index: 250 !important;
+    opacity: 1 !important;
+    right: 8px !important;
+    max-width: calc(100% - 16px) !important;
+    background: var(--bg-element, rgba(30, 30, 30, 0.85));
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border-color, rgba(128, 128, 128, 0.2));
+    border-radius: 6px;
+    padding: 2px 6px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+
+.history-item.compact:has(.item-tags-container.tag-edit-active) {
+    z-index: 250 !important;
+}
+
+.history-item.compact:has(.item-tags-container.tag-edit-active) .item-actions {
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
 }
 
 .history-item.compact .compact-note-indicator {
@@ -178,6 +210,10 @@ html.compact-show-time .history-item.compact .item-tags-container {
     white-space: nowrap;
     display: inline-flex;
     align-items: center;
+    border-radius: var(--compact-action-radius, 4px) !important;
+    max-width: 90px;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* Button Wrapper - reset .item-meta for structure */

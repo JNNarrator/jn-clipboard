@@ -1421,6 +1421,11 @@ const ClipboardItem = ({
     const renderTagsContainer = () => (
         <div
             className={`item-tags-container${isEditingTags ? ' tag-edit-active' : ''}`}
+            onMouseDown={(e) => {
+                if ((e.target as HTMLElement).closest("button, input, textarea, .tag-chip, .tag-edit-anchor")) {
+                    e.stopPropagation();
+                }
+            }}
         >
             {item.tags?.map((tag) => {
                 const tagBackground = tagColors?.[tag] || getTagColor(tag, theme);
@@ -2205,6 +2210,8 @@ const ClipboardItem = ({
             </div>
 
             {showFlowMetaFooter && renderMetaFooter()}
+
+            {compactMode && hasTagsSection && renderTagsContainer()}
 
             {compactMode && !!item.note && !isEditingNote && (
                 <button
