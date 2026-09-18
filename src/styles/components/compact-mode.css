@@ -190,14 +190,81 @@ html.compact-show-time .history-item.compact .item-tags-container {
     color: var(--accent-color);
 }
 
-.history-item.compact .item-note {
-    margin-top: 2px;
-    padding: 0 2px;
+/* Note editor in compact mode: enforce strict symmetrical 8px margins on all 4 sides */
+.history-item.compact.editing-note,
+.history-item.compact.editing-note:has(.drag-handle),
+.history-item.compact:has(.item-note-editor),
+.history-item.compact:has(.item-note-editor):has(.drag-handle) {
+    padding: 8px !important;
+    min-height: auto !important;
+    height: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    gap: 6px !important;
+    box-sizing: border-box !important;
+    z-index: 250 !important;
 }
 
-.history-item.compact .item-note-input {
-    min-height: 36px;
-    font-size: 11px;
+.history-item.compact.editing-note .drag-handle,
+.history-item.compact:has(.item-note-editor) .drag-handle {
+    display: none !important;
+}
+
+.history-item.compact.editing-note .content-preview-shell,
+.history-item.compact:has(.item-note-editor) .content-preview-shell {
+    width: 100% !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.history-item.compact.editing-note .content-preview,
+.history-item.compact:has(.item-note-editor) .content-preview {
+    font-size: 11px !important;
+    opacity: 0.65 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    line-height: 1.3 !important;
+    max-height: 16px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.history-item.compact.editing-note .item-note,
+.history-item.compact:has(.item-note-editor) .item-note {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.history-item.compact.editing-note .item-note-editor-inner,
+.history-item.compact:has(.item-note-editor) .item-note-editor-inner {
+    width: 100% !important;
+}
+
+.history-item.compact.editing-note .item-note-input,
+.history-item.compact:has(.item-note-editor) .item-note-input {
+    min-height: 40px !important;
+    padding: 6px 8px !important;
+    font-size: 11px !important;
+}
+
+.history-item.compact.editing-note .item-note-editor-footer,
+.history-item.compact:has(.item-note-editor) .item-note-editor-footer {
+    padding: 4px 6px 4px 6px !important;
+}
+
+.history-item.compact.editing-note .item-note-hint,
+.history-item.compact:has(.item-note-editor) .item-note-hint {
+    font-size: 9px !important;
+}
+
+.history-item.compact.editing-note .btn-note-action,
+.history-item.compact:has(.item-note-editor) .btn-note-action {
+    font-size: 10px !important;
+    padding: 2px 6px !important;
 }
 
 /* Larger tags styling for better readability */

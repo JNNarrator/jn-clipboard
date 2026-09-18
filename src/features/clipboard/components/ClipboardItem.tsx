@@ -55,7 +55,7 @@ import { stripRichStorageMarkers } from "../../../shared/lib/repairHtmlFragment"
 import { registerCompactPreviewControls } from "../lib/compactPreviewControls";
 import { openPinStickerWindow } from "../lib/pinStickerControls";
 import { activateForInput } from "../../../shared/lib/focus";
-import { getNotePlaceholder } from "../../../shared/lib/platform";
+import { getNotePlaceholder, isMacPlatform } from "../../../shared/lib/platform";
 import { setupDragDataTransfer, createDragGhostBadge } from "../lib/dragDrop";
 
 const COMPACT_PREVIEW_LABEL = "compact-preview";
@@ -1686,40 +1686,79 @@ const ClipboardItem = ({
             onClick={(e) => e.stopPropagation()}
         >
             {isEditingNote ? (
-                <textarea
-                    ref={noteInputRef}
-                    className="item-note-input"
-                    value={localNoteInput}
-                    placeholder={getNotePlaceholder(t)}
-                    rows={2}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onChange={(e) => setLocalNoteInput(e.target.value)}
-                    onKeyDown={(e) => {
-                        if (e.key === 'Escape') {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            onNoteEditCancel?.();
-                            return;
-                        }
-                        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            onNoteSave(localNoteInput);
-                        }
-                    }}
-                    onBlur={() => {
-                        if (ignoreNoteBlurRef.current) return;
-                        // Defer so focus moves within the note block don't save/close.
-                        window.setTimeout(() => {
-                            if (ignoreNoteBlurRef.current) return;
-                            const active = document.activeElement;
-                            if (active && noteInputRef.current?.closest(".item-note")?.contains(active)) {
+                <div className="item-note-editor-inner">
+                    <textarea
+                        ref={noteInputRef}
+                        className="item-note-input"
+                        value={localNoteInput}
+                        placeholder={getNotePlaceholder(t)}
+                        rows={2}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onChange={(e) => setLocalNoteInput(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Escape') {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                onNoteEditCancel?.();
                                 return;
                             }
-                            onNoteSave(noteInputRef.current?.value ?? localNoteInput);
-                        }, 0);
-                    }}
-                />
+                            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                onNoteSave(localNoteInput);
+                            }
+                        }}
+                        onBlur={() => {
+                            if (ignoreNoteBlurRef.current) return;
+                            // Defer so focus moves within the note block don't save/close.
+                            window.setTimeout(() => {
+                                if (ignoreNoteBlurRef.current) return;
+                                const active = document.activeElement;
+                                if (active && noteInputRef.current?.closest(".item-note")?.contains(active)) {
+                                    return;
+                                }
+                                onNoteSave(noteInputRef.current?.value ?? localNoteInput);
+                            }, 0);
+                        }}
+                    />
+                    <div className="item-note-editor-footer">
+                        <span className="item-note-hint">
+                            {isMacPlatform() ? "⌘↵ 保存 · Esc 取消" : "Ctrl+↵ 保存 · Esc 取消"}
+                        </span>
+                        <div className="item-note-actions">
+                            <button
+                                type="button"
+                                className="btn-note-action cancel"
+                                onMouseDown={(e) => {
+                                    e.stopPropagation();
+                                    ignoreNoteBlurRef.current = true;
+                                }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    ignoreNoteBlurRef.current = false;
+                                    onNoteEditCancel?.();
+                                }}
+                            >
+                                {t('cancel') || '取消'}
+                            </button>
+                            <button
+                                type="button"
+                                className="btn-note-action save"
+                                onMouseDown={(e) => {
+                                    e.stopPropagation();
+                                    ignoreNoteBlurRef.current = true;
+                                }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    ignoreNoteBlurRef.current = false;
+                                    onNoteSave(localNoteInput);
+                                }}
+                            >
+                                {t('save') || '保存'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
             ) : (
                 <button
                     type="button"
@@ -1937,8 +1976,8 @@ const ClipboardItem = ({
             }}
             onMouseEnter={(e) => {
                 if (!compactPreviewEnabled) return;
-                // Don't show preview if AI options or more menu are open to avoid interference
-                if (showAIOptions || isMoreMenuOpen) return;
+                // Don't show preview if AI options, more menu, note editor, or tag editor are open to avoid interference
+                if (showAIOptions || isMoreMenuOpen || isEditingNote || isEditingTags) return;
                 compactPreviewLog("mouseenter schedule preview", { itemId: item.id });
                 const requestId = ++compactPreviewRequestSerial;
                 hoverRequestIdRef.current = requestId;
@@ -1961,7 +2000,7 @@ const ClipboardItem = ({
                 hoverTimerRef.current = setTimeout(() => {
                     hoverTimerRef.current = null;
                     // Double-check AI options and more menu are still closed before showing
-                    if (showAIOptions || isMoreMenuOpen) return;
+                    if (showAIOptions || isMoreMenuOpen || isEditingNote || isEditingTags) return;
                     if (!target.isConnected) return;
                     if (!isHoverPreviewRequestCurrent(requestId)) return;
                     const anchor = hoverAnchorRef.current;
