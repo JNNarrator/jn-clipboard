@@ -133,12 +133,12 @@ html.compact-show-time .history-item.compact .item-tags-container {
     max-width: 45%;
 }
 
-/* When hovered or selected, action buttons appear at right: 8px (~136px wide).
-   Keep tags visible by smoothly shifting them to the left of the action strip. */
+/* When hovered or selected, the three-dots button appears at right: 8px (20px wide).
+   Keep tags visible next to it with minimal offset! */
 .history-item.compact:hover .item-tags-container:not(.tag-edit-active),
 .history-item.compact.selected .item-tags-container:not(.tag-edit-active) {
-    right: 148px;
-    max-width: 38%;
+    right: 34px;
+    max-width: 60%;
 }
 
 /* Allow tag suggestion popover to extend outside the tag strip while editing */
@@ -328,11 +328,18 @@ body.hide-unselected-item-actions .history-item.compact:hover .item-actions {
     pointer-events: auto !important;
 }
 
+.history-item.compact:has(.compact-more-btn.active) .item-actions,
 .history-item.compact:has(.ai-options-dropdown) .item-actions {
     opacity: 1 !important;
     visibility: visible !important;
     pointer-events: auto !important;
     transform: translateX(0) !important;
+}
+
+.history-item.compact:has(.compact-more-btn.active) .item-meta-right-info {
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
 }
 
 /* Timestamp & Quick Paste Hint in Compact Mode */
@@ -460,6 +467,120 @@ body.hide-unselected-item-actions .history-item.compact:hover .item-meta-right-i
 .history-item.compact .ai-options-dropdown button:hover {
     background: var(--menu-item-hover-background) !important;
     color: var(--menu-item-hover-color) !important;
+}
+
+/* Compact Action Menu (Three-dots Dropdown) */
+.compact-more-action-wrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.compact-action-menu {
+    position: fixed;
+    z-index: 100050;
+    min-width: 140px;
+    padding: 4px;
+    border-radius: var(--compact-card-radius, 8px);
+    background: var(--menu-background, var(--popover-background));
+    border: var(--menu-border, 1px solid var(--line-strong, rgba(128, 128, 128, 0.2)));
+    box-shadow: var(--menu-shadow, 0 10px 30px rgba(0, 0, 0, 0.35));
+    backdrop-filter: var(--popover-backdrop-filter, blur(24px) saturate(180%));
+    -webkit-backdrop-filter: var(--popover-backdrop-filter, blur(24px) saturate(180%));
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    animation: compactMenuFadeIn 0.12s cubic-bezier(0.16, 1, 0.3, 1);
+    user-select: none;
+    box-sizing: border-box;
+}
+
+@keyframes compactMenuFadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.compact-action-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 28px;
+    padding: 0 8px;
+    border: 0;
+    border-radius: var(--compact-action-radius, 4px);
+    background: transparent;
+    color: var(--text-primary);
+    font-size: 12px;
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease;
+    box-sizing: border-box;
+}
+
+.compact-action-menu-item svg {
+    flex-shrink: 0;
+    opacity: 0.82;
+}
+
+.compact-action-menu-item span {
+    flex: 1;
+    white-space: nowrap;
+}
+
+.compact-action-menu-item:hover,
+.compact-action-menu-item:focus-visible {
+    outline: none;
+    background: var(--menu-item-hover-background, rgba(128, 128, 128, 0.15));
+    color: var(--menu-item-hover-color, var(--accent-color, var(--text-primary)));
+}
+
+.compact-action-menu-item:hover svg,
+.compact-action-menu-item:focus-visible svg {
+    opacity: 1;
+}
+
+.compact-action-menu-item.is-active {
+    color: var(--accent-color);
+    font-weight: 500;
+}
+
+.compact-action-menu-item.danger {
+    color: var(--status-danger, #ef4444);
+}
+
+.compact-action-menu-item.danger:hover,
+.compact-action-menu-item.danger:focus-visible {
+    background: rgba(var(--status-danger-rgb, 239, 68, 68), 0.12);
+    color: var(--status-danger, #ef4444);
+}
+
+.compact-action-menu-divider {
+    height: 1px;
+    margin: 3px 4px;
+    background: var(--border-color, rgba(128, 128, 128, 0.2));
+}
+
+/* Retro Theme support */
+body.theme-retro .compact-action-menu,
+html.theme-retro .compact-action-menu {
+    background: var(--bg-element) !important;
+    border: 2px solid var(--border-dark) !important;
+    box-shadow: 4px 4px 0 0 var(--shadow-color) !important;
+    border-radius: 0 !important;
+}
+
+body.theme-retro .compact-action-menu-item,
+html.theme-retro .compact-action-menu-item {
+    border-radius: 0 !important;
 }
 
 /* Popover Content Styling */

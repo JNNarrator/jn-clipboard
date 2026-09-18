@@ -1,4 +1,5 @@
 import { useRef, useEffect, useLayoutEffect, useState, useMemo, memo } from "react";
+import { createPortal } from "react-dom";
 import type { CSSProperties } from "react";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import type { WebviewWindow } from "@tauri-apps/api/webviewWindow";
@@ -13,6 +14,9 @@ import {
     Tag,
     StickyNote,
     X,
+    Copy,
+    Trash2,
+    MoreHorizontal,
     FileText,
     Image as ImageIcon,
     Link as LinkIcon,
@@ -900,6 +904,60 @@ const ClipboardItem = ({
         return () => document.removeEventListener("mousedown", onDocMouseDown, true);
     }, [isEditingTags, onTagEditCancel]);
 
+    const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+    const [menuPos, setMenuPos] = useState<{ top?: number; bottom?: number; right: number; placement: 'top' | 'bottom' } | null>(null);
+    const moreButtonRef = useRef<HTMLButtonElement | null>(null);
+    const moreMenuRef = useRef<HTMLDivElement | null>(null);
+
+    const updateMoreMenuPosition = () => {
+        if (!moreButtonRef.current) return;
+        const rect = moreButtonRef.current.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const openUpwards = spaceBelow < 240 && rect.top > spaceBelow;
+        setMenuPos({
+            top: openUpwards ? undefined : Math.round(rect.bottom + 4),
+            bottom: openUpwards ? Math.round(window.innerHeight - rect.top + 4) : undefined,
+            right: Math.max(8, Math.round(window.innerWidth - rect.right)),
+            placement: openUpwards ? 'top' : 'bottom',
+        });
+    };
+
+    useEffect(() => {
+        if (!isMoreMenuOpen) return;
+        const handleClickOutside = (e: MouseEvent) => {
+            const target = e.target as HTMLElement;
+            if (moreMenuRef.current?.contains(target) || moreButtonRef.current?.contains(target)) {
+                return;
+            }
+            setIsMoreMenuOpen(false);
+        };
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                setIsMoreMenuOpen(false);
+                moreButtonRef.current?.focus();
+            }
+        };
+        const handleScrollOrResize = () => {
+            setIsMoreMenuOpen(false);
+        };
+        window.addEventListener('mousedown', handleClickOutside, true);
+        window.addEventListener('keydown', handleKeyDown, true);
+        window.addEventListener('scroll', handleScrollOrResize, true);
+        window.addEventListener('resize', handleScrollOrResize);
+        return () => {
+            window.removeEventListener('mousedown', handleClickOutside, true);
+            window.removeEventListener('keydown', handleKeyDown, true);
+            window.removeEventListener('scroll', handleScrollOrResize, true);
+            window.removeEventListener('resize', handleScrollOrResize);
+        };
+    }, [isMoreMenuOpen]);
+
+    useEffect(() => {
+        if (!compactMode && isMoreMenuOpen) {
+            setIsMoreMenuOpen(false);
+        }
+    }, [compactMode, isMoreMenuOpen]);
+
     const sensitivePreview = useMemo(
         () => formatSensitivePreview(item.content, item.content_type, {
             prefixVisible: sensitiveMaskPrefixVisible,
@@ -1291,7 +1349,7 @@ const ClipboardItem = ({
     }, [useSnapshotPreviewImage, effectiveRichTextSnapshotSrc, item.id]);
 
     const showAIOptions = localAiOptionsOpen;
-    const isInteractionActive = isItemInteractionActive(isSelected, isEditingTags, isEditingNote, showAIOptions);
+    const isInteractionActive = isItemInteractionActive(isSelected, isEditingTags, isEditingNote, showAIOptions) || isMoreMenuOpen;
     const inlineAiVariants = {
         open: { opacity: 1, height: "auto", marginTop: 8, marginBottom: 8 },
         collapsed: { opacity: 0, height: 0, marginTop: 0, marginBottom: 0 }
@@ -1860,8 +1918,8 @@ const ClipboardItem = ({
             }}
             onMouseEnter={(e) => {
                 if (!compactPreviewEnabled) return;
-                // Don't show preview if AI options are open to avoid interference
-                if (showAIOptions) return;
+                // Don't show preview if AI options or more menu are open to avoid interference
+                if (showAIOptions || isMoreMenuOpen) return;
                 compactPreviewLog("mouseenter schedule preview", { itemId: item.id });
                 const requestId = ++compactPreviewRequestSerial;
                 hoverRequestIdRef.current = requestId;
@@ -1883,8 +1941,8 @@ const ClipboardItem = ({
                 // Set a delay to show
                 hoverTimerRef.current = setTimeout(() => {
                     hoverTimerRef.current = null;
-                    // Double-check AI options are still closed before showing
-                    if (showAIOptions) return;
+                    // Double-check AI options and more menu are still closed before showing
+                    if (showAIOptions || isMoreMenuOpen) return;
                     if (!target.isConnected) return;
                     if (!isHoverPreviewRequestCurrent(requestId)) return;
                     const anchor = hoverAnchorRef.current;
@@ -1936,85 +1994,263 @@ const ClipboardItem = ({
 
                 <div className="item-meta-right">
                     <div className="item-actions">
-                        {(item.tags?.includes('sensitive') || item.tags?.includes('密码') || item.tags?.includes('password')) && (
-                            <button
-                                className={`btn-icon ${isRevealed ? "active" : ""}`}
-                                onClick={onToggleReveal}
-                                title={isRevealed ? t('hide') : t('reveal')}
-                            >
-                                {isRevealed ? <EyeOff size={12} /> : <Eye size={12} />}
-                            </button>
-                        )}
-                        <button
-                            className="btn-icon"
-                            onClick={onOpen}
-                            title={t('open')}
-                        >
-                            <ExternalLink size={12} />
-                        </button>
-                        {item.content_type === 'image' && (
-                            <button
-                                className="btn-icon"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    openPinStickerWindow(item);
-                                }}
-                                title={t('pin_sticker') || '贴图到桌面'}
-                            >
-                                <PictureInPicture2 size={12} />
-                            </button>
-                        )}
-                        <button
-                            className={`btn-icon ${item.is_pinned ? "active" : ""}`}
-                            onClick={onTogglePin}
-                            title={item.is_pinned ? t('unpin') : t('pin')}
-                        >
-                            {item.is_pinned ? <PinOff size={12} /> : <Pin size={12} />}
-                        </button>
-                        <button
-                            className={`btn-icon ${item.tags && item.tags.length > 0 ? "active" : ""}`}
-                            onClick={onToggleTagEditor}
-                            title={t('edit_tags') || 'Tags'}
-                        >
-                            <Tag size={12} />
-                        </button>
-                        <button
-                            className={`btn-icon ${item.note ? "active" : ""} ${isEditingNote ? "active" : ""}`}
-                            onMouseDown={(e) => e.stopPropagation()}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                if (isEditingNote) {
-                                    onNoteSave(localNoteInput);
-                                } else {
-                                    onToggleNoteEditor(e);
-                                }
-                            }}
-                            title={item.note ? (t('edit_note') || '编辑备注') : (t('add_note') || '添加备注')}
-                        >
-                            <StickyNote size={12} />
-                        </button>
-                        {(item.content_type === 'text' || item.content_type === 'rich_text') && aiEnabled && (
-                            <button
-                                className={`btn-icon ai-btn ${isAIProcessing || showAIOptions ? 'active' : ''}`}
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (!isAIProcessing) {
-                                        // Close preview window when opening AI options
-                                        if (!showAIOptions) {
-                                            hideCompactPreview();
+                        {compactMode ? (
+                            <div className="compact-more-action-wrap">
+                                <button
+                                    ref={moreButtonRef}
+                                    type="button"
+                                    className={`btn-icon compact-more-btn ${isMoreMenuOpen ? "active" : ""}`}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        void hideCompactPreview();
+                                        if (isMoreMenuOpen) {
+                                            setIsMoreMenuOpen(false);
+                                        } else {
+                                            updateMoreMenuPosition();
+                                            setIsMoreMenuOpen(true);
                                         }
-                                        setLocalAiOptionsOpen(prev => !prev);
-                                        onAIOptionsToggle?.();
-                                    }
-                                }}
-                                title={t('ai_assistant')}
-                            >
-                                {isAIProcessing ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-                            </button>
+                                    }}
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                    title={t('more_actions') || t('more') || '更多操作'}
+                                    aria-label={t('more_actions') || t('more') || '更多操作'}
+                                    aria-haspopup="menu"
+                                    aria-expanded={isMoreMenuOpen}
+                                >
+                                    <MoreHorizontal size={13} />
+                                </button>
+                                {isMoreMenuOpen && menuPos && createPortal(
+                                    <div
+                                        ref={moreMenuRef}
+                                        className="compact-action-menu"
+                                        role="menu"
+                                        aria-label={t('more_actions') || '更多操作'}
+                                        style={{
+                                            position: 'fixed',
+                                            top: menuPos.top !== undefined ? `${menuPos.top}px` : undefined,
+                                            bottom: menuPos.bottom !== undefined ? `${menuPos.bottom}px` : undefined,
+                                            right: `${menuPos.right}px`,
+                                            zIndex: 100050,
+                                        }}
+                                        onMouseDown={(e) => e.stopPropagation()}
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        <button
+                                            type="button"
+                                            role="menuitem"
+                                            className="compact-action-menu-item"
+                                            onClick={() => {
+                                                setIsMoreMenuOpen(false);
+                                                onCopy(false);
+                                            }}
+                                        >
+                                            <Copy size={13} />
+                                            <span>{t('copy') || '复制'}</span>
+                                        </button>
+
+                                        {(item.tags?.includes('sensitive') || item.tags?.includes('密码') || item.tags?.includes('password')) && (
+                                            <button
+                                                type="button"
+                                                role="menuitem"
+                                                className={`compact-action-menu-item ${isRevealed ? "is-active" : ""}`}
+                                                onClick={(e) => {
+                                                    setIsMoreMenuOpen(false);
+                                                    onToggleReveal(e);
+                                                }}
+                                            >
+                                                {isRevealed ? <EyeOff size={13} /> : <Eye size={13} />}
+                                                <span>{isRevealed ? (t('hide') || '隐藏') : (t('reveal') || '查看明文')}</span>
+                                            </button>
+                                        )}
+
+                                        <button
+                                            type="button"
+                                            role="menuitem"
+                                            className="compact-action-menu-item"
+                                            onClick={(e) => {
+                                                setIsMoreMenuOpen(false);
+                                                onOpen(e);
+                                            }}
+                                        >
+                                            <ExternalLink size={13} />
+                                            <span>{t('open') || '打开'}</span>
+                                        </button>
+
+                                        {item.content_type === 'image' && (
+                                            <button
+                                                type="button"
+                                                role="menuitem"
+                                                className="compact-action-menu-item"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setIsMoreMenuOpen(false);
+                                                    openPinStickerWindow(item);
+                                                }}
+                                            >
+                                                <PictureInPicture2 size={13} />
+                                                <span>{t('pin_sticker') || '贴图到桌面'}</span>
+                                            </button>
+                                        )}
+
+                                        <button
+                                            type="button"
+                                            role="menuitem"
+                                            className={`compact-action-menu-item ${item.is_pinned ? "is-active" : ""}`}
+                                            onClick={(e) => {
+                                                setIsMoreMenuOpen(false);
+                                                onTogglePin(e);
+                                            }}
+                                        >
+                                            {item.is_pinned ? <PinOff size={13} /> : <Pin size={13} />}
+                                            <span>{item.is_pinned ? (t('unpin') || '取消置顶') : (t('pin') || '置顶')}</span>
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            role="menuitem"
+                                            className={`compact-action-menu-item ${item.tags && item.tags.length > 0 ? "is-active" : ""}`}
+                                            onClick={(e) => {
+                                                setIsMoreMenuOpen(false);
+                                                onToggleTagEditor(e);
+                                            }}
+                                        >
+                                            <Tag size={13} />
+                                            <span>{t('edit_tags') || '标签'}</span>
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            role="menuitem"
+                                            className={`compact-action-menu-item ${item.note ? "is-active" : ""}`}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setIsMoreMenuOpen(false);
+                                                onToggleNoteEditor(e);
+                                            }}
+                                        >
+                                            <StickyNote size={13} />
+                                            <span>{item.note ? (t('edit_note') || '编辑备注') : (t('add_note') || '添加备注')}</span>
+                                        </button>
+
+                                        {(item.content_type === 'text' || item.content_type === 'rich_text') && aiEnabled && (
+                                            <button
+                                                type="button"
+                                                role="menuitem"
+                                                className={`compact-action-menu-item ${isAIProcessing || showAIOptions ? "is-active" : ""}`}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setIsMoreMenuOpen(false);
+                                                    if (!isAIProcessing) {
+                                                        setLocalAiOptionsOpen(prev => !prev);
+                                                        onAIOptionsToggle?.();
+                                                    }
+                                                }}
+                                            >
+                                                {isAIProcessing ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+                                                <span>{t('ai_assistant') || 'AI 助手'}</span>
+                                            </button>
+                                        )}
+
+                                        <div className="compact-action-menu-divider" role="separator" />
+
+                                        <button
+                                            type="button"
+                                            role="menuitem"
+                                            className="compact-action-menu-item danger"
+                                            onClick={(e) => {
+                                                setIsMoreMenuOpen(false);
+                                                onDelete(e);
+                                            }}
+                                        >
+                                            <Trash2 size={13} />
+                                            <span>{t('delete') || '删除'}</span>
+                                        </button>
+                                    </div>,
+                                    document.body
+                                )}
+                            </div>
+                        ) : (
+                            <>
+                                {(item.tags?.includes('sensitive') || item.tags?.includes('密码') || item.tags?.includes('password')) && (
+                                    <button
+                                        className={`btn-icon ${isRevealed ? "active" : ""}`}
+                                        onClick={onToggleReveal}
+                                        title={isRevealed ? t('hide') : t('reveal')}
+                                    >
+                                        {isRevealed ? <EyeOff size={12} /> : <Eye size={12} />}
+                                    </button>
+                                )}
+                                <button
+                                    className="btn-icon"
+                                    onClick={onOpen}
+                                    title={t('open')}
+                                >
+                                    <ExternalLink size={12} />
+                                </button>
+                                {item.content_type === 'image' && (
+                                    <button
+                                        className="btn-icon"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            openPinStickerWindow(item);
+                                        }}
+                                        title={t('pin_sticker') || '贴图到桌面'}
+                                    >
+                                        <PictureInPicture2 size={12} />
+                                    </button>
+                                )}
+                                <button
+                                    className={`btn-icon ${item.is_pinned ? "active" : ""}`}
+                                    onClick={onTogglePin}
+                                    title={item.is_pinned ? t('unpin') : t('pin')}
+                                >
+                                    {item.is_pinned ? <PinOff size={12} /> : <Pin size={12} />}
+                                </button>
+                                <button
+                                    className={`btn-icon ${item.tags && item.tags.length > 0 ? "active" : ""}`}
+                                    onClick={onToggleTagEditor}
+                                    title={t('edit_tags') || 'Tags'}
+                                >
+                                    <Tag size={12} />
+                                </button>
+                                <button
+                                    className={`btn-icon ${item.note ? "active" : ""} ${isEditingNote ? "active" : ""}`}
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (isEditingNote) {
+                                            onNoteSave(localNoteInput);
+                                        } else {
+                                            onToggleNoteEditor(e);
+                                        }
+                                    }}
+                                    title={item.note ? (t('edit_note') || '编辑备注') : (t('add_note') || '添加备注')}
+                                >
+                                    <StickyNote size={12} />
+                                </button>
+                                {(item.content_type === 'text' || item.content_type === 'rich_text') && aiEnabled && (
+                                    <button
+                                        className={`btn-icon ai-btn ${isAIProcessing || showAIOptions ? 'active' : ''}`}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (!isAIProcessing) {
+                                                // Close preview window when opening AI options
+                                                if (!showAIOptions) {
+                                                    hideCompactPreview();
+                                                }
+                                                setLocalAiOptionsOpen(prev => !prev);
+                                                onAIOptionsToggle?.();
+                                            }
+                                        }}
+                                        title={t('ai_assistant')}
+                                    >
+                                        {isAIProcessing ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                                    </button>
+                                )}
+                                <button className="btn-icon" onClick={onDelete} title={t('delete')}>
+                                    <X size={12} />
+                                </button>
+                            </>
                         )}
-                        <button className="btn-icon" onClick={onDelete} title={t('delete')}>
-                            <X size={12} />
-                        </button>
                     </div>
                     <div className="item-meta-right-info">
                         {quickPasteHint && item.is_pinned && (
