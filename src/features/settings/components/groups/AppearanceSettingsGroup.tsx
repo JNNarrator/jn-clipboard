@@ -403,11 +403,9 @@ const AppearanceSettingsGroup = ({
 
                 {compactMode && (
                     <div className="setting-item" style={{ paddingLeft: '16px' }}>
-                        <LabelWithHint
-                            label={t('compact_show_time') || '紧凑模式显示时间'}
-                            hint={t('compact_show_time_hint') || '开启后在紧凑模式列表条目右侧显示时间戳（默认关闭，悬浮预览窗口始终可见完整时间）'}
-                            hintKey="compact_show_time"
-                        />
+                        <div className="item-label-group">
+                            <span className="item-label">{t('compact_show_time') || '紧凑模式显示时间'}</span>
+                        </div>
                         <label className="switch">
                             <input
                                 className="cb"
