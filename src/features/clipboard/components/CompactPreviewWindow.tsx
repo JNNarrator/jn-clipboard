@@ -301,6 +301,120 @@ const CompactPreviewWindow = () => {
         let timerA: number | null = null;
         let timerB: number | null = null;
         let timerC: number | null = null;
+const calculateStandardCardDimensions = (
+    payload: PreviewPayload,
+    bounds: { width: number; height: number; mediaWidth: number; mediaHeight: number },
+    chromeWidth: number,
+    chromeHeight: number,
+    container: HTMLElement,
+    contentEl: HTMLElement | null,
+    metaEl: HTMLElement | null
+): { width: number; height: number } => {
+    const maxW = Math.min(bounds.width, 540);
+    const maxH = bounds.height;
+    const metaWidth = metaEl ? Math.ceil(metaEl.scrollWidth + chromeWidth) : 240;
+    const baseMinW = Math.max(260, Math.min(320, metaWidth));
+
+    // 1. Media Preview (Images, Videos, Fallback snapshots)
+    const isMedia = payload.contentType === "image" || payload.contentType === "video";
+    if (isMedia) {
+        const standardMediaWidth = Math.min(maxW, 460);
+        const availableMediaHeight = Math.max(120, Math.floor(maxH - chromeHeight - 8));
+        const availableMediaWidth = Math.max(160, Math.floor(standardMediaWidth - chromeWidth));
+
+        container.style.setProperty("--preview-media-fit-height", `${availableMediaHeight}px`);
+        container.style.setProperty("--preview-media-fit-width", `${availableMediaWidth}px`);
+
+        const mediaEl = contentEl?.querySelector<HTMLImageElement | HTMLVideoElement>("img, video");
+        if (mediaEl instanceof HTMLImageElement && mediaEl.naturalWidth > 0 && mediaEl.naturalHeight > 0) {
+            const nw = mediaEl.naturalWidth;
+            const nh = mediaEl.naturalHeight;
+            // Vertical phone screenshot (aspect ratio < 0.68) -> slightly narrower card 360px
+            const isTallPortrait = nw / nh < 0.68;
+            const chosenTargetWidth = isTallPortrait ? Math.min(maxW, 360) : standardMediaWidth;
+            const availW = chosenTargetWidth - chromeWidth;
+            const scale = Math.min(1, availW / nw, availableMediaHeight / nh);
+            const fitW = Math.round(nw * scale);
+            const fitH = Math.round(nh * scale);
+            const finalW = Math.min(maxW, Math.max(baseMinW, fitW + chromeWidth));
+            const finalH = Math.min(maxH, Math.max(80, fitH + chromeHeight));
+            container.style.width = `${finalW}px`;
+            return { width: finalW, height: finalH };
+        } else if (mediaEl && mediaEl.getBoundingClientRect().height > 0) {
+            const r = mediaEl.getBoundingClientRect();
+            container.style.width = `${standardMediaWidth}px`;
+            return {
+                width: standardMediaWidth,
+                height: Math.min(maxH, Math.max(80, Math.ceil(r.height + chromeHeight)))
+            };
+        }
+        container.style.width = `${standardMediaWidth}px`;
+        return {
+            width: standardMediaWidth,
+            height: Math.min(maxH, Math.max(160, Math.floor(availableMediaHeight * 0.7) + chromeHeight))
+        };
+    }
+
+    // 2. Code Preview
+    if (payload.contentType === "code") {
+        const standardCodeWidth = Math.min(maxW, 480);
+        container.style.width = `${standardCodeWidth}px`;
+        const measuredHeight = Math.ceil(container.scrollHeight || container.offsetHeight || container.getBoundingClientRect().height);
+        return {
+            width: standardCodeWidth,
+            height: Math.min(maxH, Math.max(80, measuredHeight))
+        };
+    }
+
+    // 3. File List Preview
+    if (payload.contentType === "file") {
+        const standardFileWidth = Math.min(maxW, 380);
+        container.style.width = `${standardFileWidth}px`;
+        const measuredHeight = Math.ceil(container.scrollHeight || container.offsetHeight || container.getBoundingClientRect().height);
+        return {
+            width: standardFileWidth,
+            height: Math.min(maxH, Math.max(80, measuredHeight))
+        };
+    }
+
+    // 4. Rich Text Preview
+    if (payload.contentType === "rich_text") {
+        const standardRichWidth = Math.min(maxW, 420);
+        container.style.width = `${standardRichWidth}px`;
+        const measuredHeight = Math.ceil(container.scrollHeight || container.offsetHeight || container.getBoundingClientRect().height);
+        return {
+            width: standardRichWidth,
+            height: Math.min(maxH, Math.max(80, measuredHeight))
+        };
+    }
+
+    // 5. Plain Text Preview
+    const text = (payload.content || payload.preview || "").trim();
+    const hasLineBreak = text.includes("\n");
+    const charCount = text.length;
+
+    let targetWidth: number;
+    if (!hasLineBreak && charCount <= 28) {
+        // Micro/Short tier: tightly wrap short strings, no huge empty space
+        const approxCharWidth = 8.2;
+        const textWidth = Math.ceil(charCount * approxCharWidth + chromeWidth + 24);
+        targetWidth = Math.max(baseMinW, Math.min(320, Math.min(maxW, textWidth)));
+    } else if (charCount <= 140 && (!hasLineBreak || text.split("\n").length <= 4)) {
+        // Standard reading tier: ideal line length (25-35 CJK chars / 60-70 Latin chars)
+        targetWidth = Math.min(maxW, 380);
+    } else {
+        // Expanded reading tier for long prose and multi-line content
+        targetWidth = Math.min(maxW, 420);
+    }
+
+    container.style.width = `${targetWidth}px`;
+    const measuredHeight = Math.ceil(container.scrollHeight || container.offsetHeight || container.getBoundingClientRect().height);
+    return {
+        width: targetWidth,
+        height: Math.min(maxH, Math.max(80, measuredHeight))
+    };
+};
+
         const updateSize = () => {
             raf = window.requestAnimationFrame(() => {
                 const container = containerRef.current;
@@ -310,8 +424,6 @@ const CompactPreviewWindow = () => {
                 }
 
                 const bounds = previewBoundsRef.current;
-                const maxWidth = bounds.width;
-                const maxHeight = bounds.height;
                 const style = getComputedStyle(container);
                 const pixels = (value: string) => Number.parseFloat(value) || 0;
                 const outerHeight = (element: HTMLElement | null) => {
@@ -326,47 +438,18 @@ const CompactPreviewWindow = () => {
                 const chromeWidth = pixels(style.paddingLeft) + pixels(style.paddingRight)
                     + pixels(style.borderLeftWidth) + pixels(style.borderRightWidth);
 
-                if (container.classList.contains("compact-preview-media")) {
-                    const availableMediaHeight = Math.max(120, Math.floor(maxHeight - chromeHeight - 4));
-                    const availableMediaWidth = Math.max(160, Math.floor(maxWidth - chromeWidth - 4));
-                    container.style.setProperty("--preview-media-fit-height", `${availableMediaHeight}px`);
-                    container.style.setProperty("--preview-media-fit-width", `${availableMediaWidth}px`);
-                }
-                const minWidth =
-                    payload.contentType === "image" || payload.contentType === "video"
-                        ? 260
-                        : Math.min(bounds.width, 320);
+                const { width, height } = calculateStandardCardDimensions(
+                    payload,
+                    bounds,
+                    chromeWidth,
+                    chromeHeight,
+                    container,
+                    contentRef.current,
+                    metaRef.current
+                );
 
-                let measuredWidth = Math.max(container.offsetWidth, container.scrollWidth, Math.ceil(container.getBoundingClientRect().width));
-                let measuredHeight = Math.max(container.offsetHeight, container.scrollHeight, Math.ceil(container.getBoundingClientRect().height));
-
-                const mediaEl = contentRef.current?.querySelector<HTMLImageElement | HTMLVideoElement>("img, video");
-                if (mediaEl instanceof HTMLImageElement && mediaEl.naturalWidth > 0 && mediaEl.naturalHeight > 0) {
-                    const nw = mediaEl.naturalWidth;
-                    const nh = mediaEl.naturalHeight;
-                    const availableMediaHeight = Math.max(120, Math.floor(maxHeight - chromeHeight - 4));
-                    const availableMediaWidth = Math.max(160, Math.floor(maxWidth - chromeWidth - 4));
-                    const scaleFactor = Math.min(
-                        1,
-                        availableMediaWidth / nw,
-                        availableMediaHeight / nh
-                    );
-                    const fitW = Math.round(nw * scaleFactor);
-                    const fitH = Math.round(nh * scaleFactor);
-                    measuredWidth = Math.max(measuredWidth, fitW + chromeWidth);
-                    measuredHeight = Math.max(measuredHeight, fitH + chromeHeight);
-                } else if (mediaEl && mediaEl.getBoundingClientRect().height > 0) {
-                    const mediaRect = mediaEl.getBoundingClientRect();
-                    measuredHeight = Math.max(measuredHeight, Math.ceil(mediaRect.height + chromeHeight));
-                    measuredWidth = Math.max(measuredWidth, Math.ceil(mediaRect.width + chromeWidth));
-                }
-
-                const width = Math.min(Math.max(Math.ceil(measuredWidth), minWidth), maxWidth);
-                const height = Math.min(Math.max(Math.ceil(measuredHeight), 80), maxHeight);
                 if (width < 40 || height < 40) {
                     compactPreviewLog("skip emit: measured size too small", {
-                        measuredWidth,
-                        measuredHeight,
                         width,
                         height
                     });
@@ -387,13 +470,8 @@ const CompactPreviewWindow = () => {
                 lastSentSizeRef.current = { requestId, width, height };
                 compactPreviewLog("emit compact-preview-resize", {
                     requestId,
-                    measuredWidth,
-                    measuredHeight,
                     width,
-                    height,
-                    minWidth,
-                    maxWidth,
-                    maxHeight
+                    height
                 });
 
                 emit("compact-preview-resize", { requestId, width, height }).catch(() => {});
