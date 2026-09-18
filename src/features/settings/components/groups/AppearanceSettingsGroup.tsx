@@ -46,6 +46,8 @@ interface AppearanceSettingsGroupProps {
 
     compactMode: boolean;
     setCompactMode: (val: boolean) => void;
+    compactShowTime: boolean;
+    setCompactShowTime: (val: boolean) => void;
     clipboardItemFontSize: number;
     setClipboardItemFontSize: (val: number) => void;
     clipboardTagFontSize: number;
@@ -93,6 +95,8 @@ const AppearanceSettingsGroup = ({
 
     compactMode,
     setCompactMode,
+    compactShowTime,
+    setCompactShowTime,
     clipboardItemFontSize,
     setClipboardItemFontSize,
     clipboardTagFontSize,
@@ -396,6 +400,29 @@ const AppearanceSettingsGroup = ({
                         <div className="toggle"><div className="left" /><div className="right" /></div>
                     </label>
                 </div>
+
+                {compactMode && (
+                    <div className="setting-item" style={{ paddingLeft: '16px' }}>
+                        <LabelWithHint
+                            label={t('compact_show_time') || '紧凑模式显示时间'}
+                            hint={t('compact_show_time_hint') || '开启后在紧凑模式列表条目右侧显示时间戳（默认关闭，悬浮预览窗口始终可见完整时间）'}
+                            hintKey="compact_show_time"
+                        />
+                        <label className="switch">
+                            <input
+                                className="cb"
+                                type="checkbox"
+                                checked={compactShowTime}
+                                onChange={(e) => {
+                                    const val = e.target.checked;
+                                    setCompactShowTime(val);
+                                    saveAppSetting('compact_show_time', String(val));
+                                }}
+                            />
+                            <div className="toggle"><div className="left" /><div className="right" /></div>
+                        </label>
+                    </div>
+                )}
 
                 <div className="setting-item column">
                     <div className="setting-item-heading">

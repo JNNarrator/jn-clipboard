@@ -196,6 +196,8 @@ interface SettingsPanelProps {
 
     compactMode: boolean;
     setCompactMode: (val: boolean) => void;
+    compactShowTime: boolean;
+    setCompactShowTime: (val: boolean) => void;
     checkHotkeyConflict: (newHotkey: string, mode: 'main' | 'sequential' | 'rich' | 'search') => boolean;
 
 
@@ -279,7 +281,7 @@ const SettingsPanel = (props: SettingsPanelProps) => {
         setIsRecordingSearch, updateSearchHotkey,
         setPrivacyProtection,
         setIsRecording, isRecording, hotkey, hotkeyParts, updateHotkey,
-        setTheme, setColorMode, setLanguage, compactMode, setCompactMode, checkHotkeyConflict,
+        setTheme, setColorMode, setLanguage, compactMode, setCompactMode, compactShowTime, setCompactShowTime, checkHotkeyConflict,
         clipboardItemFontSize, setClipboardItemFontSize, clipboardTagFontSize, setClipboardTagFontSize,
         emojiPanelEnabled, setEmojiPanelEnabled, tagManagerEnabled, setTagManagerEnabled,
         setMqttEnabled, saveMqtt, setMqttServer, setMqttPort, setMqttUser, setMqttPass, setMqttTopic, setMqttProtocol, setMqttWsPath, setMqttNotificationEnabled,
@@ -636,6 +638,8 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                 setHideUnselectedItemActions={setHideUnselectedItemActions}
                 compactMode={compactMode}
                 setCompactMode={setCompactMode}
+                compactShowTime={compactShowTime}
+                setCompactShowTime={setCompactShowTime}
                 clipboardItemFontSize={clipboardItemFontSize}
                 setClipboardItemFontSize={setClipboardItemFontSize}
                 clipboardTagFontSize={clipboardTagFontSize}

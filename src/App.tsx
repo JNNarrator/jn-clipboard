@@ -245,6 +245,8 @@ const App = () => {
 
     compactMode,
     setCompactMode,
+    compactShowTime,
+    setCompactShowTime,
     clipboardItemFontSize,
     setClipboardItemFontSize,
     clipboardTagFontSize,
@@ -634,6 +636,7 @@ const App = () => {
     setPasteMethod,
     setShowSourceAppIcon,
     setHideUnselectedItemActions,
+    setCompactShowTime,
 
     setDeleteAfterPaste,
     setMoveToTopAfterPaste,
@@ -777,6 +780,7 @@ const App = () => {
     colorMode,
 
     compactMode,
+    compactShowTime,
     hideUnselectedItemActions,
     settingsLoaded,
     clipboardItemFontSize,
@@ -846,6 +850,7 @@ const App = () => {
       if (type === 'theme') localStorage.setItem('tiez_theme', path);
       if (type === 'color_mode') localStorage.setItem('tiez_color_mode', path);
       if (type === 'compact_mode') localStorage.setItem('tiez_compact_mode', path);
+      if (type === 'compact_show_time') localStorage.setItem('tiez_compact_show_time', path);
     } catch (e) {
       // Ignore localStorage errors
     }

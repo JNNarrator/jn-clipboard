@@ -76,6 +76,7 @@ interface UseSettingsPostInitOptions {
   setPasteMethod: (val: string) => void;
   setShowSourceAppIcon: (val: boolean) => void;
   setHideUnselectedItemActions: (val: boolean) => void;
+  setCompactShowTime: (val: boolean) => void;
 
   setDeleteAfterPaste: (val: boolean) => void;
   setMoveToTopAfterPaste: (val: boolean) => void;
@@ -164,6 +165,7 @@ export const useSettingsPostInit = ({
   setPasteMethod,
   setShowSourceAppIcon,
   setHideUnselectedItemActions,
+  setCompactShowTime,
 
   setDeleteAfterPaste,
   setMoveToTopAfterPaste,
@@ -341,6 +343,7 @@ export const useSettingsPostInit = ({
     setPasteMethod(settings["app.paste_method"] || "shift_insert");
     setShowSourceAppIcon(settings["app.show_source_app_icon"] !== "false");
     setHideUnselectedItemActions(settings["app.hide_unselected_item_actions"] === "true");
+    setCompactShowTime(settings["app.compact_show_time"] === "true");
 
 
     // These have false as default, so check for 'true'
@@ -549,6 +552,7 @@ export const useSettingsPostInit = ({
     setPasteMethod,
     setShowSourceAppIcon,
     setHideUnselectedItemActions,
+    setCompactShowTime,
 
     setDeleteAfterPaste,
     setMoveToTopAfterPaste,

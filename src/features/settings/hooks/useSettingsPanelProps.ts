@@ -188,6 +188,8 @@ export const useSettingsPanelProps = ({
 
     compactMode,
     setCompactMode,
+    compactShowTime,
+    setCompactShowTime,
     clipboardItemFontSize,
     setClipboardItemFontSize,
     clipboardTagFontSize,
@@ -391,6 +393,8 @@ export const useSettingsPanelProps = ({
 
     compactMode,
     setCompactMode,
+    compactShowTime,
+    setCompactShowTime,
     clipboardItemFontSize,
     setClipboardItemFontSize,
     clipboardTagFontSize,

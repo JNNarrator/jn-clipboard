@@ -10,6 +10,7 @@ interface UseSettingsApplyOptions {
   colorMode: string;
 
   compactMode: boolean;
+  compactShowTime: boolean;
   hideUnselectedItemActions: boolean;
   settingsLoaded: boolean;
   clipboardItemFontSize: number;
@@ -23,6 +24,7 @@ export const useSettingsApply = ({
   colorMode,
 
   compactMode,
+  compactShowTime,
   hideUnselectedItemActions,
   settingsLoaded,
   clipboardItemFontSize,
@@ -86,6 +88,8 @@ export const useSettingsApply = ({
     }
 
     body.classList.toggle("hide-unselected-item-actions", hideUnselectedItemActions);
+    body.classList.toggle("compact-show-time", compactShowTime);
+    root.classList.toggle("compact-show-time", compactShowTime);
 
     if (colorMode === "light") {
       applyExplicitMode("light");
@@ -132,7 +136,7 @@ export const useSettingsApply = ({
       if (unlisten) unlisten();
       if (cleanupMedia) cleanupMedia();
     };
-  }, [theme, colorMode, showAppBorder, settingsLoaded, compactMode, hideUnselectedItemActions]);
+  }, [theme, colorMode, showAppBorder, settingsLoaded, compactMode, compactShowTime, hideUnselectedItemActions]);
 
   useEffect(() => {
     if (!settingsLoaded) return;

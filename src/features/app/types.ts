@@ -152,6 +152,8 @@ export interface AppState {
 
   compactMode: boolean;
   setCompactMode: StateSetter<boolean>;
+  compactShowTime: boolean;
+  setCompactShowTime: StateSetter<boolean>;
   clipboardItemFontSize: number;
   setClipboardItemFontSize: StateSetter<number>;
   clipboardTagFontSize: number;
