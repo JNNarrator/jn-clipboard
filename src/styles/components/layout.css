@@ -423,52 +423,81 @@ header {
 
 .clipboard-sort-menu {
   position: absolute;
-  top: calc(100% + 7px);
+  top: calc(100% + 6px);
   right: -6px;
-  width: 188px;
-  padding: 6px;
+  width: max-content;
+  min-width: 140px;
+  max-width: 220px;
+  padding: 4px;
   color: var(--popover-color);
-  background: var(--popover-background);
-  border: var(--popover-border);
-  border-radius: var(--popover-radius);
-  box-shadow: var(--popover-shadow);
-  backdrop-filter: var(--popover-backdrop-filter);
-  -webkit-backdrop-filter: var(--popover-backdrop-filter);
+  background: var(--menu-background, var(--popover-background));
+  border: var(--menu-border, 1px solid var(--line-strong, rgba(128, 128, 128, 0.2)));
+  border-radius: var(--menu-radius, 8px);
+  box-shadow: var(--menu-shadow, 0 10px 30px rgba(0, 0, 0, 0.35));
+  backdrop-filter: var(--popover-backdrop-filter, blur(24px) saturate(180%));
+  -webkit-backdrop-filter: var(--popover-backdrop-filter, blur(24px) saturate(180%));
   box-sizing: border-box;
   transform-origin: top right;
-  animation: clipboard-sort-menu-in 0.12s ease-out;
+  animation: clipboard-sort-menu-in 0.12s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 100050;
+  user-select: none;
 }
 
 .clipboard-sort-menu-title {
-  padding: 4px 8px 6px;
+  padding: 4px 8px 4px;
   color: var(--text-secondary);
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.04em;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--line-soft, rgba(128, 128, 128, 0.12));
+  margin-bottom: 2px;
 }
 
 .clipboard-sort-option {
   display: flex;
   width: 100%;
-  min-height: 30px;
+  min-height: 28px;
   align-items: center;
   justify-content: space-between;
-  padding: 5px 8px;
+  gap: 16px;
+  padding: 0 8px;
   color: var(--text-primary);
   background: transparent;
   border: 0;
-  border-radius: calc(var(--popover-radius) * 0.65);
+  border-radius: var(--compact-action-radius, 4px);
   font: inherit;
   font-size: 12px;
   text-align: left;
   cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s ease, color 0.12s ease;
+  box-sizing: border-box;
+}
+
+.clipboard-sort-option span {
+  white-space: nowrap;
+  flex: 1;
 }
 
 .clipboard-sort-option:hover,
 .clipboard-sort-option:focus-visible {
-  color: var(--text-primary);
-  background: var(--accent-soft);
+  color: var(--menu-item-hover-color, #ffffff) !important;
+  background: var(--menu-item-hover-background, var(--accent-color)) !important;
   outline: none;
+}
+
+.clipboard-sort-option:hover .clipboard-sort-check-placeholder,
+.clipboard-sort-option:focus-visible .clipboard-sort-check-placeholder {
+  visibility: hidden;
+}
+
+.clipboard-sort-option:hover svg,
+.clipboard-sort-option:focus-visible svg {
+  color: var(--menu-item-hover-color, #ffffff) !important;
 }
 
 .clipboard-sort-option.is-selected {
@@ -478,6 +507,8 @@ header {
 
 .clipboard-sort-check-placeholder {
   visibility: hidden;
+  width: 13px;
+  flex-shrink: 0;
 }
 
 @keyframes clipboard-sort-menu-in {
