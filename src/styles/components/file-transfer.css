@@ -105,7 +105,8 @@
 
 .wt-status-secondary {
   color: var(--im-muted);
-  font: 9.5px/1.2 var(--font-mono);
+  font-size: 10px;
+  line-height: 1.25;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

@@ -13,8 +13,8 @@ export interface TransferHeaderProps {
     hasOnlineDevices: boolean;
     conversationTitle: string;
     onlineDevicesCount: number;
-    activeIp: string;
-    actualPort: string;
+    activeIp?: string;
+    actualPort?: string;
     selectedIp: string;
     interfaces: NetworkInterfaceInfo[];
     onSwitchIp: (ip: string) => void;
@@ -35,8 +35,6 @@ export const TransferHeader = ({
     hasOnlineDevices,
     conversationTitle,
     onlineDevicesCount,
-    activeIp,
-    actualPort,
     selectedIp,
     interfaces,
     onSwitchIp,
@@ -76,11 +74,11 @@ export const TransferHeader = ({
                             ? (conversationTitle || "设备已就绪")
                             : "等待设备连接"}
                     </span>
-                    <span className="wt-status-secondary">
-                        {hasOnlineDevices
-                            ? (onlineDevicesCount === 1 ? "局域网高速传输中" : `${onlineDevicesCount} 台设备在线`)
-                            : `${activeIp}:${actualPort}`}
-                    </span>
+                    {hasOnlineDevices && (
+                        <span className="wt-status-secondary">
+                            {onlineDevicesCount === 1 ? "局域网高速传输中" : `${onlineDevicesCount} 台设备在线`}
+                        </span>
+                    )}
                 </div>
             </div>
 
