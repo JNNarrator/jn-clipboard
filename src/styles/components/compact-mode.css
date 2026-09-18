@@ -143,6 +143,10 @@ html.compact-show-time .history-item.compact .item-tags-container {
 
 /* Allow tag suggestion popover to extend outside the tag strip while editing */
 .history-item.compact .item-tags-container.tag-edit-active {
+    position: absolute !important;
+    top: 50% !important;
+    bottom: auto !important;
+    transform: translateY(-50%) !important;
     overflow: visible !important;
     z-index: 250 !important;
     opacity: 1 !important;
@@ -157,14 +161,9 @@ html.compact-show-time .history-item.compact .item-tags-container {
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
 }
 
+.history-item.compact.editing-tags,
 .history-item.compact:has(.item-tags-container.tag-edit-active) {
     z-index: 250 !important;
-}
-
-.history-item.compact:has(.item-tags-container.tag-edit-active) .item-actions {
-    opacity: 0 !important;
-    visibility: hidden !important;
-    pointer-events: none !important;
 }
 
 .history-item.compact .compact-note-indicator {
@@ -340,6 +339,34 @@ body.hide-unselected-item-actions .history-item.compact:hover .item-actions {
     opacity: 0 !important;
     visibility: hidden !important;
     pointer-events: none !important;
+}
+
+/* Completely hide actions & right info when editing tags or notes in compact mode */
+.history-item.compact.editing-tags .item-actions,
+.history-item.compact.editing-tags .item-meta-right,
+.history-item.compact.editing-tags .item-meta-right-info,
+.history-item.compact.editing-tags .compact-more-btn,
+.history-item.compact.editing-tags .compact-more-action-wrap,
+.history-item.compact.editing-note .item-actions,
+.history-item.compact.editing-note .item-meta-right,
+.history-item.compact.editing-note .item-meta-right-info,
+.history-item.compact.editing-note .compact-more-btn,
+.history-item.compact.editing-note .compact-more-action-wrap,
+.history-item.compact:has(.item-tags-container.tag-edit-active) .item-actions,
+.history-item.compact:has(.item-tags-container.tag-edit-active) .item-meta-right,
+.history-item.compact:has(.item-tags-container.tag-edit-active) .item-meta-right-info,
+.history-item.compact:has(.item-tags-container.tag-edit-active) .compact-more-btn,
+.history-item.compact:has(.item-tags-container.tag-edit-active) .compact-more-action-wrap,
+.history-item.compact:has(.item-note-editor) .item-actions,
+.history-item.compact:has(.item-note-editor) .item-meta-right,
+.history-item.compact:has(.item-note-editor) .item-meta-right-info,
+.history-item.compact:has(.item-note-editor) .compact-more-btn,
+.history-item.compact:has(.item-note-editor) .compact-more-action-wrap {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    transform: none !important;
 }
 
 /* Timestamp & Quick Paste Hint in Compact Mode */

@@ -17,6 +17,7 @@ import {
     Copy,
     Trash2,
     MoreHorizontal,
+    Check,
     FileText,
     Image as ImageIcon,
     Link as LinkIcon,
@@ -953,10 +954,10 @@ const ClipboardItem = ({
     }, [isMoreMenuOpen]);
 
     useEffect(() => {
-        if (!compactMode && isMoreMenuOpen) {
+        if ((!compactMode || isEditingTags || isEditingNote) && isMoreMenuOpen) {
             setIsMoreMenuOpen(false);
         }
-    }, [compactMode, isMoreMenuOpen]);
+    }, [compactMode, isEditingTags, isEditingNote, isMoreMenuOpen]);
 
     const sensitivePreview = useMemo(
         () => formatSensitivePreview(item.content, item.content_type, {
@@ -1609,9 +1610,27 @@ const ClipboardItem = ({
                             }}
                             className="btn-icon"
                             style={{ padding: '2px', height: '16px', width: '16px' }}
+                            title={t('add_tag') || '添加标签'}
                         >
                             <Plus size={10} />
                         </button>
+                        {compactMode && (
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (localTagInput.trim()) {
+                                        onTagAdd();
+                                    }
+                                    onTagEditCancel?.();
+                                }}
+                                className="btn-icon"
+                                title={t('confirm') || '完成'}
+                                style={{ padding: '2px', height: '16px', width: '16px' }}
+                            >
+                                <Check size={10} />
+                            </button>
+                        )}
                     </div>
                     {pickableTagSuggestions.length > 0 && onTagPick && (
                         <div
@@ -1745,7 +1764,7 @@ const ClipboardItem = ({
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.1 }}
             draggable={!isEditingTags && !isEditingNote}
-            className={`history-item ${isInteractionActive ? "selected" : ""} ${compactMode ? "compact" : ""} ${item.is_pinned ? "pinned" : ""} ${isDragging ? "is-dragging" : ""} ${className || ''}`}
+            className={`history-item ${isInteractionActive ? "selected" : ""} ${compactMode ? "compact" : ""} ${item.is_pinned ? "pinned" : ""} ${isDragging ? "is-dragging" : ""} ${isEditingTags ? "editing-tags" : ""} ${isEditingNote ? "editing-note" : ""} ${className || ''}`}
             onMouseDownCapture={(e) => {
                 const target = e.target as HTMLElement;
                 if (e.button !== 0) return;
@@ -1995,179 +2014,181 @@ const ClipboardItem = ({
                 <div className="item-meta-right">
                     <div className="item-actions">
                         {compactMode ? (
-                            <div className="compact-more-action-wrap">
-                                <button
-                                    ref={moreButtonRef}
-                                    type="button"
-                                    className={`btn-icon compact-more-btn ${isMoreMenuOpen ? "active" : ""}`}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        void hideCompactPreview();
-                                        if (isMoreMenuOpen) {
-                                            setIsMoreMenuOpen(false);
-                                        } else {
-                                            updateMoreMenuPosition();
-                                            setIsMoreMenuOpen(true);
-                                        }
-                                    }}
-                                    onMouseDown={(e) => e.stopPropagation()}
-                                    title={t('more_actions') || t('more') || '更多操作'}
-                                    aria-label={t('more_actions') || t('more') || '更多操作'}
-                                    aria-haspopup="menu"
-                                    aria-expanded={isMoreMenuOpen}
-                                >
-                                    <MoreHorizontal size={13} />
-                                </button>
-                                {isMoreMenuOpen && menuPos && createPortal(
-                                    <div
-                                        ref={moreMenuRef}
-                                        className="compact-action-menu"
-                                        role="menu"
-                                        aria-label={t('more_actions') || '更多操作'}
-                                        style={{
-                                            position: 'fixed',
-                                            top: menuPos.top !== undefined ? `${menuPos.top}px` : undefined,
-                                            bottom: menuPos.bottom !== undefined ? `${menuPos.bottom}px` : undefined,
-                                            right: `${menuPos.right}px`,
-                                            zIndex: 100050,
+                            (!isEditingTags && !isEditingNote) ? (
+                                <div className="compact-more-action-wrap">
+                                    <button
+                                        ref={moreButtonRef}
+                                        type="button"
+                                        className={`btn-icon compact-more-btn ${isMoreMenuOpen ? "active" : ""}`}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            void hideCompactPreview();
+                                            if (isMoreMenuOpen) {
+                                                setIsMoreMenuOpen(false);
+                                            } else {
+                                                updateMoreMenuPosition();
+                                                setIsMoreMenuOpen(true);
+                                            }
                                         }}
                                         onMouseDown={(e) => e.stopPropagation()}
-                                        onClick={(e) => e.stopPropagation()}
+                                        title={t('more_actions') || t('more') || '更多操作'}
+                                        aria-label={t('more_actions') || t('more') || '更多操作'}
+                                        aria-haspopup="menu"
+                                        aria-expanded={isMoreMenuOpen}
                                     >
-                                        <button
-                                            type="button"
-                                            role="menuitem"
-                                            className="compact-action-menu-item"
-                                            onClick={() => {
-                                                setIsMoreMenuOpen(false);
-                                                onCopy(false);
+                                        <MoreHorizontal size={13} />
+                                    </button>
+                                    {isMoreMenuOpen && menuPos && createPortal(
+                                        <div
+                                            ref={moreMenuRef}
+                                            className="compact-action-menu"
+                                            role="menu"
+                                            aria-label={t('more_actions') || '更多操作'}
+                                            style={{
+                                                position: 'fixed',
+                                                top: menuPos.top !== undefined ? `${menuPos.top}px` : undefined,
+                                                bottom: menuPos.bottom !== undefined ? `${menuPos.bottom}px` : undefined,
+                                                right: `${menuPos.right}px`,
+                                                zIndex: 100050,
                                             }}
+                                            onMouseDown={(e) => e.stopPropagation()}
+                                            onClick={(e) => e.stopPropagation()}
                                         >
-                                            <Copy size={13} />
-                                            <span>{t('copy') || '复制'}</span>
-                                        </button>
-
-                                        {(item.tags?.includes('sensitive') || item.tags?.includes('密码') || item.tags?.includes('password')) && (
                                             <button
                                                 type="button"
                                                 role="menuitem"
-                                                className={`compact-action-menu-item ${isRevealed ? "is-active" : ""}`}
-                                                onClick={(e) => {
+                                                className="compact-action-menu-item"
+                                                onClick={() => {
                                                     setIsMoreMenuOpen(false);
-                                                    onToggleReveal(e);
+                                                    onCopy(false);
                                                 }}
                                             >
-                                                {isRevealed ? <EyeOff size={13} /> : <Eye size={13} />}
-                                                <span>{isRevealed ? (t('hide') || '隐藏') : (t('reveal') || '查看明文')}</span>
+                                                <Copy size={13} />
+                                                <span>{t('copy') || '复制'}</span>
                                             </button>
-                                        )}
 
-                                        <button
-                                            type="button"
-                                            role="menuitem"
-                                            className="compact-action-menu-item"
-                                            onClick={(e) => {
-                                                setIsMoreMenuOpen(false);
-                                                onOpen(e);
-                                            }}
-                                        >
-                                            <ExternalLink size={13} />
-                                            <span>{t('open') || '打开'}</span>
-                                        </button>
+                                            {(item.tags?.includes('sensitive') || item.tags?.includes('密码') || item.tags?.includes('password')) && (
+                                                <button
+                                                    type="button"
+                                                    role="menuitem"
+                                                    className={`compact-action-menu-item ${isRevealed ? "is-active" : ""}`}
+                                                    onClick={(e) => {
+                                                        setIsMoreMenuOpen(false);
+                                                        onToggleReveal(e);
+                                                    }}
+                                                >
+                                                    {isRevealed ? <EyeOff size={13} /> : <Eye size={13} />}
+                                                    <span>{isRevealed ? (t('hide') || '隐藏') : (t('reveal') || '查看明文')}</span>
+                                                </button>
+                                            )}
 
-                                        {item.content_type === 'image' && (
                                             <button
                                                 type="button"
                                                 role="menuitem"
                                                 className="compact-action-menu-item"
                                                 onClick={(e) => {
-                                                    e.stopPropagation();
                                                     setIsMoreMenuOpen(false);
-                                                    openPinStickerWindow(item);
+                                                    onOpen(e);
                                                 }}
                                             >
-                                                <PictureInPicture2 size={13} />
-                                                <span>{t('pin_sticker') || '贴图到桌面'}</span>
+                                                <ExternalLink size={13} />
+                                                <span>{t('open') || '打开'}</span>
                                             </button>
-                                        )}
 
-                                        <button
-                                            type="button"
-                                            role="menuitem"
-                                            className={`compact-action-menu-item ${item.is_pinned ? "is-active" : ""}`}
-                                            onClick={(e) => {
-                                                setIsMoreMenuOpen(false);
-                                                onTogglePin(e);
-                                            }}
-                                        >
-                                            {item.is_pinned ? <PinOff size={13} /> : <Pin size={13} />}
-                                            <span>{item.is_pinned ? (t('unpin') || '取消置顶') : (t('pin') || '置顶')}</span>
-                                        </button>
+                                            {item.content_type === 'image' && (
+                                                <button
+                                                    type="button"
+                                                    role="menuitem"
+                                                    className="compact-action-menu-item"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setIsMoreMenuOpen(false);
+                                                        openPinStickerWindow(item);
+                                                    }}
+                                                >
+                                                    <PictureInPicture2 size={13} />
+                                                    <span>{t('pin_sticker') || '贴图到桌面'}</span>
+                                                </button>
+                                            )}
 
-                                        <button
-                                            type="button"
-                                            role="menuitem"
-                                            className={`compact-action-menu-item ${item.tags && item.tags.length > 0 ? "is-active" : ""}`}
-                                            onClick={(e) => {
-                                                setIsMoreMenuOpen(false);
-                                                onToggleTagEditor(e);
-                                            }}
-                                        >
-                                            <Tag size={13} />
-                                            <span>{t('edit_tags') || '标签'}</span>
-                                        </button>
-
-                                        <button
-                                            type="button"
-                                            role="menuitem"
-                                            className={`compact-action-menu-item ${item.note ? "is-active" : ""}`}
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setIsMoreMenuOpen(false);
-                                                onToggleNoteEditor(e);
-                                            }}
-                                        >
-                                            <StickyNote size={13} />
-                                            <span>{item.note ? (t('edit_note') || '编辑备注') : (t('add_note') || '添加备注')}</span>
-                                        </button>
-
-                                        {(item.content_type === 'text' || item.content_type === 'rich_text') && aiEnabled && (
                                             <button
                                                 type="button"
                                                 role="menuitem"
-                                                className={`compact-action-menu-item ${isAIProcessing || showAIOptions ? "is-active" : ""}`}
+                                                className={`compact-action-menu-item ${item.is_pinned ? "is-active" : ""}`}
+                                                onClick={(e) => {
+                                                    setIsMoreMenuOpen(false);
+                                                    onTogglePin(e);
+                                                }}
+                                            >
+                                                {item.is_pinned ? <PinOff size={13} /> : <Pin size={13} />}
+                                                <span>{item.is_pinned ? (t('unpin') || '取消置顶') : (t('pin') || '置顶')}</span>
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                role="menuitem"
+                                                className={`compact-action-menu-item ${item.tags && item.tags.length > 0 ? "is-active" : ""}`}
+                                                onClick={(e) => {
+                                                    setIsMoreMenuOpen(false);
+                                                    onToggleTagEditor(e);
+                                                }}
+                                            >
+                                                <Tag size={13} />
+                                                <span>{t('edit_tags') || '标签'}</span>
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                role="menuitem"
+                                                className={`compact-action-menu-item ${item.note ? "is-active" : ""}`}
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     setIsMoreMenuOpen(false);
-                                                    if (!isAIProcessing) {
-                                                        setLocalAiOptionsOpen(prev => !prev);
-                                                        onAIOptionsToggle?.();
-                                                    }
+                                                    onToggleNoteEditor(e);
                                                 }}
                                             >
-                                                {isAIProcessing ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
-                                                <span>{t('ai_assistant') || 'AI 助手'}</span>
+                                                <StickyNote size={13} />
+                                                <span>{item.note ? (t('edit_note') || '编辑备注') : (t('add_note') || '添加备注')}</span>
                                             </button>
-                                        )}
 
-                                        <div className="compact-action-menu-divider" role="separator" />
+                                            {(item.content_type === 'text' || item.content_type === 'rich_text') && aiEnabled && (
+                                                <button
+                                                    type="button"
+                                                    role="menuitem"
+                                                    className={`compact-action-menu-item ${isAIProcessing || showAIOptions ? "is-active" : ""}`}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setIsMoreMenuOpen(false);
+                                                        if (!isAIProcessing) {
+                                                            setLocalAiOptionsOpen(prev => !prev);
+                                                            onAIOptionsToggle?.();
+                                                        }
+                                                    }}
+                                                >
+                                                    {isAIProcessing ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+                                                    <span>{t('ai_assistant') || 'AI 助手'}</span>
+                                                </button>
+                                            )}
 
-                                        <button
-                                            type="button"
-                                            role="menuitem"
-                                            className="compact-action-menu-item danger"
-                                            onClick={(e) => {
-                                                setIsMoreMenuOpen(false);
-                                                onDelete(e);
-                                            }}
-                                        >
-                                            <Trash2 size={13} />
-                                            <span>{t('delete') || '删除'}</span>
-                                        </button>
-                                    </div>,
-                                    document.body
-                                )}
-                            </div>
+                                            <div className="compact-action-menu-divider" role="separator" />
+
+                                            <button
+                                                type="button"
+                                                role="menuitem"
+                                                className="compact-action-menu-item danger"
+                                                onClick={(e) => {
+                                                    setIsMoreMenuOpen(false);
+                                                    onDelete(e);
+                                                }}
+                                            >
+                                                <Trash2 size={13} />
+                                                <span>{t('delete') || '删除'}</span>
+                                            </button>
+                                        </div>,
+                                        document.body
+                                    )}
+                                </div>
+                            ) : null
                         ) : (
                             <>
                                 {(item.tags?.includes('sensitive') || item.tags?.includes('密码') || item.tags?.includes('password')) && (
