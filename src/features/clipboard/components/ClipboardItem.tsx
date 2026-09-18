@@ -1691,7 +1691,7 @@ const ClipboardItem = ({
                         ref={noteInputRef}
                         className="item-note-input"
                         value={localNoteInput}
-                        placeholder={getNotePlaceholder(t)}
+                        placeholder={compactMode ? `${t('add_note') || '添加备注'}…` : getNotePlaceholder(t)}
                         rows={2}
                         onMouseDown={(e) => e.stopPropagation()}
                         onChange={(e) => setLocalNoteInput(e.target.value)}

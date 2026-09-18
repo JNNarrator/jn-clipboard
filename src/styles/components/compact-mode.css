@@ -191,18 +191,18 @@ html.compact-show-time .history-item.compact .item-tags-container {
     color: var(--accent-color);
 }
 
-/* Note editor in compact mode: enforce strict symmetrical 8px margins on all 4 sides */
+/* Note editor in compact mode: seamless unified card without nested boxes */
 .history-item.compact.editing-note,
 .history-item.compact.editing-note:has(.drag-handle),
 .history-item.compact:has(.item-note-editor),
 .history-item.compact:has(.item-note-editor):has(.drag-handle) {
-    padding: 8px !important;
+    padding: 8px 10px 6px 10px !important;
     min-height: auto !important;
     height: auto !important;
     display: flex !important;
     flex-direction: column !important;
     justify-content: flex-start !important;
-    gap: 6px !important;
+    gap: 0 !important;
     box-sizing: border-box !important;
     z-index: 250 !important;
 }
@@ -217,13 +217,16 @@ html.compact-show-time .history-item.compact .item-tags-container {
     width: 100% !important;
     min-width: 0 !important;
     margin: 0 !important;
-    padding: 0 !important;
+    padding: 0 0 5px 0 !important;
+    border-bottom: 1px solid var(--border-color, rgba(128, 128, 128, 0.15)) !important;
 }
 
 .history-item.compact.editing-note .content-preview,
 .history-item.compact:has(.item-note-editor) .content-preview {
     font-size: 11px !important;
-    opacity: 0.65 !important;
+    font-weight: 500 !important;
+    color: var(--text-secondary) !important;
+    opacity: 0.75 !important;
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
@@ -240,32 +243,62 @@ html.compact-show-time .history-item.compact .item-tags-container {
     padding: 0 !important;
 }
 
+/* Strip all nested card borders, outlines, backgrounds, and shadows */
 .history-item.compact.editing-note .item-note-editor-inner,
 .history-item.compact:has(.item-note-editor) .item-note-editor-inner {
     width: 100% !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    overflow: visible !important;
+}
+
+.history-item.compact.editing-note .item-note-editor-inner:focus-within,
+.history-item.compact:has(.item-note-editor) .item-note-editor-inner:focus-within {
+    border: none !important;
+    box-shadow: none !important;
 }
 
 .history-item.compact.editing-note .item-note-input,
 .history-item.compact:has(.item-note-editor) .item-note-input {
-    min-height: 40px !important;
-    padding: 6px 8px !important;
-    font-size: 11px !important;
+    min-height: 44px !important;
+    max-height: 120px !important;
+    padding: 5px 0 6px 0 !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    font-size: 12px !important;
+    line-height: 1.45 !important;
+    resize: none !important;
+    color: var(--text-primary) !important;
 }
 
 .history-item.compact.editing-note .item-note-editor-footer,
 .history-item.compact:has(.item-note-editor) .item-note-editor-footer {
-    padding: 4px 6px 4px 6px !important;
+    padding: 6px 0 0 0 !important;
+    border-top: 1px solid color-mix(in srgb, var(--border-color, rgba(128, 128, 128, 0.15)) 60%, transparent) !important;
+    background: transparent !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
 }
 
 .history-item.compact.editing-note .item-note-hint,
 .history-item.compact:has(.item-note-editor) .item-note-hint {
-    font-size: 9px !important;
+    font-size: 10px !important;
+    color: var(--text-secondary) !important;
+    opacity: 0.7 !important;
 }
 
 .history-item.compact.editing-note .btn-note-action,
 .history-item.compact:has(.item-note-editor) .btn-note-action {
-    font-size: 10px !important;
-    padding: 2px 6px !important;
+    font-size: 11px !important;
+    padding: 2px 8px !important;
+    border-radius: 4px !important;
 }
 
 /* Larger tags styling for better readability */
