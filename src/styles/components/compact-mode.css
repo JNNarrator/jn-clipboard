@@ -563,31 +563,61 @@ body.hide-unselected-item-actions .history-item.compact:hover .item-meta-right-i
     white-space: nowrap;
 }
 
-.compact-action-menu-item:hover,
-.compact-action-menu-item:focus-visible {
-    outline: none;
-    background: var(--menu-item-hover-background, rgba(128, 128, 128, 0.15));
-    color: var(--menu-item-hover-color, var(--accent-color, var(--text-primary)));
+/* Default active state (when not hovered): subtle accent tint */
+.compact-action-menu-item.is-active {
+    color: var(--accent-color);
+    font-weight: 600;
+    background: var(--accent-soft, rgba(var(--accent-color-rgb, 59, 130, 246), 0.12));
 }
 
-.compact-action-menu-item:hover svg,
-.compact-action-menu-item:focus-visible svg {
+.compact-action-menu-item.is-active svg {
+    color: var(--accent-color);
     opacity: 1;
 }
 
-.compact-action-menu-item.is-active {
-    color: var(--accent-color);
-    font-weight: 500;
+/* Hover, Focus, and Active states: GUARANTEED high contrast! */
+.compact-action-menu-item:hover,
+.compact-action-menu-item:focus-visible,
+.compact-action-menu-item:active,
+.compact-action-menu-item.is-active:hover,
+.compact-action-menu-item.is-active:focus-visible,
+.compact-action-menu-item.is-active:active {
+    outline: none;
+    background: var(--menu-item-hover-background, var(--accent-color)) !important;
+    color: var(--menu-item-hover-color, #ffffff) !important;
 }
 
+.compact-action-menu-item:hover svg,
+.compact-action-menu-item:focus-visible svg,
+.compact-action-menu-item:active svg,
+.compact-action-menu-item.is-active:hover svg,
+.compact-action-menu-item.is-active:focus-visible svg,
+.compact-action-menu-item.is-active:active svg {
+    color: var(--menu-item-hover-color, #ffffff) !important;
+    opacity: 1 !important;
+}
+
+/* Danger Item: high contrast danger styling */
 .compact-action-menu-item.danger {
     color: var(--status-danger, #ef4444);
 }
 
-.compact-action-menu-item.danger:hover,
-.compact-action-menu-item.danger:focus-visible {
-    background: rgba(var(--status-danger-rgb, 239, 68, 68), 0.12);
+.compact-action-menu-item.danger svg {
     color: var(--status-danger, #ef4444);
+}
+
+.compact-action-menu-item.danger:hover,
+.compact-action-menu-item.danger:focus-visible,
+.compact-action-menu-item.danger:active {
+    background: var(--status-danger, #ef4444) !important;
+    color: #ffffff !important;
+}
+
+.compact-action-menu-item.danger:hover svg,
+.compact-action-menu-item.danger:focus-visible svg,
+.compact-action-menu-item.danger:active svg {
+    color: #ffffff !important;
+    opacity: 1 !important;
 }
 
 .compact-action-menu-divider {

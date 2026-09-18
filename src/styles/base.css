@@ -474,3 +474,8 @@ body.hide-app-border #root {
   -webkit-clip-path: inset(0 round var(--shell-radius));
   clip-path: inset(0 round var(--shell-radius));
 }
+
+::selection {
+  background: var(--accent-color, #2f6fed);
+  color: #ffffff !important;
+}
