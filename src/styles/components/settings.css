@@ -2,15 +2,15 @@
 .settings-view {
   --settings-inline-pad: 8px;
   background: transparent;
-  /* Keep a tight, even inset: the stable gutter already occupies the right
-     edge, so do not add extra left padding for the scrollbar. */
-  padding: 12px 0 12px var(--settings-inline-pad);
+  /* Overlay scrollbars reserve no space. Classic scrollbars get a matching
+     gutter on both sides, independent of the theme's scrollbar width. */
+  padding: 12px var(--settings-inline-pad);
   max-width: 720px;
   margin: 0 auto;
   width: 100%;
   overflow-x: hidden;
   overflow-y: auto;
-  scrollbar-gutter: stable;
+  scrollbar-gutter: stable both-edges;
   min-height: 0;
   flex: 1;
   box-sizing: border-box;
