@@ -24,6 +24,24 @@ fn main() -> AppResult<()> {
     // `use-rustls-no-provider` and will panic if no provider is registered.
     let _ = rustls::crypto::ring::default_provider().install_default();
 
+    // Prefer overlay scrollbars (no classic Win32 arrows) in WebView2.
+    #[cfg(target_os = "windows")]
+    {
+        const OVERLAY_ARGS: &str =
+            "--enable-features=OverlayScrollbar,FluentOverlayScrollbar";
+        match std::env::var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS") {
+            Ok(existing) if !existing.is_empty() => {
+                if !existing.contains("OverlayScrollbar") {
+                    std::env::set_var(
+                        "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
+                        format!("{existing} {OVERLAY_ARGS}"),
+                    );
+                }
+            }
+            _ => std::env::set_var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", OVERLAY_ARGS),
+        }
+    }
+
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_updater::Builder::new().build())

@@ -44,25 +44,25 @@ body.compact-preview #root > * {
 
 .compact-preview-root .compact-popover-portal.compact-preview-window {
     position: relative;
-    width: auto;
     height: fit-content;
-    min-width: 0 !important;
-    max-width: 540px !important;
     max-height: var(--preview-max-height, 560px);
     display: inline-flex;
     flex-direction: column;
+    align-items: stretch;
     pointer-events: none;
     box-sizing: border-box;
-    overflow: hidden;
+    overflow: visible;
     margin: 0 !important;
     box-shadow: none !important;
     filter: none !important;
 }
 
-body.compact-preview .compact-popover-portal {
-    width: auto !important;
+body.compact-preview .compact-popover-portal,
+.compact-preview-root .compact-popover-portal.compact-preview-window {
+    /* Shared popover defaults to 320px; drive width from JS instead. */
+    width: var(--preview-card-width, max-content) !important;
     min-width: 0 !important;
-    max-width: 540px !important;
+    max-width: min(540px, 80vw) !important;
 }
 
 /* Keep compact preview visually single-layer. */
@@ -116,11 +116,19 @@ body.compact-preview .compact-popover-portal {
     align-items: center !important;
     gap: 6px !important;
     flex-wrap: nowrap !important;
-    overflow: hidden !important;
+    width: max-content !important;
+    max-width: none !important;
+    overflow: visible !important;
     white-space: nowrap !important;
     font-size: 11px !important;
     margin-bottom: 8px !important;
     user-select: none !important;
+    flex: 0 0 auto !important;
+}
+
+.compact-preview-root .popover-meta .meta-row-source {
+    flex-shrink: 0 !important;
+    max-width: none !important;
 }
 
 .compact-preview-root .popover-meta .meta-row {
@@ -128,14 +136,23 @@ body.compact-preview .compact-popover-portal {
     align-items: center !important;
     gap: 4px !important;
     min-width: 0 !important;
-    flex-shrink: 1 !important;
-    overflow: hidden !important;
+    flex-shrink: 0 !important;
+    overflow: visible !important;
 }
 
 .compact-preview-root .popover-meta .meta-row span {
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
     white-space: nowrap !important;
+}
+
+.compact-preview-root .popover-meta .source-app-icon {
+    width: 14px !important;
+    height: 14px !important;
+    object-fit: contain !important;
+    display: block !important;
+    border-radius: 3px !important;
+    flex-shrink: 0 !important;
 }
 
 .compact-preview-root .popover-meta .meta-dot {
@@ -153,6 +170,12 @@ body.compact-preview .compact-popover-portal {
     white-space: pre-wrap;
     line-height: 1.5;
     font-size: var(--clipboard-item-font-size, 13px);
+}
+
+.compact-preview-root .popover-content.is-short-text {
+    width: max-content;
+    max-width: 100%;
+    white-space: pre-wrap;
 }
 
 .compact-preview-root .popover-content.compact-preview-code {

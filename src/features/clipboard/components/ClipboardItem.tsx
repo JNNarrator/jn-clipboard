@@ -53,6 +53,11 @@ import { getFileIcon as getSystemFileIcon, peekFileIcon } from "../../../shared/
 import { getSourceAppIcon, peekSourceAppIcon } from "../../../shared/lib/sourceAppIcon";
 import { stripRichStorageMarkers } from "../../../shared/lib/repairHtmlFragment";
 import { registerCompactPreviewControls } from "../lib/compactPreviewControls";
+import {
+    isCompactPreviewHoverArmed,
+    noteCompactPreviewHoverPoint,
+    noteCompactPreviewPointerMove,
+} from "../lib/compactPreviewControls";
 import { openPinStickerWindow } from "../lib/pinStickerControls";
 import { activateForInput } from "../../../shared/lib/focus";
 import { getNotePlaceholder, isMacPlatform } from "../../../shared/lib/platform";
@@ -206,7 +211,7 @@ const resolveCompactPreviewBounds = async (): Promise<CompactPreviewBounds> => {
         maxHeight,
         mediaMaxWidth: Math.max(260, Math.min(560, maxWidth - 20)),
         mediaMaxHeight: Math.max(200, Math.min(520, maxHeight - 64)),
-        minWidth: Math.max(280, Math.min(360, Math.floor(maxWidth * 0.62)))
+        minWidth: Math.max(240, Math.min(320, Math.floor(maxWidth * 0.42)))
     };
 };
 
@@ -1219,6 +1224,8 @@ const ClipboardItem = ({
                 htmlContent: item.html_content,
                 filePreviewExists: item.file_preview_exists,
                 sourceApp: item.source_app,
+                sourceAppPath: item.source_app_path,
+                sourceAppIcon: sourceAppIcon,
                 timestamp: item.created_at || item.timestamp,
                 language,
                 theme,
@@ -1263,8 +1270,8 @@ const ClipboardItem = ({
                     compactPreviewLog("fallback timer place/show with default size");
                     await placeAndShowPendingCompactPreview(
                         requestId,
-                        Math.min(bounds.maxWidth, Math.max(bounds.minWidth, 360)),
-                        Math.min(bounds.maxHeight, 220),
+                        Math.min(bounds.maxWidth, Math.max(bounds.minWidth, 220)),
+                        Math.min(bounds.maxHeight, 180),
                         { keepPending: true }
                     );
                 } catch (fallbackErr) {
@@ -1402,8 +1409,16 @@ const ClipboardItem = ({
 
     useEffect(() => {
         return () => {
+            const ownedRequestId = hoverRequestIdRef.current;
+            const ownedPending =
+                ownedRequestId != null &&
+                compactPreviewPendingRequestId === ownedRequestId;
             cancelHoverPreview();
-            void hideCompactPreviewGlobal();
+            // Virtuoso recycles rows constantly — only hide the shared preview
+            // when this row still owns the in-flight / visible request.
+            if (ownedPending) {
+                void hideCompactPreviewGlobal();
+            }
         };
     }, []);
 
@@ -1978,15 +1993,28 @@ const ClipboardItem = ({
                 if (!compactPreviewEnabled) return;
                 // Don't show preview if AI options, more menu, note editor, or tag editor are open to avoid interference
                 if (showAIOptions || isMoreMenuOpen || isEditingNote || isEditingTags) return;
-                compactPreviewLog("mouseenter schedule preview", { itemId: item.id });
-                const requestId = ++compactPreviewRequestSerial;
-                hoverRequestIdRef.current = requestId;
+
                 hoverAnchorRef.current = {
                     clientX: e.clientX,
                     clientY: e.clientY,
                     screenX: e.screenX,
                     screenY: e.screenY
                 };
+
+                // Clipboard often opens under the cursor and WebView synthesizes
+                // mouseenter. Wait for a real pointer move before scheduling.
+                if (!isCompactPreviewHoverArmed()) {
+                    noteCompactPreviewHoverPoint(e.screenX, e.screenY);
+                    compactPreviewLog("mouseenter ignored until pointer moves", {
+                        itemId: item.id
+                    });
+                    void ensureCompactPreviewWindow();
+                    return;
+                }
+
+                compactPreviewLog("mouseenter schedule preview", { itemId: item.id });
+                const requestId = ++compactPreviewRequestSerial;
+                hoverRequestIdRef.current = requestId;
                 const target = e.currentTarget;
 
                 // Start the non-focusable window handshake during the hover delay,
@@ -2017,6 +2045,29 @@ const ClipboardItem = ({
                     screenX: e.screenX,
                     screenY: e.screenY
                 };
+
+                const justArmed = noteCompactPreviewPointerMove(e.screenX, e.screenY);
+                if (!justArmed) return;
+                if (showAIOptions || isMoreMenuOpen || isEditingNote || isEditingTags) return;
+                if (hoverTimerRef.current) return;
+
+                // First real move after clipboard show: start the normal hover delay.
+                compactPreviewLog("pointer move armed hover, schedule preview", {
+                    itemId: item.id
+                });
+                const requestId = ++compactPreviewRequestSerial;
+                hoverRequestIdRef.current = requestId;
+                const target = e.currentTarget;
+                void ensureCompactPreviewWindow();
+                hoverTimerRef.current = setTimeout(() => {
+                    hoverTimerRef.current = null;
+                    if (showAIOptions || isMoreMenuOpen || isEditingNote || isEditingTags) return;
+                    if (!target.isConnected) return;
+                    if (!isHoverPreviewRequestCurrent(requestId)) return;
+                    const anchor = hoverAnchorRef.current;
+                    if (!anchor) return;
+                    void showCompactPreview(anchor, requestId);
+                }, COMPACT_PREVIEW_HOVER_DELAY_MS);
             }}
             onMouseLeave={() => {
                 compactPreviewLog("mouseleave hide preview", { itemId: item.id });
@@ -2051,6 +2102,8 @@ const ClipboardItem = ({
                 </div>
 
                 <div className="item-meta-right">
+                    {compactMode && hasTagsSection ? renderTagsContainer() : null}
+                    <div className="item-meta-right-slot">
                     <div className="item-actions">
                         {compactMode ? (
                             (!isEditingTags && !isEditingNote) ? (
@@ -2321,7 +2374,10 @@ const ClipboardItem = ({
                                 {quickPasteHint.combo}
                             </span>
                         )}
-                        <span>{getConciseTime(item.created_at || item.timestamp, language)}</span>
+                        <span className="item-compact-time">
+                            {getConciseTime(item.created_at || item.timestamp, language)}
+                        </span>
+                    </div>
                     </div>
                 </div>
             </div>
@@ -2506,8 +2562,6 @@ const ClipboardItem = ({
             </div>
 
             {showFlowMetaFooter && renderMetaFooter()}
-
-            {compactMode && hasTagsSection && renderTagsContainer()}
 
             {compactMode && !!item.note && !isEditingNote && (
                 <button

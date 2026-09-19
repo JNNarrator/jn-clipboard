@@ -22,6 +22,7 @@ import {
     normalizeThemeId
 } from "../../../shared/config/themes";
 import { getConciseTime } from "../../../shared/lib/utils";
+import { getSourceAppIcon, peekSourceAppIcon } from "../../../shared/lib/sourceAppIcon";
 import type { Locale } from "../../../shared/types";
 import { toTauriLocalImageSrc } from "../../../shared/lib/localImageSrc";
 import { stripRichStorageMarkers } from "../../../shared/lib/repairHtmlFragment";
@@ -36,6 +37,8 @@ type PreviewPayload = {
     htmlContent?: string;
     filePreviewExists?: boolean;
     sourceApp?: string;
+    sourceAppPath?: string;
+    sourceAppIcon?: string | null;
     timestamp?: number;
     language?: Locale;
     theme?: string;
@@ -173,6 +176,7 @@ const applyPreviewBounds = (payload: PreviewPayload) => {
 
 const CompactPreviewWindow = () => {
     const [payload, setPayload] = useState<PreviewPayload | null>(null);
+    const [sourceAppIcon, setSourceAppIcon] = useState<string | null>(null);
     const [snapshotFailedRequestId, setSnapshotFailedRequestId] = useState<number | null>(null);
     const [richImageFallbackFailedRequestId, setRichImageFallbackFailedRequestId] = useState<number | null>(null);
     const [mediaFailedRequestId, setMediaFailedRequestId] = useState<number | null>(null);
@@ -250,7 +254,21 @@ const CompactPreviewWindow = () => {
                     });
 
                     if (disposed) return;
+                    const peeked =
+                        next.sourceAppIcon ||
+                        peekSourceAppIcon(next.sourceAppPath) ||
+                        null;
+                    setSourceAppIcon(peeked);
                     setPayload(next);
+                    if (!peeked && next.sourceAppPath) {
+                        void getSourceAppIcon(next.sourceAppPath).then((icon) => {
+                            if (!disposed && latestRequestIdRef.current === next.requestId) {
+                                setSourceAppIcon(icon);
+                                lastSentSizeRef.current = null;
+                                requestResizeRef.current?.();
+                            }
+                        });
+                    }
                     void applyTheme(next).then(() => {
                         if (!disposed && latestRequestIdRef.current === next.requestId) {
                             requestResizeRef.current?.();
@@ -301,6 +319,68 @@ const CompactPreviewWindow = () => {
         let timerA: number | null = null;
         let timerB: number | null = null;
         let timerC: number | null = null;
+const measurePlainTextWidth = (text: string, contentEl: HTMLElement | null): number => {
+    const lines = text.split("\n");
+    const style = contentEl ? getComputedStyle(contentEl) : null;
+    const fontSize = style?.fontSize || "13px";
+    const fontFamily = style?.fontFamily || "sans-serif";
+    const fontWeight = style?.fontWeight || "400";
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+        return Math.ceil(Math.max(...lines.map((line) => line.length), 1) * 8.5);
+    }
+    ctx.font = `${fontWeight} ${fontSize} ${fontFamily}`;
+    let max = 0;
+    for (const line of lines) {
+        max = Math.max(max, ctx.measureText(line || " ").width);
+    }
+    return Math.ceil(max);
+};
+
+/** Measure meta at its unconstrained natural width so type · app · time never clip. */
+const measureMetaNaturalWidth = (metaEl: HTMLElement | null): number => {
+    if (!metaEl) return 240;
+
+    const clone = metaEl.cloneNode(true) as HTMLElement;
+    clone.style.cssText = [
+        "position:absolute",
+        "left:-10000px",
+        "top:0",
+        "visibility:hidden",
+        "pointer-events:none",
+        "display:inline-flex",
+        "flex-direction:row",
+        "align-items:center",
+        "flex-wrap:nowrap",
+        "width:max-content",
+        "max-width:none",
+        "min-width:0",
+        "overflow:visible",
+        "white-space:nowrap",
+        "gap:6px",
+        "margin:0",
+        "padding:0",
+        "border:0",
+        "font:inherit",
+    ].join(";");
+
+    for (const child of Array.from(clone.querySelectorAll<HTMLElement>("*"))) {
+        child.style.flexShrink = "0";
+        child.style.maxWidth = "none";
+        child.style.overflow = "visible";
+        child.style.whiteSpace = "nowrap";
+        child.style.width = "max-content";
+    }
+
+    document.body.appendChild(clone);
+    const width = Math.ceil(
+        Math.max(clone.scrollWidth, clone.offsetWidth, clone.getBoundingClientRect().width)
+    );
+    clone.remove();
+    return Math.max(180, width);
+};
+
 const calculateStandardCardDimensions = (
     payload: PreviewPayload,
     bounds: { width: number; height: number; mediaWidth: number; mediaHeight: number },
@@ -312,8 +392,16 @@ const calculateStandardCardDimensions = (
 ): { width: number; height: number } => {
     const maxW = Math.min(bounds.width, 540);
     const maxH = bounds.height;
-    const metaWidth = metaEl ? Math.ceil(metaEl.scrollWidth + chromeWidth) : 240;
-    const baseMinW = Math.max(260, Math.min(320, metaWidth));
+    const applyCardWidth = (width: number) => {
+        container.style.setProperty("--preview-card-width", `${width}px`);
+        container.style.width = `${width}px`;
+    };
+    const baseMinW = 168;
+    // Meta row drives the floor — keep a little slack for icon/font rounding.
+    const metaMinWidth = Math.min(
+        maxW,
+        Math.max(220, measureMetaNaturalWidth(metaEl) + chromeWidth + 8)
+    );
 
     // 1. Media Preview (Images, Videos, Fallback snapshots)
     const isMedia = payload.contentType === "image" || payload.contentType === "video";
@@ -336,29 +424,31 @@ const calculateStandardCardDimensions = (
             const scale = Math.min(1, availW / nw, availableMediaHeight / nh);
             const fitW = Math.round(nw * scale);
             const fitH = Math.round(nh * scale);
-            const finalW = Math.min(maxW, Math.max(baseMinW, fitW + chromeWidth));
+            const finalW = Math.min(maxW, Math.max(baseMinW, metaMinWidth, fitW + chromeWidth));
             const finalH = Math.min(maxH, Math.max(80, fitH + chromeHeight));
-            container.style.width = `${finalW}px`;
+            applyCardWidth(finalW);
             return { width: finalW, height: finalH };
         } else if (mediaEl && mediaEl.getBoundingClientRect().height > 0) {
             const r = mediaEl.getBoundingClientRect();
-            container.style.width = `${standardMediaWidth}px`;
+            const finalW = Math.max(standardMediaWidth, metaMinWidth);
+            applyCardWidth(finalW);
             return {
-                width: standardMediaWidth,
+                width: finalW,
                 height: Math.min(maxH, Math.max(80, Math.ceil(r.height + chromeHeight)))
             };
         }
-        container.style.width = `${standardMediaWidth}px`;
+        const finalW = Math.max(standardMediaWidth, metaMinWidth);
+        applyCardWidth(finalW);
         return {
-            width: standardMediaWidth,
+            width: finalW,
             height: Math.min(maxH, Math.max(160, Math.floor(availableMediaHeight * 0.7) + chromeHeight))
         };
     }
 
     // 2. Code Preview
     if (payload.contentType === "code") {
-        const standardCodeWidth = Math.min(maxW, 480);
-        container.style.width = `${standardCodeWidth}px`;
+        const standardCodeWidth = Math.max(metaMinWidth, Math.min(maxW, 480));
+        applyCardWidth(standardCodeWidth);
         const measuredHeight = Math.ceil(container.scrollHeight || container.offsetHeight || container.getBoundingClientRect().height);
         return {
             width: standardCodeWidth,
@@ -368,8 +458,8 @@ const calculateStandardCardDimensions = (
 
     // 3. File List Preview
     if (payload.contentType === "file") {
-        const standardFileWidth = Math.min(maxW, 380);
-        container.style.width = `${standardFileWidth}px`;
+        const standardFileWidth = Math.max(metaMinWidth, Math.min(maxW, 380));
+        applyCardWidth(standardFileWidth);
         const measuredHeight = Math.ceil(container.scrollHeight || container.offsetHeight || container.getBoundingClientRect().height);
         return {
             width: standardFileWidth,
@@ -379,8 +469,8 @@ const calculateStandardCardDimensions = (
 
     // 4. Rich Text Preview
     if (payload.contentType === "rich_text") {
-        const standardRichWidth = Math.min(maxW, 420);
-        container.style.width = `${standardRichWidth}px`;
+        const standardRichWidth = Math.max(metaMinWidth, Math.min(maxW, 420));
+        applyCardWidth(standardRichWidth);
         const measuredHeight = Math.ceil(container.scrollHeight || container.offsetHeight || container.getBoundingClientRect().height);
         return {
             width: standardRichWidth,
@@ -388,30 +478,37 @@ const calculateStandardCardDimensions = (
         };
     }
 
-    // 5. Plain Text Preview
+    // 5. Plain text / URL — never narrower than the full meta row.
     const text = (payload.content || payload.preview || "").trim();
     const hasLineBreak = text.includes("\n");
     const charCount = text.length;
+    const lineCount = hasLineBreak ? text.split("\n").length : 1;
+    const measuredTextWidth = measurePlainTextWidth(text, contentEl);
+    const contentPad = 16;
+    const contentDriven = measuredTextWidth + chromeWidth + contentPad;
 
     let targetWidth: number;
-    if (!hasLineBreak && charCount <= 28) {
-        // Micro/Short tier: tightly wrap short strings, no huge empty space
-        const approxCharWidth = 8.2;
-        const textWidth = Math.ceil(charCount * approxCharWidth + chromeWidth + 24);
-        targetWidth = Math.max(baseMinW, Math.min(320, Math.min(maxW, textWidth)));
-    } else if (charCount <= 140 && (!hasLineBreak || text.split("\n").length <= 4)) {
-        // Standard reading tier: ideal line length (25-35 CJK chars / 60-70 Latin chars)
-        targetWidth = Math.min(maxW, 380);
+    if (!hasLineBreak && charCount <= 24) {
+        targetWidth = Math.max(metaMinWidth, Math.min(maxW, contentDriven));
+    } else if (!hasLineBreak && charCount <= 56) {
+        targetWidth = Math.max(metaMinWidth, Math.min(maxW, Math.max(contentDriven, metaMinWidth)));
+    } else if (charCount <= 120 && lineCount <= 3) {
+        targetWidth = Math.max(metaMinWidth, Math.min(maxW, Math.max(contentDriven, 300)));
+    } else if (charCount <= 220 && lineCount <= 6) {
+        targetWidth = Math.max(metaMinWidth, Math.min(maxW, 380));
     } else {
-        // Expanded reading tier for long prose and multi-line content
-        targetWidth = Math.min(maxW, 420);
+        targetWidth = Math.max(metaMinWidth, Math.min(maxW, 420));
     }
 
-    container.style.width = `${targetWidth}px`;
+    applyCardWidth(targetWidth);
+    contentEl?.classList.toggle(
+        "is-short-text",
+        !hasLineBreak && charCount <= 56
+    );
     const measuredHeight = Math.ceil(container.scrollHeight || container.offsetHeight || container.getBoundingClientRect().height);
     return {
         width: targetWidth,
-        height: Math.min(maxH, Math.max(80, measuredHeight))
+        height: Math.min(maxH, Math.max(76, measuredHeight))
     };
 };
 
@@ -506,6 +603,14 @@ const calculateStandardCardDimensions = (
             compactPreviewLog("resize effect cleanup");
         };
     }, [payload]);
+
+    useEffect(() => {
+        if (!payload) return;
+        // App icon / meta text can settle after the first measure — reflow once more.
+        lastSentSizeRef.current = null;
+        const timer = window.setTimeout(() => requestResizeRef.current?.(), 30);
+        return () => window.clearTimeout(timer);
+    }, [payload, sourceAppIcon]);
 
     useEffect(() => {
         if (richSnapshotFallbackTimerRef.current) {
@@ -759,8 +864,17 @@ const calculateStandardCardDimensions = (
                         <span>{payload?.contentType || "text"}</span>
                     </div>
                     <div className="meta-dot">•</div>
-                    <div className="meta-row">
-                        <AppWindow size={14} />
+                    <div className="meta-row meta-row-source">
+                        {sourceAppIcon || payload?.sourceAppIcon ? (
+                            <img
+                                src={sourceAppIcon || payload?.sourceAppIcon || ""}
+                                alt=""
+                                className="source-app-icon"
+                                draggable={false}
+                            />
+                        ) : (
+                            <AppWindow size={14} />
+                        )}
                         <span>{payload?.sourceApp || "Unknown"}</span>
                     </div>
                     <div className="meta-dot">•</div>

@@ -419,23 +419,23 @@
   scrollbar-color: var(--scrollbar-thumb-color) transparent;
 }
 
-.wt-chat-box::-webkit-scrollbar {
+html.platform-macos .wt-chat-box::-webkit-scrollbar {
   width: 6px;
 }
 
-.wt-chat-box::-webkit-scrollbar-track {
+html.platform-macos .wt-chat-box::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.wt-chat-box::-webkit-scrollbar-thumb {
+html.platform-macos .wt-chat-box::-webkit-scrollbar-thumb {
   border: 2px solid transparent;
   border-radius: 999px;
   background: transparent;
   background-clip: padding-box;
 }
 
-.wt-chat-box:hover::-webkit-scrollbar-thumb,
-.wt-chat-box:focus-within::-webkit-scrollbar-thumb {
+html.platform-macos .wt-chat-box:hover::-webkit-scrollbar-thumb,
+html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb-color);
   background-clip: padding-box;
 }
