@@ -128,7 +128,6 @@ pub fn set_theme(
             .hwnd()
             .map_err(|error| AppError::Internal(error.to_string()))?;
         let hwnd = HWND(raw_hwnd.0 as _);
-        let _ = window_vibrancy::clear_vibrancy(&window);
         let is_dark = match effective_color_mode.as_deref() {
             Some("light") => false,
             Some("dark") => true,
@@ -173,26 +172,8 @@ pub fn set_theme(
 
         let build = windows_version::OsVersion::current().build;
         let is_windows_11 = build >= 22000;
-        match theme.as_str() {
-            "mica" if is_windows_11 => {
-                let _ = window_vibrancy::apply_mica(&window, Some(is_dark));
-                let _ = window.set_shadow(show_border);
-            }
-            "acrylic" if build >= 17134 => {
-                let _ = window_vibrancy::apply_acrylic(
-                    &window,
-                    Some(if is_dark {
-                        (30, 30, 30, 40)
-                    } else {
-                        (240, 240, 240, 40)
-                    }),
-                );
-                let _ = window.set_shadow(show_border && is_windows_11);
-            }
-            _ => {
-                let _ = window.set_shadow(show_border && is_windows_11);
-            }
-        }
+        crate::app::window_manager::apply_windows_window_material(&window, &theme, is_dark);
+        let _ = window.set_shadow(show_border && is_windows_11);
 
         apply_dwm_frame(hwnd);
     }

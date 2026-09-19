@@ -87,6 +87,54 @@ pub fn apply_macos_window_material(window: &WebviewWindow) -> tauri::Result<()> 
     })
 }
 
+#[cfg(target_os = "windows")]
+pub fn apply_windows_window_material(window: &WebviewWindow, theme: &str, is_dark: bool) {
+    let build = windows_version::OsVersion::current().build;
+    // Clear the actual Windows materials, including when leaving glass themes.
+    if build >= 17763 {
+        let _ = window_vibrancy::clear_acrylic(window);
+    }
+    if build >= 22000 {
+        let _ = window_vibrancy::clear_mica(window);
+    }
+
+    let glass = matches!(theme, "acrylic" | "macos" | "mica");
+    let applied = match theme {
+        "mica" if build >= 22000 => window_vibrancy::apply_mica(window, Some(is_dark)),
+        "acrylic" | "macos" | "mica" if build >= 17763 => {
+            // A neutral tint softens the backdrop without obscuring its colours.
+            window_vibrancy::apply_acrylic(window, Some(if is_dark {
+                (28, 28, 30, 96)
+            } else {
+                (246, 246, 248, 80)
+            }))
+        }
+        _ => {
+            if glass {
+                let _ = window.set_background_color(Some(if is_dark {
+                    tauri::window::Color(28, 28, 30, 255)
+                } else {
+                    tauri::window::Color(246, 246, 248, 255)
+                }));
+            } else {
+                let _ = window.set_background_color(Some(tauri::window::Color(0, 0, 0, 0)));
+            }
+            return;
+        }
+    };
+    if let Err(error) = &applied {
+        eprintln!("[window-material] Windows {theme} failed: {error}");
+    }
+    let background = if applied.is_ok() {
+        tauri::window::Color(0, 0, 0, 0)
+    } else if is_dark {
+        tauri::window::Color(28, 28, 30, 255)
+    } else {
+        tauri::window::Color(246, 246, 248, 255)
+    };
+    let _ = window.set_background_color(Some(background));
+}
+
 pub fn apply_window_vibrancy(_app: &AppHandle, window: &WebviewWindow) {
     #[cfg(target_os = "macos")]
     if let Err(error) = apply_macos_window_material(window) {
@@ -97,23 +145,10 @@ pub fn apply_window_vibrancy(_app: &AppHandle, window: &WebviewWindow) {
     {
         let settings = _app.state::<SettingsState>();
         let theme = settings.theme.lock().unwrap().clone();
-        let _ = window_vibrancy::clear_vibrancy(window);
         let is_dark = matches!(window.theme().unwrap_or(Theme::Dark), Theme::Dark);
-        if theme == "mica" {
-            let _ = window_vibrancy::apply_mica(window, Some(is_dark));
-        } else if theme == "acrylic" {
-            let _ = window_vibrancy::apply_acrylic(
-                window,
-                Some(if is_dark {
-                    (30, 30, 30, 40)
-                } else {
-                    (240, 240, 240, 40)
-                }),
-            );
-        }
+        apply_windows_window_material(window, &theme, is_dark);
     }
 }
-
 #[cfg(windows)]
 use windows::Win32::Foundation::{HWND, POINT};
 #[cfg(windows)]
