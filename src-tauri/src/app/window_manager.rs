@@ -63,7 +63,7 @@ pub fn apply_macos_window_material(window: &WebviewWindow) -> tauri::Result<()> 
         let theme = settings.theme.lock().unwrap().clone();
         let material = match theme.as_str() {
             "mica" => Some(NSVisualEffectMaterial::Sidebar),
-            "acrylic" => Some(NSVisualEffectMaterial::HudWindow),
+            "acrylic" => Some(NSVisualEffectMaterial::Sidebar),
             "macos" => Some(NSVisualEffectMaterial::Popover),
             _ => None,
         };

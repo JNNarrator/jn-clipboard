@@ -230,6 +230,25 @@ body.dark-mode.theme-acrylic {
   --popover-backdrop-filter: blur(28px) saturate(180%);
 }
 
+/* Match the native macOS sidebar material with a denser neutral tint.
+   Keep background colour visible while suppressing distracting detail. */
+html.platform-macos body.theme-acrylic {
+  --acrylic-tint-rgb: 246, 246, 248;
+  --acrylic-tint-alpha: clamp(0.36, calc(0.36 + 0.14 * var(--surface-opacity-scale, 1)), 0.64);
+}
+
+@media (prefers-color-scheme: dark) {
+  html.platform-macos body.theme-acrylic:not(.light-mode) {
+    --acrylic-tint-rgb: 28, 28, 30;
+    --acrylic-tint-alpha: clamp(0.40, calc(0.40 + 0.14 * var(--surface-opacity-scale, 1)), 0.68);
+  }
+}
+
+html.platform-macos body.dark-mode.theme-acrylic {
+  --acrylic-tint-rgb: 28, 28, 30;
+  --acrylic-tint-alpha: clamp(0.40, calc(0.40 + 0.14 * var(--surface-opacity-scale, 1)), 0.68);
+}
+
 body.compact-preview.theme-acrylic #root,
 body.theme-acrylic.compact-preview #root,
 body.dark-mode.compact-preview.theme-acrylic #root {
