@@ -58,10 +58,12 @@ import {
   forceHideCompactPreviewWindow,
   isCompactPreviewWindowSupported,
   isCompactPreviewWarmupSupported,
+  noteCompactPreviewClipboardShown,
   warmupCompactPreviewWindow
 } from "./features/clipboard/lib/compactPreviewControls";
 import { isMacPlatform } from "./shared/lib/platform";
 import { isTauriRuntime } from "./shared/lib/tauriRuntime";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 
 const insertHistoryItem = (list: ClipboardEntry[], item: ClipboardEntry) => {
   const next = list.slice();
@@ -801,11 +803,20 @@ const App = () => {
 
   useEffect(() => {
     if (!isTauriRuntime()) return;
-    const unlisten = listen("force-hide-compact-preview", () => {
+    const unlistenForceHide = listen("force-hide-compact-preview", () => {
       forceHideCompactPreviewWindow();
     });
+    // Opening under the cursor synthesizes mouseenter — arm the move gate
+    // and hide any preview that may already be mid-flight.
+    const onShown = () => {
+      noteCompactPreviewClipboardShown();
+    };
+    const unlistenClipboardShown = listen("clipboard-shown", onShown);
+    const unlistenShow = getCurrentWindow().listen("tauri://show", onShown);
     return () => {
-      unlisten.then((off) => off());
+      unlistenForceHide.then((off) => off());
+      unlistenClipboardShown.then((off) => off());
+      unlistenShow.then((off) => off()).catch(() => {});
     };
   }, []);
 

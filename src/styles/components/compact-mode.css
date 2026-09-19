@@ -110,36 +110,39 @@
     flex-wrap: wrap;
 }
 
-/* Tags Overlay - Absolute Position in Compact Mode */
+/* Tags sit left of the time/actions slot — never share an overlap grid with time. */
 .history-item.compact .item-tags-container {
-    position: absolute;
-    bottom: 2px;
-    right: 8px;
+    position: relative;
+    bottom: auto;
+    right: auto;
+    top: auto;
     margin: 0 !important;
     z-index: 5;
     opacity: 0.9;
-    max-width: 55%;
+    max-width: min(42vw, 160px);
+    min-width: 0;
     display: flex;
     align-items: center;
+    justify-content: flex-end;
     gap: 4px;
+    flex: 0 1 auto;
     flex-wrap: nowrap !important;
     overflow: hidden;
     pointer-events: auto;
-    transition: right 0.18s cubic-bezier(0.16, 1, 0.3, 1), max-width 0.18s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.18s ease;
+    transform: none !important;
+    padding-right: 0 !important;
+    transition: opacity 0.18s ease, max-width 0.18s ease;
 }
 
 body.compact-show-time .history-item.compact .item-tags-container,
 html.compact-show-time .history-item.compact .item-tags-container {
-    right: 76px;
-    max-width: 45%;
+    max-width: min(38vw, 140px);
 }
 
-/* When hovered or selected, the three-dots button appears at right: 8px (20px wide).
-   Keep tags visible next to it with minimal offset! */
+/* When hovered or selected, keep tags visible beside the ··· button. */
 .history-item.compact:hover .item-tags-container:not(.tag-edit-active),
 .history-item.compact.selected .item-tags-container:not(.tag-edit-active) {
-    right: 34px;
-    max-width: 60%;
+    max-width: min(40vw, 150px);
 }
 
 /* Allow tag suggestion popover to extend outside the tag strip while editing */
@@ -147,11 +150,12 @@ html.compact-show-time .history-item.compact .item-tags-container {
     position: absolute !important;
     top: 50% !important;
     bottom: auto !important;
+    right: 8px !important;
+    left: auto !important;
     transform: translateY(-50%) !important;
     overflow: visible !important;
     z-index: 250 !important;
     opacity: 1 !important;
-    right: 8px !important;
     max-width: calc(100% - 16px) !important;
     background: var(--bg-element, rgba(30, 30, 30, 0.85));
     backdrop-filter: blur(12px);
@@ -352,7 +356,12 @@ html.compact-show-time .history-item.compact .item-tags-container {
     color: var(--accent-color) !important;
 }
 
-/* The right side wrapper (Buttons + Timestamp) */
+/* Passthrough in normal mode; compact overrides to a shared time/actions slot. */
+.item-meta-right-slot {
+    display: contents;
+}
+
+/* The right side wrapper: [tags][time/actions slot] */
 .history-item.compact .item-meta-right,
 .history-item.compact .item-meta>div:last-child {
     position: absolute !important;
@@ -362,10 +371,13 @@ html.compact-show-time .history-item.compact .item-tags-container {
     transform: translateY(-50%) !important;
     height: auto !important;
     z-index: 200 !important;
-    display: grid !important;
-    grid-template-areas: "overlap" !important;
+    display: flex !important;
+    flex-direction: row !important;
     align-items: center !important;
-    justify-items: end !important;
+    justify-content: flex-end !important;
+    gap: 6px !important;
+    max-width: min(72%, 300px);
+    min-width: 0;
     pointer-events: none !important;
 }
 
@@ -376,9 +388,23 @@ html.compact-show-time .history-item.compact .item-tags-container {
     transform: translateY(-50%) !important;
 }
 
-/* Button Actions Styling */
+/* Time and ··· share one slot; tags never enter this grid. */
+.history-item.compact .item-meta-right-slot {
+    position: relative !important;
+    display: grid !important;
+    grid-template-areas: "slot" !important;
+    align-items: center !important;
+    justify-items: end !important;
+    flex: 0 0 auto !important;
+    min-width: 20px;
+    min-height: 20px;
+    pointer-events: none !important;
+}
+
+/* Button Actions Styling — only overlays the time slot, not tags */
 .history-item.compact .item-actions {
-    grid-area: overlap !important;
+    grid-area: slot !important;
+    position: relative !important;
     display: flex !important;
     flex-direction: row !important;
     align-items: center !important;
@@ -389,10 +415,6 @@ html.compact-show-time .history-item.compact .item-tags-container {
     transition: opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1), transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.18s;
     pointer-events: none;
 
-    /* Position relative for AI dropdown positioning */
-    position: relative;
-
-    /* Remove container styling as requested */
     background: transparent !important;
     box-shadow: none !important;
     padding: 0;
@@ -436,30 +458,28 @@ body.hide-unselected-item-actions .history-item.compact:hover .item-actions {
     transform: translateX(0) !important;
 }
 
-.history-item.compact:has(.compact-more-btn.active) .item-meta-right-info {
-    opacity: 0 !important;
-    visibility: hidden !important;
-    pointer-events: none !important;
-}
-
 /* Completely hide actions & right info when editing tags or notes in compact mode */
 .history-item.compact.editing-tags .item-actions,
 .history-item.compact.editing-tags .item-meta-right,
+.history-item.compact.editing-tags .item-meta-right-slot,
 .history-item.compact.editing-tags .item-meta-right-info,
 .history-item.compact.editing-tags .compact-more-btn,
 .history-item.compact.editing-tags .compact-more-action-wrap,
 .history-item.compact.editing-note .item-actions,
 .history-item.compact.editing-note .item-meta-right,
+.history-item.compact.editing-note .item-meta-right-slot,
 .history-item.compact.editing-note .item-meta-right-info,
 .history-item.compact.editing-note .compact-more-btn,
 .history-item.compact.editing-note .compact-more-action-wrap,
 .history-item.compact:has(.item-tags-container.tag-edit-active) .item-actions,
 .history-item.compact:has(.item-tags-container.tag-edit-active) .item-meta-right,
+.history-item.compact:has(.item-tags-container.tag-edit-active) .item-meta-right-slot,
 .history-item.compact:has(.item-tags-container.tag-edit-active) .item-meta-right-info,
 .history-item.compact:has(.item-tags-container.tag-edit-active) .compact-more-btn,
 .history-item.compact:has(.item-tags-container.tag-edit-active) .compact-more-action-wrap,
 .history-item.compact:has(.item-note-editor) .item-actions,
 .history-item.compact:has(.item-note-editor) .item-meta-right,
+.history-item.compact:has(.item-note-editor) .item-meta-right-slot,
 .history-item.compact:has(.item-note-editor) .item-meta-right-info,
 .history-item.compact:has(.item-note-editor) .compact-more-btn,
 .history-item.compact:has(.item-note-editor) .compact-more-action-wrap {
@@ -470,9 +490,9 @@ body.hide-unselected-item-actions .history-item.compact:hover .item-actions {
     transform: none !important;
 }
 
-/* Timestamp & Quick Paste Hint in Compact Mode */
+/* Timestamp & Quick Paste Hint — shares the slot with ···, not with tags */
 .history-item.compact .item-meta-right-info {
-    grid-area: overlap !important;
+    grid-area: slot !important;
     display: inline-flex !important;
     align-items: center !important;
     gap: 6px !important;
@@ -484,8 +504,8 @@ body.hide-unselected-item-actions .history-item.compact:hover .item-actions {
     white-space: nowrap !important;
     user-select: none !important;
     pointer-events: none !important;
-    transform: translateX(0) !important;
-    transition: opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1), transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.18s !important;
+    transform: none !important;
+    transition: opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.18s !important;
 }
 
 /* In compact mode, timestamp is hidden by default; visible only when compact-show-time is active */
@@ -502,17 +522,16 @@ html.compact-show-time .history-item.compact .item-meta-right-info > span:not(.q
 
 .history-item.compact:hover .item-meta-right-info,
 .history-item.compact.selected .item-meta-right-info,
-.history-item.compact:has(.ai-options-dropdown) .item-meta-right-info {
+.history-item.compact:has(.ai-options-dropdown) .item-meta-right-info,
+.history-item.compact:has(.compact-more-btn.active) .item-meta-right-info {
     opacity: 0 !important;
     visibility: hidden !important;
     pointer-events: none !important;
-    transform: translateX(4px) !important;
 }
 
 body.hide-unselected-item-actions .history-item.compact:not(.selected):not(:hover) .item-meta-right-info {
     opacity: 0.68 !important;
     visibility: visible !important;
-    transform: translateX(0) !important;
 }
 
 body.hide-unselected-item-actions .history-item.compact.selected .item-meta-right-info,
@@ -520,7 +539,6 @@ body.hide-unselected-item-actions .history-item.compact:hover .item-meta-right-i
     opacity: 0 !important;
     visibility: hidden !important;
     pointer-events: none !important;
-    transform: translateX(4px) !important;
 }
 
 
@@ -811,7 +829,13 @@ html.theme-retro .compact-action-menu-item {
 
 body.compact-show-time .history-item.compact .content-preview,
 html.compact-show-time .history-item.compact .content-preview {
-    padding-right: 76px;
+    padding-right: 56px;
+}
+
+body.compact-show-time .history-item.compact:has(.item-tags-container) .content-preview,
+html.compact-show-time .history-item.compact:has(.item-tags-container) .content-preview {
+    /* Tags left of time slot — reserve room for both. */
+    padding-right: 168px;
 }
 
 /* Allow full height for media/file cards in compact mode */
@@ -840,7 +864,12 @@ html.compact-show-time .history-item.compact .content-preview {
 
 body.compact-show-time .history-item.compact .content-preview.rich-text,
 html.compact-show-time .history-item.compact .content-preview.rich-text {
-    padding-right: 76px;
+    padding-right: 56px;
+}
+
+body.compact-show-time .history-item.compact:has(.item-tags-container) .content-preview.rich-text,
+html.compact-show-time .history-item.compact:has(.item-tags-container) .content-preview.rich-text {
+    padding-right: 168px;
 }
 
 /* Reduced padding for sensitive blur in compact mode to save height */
@@ -969,7 +998,7 @@ html.compact-show-time .history-item.compact .content-preview.rich-text {
 }
 
 /* AI dropdown scrollbar styling */
-.history-item.compact .item-actions [style*="overflow-y: auto"]::-webkit-scrollbar {
+html.platform-macos .history-item.compact .item-actions [style*="overflow-y: auto"]::-webkit-scrollbar {
     width: var(--scrollbar-size-thin);
 }
 

@@ -78,8 +78,8 @@
 }
 
 /* Scrollbar */
-.emoji-content::-webkit-scrollbar,
-.emoji-fav-container::-webkit-scrollbar {
+html.platform-macos .emoji-content::-webkit-scrollbar,
+html.platform-macos .emoji-fav-container::-webkit-scrollbar {
   width: 4px;
 }
 

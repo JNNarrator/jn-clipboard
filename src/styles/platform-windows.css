@@ -13,6 +13,13 @@ body.platform-windows {
 
 html.platform-windows {
   --font-main: "Microsoft YaHei UI", "Microsoft YaHei", "Segoe UI Variable Text", "Segoe UI", sans-serif;
+  /* Match macOS overlay thumb: thin, rounded, no classic Win32 chrome. */
+  --scrollbar-size: 8px;
+  --scrollbar-size-thin: 5px;
+  --scrollbar-radius: 999px;
+  --scrollbar-track-background: transparent;
+  --scrollbar-thumb-border: 2px solid transparent;
+  --scrollbar-overlay-width: 0px;
 }
 
 html.platform-windows body.theme-sakura,
@@ -30,4 +37,14 @@ html.platform-windows .app-container {
   border-radius: 0;
   clip-path: none;
   -webkit-clip-path: none;
+}
+
+/*
+ * Never style ::-webkit-scrollbar on Windows — that forces the classic bar
+ * with up/down arrows. Rely on scrollbar-width / scrollbar-color only so
+ * WebView2 keeps its overlay thumb like macOS.
+ */
+html.platform-windows .virtual-list-wrapper .virtuoso-scroller {
+  width: 100%;
+  margin-right: 0;
 }

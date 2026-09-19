@@ -141,17 +141,17 @@
   overflow-y: hidden;
   padding-bottom: 6px;
   /* Let the explicit WebKit dimensions control the native scroll indicator. */
-  scrollbar-width: auto;
-  scrollbar-color: auto;
-  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb-color) transparent;
+  scrollbar-gutter: auto;
 }
 
-.tag-manager-chip-row::-webkit-scrollbar {
+html.platform-macos .tag-manager-chip-row::-webkit-scrollbar {
   width: 2px;
   height: 2px;
 }
 
-.tag-manager-chip-row::-webkit-scrollbar-thumb {
+html.platform-macos .tag-manager-chip-row::-webkit-scrollbar-thumb {
   border: 0;
   border-radius: 999px;
 }
@@ -389,19 +389,19 @@
   padding: 8px 10px 40px;
   min-width: 0;
   overflow-x: hidden;
-  scrollbar-width: auto;
-  scrollbar-color: auto;
-  /* Mirror classic scrollbar space; overlay scrollbars need no extra inset. */
-  scrollbar-gutter: stable both-edges;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb-color) transparent;
+  /* Overlay scrollbars need no permanent gutter. */
+  scrollbar-gutter: auto;
   gap: 6px;
 }
 
-.tag-manager-items::-webkit-scrollbar-thumb {
+html.platform-macos .tag-manager-items::-webkit-scrollbar-thumb {
   border: 0;
   border-radius: 999px;
 }
 
-.tag-manager-items::-webkit-scrollbar-track {
+html.platform-macos .tag-manager-items::-webkit-scrollbar-track {
   margin-block: 8px;
 }
 
