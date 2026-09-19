@@ -230,23 +230,23 @@ body.dark-mode.theme-acrylic {
   --popover-backdrop-filter: blur(28px) saturate(180%);
 }
 
-/* Match the native macOS sidebar material with a denser neutral tint.
-   Keep background colour visible while suppressing distracting detail. */
+/* Sidebar already supplies native blur and tint. Keep the CSS tint light so
+   it does not wash out the backdrop colours with a second opaque veil. */
 html.platform-macos body.theme-acrylic {
   --acrylic-tint-rgb: 246, 246, 248;
-  --acrylic-tint-alpha: clamp(0.36, calc(0.36 + 0.14 * var(--surface-opacity-scale, 1)), 0.64);
+  --acrylic-tint-alpha: clamp(0.08, calc(0.08 + 0.04 * var(--surface-opacity-scale, 1)), 0.20);
 }
 
 @media (prefers-color-scheme: dark) {
   html.platform-macos body.theme-acrylic:not(.light-mode) {
     --acrylic-tint-rgb: 28, 28, 30;
-    --acrylic-tint-alpha: clamp(0.40, calc(0.40 + 0.14 * var(--surface-opacity-scale, 1)), 0.68);
+    --acrylic-tint-alpha: clamp(0.10, calc(0.10 + 0.06 * var(--surface-opacity-scale, 1)), 0.26);
   }
 }
 
 html.platform-macos body.dark-mode.theme-acrylic {
   --acrylic-tint-rgb: 28, 28, 30;
-  --acrylic-tint-alpha: clamp(0.40, calc(0.40 + 0.14 * var(--surface-opacity-scale, 1)), 0.68);
+  --acrylic-tint-alpha: clamp(0.10, calc(0.10 + 0.06 * var(--surface-opacity-scale, 1)), 0.26);
 }
 
 body.compact-preview.theme-acrylic #root,
