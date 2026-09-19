@@ -31,21 +31,3 @@ html.platform-windows .app-container {
   clip-path: none;
   -webkit-clip-path: none;
 }
-
-html.platform-windows .header-title.page-header-title.is-page-title {
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0;
-}
-
-html.platform-windows,
-body.platform-windows,
-html.platform-windows #root {
-  border-radius: 0;
-}
-
-html.platform-windows .app-container {
-  border-radius: 0;
-  clip-path: none;
-  -webkit-clip-path: none;
-}

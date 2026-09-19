@@ -63,6 +63,12 @@ header {
   max-width: min(220px, 46vw);
 }
 
+.header-title.page-header-title.is-page-title {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
 .brand-mark {
   display: block;
   height: 15px;
@@ -758,4 +764,3 @@ select.search-input option {
   user-select: none;
   pointer-events: none;
 }
-
