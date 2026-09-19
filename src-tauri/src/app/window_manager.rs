@@ -56,7 +56,10 @@ pub fn maybe_open_devtools(_window: &WebviewWindow) {}
 pub fn apply_macos_window_material(window: &WebviewWindow) -> tauri::Result<()> {
     let target = window.clone();
     window.run_on_main_thread(move || {
-        use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial, NSVisualEffectState};
+        use window_vibrancy::{
+            apply_liquid_glass, apply_vibrancy, clear_liquid_glass, LiquidGlassOptions,
+            NSGlassEffectViewStyle, NSVisualEffectMaterial, NSVisualEffectState,
+        };
 
         // Read at execution time so queued requests cannot restore an old theme.
         let settings = target.app_handle().state::<SettingsState>();
@@ -68,9 +71,29 @@ pub fn apply_macos_window_material(window: &WebviewWindow) -> tauri::Result<()> 
             _ => None,
         };
 
+        // Both APIs mutate the same native container. Clear on the main thread
+        // before changing material so repeated theme changes never stack views.
+        if let Err(error) = clear_liquid_glass(&target) {
+            eprintln!("[window-material] clear glass failed: {error}");
+            return;
+        }
         if let Err(error) = window_vibrancy::clear_vibrancy(&target) {
             eprintln!("[window-material] clear failed: {error}");
             return;
+        }
+        if theme == "acrylic" {
+            // The library checks AppKit availability before creating the view.
+            // Regular provides frosting; Clear is intentionally more transparent.
+            let options = LiquidGlassOptions::new(NSGlassEffectViewStyle::Regular)
+                .radius(10.0)
+                .opaque(false);
+            match apply_liquid_glass(&target, options) {
+                Ok(()) => return,
+                Err(window_vibrancy::Error::UnsupportedPlatformVersion(_)) => {}
+                Err(error) => {
+                    eprintln!("[window-material] glass failed, using Sidebar: {error}");
+                }
+            }
         }
         if let Some(material) = material {
             // The clipboard is a non-activating panel and can remain visible

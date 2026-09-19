@@ -234,9 +234,32 @@ body.dark-mode.theme-acrylic {
    full-window tint/filter over it: CSS cannot blur the desktop behind WebKit. */
 html.platform-macos.theme-acrylic,
 html.platform-macos body.theme-acrylic {
+  --native-glass-content-background: #f6f6f8;
   --bg-window: transparent;
   --shell-background: transparent;
   --shell-backdrop-filter: none;
+}
+
+/* In the split layout, expose glass through navigation and keep the reading
+   surface opaque, as in a native sidebar/detail window. */
+html.platform-macos body.theme-acrylic .tag-manager-body.is-split .tag-manager-filter {
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+html.platform-macos body.theme-acrylic .tag-manager-body.is-split .tag-manager-editor {
+  background: var(--native-glass-content-background);
+}
+
+@media (prefers-color-scheme: dark) {
+  html.platform-macos body.theme-acrylic:not(.light-mode) {
+    --native-glass-content-background: #1c1c1e;
+  }
+}
+
+html.platform-macos body.dark-mode.theme-acrylic {
+  --native-glass-content-background: #1c1c1e;
 }
 
 /* Keep saved custom backgrounds available to other themes, but don't mix an
