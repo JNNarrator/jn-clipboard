@@ -230,23 +230,19 @@ body.dark-mode.theme-acrylic {
   --popover-backdrop-filter: blur(28px) saturate(180%);
 }
 
-/* Sidebar already supplies native blur and tint. Keep the CSS tint light so
-   it does not wash out the backdrop colours with a second opaque veil. */
+/* macOS Sidebar supplies the complete backdrop material. Do not add a second
+   full-window tint/filter over it: CSS cannot blur the desktop behind WebKit. */
+html.platform-macos.theme-acrylic,
 html.platform-macos body.theme-acrylic {
-  --acrylic-tint-rgb: 246, 246, 248;
-  --acrylic-tint-alpha: clamp(0.08, calc(0.08 + 0.04 * var(--surface-opacity-scale, 1)), 0.20);
+  --bg-window: transparent;
+  --shell-background: transparent;
+  --shell-backdrop-filter: none;
 }
 
-@media (prefers-color-scheme: dark) {
-  html.platform-macos body.theme-acrylic:not(.light-mode) {
-    --acrylic-tint-rgb: 28, 28, 30;
-    --acrylic-tint-alpha: clamp(0.10, calc(0.10 + 0.06 * var(--surface-opacity-scale, 1)), 0.26);
-  }
-}
-
-html.platform-macos body.dark-mode.theme-acrylic {
-  --acrylic-tint-rgb: 28, 28, 30;
-  --acrylic-tint-alpha: clamp(0.10, calc(0.10 + 0.06 * var(--surface-opacity-scale, 1)), 0.26);
+/* Keep saved custom backgrounds available to other themes, but don't mix an
+   image backdrop with the native desktop material in this theme. */
+html.platform-macos body.has-custom-bg.theme-acrylic:not(.compact-preview) #root::after {
+  content: none;
 }
 
 body.compact-preview.theme-acrylic #root,
