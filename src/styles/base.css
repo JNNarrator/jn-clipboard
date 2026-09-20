@@ -371,6 +371,11 @@
     --segment-active-background: rgba(255, 255, 255, 0.12);
     --switch-thumb-border: 1px solid rgba(255, 255, 255, 0.08);
     --data-panel-hover-background: rgba(34, 40, 52, 0.98);
+    --panel-divider-color: rgba(255, 255, 255, 0.08);
+    --queue-count-border: 1px solid rgba(255, 255, 255, 0.12);
+    --queue-action-border: 1px solid rgba(255, 255, 255, 0.12);
+    --button-active-shadow: 0 6px 14px rgba(0, 0, 0, 0.28);
+    --card-active-shadow: 0 10px 24px rgba(0, 0, 0, 0.32);
   }
 }
 
@@ -404,6 +409,11 @@ body.dark-mode {
   --segment-active-background: rgba(255, 255, 255, 0.12);
   --switch-thumb-border: 1px solid rgba(255, 255, 255, 0.08);
   --data-panel-hover-background: rgba(34, 40, 52, 0.98);
+  --panel-divider-color: rgba(255, 255, 255, 0.08);
+  --queue-count-border: 1px solid rgba(255, 255, 255, 0.12);
+  --queue-action-border: 1px solid rgba(255, 255, 255, 0.12);
+  --button-active-shadow: 0 6px 14px rgba(0, 0, 0, 0.28);
+  --card-active-shadow: 0 10px 24px rgba(0, 0, 0, 0.32);
 
   --popover-background: color-mix(in srgb, var(--bg-input) 95%, var(--bg-panel) 5%);
   --modal-background: color-mix(in srgb, var(--bg-input) 97%, var(--bg-panel) 3%);

@@ -44,6 +44,7 @@ interface SettingsPanelProps {
     collapsedGroups: Record<string, boolean>;
     settingsSubpage: SettingsSubpage;
     autoStart: boolean;
+    elevatedAutostart: boolean;
     silentStart: boolean;
     persistent: boolean;
     persistentLimitEnabled: boolean;
@@ -86,6 +87,8 @@ interface SettingsPanelProps {
     showHotkeyHint: boolean;
     showSearchBox: boolean;
     setShowSearchBox: (val: boolean) => void;
+    searchBoxPinned: boolean;
+    setSearchBoxPinned: (val: boolean) => void;
     scrollTopButtonEnabled: boolean;
     setScrollTopButtonEnabled: (val: boolean) => void;
     emojiPanelEnabled: boolean;
@@ -94,6 +97,10 @@ interface SettingsPanelProps {
     setTagManagerEnabled: (val: boolean) => void;
     arrowKeySelection: boolean;
     setArrowKeySelection: (val: boolean) => void;
+    lightModeEnabled: boolean;
+    setLightModeEnabled: (val: boolean) => void;
+    lightModeIdleMinutes: number;
+    setLightModeIdleMinutes: (val: number) => void;
 
 
     soundEnabled: boolean;
@@ -164,6 +171,7 @@ interface SettingsPanelProps {
     toggleGroup: (group: string) => void;
     setSettingsSubpage: (val: SettingsSubpage) => void;
     setAutoStart: (val: boolean) => void;
+    setElevatedAutostart: (val: boolean) => void;
     setSilentStart: (val: boolean) => void;
     setPersistent: (val: boolean) => void;
     setPersistentLimitEnabled: (val: boolean) => void;
@@ -257,10 +265,11 @@ interface SettingsPanelProps {
 const SettingsPanel = (props: SettingsPanelProps) => {
     const {
         t, theme, language, colorMode, showAppBorder, setShowAppBorder, showSourceAppIcon, setShowSourceAppIcon, hideUnselectedItemActions, setHideUnselectedItemActions,
-        collapsedGroups, settingsSubpage, autoStart, silentStart, persistent, persistentLimitEnabled, persistentLimit, deduplicate, captureFiles, captureRichText, richTextSnapshotPreview, deleteAfterPaste, moveToTopAfterPaste, pasteMethod, setPasteMethod, registryWinVEnabled, setRegistryWinVEnabled,
+        collapsedGroups, settingsSubpage, autoStart, elevatedAutostart, silentStart, persistent, persistentLimitEnabled, persistentLimit, deduplicate, captureFiles, captureRichText, richTextSnapshotPreview, deleteAfterPaste, moveToTopAfterPaste, pasteMethod, setPasteMethod, registryWinVEnabled, setRegistryWinVEnabled,
         sequentialMode, sequentialHotkey, isRecordingSequential,
         richPasteHotkey, isRecordingRich, searchHotkey, isRecordingSearch, quickPasteModifier, setQuickPasteModifier,
-        privacyProtection, privacyProtectionKinds, setPrivacyProtectionKinds, privacyProtectionCustomRules, setPrivacyProtectionCustomRules, sensitiveMaskPrefixVisible, setSensitiveMaskPrefixVisible, sensitiveMaskSuffixVisible, setSensitiveMaskSuffixVisible, sensitiveMaskEmailDomain, setSensitiveMaskEmailDomain, cleanupRules, setCleanupRules, appCleanupPolicies, setAppCleanupPolicies, showSearchBox, setShowSearchBox, scrollTopButtonEnabled, setScrollTopButtonEnabled, arrowKeySelection, setArrowKeySelection,
+        privacyProtection, privacyProtectionKinds, setPrivacyProtectionKinds, privacyProtectionCustomRules, setPrivacyProtectionCustomRules, sensitiveMaskPrefixVisible, setSensitiveMaskPrefixVisible, sensitiveMaskSuffixVisible, setSensitiveMaskSuffixVisible, sensitiveMaskEmailDomain, setSensitiveMaskEmailDomain, cleanupRules, setCleanupRules, appCleanupPolicies, setAppCleanupPolicies, showSearchBox, setShowSearchBox, searchBoxPinned, setSearchBoxPinned, scrollTopButtonEnabled, setScrollTopButtonEnabled, arrowKeySelection, setArrowKeySelection,
+        lightModeEnabled, setLightModeEnabled, lightModeIdleMinutes, setLightModeIdleMinutes,
         soundEnabled, setSoundEnabled, pasteSoundEnabled, setPasteSoundEnabled,
         soundVolume, setSoundVolume,
         hideTrayIcon, setHideTrayIcon,
@@ -275,7 +284,7 @@ const SettingsPanel = (props: SettingsPanelProps) => {
         fileServerEnabled, fileServerPort, localIp, availableIps, setLocalIp, actualPort, fileTransferAccessToken, fileTransferAutoOpen, showAutoCloseHint, fileServerAutoClose, fileTransferAutoCopy, fileTransferPath,
         installedApps, appSettings, defaultApps, showAppSelector, dataPath,
 
-        toggleGroup, setSettingsSubpage, setAutoStart, setSilentStart, setPersistent, setPersistentLimitEnabled, setPersistentLimit, setDeduplicate, setCaptureFiles, setCaptureRichText, setRichTextSnapshotPreview, setDeleteAfterPaste, setMoveToTopAfterPaste, saveAppSetting,
+        toggleGroup, setSettingsSubpage, setAutoStart, setElevatedAutostart, setSilentStart, setPersistent, setPersistentLimitEnabled, setPersistentLimit, setDeduplicate, setCaptureFiles, setCaptureRichText, setRichTextSnapshotPreview, setDeleteAfterPaste, setMoveToTopAfterPaste, saveAppSetting,
         setSequentialModeState, setIsRecordingSequential, updateSequentialHotkey,
         setIsRecordingRich, updateRichPasteHotkey,
         setIsRecordingSearch, updateSearchHotkey,
@@ -516,6 +525,8 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                 LabelWithHint={LabelWithHint}
                 autoStart={autoStart}
                 setAutoStart={setAutoStart}
+                elevatedAutostart={elevatedAutostart}
+                setElevatedAutostart={setElevatedAutostart}
                 silentStart={silentStart}
                 setSilentStart={setSilentStart}
                 hideTrayIcon={hideTrayIcon}
@@ -532,7 +543,8 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                 setPasteSoundEnabled={setPasteSoundEnabled}
                 soundVolume={soundVolume}
                 setSoundVolume={setSoundVolume}
-                showSearchBox={showSearchBox}
+                searchBoxPinned={searchBoxPinned}
+                setSearchBoxPinned={setSearchBoxPinned}
                 setShowSearchBox={setShowSearchBox}
                 scrollTopButtonEnabled={scrollTopButtonEnabled}
                 setScrollTopButtonEnabled={setScrollTopButtonEnabled}
@@ -542,6 +554,10 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                 setTagManagerEnabled={setTagManagerEnabled}
                 arrowKeySelection={arrowKeySelection}
                 setArrowKeySelection={setArrowKeySelection}
+                lightModeEnabled={lightModeEnabled}
+                setLightModeEnabled={setLightModeEnabled}
+                lightModeIdleMinutes={lightModeIdleMinutes}
+                setLightModeIdleMinutes={setLightModeIdleMinutes}
                 saveAppSetting={saveAppSetting}
             />
 

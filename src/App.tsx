@@ -172,6 +172,7 @@ const App = () => {
     revealedIds,
     setRevealedIds,
     setAutoStart,
+    setElevatedAutostart,
     deduplicate,
     setDeduplicate,
     persistent,
@@ -263,12 +264,18 @@ const App = () => {
     setSettingsLoaded,
     isWindowPinned,
     setIsWindowPinned,
+    searchBoxPinned,
+    setSearchBoxPinned,
     showSearchBox,
     setShowSearchBox,
     scrollTopButtonEnabled,
     setScrollTopButtonEnabled,
     arrowKeySelection,
     setArrowKeySelection,
+    lightModeEnabled,
+    setLightModeEnabled,
+    lightModeIdleMinutes,
+    setLightModeIdleMinutes,
     setHideTrayIcon,
     setHideDockIcon,
     setEdgeDocking,
@@ -424,12 +431,12 @@ const App = () => {
 
   const { handleListScroll: handleSearchScroll } = useSearchScroll({
     containerRef: appContainerRef,
+    searchBoxPinned,
     showSearchBox,
     setShowSearchBox,
     search,
     showSettings,
     showTagManager: effectiveShowTagManager,
-    appSettings,
     dismissSearchTagFilter
   });
 
@@ -645,9 +652,12 @@ const App = () => {
     setHideTrayIcon,
     setHideDockIcon,
     setEdgeDocking,
+    setSearchBoxPinned,
     setShowSearchBox,
     setScrollTopButtonEnabled,
     setArrowKeySelection,
+    setLightModeEnabled,
+    setLightModeIdleMinutes,
     setMqttEnabled,
     setMqttServer,
     setMqttPort,
@@ -745,6 +755,37 @@ const App = () => {
     return () => window.removeEventListener('keydown', handleSearchKeydown, true);
   }, [searchHotkey, isRecording, isRecordingSequential, isRecordingRich, isRecordingSearch, t, focusSearchBox]);
 
+  // Ctrl/Cmd+F → TieZ search (browser find is already blocked globally; this routes it).
+  useEffect(() => {
+    const onFind = (event: KeyboardEvent) => {
+      if (isRecording || isRecordingSequential || isRecordingRich || isRecordingSearch) return;
+      if (showSettings || effectiveShowTagManager || chatMode || effectiveShowEmojiPanel) return;
+
+      const key = event.key.toLowerCase();
+      const isFind =
+        ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && key === "f") ||
+        (key === "f3" && !event.ctrlKey && !event.metaKey && !event.altKey);
+      if (!isFind) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      focusSearchBox();
+    };
+
+    window.addEventListener("keydown", onFind, true);
+    return () => window.removeEventListener("keydown", onFind, true);
+  }, [
+    isRecording,
+    isRecordingSequential,
+    isRecordingRich,
+    isRecordingSearch,
+    showSettings,
+    effectiveShowTagManager,
+    chatMode,
+    effectiveShowEmojiPanel,
+    focusSearchBox
+  ]);
+
   useEffect(() => {
     if (!emojiPanelEnabled && showEmojiPanel) {
       setShowEmojiPanel(false);
@@ -762,6 +803,7 @@ const App = () => {
     setDataPath,
     setInstalledApps,
     setAutoStart,
+    setElevatedAutostart,
     setDefaultApps,
     setFileServerEnabled,
     setActualPort,

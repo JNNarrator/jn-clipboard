@@ -201,6 +201,18 @@ pub fn save_setting(
                 .follow_mouse
                 .store(value != "false", Ordering::Relaxed);
         }
+        "app.light_mode_enabled" => {
+            settings_state
+                .light_mode_enabled
+                .store(value == "true", Ordering::Relaxed);
+        }
+        "app.light_mode_idle_minutes" => {
+            if let Ok(mins) = value.parse::<u64>() {
+                settings_state
+                    .light_mode_idle_minutes
+                    .store(mins.clamp(1, 240), Ordering::Relaxed);
+            }
+        }
 
         "app.hide_tray_icon" => {
             settings_state

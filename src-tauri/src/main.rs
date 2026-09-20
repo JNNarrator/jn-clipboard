@@ -24,6 +24,33 @@ fn main() -> AppResult<()> {
     // `use-rustls-no-provider` and will panic if no provider is registered.
     let _ = rustls::crypto::ring::default_provider().install_default();
 
+    // Elevated autostart helper: must run before Tauri/single-instance so a UAC
+    // child can create/delete the logon task and exit without opening the UI.
+    #[cfg(target_os = "windows")]
+    {
+        let args: Vec<String> = std::env::args().collect();
+        if args.iter().any(|a| a == "--install-elevated-autostart") {
+            match crate::infrastructure::windows_api::elevated_autostart::install_elevated_autostart_task()
+            {
+                Ok(()) => std::process::exit(0),
+                Err(e) => {
+                    eprintln!(">>> [ELEVATED-AUTOSTART] install failed: {e}");
+                    std::process::exit(1);
+                }
+            }
+        }
+        if args.iter().any(|a| a == "--uninstall-elevated-autostart") {
+            match crate::infrastructure::windows_api::elevated_autostart::uninstall_elevated_autostart_task()
+            {
+                Ok(()) => std::process::exit(0),
+                Err(e) => {
+                    eprintln!(">>> [ELEVATED-AUTOSTART] uninstall failed: {e}");
+                    std::process::exit(1);
+                }
+            }
+        }
+    }
+
     // Prefer overlay scrollbars (no classic Win32 arrows) in WebView2.
     #[cfg(target_os = "windows")]
     {
@@ -79,6 +106,7 @@ fn main() -> AppResult<()> {
             app::window_manager::activate_window_focus,
             app::window_manager::activate_app_focus,
             app::window_manager::focus_clipboard_window,
+            app::window_manager::disable_webview_browser_accelerators,
             app::window_manager::set_navigation_enabled,
             app::window_manager::set_navigation_mode,
             app::hooks::set_recording_mode,
@@ -159,6 +187,8 @@ fn main() -> AppResult<()> {
             app::commands::set_data_path,
             app::commands::toggle_autostart,
             app::commands::is_autostart_enabled,
+            app::commands::toggle_elevated_autostart,
+            app::commands::is_elevated_autostart_enabled,
             app::commands::get_app_arch,
             app::commands::get_platform_info,
             app::commands::configure_compact_preview_window,
@@ -232,6 +262,13 @@ fn main() -> AppResult<()> {
         Ok(app) => {
             info!(">>> [STARTUP] Tauri app built successfully.");
             app.run(|app_handle, event| {
+                if let tauri::RunEvent::ExitRequested { api, .. } = &event {
+                    if !crate::app::light_mode::ALLOW_APP_EXIT.load(std::sync::atomic::Ordering::SeqCst)
+                    {
+                        // Keep tray + clipboard daemon alive after WebView light-mode destroy.
+                        api.prevent_exit();
+                    }
+                }
                 #[cfg(target_os = "macos")]
                 if let tauri::RunEvent::Reopen { .. } = event {
                     let _ = crate::app::window_manager::focus_clipboard_window(app_handle.clone());

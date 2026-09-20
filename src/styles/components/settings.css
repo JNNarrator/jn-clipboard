@@ -592,9 +592,10 @@
   width: 90px !important;
   height: 90px !important;
   padding: 5px;
+  /* Keep a light pad so dark-theme QR modules stay scannable. */
   background: #ffffff;
   border-radius: 8px;
-  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--line-strong) 70%, transparent);
 }
 
 .settings-view .qr-label {

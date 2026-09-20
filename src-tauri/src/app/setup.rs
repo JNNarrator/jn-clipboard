@@ -309,6 +309,8 @@ pub struct StartupSettings {
     pub window_height: Option<u32>,
     pub main_hotkey: String,
     pub arrow_key_selection: bool,
+    pub light_mode_enabled: bool,
+    pub light_mode_idle_minutes: u64,
     pub auto_close_server: bool,
     pub sound_volume: f64,
 }
@@ -459,6 +461,17 @@ fn load_settings(repo: &impl SettingsRepository) -> StartupSettings {
             .unwrap_or(Some("false".to_string()))
             .map(|v| v == "true")
             .unwrap_or(false),
+        light_mode_enabled: repo
+            .get("app.light_mode_enabled")
+            .unwrap_or(Some("false".to_string()))
+            .map(|v| v == "true")
+            .unwrap_or(false),
+        light_mode_idle_minutes: repo
+            .get("app.light_mode_idle_minutes")
+            .unwrap_or(Some("15".to_string()))
+            .and_then(|v| v.parse::<u64>().ok())
+            .map(|v| v.clamp(1, 240))
+            .unwrap_or(15),
         auto_close_server: repo
             .get("file_transfer_auto_close")
             .unwrap_or(Some("false".to_string()))
@@ -526,6 +539,8 @@ fn setup_state(
         follow_mouse: AtomicBool::new(s.follow_mouse),
         edge_docking: AtomicBool::new(s.edge_docking),
         arrow_key_selection: AtomicBool::new(s.arrow_key_selection),
+        light_mode_enabled: AtomicBool::new(s.light_mode_enabled),
+        light_mode_idle_minutes: std::sync::atomic::AtomicU64::new(s.light_mode_idle_minutes),
         main_hotkey: std::sync::Mutex::new(s.main_hotkey.clone()),
         monitors: std::sync::Mutex::new(Vec::new()),
         sound_volume: std::sync::Mutex::new(s.sound_volume),
@@ -822,6 +837,13 @@ fn setup_main_window(app: &App, s: &StartupSettings) {
         // macOS: Space flags before panel conversion.
         #[cfg(target_os = "macos")]
         set_window_all_spaces(&window);
+
+        // Drop WebView2 browser accelerators (Ctrl+F find, F1 help, reload…) so
+        // they cannot collide with TieZ / third-party global hotkeys (#159).
+        #[cfg(target_os = "windows")]
+        crate::infrastructure::windows_api::webview_keys::disable_browser_accelerator_keys_for_window(
+            &window,
+        );
     }
 
     // Handle silent start
@@ -925,6 +947,8 @@ fn start_services(app: &App, s: &StartupSettings, app_handle: AppHandle) {
     crate::services::mqtt_sub::start_mqtt_client(app_handle.clone());
     crate::services::cloud_sync::start_cloud_sync_client(app_handle.clone());
     start_edge_docking_monitor(app_handle.clone());
+    crate::app::light_mode::start_idle_watcher(app_handle.clone());
+    crate::app::light_mode::seed_hidden_if_needed(&app_handle);
 
     let db_state = app.state::<DbState>();
     if db_state
@@ -1611,7 +1635,7 @@ fn setup_tray(app: &App, hide_tray: bool) {
             if event.id.as_ref() == "show" {
                 let _ = crate::app::window_manager::focus_clipboard_window(app.clone());
             } else if event.id.as_ref() == "quit" {
-                app.exit(0);
+                crate::app::light_mode::request_app_exit(app);
             }
         })
         .on_tray_icon_event(|tray, event| {
@@ -1835,6 +1859,7 @@ pub fn handle_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
             CURRENT_DOCK.store(0, Ordering::Relaxed);
             NAVIGATION_ENABLED.store(false, Ordering::SeqCst);
             NAVIGATION_MODE_ACTIVE.store(false, Ordering::SeqCst);
+            crate::app::light_mode::on_window_hidden();
         }
         _ => {}
     }

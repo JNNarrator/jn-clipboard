@@ -557,9 +557,9 @@ html.platform-macos .tag-manager-items::-webkit-scrollbar-track {
   position: absolute;
   top: 4px;
   right: 4px;
-  left: 4px;
+  left: auto;
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   opacity: 0;
   pointer-events: none;
@@ -574,9 +574,10 @@ html.platform-macos .tag-manager-items::-webkit-scrollbar-track {
   pointer-events: auto;
 }
 
-.tag-manager-card .card-actions-left {
+.tag-manager-card .card-actions {
   display: flex;
   gap: 2px;
+  align-items: center;
 }
 
 .tag-manager-card .card-action-btn,
@@ -585,8 +586,8 @@ html.platform-macos .tag-manager-items::-webkit-scrollbar-track {
   height: 18px;
   min-width: 18px;
   padding: 0;
-  background: rgba(255, 255, 255, 0.86);
-  border: 1px solid color-mix(in srgb, var(--text-primary) 14%, transparent);
+  background: var(--bg-button);
+  border: var(--button-border);
   border-radius: var(--button-radius);
   color: var(--text-primary);
   cursor: pointer;
@@ -605,7 +606,7 @@ html.platform-macos .tag-manager-items::-webkit-scrollbar-track {
 .tag-manager-card .card-action-btn:hover,
 .tag-manager-card .card-action-btn:focus-visible,
 .tag-manager-card .del-btn:focus-visible {
-  background: rgba(255, 255, 255, 0.94);
+  background: var(--bg-input);
   border-color: color-mix(in srgb, var(--accent-color) 32%, var(--line-soft));
   color: var(--accent-color);
   outline: none;

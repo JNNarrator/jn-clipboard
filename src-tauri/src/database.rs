@@ -316,6 +316,14 @@ pub fn seed_defaults(conn: &Connection) -> Result<()> {
         [],
     );
     let _ = conn.execute(
+        "INSERT OR IGNORE INTO settings (key, value) VALUES ('app.light_mode_enabled', 'false')",
+        [],
+    );
+    let _ = conn.execute(
+        "INSERT OR IGNORE INTO settings (key, value) VALUES ('app.light_mode_idle_minutes', '15')",
+        [],
+    );
+    let _ = conn.execute(
         "INSERT OR IGNORE INTO settings (key, value) VALUES ('app.window_pinned', 'false')",
         [],
     );

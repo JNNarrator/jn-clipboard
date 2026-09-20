@@ -5,6 +5,38 @@ use crate::infrastructure::windows_ext::WindowExt;
 use std::sync::atomic::Ordering;
 use tauri::{AppHandle, Emitter, Manager, Theme, WebviewWindow};
 
+/// Disable WebView2 browser accelerators for one window (or all when label is empty).
+/// No-op on non-Windows platforms.
+#[tauri::command]
+pub fn disable_webview_browser_accelerators(
+    app_handle: AppHandle,
+    label: Option<String>,
+) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        use crate::infrastructure::windows_api::webview_keys::{
+            disable_browser_accelerator_keys_for_app, disable_browser_accelerator_keys_for_window,
+        };
+
+        match label.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+            Some(window_label) => {
+                let window = app_handle
+                    .get_webview_window(window_label)
+                    .ok_or_else(|| format!("window '{window_label}' not found"))?;
+                disable_browser_accelerator_keys_for_window(&window);
+            }
+            None => disable_browser_accelerator_keys_for_app(&app_handle),
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = (app_handle, label);
+    }
+
+    Ok(())
+}
+
 #[cfg(feature = "devtools")]
 use std::sync::atomic::AtomicBool;
 
@@ -364,6 +396,13 @@ pub fn toggle_window(app: &AppHandle) {
 
 #[cfg(target_os = "windows")]
 fn toggle_window_windows(app: &AppHandle) {
+    if app.get_webview_window("main").is_none() {
+        if let Err(err) = crate::app::light_mode::ensure_main_window(app) {
+            eprintln!("[light-mode] recreate before toggle failed: {err}");
+            return;
+        }
+    }
+
     if let Some(window) = app.get_webview_window("main") {
         #[cfg(windows)]
         let mut active_center: Option<(i32, i32)> = None;
@@ -381,9 +420,11 @@ fn toggle_window_windows(app: &AppHandle) {
             IS_HIDDEN.store(false, Ordering::Relaxed);
             NAVIGATION_ENABLED.store(false, Ordering::SeqCst);
             NAVIGATION_MODE_ACTIVE.store(false, Ordering::SeqCst);
+            crate::app::light_mode::on_window_hidden();
             return;
         }
 
+        crate::app::light_mode::on_window_shown();
         IS_HIDDEN.store(false, Ordering::Relaxed);
         NAVIGATION_ENABLED.store(true, Ordering::SeqCst);
         let was_docked = is_hidden_by_edge;
@@ -610,6 +651,13 @@ fn toggle_window_windows(app: &AppHandle) {
 
 #[cfg(target_os = "macos")]
 fn toggle_window_macos(app_handle: &AppHandle) {
+    if app_handle.get_webview_window("main").is_none() {
+        if let Err(err) = crate::app::light_mode::ensure_main_window(app_handle) {
+            eprintln!("[light-mode] recreate before toggle failed: {err}");
+            return;
+        }
+    }
+
     if let Some(window) = app_handle.get_webview_window("main") {
         let panel_available =
             crate::infrastructure::macos_api::window::is_clipboard_panel_available(app_handle);
@@ -640,9 +688,11 @@ fn toggle_window_macos(app_handle: &AppHandle) {
             CURRENT_DOCK.store(0, Ordering::Relaxed);
             NAVIGATION_ENABLED.store(false, Ordering::SeqCst);
             NAVIGATION_MODE_ACTIVE.store(false, Ordering::SeqCst);
+            crate::app::light_mode::on_window_hidden();
             return;
         }
 
+        crate::app::light_mode::on_window_shown();
         let (prev_app_name, prev_app_pid) =
             crate::infrastructure::macos_api::window::get_active_app_info();
         let self_pid = std::process::id();
@@ -786,6 +836,7 @@ fn hide_window(app_handle: AppHandle, restore_focus: bool) -> Result<(), String>
         let _ = window.hide();
         NAVIGATION_ENABLED.store(false, Ordering::SeqCst);
         NAVIGATION_MODE_ACTIVE.store(false, Ordering::SeqCst);
+        crate::app::light_mode::on_window_hidden();
         if restore_focus {
             let _ = restore_previous_app_focus(app_handle.clone());
         }
@@ -810,6 +861,11 @@ pub fn toggle_window_cmd(app_handle: AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 pub fn focus_clipboard_window(app_handle: AppHandle) -> Result<(), String> {
+    if app_handle.get_webview_window("main").is_none() {
+        crate::app::light_mode::ensure_main_window(&app_handle)?;
+    }
+    crate::app::light_mode::on_window_shown();
+
     if let Some(window) = app_handle.get_webview_window("main") {
         let _ = crate::app::setup::expand_from_edge_dock(&app_handle, &window);
         IS_HIDDEN.store(false, Ordering::Relaxed);

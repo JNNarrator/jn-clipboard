@@ -2,6 +2,7 @@ type AudioContextCtor = typeof AudioContext;
 
 let sharedCtx: AudioContext | null = null;
 let unlockBound = false;
+let suspendTimer: ReturnType<typeof setTimeout> | null = null;
 
 const getAudioContextCtor = (): AudioContextCtor | null => {
   if (typeof window === "undefined") return null;
@@ -12,7 +13,14 @@ const getAudioContextCtor = (): AudioContextCtor | null => {
   );
 };
 
-export const getSoundAudioContext = (): AudioContext | null => {
+const clearSuspendTimer = () => {
+  if (suspendTimer == null) return;
+  clearTimeout(suspendTimer);
+  suspendTimer = null;
+};
+
+/** Lazily create a shared AudioContext. Does not resume it. */
+export const getOrCreateSoundAudioContext = (): AudioContext | null => {
   const Ctor = getAudioContextCtor();
   if (!Ctor) return null;
 
@@ -22,45 +30,79 @@ export const getSoundAudioContext = (): AudioContext | null => {
   return sharedCtx;
 };
 
-/** Resume Web Audio after a user gesture (required on macOS WKWebView). */
+/** Resume an existing context only — never create one from a gesture unlock. */
 export const unlockSoundAudioContext = async (): Promise<void> => {
-  const ctx = getSoundAudioContext();
-  if (!ctx || ctx.state === "running") return;
+  const ctx = sharedCtx;
+  if (!ctx || ctx.state === "closed" || ctx.state === "running") return;
 
   try {
     await ctx.resume();
   } catch {
-    // ignore — will retry on next gesture
-  }
-
-  if (ctx.state === "closed") return;
-
-  try {
-    const buffer = ctx.createBuffer(1, 1, ctx.sampleRate || 44100);
-    const source = ctx.createBufferSource();
-    source.buffer = buffer;
-    source.connect(ctx.destination);
-    source.start(0);
-    source.stop(0);
-  } catch {
-    // silent priming is best-effort
+    // ignore — will retry on next gesture / play
   }
 };
 
-export const ensureSoundAudioRunning = async (): Promise<boolean> => {
-  const ctx = getSoundAudioContext();
-  if (!ctx) return false;
-  if (ctx.state === "running") return true;
-  if (ctx.state === "closed") return false;
+/**
+ * Ensure a running AudioContext for playback. Creates lazily on first need.
+ * Returns the context when ready, or null if Web Audio is unavailable.
+ */
+export const ensureSoundAudioRunning = async (): Promise<AudioContext | null> => {
+  clearSuspendTimer();
 
-  try {
-    await ctx.resume();
-  } catch {
-    return false;
+  const ctx = getOrCreateSoundAudioContext();
+  if (!ctx || ctx.state === "closed") return null;
+
+  if (ctx.state === "suspended") {
+    try {
+      await ctx.resume();
+    } catch {
+      return null;
+    }
   }
-  return ctx.state !== "suspended" && ctx.state !== "closed";
+
+  return ctx.state === "running" ? ctx : null;
 };
 
+/** Release the CoreAudio output stream so other apps keep bluetooth routing. */
+export const suspendSoundAudioContext = async (): Promise<void> => {
+  clearSuspendTimer();
+  const ctx = sharedCtx;
+  if (!ctx || ctx.state !== "running") return;
+
+  try {
+    await ctx.suspend();
+  } catch {
+    // ignore
+  }
+};
+
+/** Defer suspend so multi-beep sequences (paste) can finish first. */
+export const scheduleSuspendSoundAudioContext = (delayMs = 500): void => {
+  clearSuspendTimer();
+  suspendTimer = setTimeout(() => {
+    suspendTimer = null;
+    void suspendSoundAudioContext();
+  }, delayMs);
+};
+
+/** Fully tear down Web Audio (sound disabled / unmount). */
+export const closeSoundAudioContext = async (): Promise<void> => {
+  clearSuspendTimer();
+  const ctx = sharedCtx;
+  sharedCtx = null;
+  if (!ctx || ctx.state === "closed") return;
+
+  try {
+    await ctx.close();
+  } catch {
+    // ignore
+  }
+};
+
+/**
+ * Bind gesture unlockers that only resume an *existing* context.
+ * Does not create AudioContext — creation stays lazy until first play.
+ */
 export const bindSoundAudioUnlock = (): void => {
   if (unlockBound || typeof document === "undefined") return;
   unlockBound = true;

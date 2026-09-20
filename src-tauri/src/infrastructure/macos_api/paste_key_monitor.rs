@@ -1,12 +1,15 @@
 //! Passive global listener for physical ⌘V — plays paste sound without intercepting the shortcut.
+//!
+//! Uses a listen-only HID tap so we never synthesize/re-inject events (no
+//! `kTCCServicePostEvent` checks). If Accessibility is revoked, the tap is
+//! torn down instead of force-re-enabled — otherwise WindowServer stalls the
+//! whole HID path querying TCC on every key/mouse event.
 
 use std::sync::atomic::{AtomicPtr, AtomicU64, Ordering};
 use std::sync::OnceLock;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use super::permissions::{
-    has_accessibility_permission, V_KEY_CODE,
-};
+use super::permissions::{has_accessibility_permission, V_KEY_CODE};
 
 type CFMachPortRef = *mut std::ffi::c_void;
 type CFRunLoopRef = *mut std::ffi::c_void;
@@ -24,7 +27,8 @@ type CGEventField = u32;
 const K_CG_EVENT_KEY_DOWN: CGEventType = 10;
 const K_CG_EVENT_TAP_DISABLED_BY_TIMEOUT: CGEventType = 0xFFFF_FFFE;
 const K_CG_EVENT_TAP_DISABLED_BY_USER_INPUT: CGEventType = 0xFFFF_FFFF;
-const K_CG_EVENT_TAP_OPTION_EVENT_EDIT: CGEventTapOptions = 0;
+/// Listen-only: callback return value is ignored; events are never re-injected.
+const K_CG_EVENT_TAP_OPTION_LISTEN_ONLY: CGEventTapOptions = 1;
 const K_CG_HEAD_INSERT_EVENT_TAP: CGEventTapPlacement = 0;
 const K_CG_HID_EVENT_TAP: CGEventTapLocation = 0;
 const K_CG_EVENT_FLAG_MASK_COMMAND: CGEventFlags = 1 << 20;
@@ -87,7 +91,17 @@ unsafe extern "C" {
         mode: *const std::ffi::c_void,
     );
     fn CFRunLoopRun();
+    fn CFRunLoopStop(rl: CFRunLoopRef);
     static kCFRunLoopCommonModes: *const std::ffi::c_void;
+}
+
+unsafe fn tear_down_active_tap(tap: *mut std::ffi::c_void) {
+    if tap.is_null() {
+        return;
+    }
+    CGEventTapEnable(tap as CFMachPortRef, false);
+    ACTIVE_EVENT_TAP.store(std::ptr::null_mut(), Ordering::Release);
+    CFRunLoopStop(CFRunLoopGetCurrent());
 }
 
 unsafe extern "C" fn cmd_v_callback(
@@ -100,8 +114,25 @@ unsafe extern "C" fn cmd_v_callback(
         || event_type == K_CG_EVENT_TAP_DISABLED_BY_USER_INPUT
     {
         let tap = ACTIVE_EVENT_TAP.load(Ordering::Acquire);
-        if !tap.is_null() {
+        if tap.is_null() {
+            return event;
+        }
+
+        // Permission revoked: leave the HID path immediately. Force-enabling
+        // here keeps WindowServer doing a TCC PostEvent round-trip per event
+        // and freezes keyboard/mouse system-wide.
+        if !has_accessibility_permission() {
+            eprintln!("[paste-key-monitor] accessibility lost — stopping ⌘V tap");
+            tear_down_active_tap(tap);
+            return event;
+        }
+
+        if event_type == K_CG_EVENT_TAP_DISABLED_BY_TIMEOUT {
             CGEventTapEnable(tap as CFMachPortRef, true);
+        } else {
+            // Disabled by user input while still trusted — rebuild via outer loop.
+            eprintln!("[paste-key-monitor] tap disabled by user input — rebuilding");
+            tear_down_active_tap(tap);
         }
         return event;
     }
@@ -120,12 +151,13 @@ unsafe extern "C" fn cmd_v_callback(
                 crate::services::ui_sound::schedule_paste_sound(app);
             }
         }
-
     }
+    // Listen-only: return value is ignored by the system.
     event
 }
 
-/// Returns true if the monitor run loop was started successfully.
+/// Blocks on a run loop until the tap is torn down. Returns when accessibility
+/// is lost or the tap is otherwise stopped so the caller can poll and rebuild.
 unsafe fn try_start_event_tap() -> bool {
     if !has_accessibility_permission() {
         return false;
@@ -135,7 +167,7 @@ unsafe fn try_start_event_tap() -> bool {
     let tap = CGEventTapCreate(
         K_CG_HID_EVENT_TAP,
         K_CG_HEAD_INSERT_EVENT_TAP,
-        K_CG_EVENT_TAP_OPTION_EVENT_EDIT,
+        K_CG_EVENT_TAP_OPTION_LISTEN_ONLY,
         mask,
         Some(cmd_v_callback),
         std::ptr::null_mut(),
@@ -158,8 +190,10 @@ unsafe fn try_start_event_tap() -> bool {
     CFRunLoopAddSource(run_loop, source, kCFRunLoopCommonModes);
 
     CGEventTapEnable(tap, true);
-    eprintln!("[paste-key-monitor] ⌘V listener active");
+    eprintln!("[paste-key-monitor] ⌘V listen-only listener active");
     CFRunLoopRun();
+    ACTIVE_EVENT_TAP.store(std::ptr::null_mut(), Ordering::Release);
+    eprintln!("[paste-key-monitor] ⌘V listener stopped — waiting for accessibility");
     true
 }
 
@@ -171,9 +205,12 @@ pub fn start_paste_key_monitor() {
     std::thread::Builder::new()
         .name("tiez-paste-key-monitor".into())
         .spawn(|| {
+            // Keep polling forever: after a tap is torn down (e.g. user revokes
+            // Accessibility), re-create it once permission returns — without
+            // requiring an app restart.
             loop {
-                if has_accessibility_permission() && unsafe { try_start_event_tap() } {
-                    break;
+                if has_accessibility_permission() {
+                    let _ = unsafe { try_start_event_tap() };
                 }
                 std::thread::sleep(Duration::from_secs(2));
             }

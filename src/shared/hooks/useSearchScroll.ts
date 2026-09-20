@@ -2,12 +2,14 @@ import { useCallback, useEffect, useRef, type RefObject } from "react";
 
 type UseSearchScrollOptions = {
   containerRef: RefObject<HTMLElement | null>;
+  /** Persistent setting: when true, search stays visible (scroll never hides it). */
+  searchBoxPinned: boolean;
+  /** Transient visibility for the search UI. */
   showSearchBox: boolean;
   setShowSearchBox: (val: boolean) => void;
   search: string;
   showSettings: boolean;
   showTagManager: boolean;
-  appSettings: Record<string, string>;
   dismissSearchTagFilter?: () => void;
 };
 
@@ -22,12 +24,12 @@ const TOP_SETTLE_MS = 72;
 
 export const useSearchScroll = ({
   containerRef,
+  searchBoxPinned,
   showSearchBox,
   setShowSearchBox,
   search,
   showSettings,
   showTagManager,
-  appSettings,
   dismissSearchTagFilter
 }: UseSearchScrollOptions) => {
   const scrollTriggerRef = useRef(0);
@@ -36,24 +38,25 @@ export const useSearchScroll = ({
   const wheelAttachedRef = useRef(false);
   const wheelListenerRef = useRef<((e: WheelEvent) => void) | null>(null);
 
+  const searchBoxPinnedRef = useRef(searchBoxPinned);
   const showSearchBoxRef = useRef(showSearchBox);
   const searchRef = useRef(search);
-  const searchPinnedRef = useRef(appSettings["app.show_search_box"] === "true");
   const showSettingsRef = useRef(showSettings);
   const showTagManagerRef = useRef(showTagManager);
   const setShowSearchBoxRef = useRef(setShowSearchBox);
   const dismissRef = useRef(dismissSearchTagFilter);
 
+  searchBoxPinnedRef.current = searchBoxPinned;
   showSearchBoxRef.current = showSearchBox;
   searchRef.current = search;
-  searchPinnedRef.current = appSettings["app.show_search_box"] === "true";
   showSettingsRef.current = showSettings;
   showTagManagerRef.current = showTagManager;
   setShowSearchBoxRef.current = setShowSearchBox;
   dismissRef.current = dismissSearchTagFilter;
 
   const shouldCaptureWheel = useCallback(() => {
-    if (searchPinnedRef.current || showSettingsRef.current || showTagManagerRef.current) {
+    // Pinned search never needs scroll-to-reveal / hide gestures.
+    if (searchBoxPinnedRef.current || showSettingsRef.current || showTagManagerRef.current) {
       return false;
     }
     return showSearchBoxRef.current || listScrollTopRef.current <= AT_TOP_EPSILON;
@@ -77,7 +80,7 @@ export const useSearchScroll = ({
 
   const hideSearchBox = () => {
     if (
-      searchPinnedRef.current ||
+      searchBoxPinnedRef.current ||
       showSettingsRef.current ||
       showTagManagerRef.current ||
       !showSearchBoxRef.current ||
@@ -106,6 +109,9 @@ export const useSearchScroll = ({
       if (target?.closest("header, .search-reveal, .search-container, .search-type-filters, .tags-dropdown")) {
         return;
       }
+
+      // Never mutate the pinned preference — only transient visibility.
+      if (searchBoxPinnedRef.current) return;
 
       const deltaY = e.deltaY;
       const atTop = isAtTop();
@@ -162,7 +168,14 @@ export const useSearchScroll = ({
 
   useEffect(() => {
     syncWheelListener();
-  }, [showSearchBox, showSettings, showTagManager, appSettings, syncWheelListener]);
+  }, [searchBoxPinned, showSearchBox, showSettings, showTagManager, syncWheelListener]);
+
+  // Keep visibility in sync when the persistent preference flips.
+  useEffect(() => {
+    if (searchBoxPinned) {
+      setShowSearchBox(true);
+    }
+  }, [searchBoxPinned, setShowSearchBox]);
 
   const handleListScroll = useCallback(
     (offset: number) => {

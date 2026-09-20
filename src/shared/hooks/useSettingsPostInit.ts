@@ -83,9 +83,12 @@ interface UseSettingsPostInitOptions {
   setHideTrayIcon: (val: boolean) => void;
   setHideDockIcon: (val: boolean) => void;
   setEdgeDocking: (val: boolean) => void;
+  setSearchBoxPinned: (val: boolean) => void;
   setShowSearchBox: (val: boolean) => void;
   setScrollTopButtonEnabled: (val: boolean) => void;
   setArrowKeySelection: (val: boolean) => void;
+  setLightModeEnabled: (val: boolean) => void;
+  setLightModeIdleMinutes: (val: number) => void;
   setMqttEnabled: (val: boolean) => void;
   setMqttServer: (val: string) => void;
   setMqttPort: (val: string) => void;
@@ -172,9 +175,12 @@ export const useSettingsPostInit = ({
   setHideTrayIcon,
   setHideDockIcon,
   setEdgeDocking,
+  setSearchBoxPinned,
   setShowSearchBox,
   setScrollTopButtonEnabled,
   setArrowKeySelection,
+  setLightModeEnabled,
+  setLightModeIdleMinutes,
   setMqttEnabled,
   setMqttServer,
   setMqttPort,
@@ -354,9 +360,17 @@ export const useSettingsPostInit = ({
     const edgeDockingEnabled = settings["app.edge_docking"] === "true";
     setEdgeDocking(edgeDockingEnabled);
 
-    if (settings["app.show_search_box"] === "false") setShowSearchBox(false);
+    // Default ON when unset (new installs / missing key). Only explicit "false" pins off.
+    const searchPinned = settings["app.show_search_box"] !== "false";
+    setSearchBoxPinned(searchPinned);
+    setShowSearchBox(searchPinned);
     setScrollTopButtonEnabled(settings["app.show_scroll_top_button"] !== "false");
     if (settings["app.arrow_key_selection"] === "false") setArrowKeySelection(false);
+    setLightModeEnabled(settings["app.light_mode_enabled"] === "true");
+    {
+      const mins = Number.parseInt(String(settings["app.light_mode_idle_minutes"] || "15"), 10);
+      setLightModeIdleMinutes(Number.isFinite(mins) ? Math.min(240, Math.max(1, mins)) : 15);
+    }
 
     setMqttEnabled(settings["mqtt_enabled"] === "true");
     setMqttServer(settings["mqtt_server"] || "");
@@ -559,9 +573,12 @@ export const useSettingsPostInit = ({
     setHideTrayIcon,
     setHideDockIcon,
     setEdgeDocking,
+    setSearchBoxPinned,
     setShowSearchBox,
     setScrollTopButtonEnabled,
     setArrowKeySelection,
+    setLightModeEnabled,
+    setLightModeIdleMinutes,
     setMqttEnabled,
     setMqttServer,
     setMqttPort,

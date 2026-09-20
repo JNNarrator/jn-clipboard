@@ -171,7 +171,7 @@ const AppearanceSettingsGroup = ({
         try {
             const confirmed = await withNativeDialog(async () => ask(
                 t('theme_package_confirm_delete'),
-                { title: t('visual_theme'), kind: 'warning' }
+                { title: t('theme_package_uninstall'), kind: 'warning' }
             ), "settings:uninstall-theme");
             if (!confirmed) return;
 
@@ -341,7 +341,7 @@ const AppearanceSettingsGroup = ({
                 <div className="setting-item">
                     <LabelWithHint
                         label={t('show_source_app_icon') || '显示来源应用图标'}
-                        hint={t('show_source_app_icon_hint') || '关闭后不显示来源应用图标，改为显示剪贴板条目类型图标'}
+                        hint={t('show_source_app_icon_hint') || '关闭后改为显示条目类型图标。'}
                         hintKey="show_source_app_icon"
                     />
                     <label className="switch">
@@ -362,7 +362,7 @@ const AppearanceSettingsGroup = ({
                 <div className="setting-item">
                     <LabelWithHint
                         label={t('hide_unselected_item_actions') || '隐藏未选中条目的操作按钮'}
-                        hint={t('hide_unselected_item_actions_hint') || '开启后，只有当前选中的剪贴板条目显示右上角操作按钮'}
+                        hint={t('hide_unselected_item_actions_hint') || '悬停或选中后才会露出右上角操作区。'}
                         hintKey="hide_unselected_item_actions"
                     />
                     <label className="switch">
@@ -383,7 +383,7 @@ const AppearanceSettingsGroup = ({
                 <div className="setting-item">
                     <LabelWithHint
                         label={t('compact_mode') || 'Compact Mode'}
-                        hint={t('compact_mode_hint') || 'When enabled, clipboard list displays more densely with more entries visible. Hover to preview.'}
+                        hint={t('compact_mode_hint') || '列表更密、同屏条目更多；悬停可看完整预览。'}
                         hintKey="compact_mode"
                     />
                     <label className="switch">
@@ -426,7 +426,7 @@ const AppearanceSettingsGroup = ({
                     <div className="setting-item-heading">
                         <LabelWithHint
                             label={t('clipboard_item_font_size') || '条目字体大小'}
-                            hint={t('clipboard_item_font_size_hint') || '调整剪贴板首页条目内容的字体大小'}
+                            hint={t('clipboard_item_font_size_hint') || '只影响列表正文，不影响标签与其它界面文字。'}
                             hintKey="clipboard_item_font_size"
                         />
                         <span className="hint setting-value" style={{ fontSize: '10px', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
@@ -452,7 +452,7 @@ const AppearanceSettingsGroup = ({
                     <div className="setting-item-heading">
                         <LabelWithHint
                             label={t('clipboard_tag_font_size') || '标签字体大小'}
-                            hint={t('clipboard_tag_font_size_hint') || '调整剪贴板条目标签的字体大小'}
+                            hint={t('clipboard_tag_font_size_hint') || '只影响条目标签，不影响正文。'}
                             hintKey="clipboard_tag_font_size"
                         />
                         <span className="hint setting-value" style={{ fontSize: '10px', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>

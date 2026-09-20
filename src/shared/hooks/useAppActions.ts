@@ -67,7 +67,7 @@ export const useAppActions = ({
 
   const handleResetSettings = useCallback(() => {
     openConfirm({
-      title: t("reset_confirm"),
+      title: t("reset_defaults"),
       message: t("reset_confirm"),
       onConfirm: async () => {
         try {

@@ -163,6 +163,12 @@ body.theme-paper::before {
   background-color: #fbf1c7 !important;
 }
 
+body.dark-mode.theme-paper .history-item.selected,
+:root.dark-mode.theme-paper .history-item.selected,
+.theme-paper.dark-mode .history-item.selected {
+  background-color: rgba(215, 153, 33, 0.15) !important;
+}
+
 @media (prefers-color-scheme: dark) {
   :root.theme-paper:not(.light-mode),
   body.theme-paper:not(.light-mode) {
@@ -186,8 +192,14 @@ body.theme-paper::before {
     --shadow-color: rgba(0, 0, 0, 0.3);
 
     --line-soft: rgba(213, 196, 161, 0.08);
+    --line-strong: rgba(213, 196, 161, 0.18);
     --panel-header-background: #3c3836;
     --panel-divider-color: #504945;
+
+    --input-border: 1px solid #504945;
+    --button-border: 1px solid rgba(213, 196, 161, 0.22);
+    --card-border: 1px solid #504945;
+    --segment-active-background: rgba(215, 153, 33, 0.16);
 
     --card-selected-background: rgba(215, 153, 33, 0.15);
     --card-selected-border-color: rgba(215, 153, 33, 0.3);
@@ -218,8 +230,14 @@ body.dark-mode.theme-paper {
   --shadow-color: rgba(0, 0, 0, 0.3);
 
   --line-soft: rgba(213, 196, 161, 0.08);
+  --line-strong: rgba(213, 196, 161, 0.18);
   --panel-header-background: #3c3836;
   --panel-divider-color: #504945;
+
+  --input-border: 1px solid #504945;
+  --button-border: 1px solid rgba(213, 196, 161, 0.22);
+  --card-border: 1px solid #504945;
+  --segment-active-background: rgba(215, 153, 33, 0.16);
 
   --card-selected-background: rgba(215, 153, 33, 0.15);
   --card-selected-border-color: rgba(215, 153, 33, 0.3);
