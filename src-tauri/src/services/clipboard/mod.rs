@@ -332,6 +332,17 @@ pub fn start_clipboard_monitor(app_handle: AppHandle) {
         #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
         std::thread::sleep(std::time::Duration::from_millis(20));
 
+        // Passwords copied from password managers are marked private; never record them.
+        // Checked after the settle delay so markers written alongside the text are visible.
+        #[cfg(target_os = "macos")]
+        if crate::infrastructure::macos_api::clipboard::is_clipboard_marked_private() {
+            return;
+        }
+        #[cfg(target_os = "windows")]
+        if crate::infrastructure::windows_api::win_clipboard::is_clipboard_marked_private() {
+            return;
+        }
+
         // Initialize clipboard for this thread
         #[cfg(not(target_os = "macos"))]
         let mut clipboard = match Clipboard::new() {

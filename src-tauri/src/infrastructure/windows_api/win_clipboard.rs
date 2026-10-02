@@ -598,6 +598,32 @@ pub fn get_clipboard_sequence_number() -> u32 {
     unsafe { windows::Win32::System::DataExchange::GetClipboardSequenceNumber() }
 }
 
+/// Password managers (KeePass, 1Password, Bitwarden, ...) add these formats so
+/// clipboard history tools never record the content.
+pub fn is_clipboard_marked_private() -> bool {
+    use windows::Win32::System::DataExchange::{
+        IsClipboardFormatAvailable, RegisterClipboardFormatW,
+    };
+
+    unsafe {
+        for name in [
+            "ExcludeClipboardContentFromMonitorProcessing",
+            "Clipboard Viewer Ignore",
+        ] {
+            let name_w: Vec<u16> = name.encode_utf16().chain(std::iter::once(0)).collect();
+            let format_id = RegisterClipboardFormatW(windows::core::PCWSTR(name_w.as_ptr()));
+            if format_id != 0 && IsClipboardFormatAvailable(format_id).is_ok() {
+                return true;
+            }
+        }
+
+        // A DWORD 0 here opts the content out of clipboard history.
+        get_clipboard_raw_format("CanIncludeInClipboardHistory")
+            .and_then(|bytes| read_u32_le(&bytes, 0))
+            == Some(0)
+    }
+}
+
 pub unsafe fn clear_clipboard() -> Result<(), String> {
     if OpenClipboard(None).is_err() {
         return Err("Cannot open clipboard".into());
