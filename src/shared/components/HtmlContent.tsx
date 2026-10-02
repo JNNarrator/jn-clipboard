@@ -45,6 +45,32 @@ const stripUnsafeCssText = (cssText: string): string => {
     .trim();
 };
 
+const LINK_ATTRS = new Set(["href", "xlink:href", "action", "formaction"]);
+const SAFE_LINK_SCHEMES = new Set(["http", "https", "mailto", "tel"]);
+const RESOURCE_ATTRS = new Set(["src", "poster", "background", "data"]);
+const UNSAFE_RESOURCE_SCHEMES = new Set(["javascript", "vbscript"]);
+
+/** URL parsers ignore control chars and whitespace, so `java&#9;script:` must not hide its scheme. */
+const getUrlScheme = (value: string): string | null => {
+  const compact = value.replace(/[\u0000- \u007f-\u009f]/g, "").toLowerCase();
+  return /^([a-z][a-z0-9+.-]*):/.exec(compact)?.[1] ?? null;
+};
+
+const isUnsafeUrlAttr = (name: string, value: string): boolean => {
+  const scheme = getUrlScheme(value);
+  if (!scheme) return false;
+  if (LINK_ATTRS.has(name)) return !SAFE_LINK_SCHEMES.has(scheme);
+  if (RESOURCE_ATTRS.has(name)) return UNSAFE_RESOURCE_SCHEMES.has(scheme);
+  return false;
+};
+
+/** Links inside pasted content must never navigate the app window; card clicks still bubble. */
+const preventLinkNavigation = (event: Event) => {
+  if (event.target instanceof Element && event.target.closest("a, area")) {
+    event.preventDefault();
+  }
+};
+
 const resolveImgSource = (el: Element): string | null => {
   const src = el.getAttribute("src")?.trim() || "";
   const lazyAttrs = [
@@ -188,14 +214,13 @@ const sanitizeHTML = (html: string, preview?: boolean) => {
 
   const all = doc.querySelectorAll("*");
   all.forEach(el => {
-    // Basic sanitization of on* attributes and javascript: links
+    // Basic sanitization of on* attributes and script-capable URLs
     [...el.attributes].forEach(attr => {
       const name = attr.name.toLowerCase();
-      const value = attr.value.trim().toLowerCase();
       if (name.startsWith("on")) {
         el.removeAttribute(attr.name);
       }
-      if ((name === "href" || name === "src") && value.startsWith("javascript:")) {
+      if (isUnsafeUrlAttr(name, attr.value)) {
         el.removeAttribute(attr.name);
       }
       if (name === "style") {
@@ -631,7 +656,12 @@ const HtmlContent = ({ htmlContent, fallbackText, className, style, preview }: H
     processedRef.current = { htmlContent, preview, fallbackText };
     const { html: cleanHTML, hasRenderable } = sanitizeHTML(htmlContent, preview);
     const host = contentRef.current;
-    const shadowRoot = host.shadowRoot ?? host.attachShadow({ mode: "open" });
+    let shadowRoot = host.shadowRoot;
+    if (!shadowRoot) {
+      shadowRoot = host.attachShadow({ mode: "open" });
+      shadowRoot.addEventListener("click", preventLinkNavigation);
+      shadowRoot.addEventListener("auxclick", preventLinkNavigation);
+    }
     const renderedContent = !hasRenderable && fallbackText
       ? `<div class="tiez-rich-root" dir="auto"></div>`
       : `<div class="tiez-rich-root" dir="auto">${cleanHTML}</div>`;
