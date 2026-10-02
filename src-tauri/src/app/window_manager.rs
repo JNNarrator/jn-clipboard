@@ -66,8 +66,7 @@ pub fn apply_macos_window_material(window: &WebviewWindow) -> tauri::Result<()> 
         let theme = settings.theme.lock().unwrap().clone();
         let material = match theme.as_str() {
             "mica" => Some(NSVisualEffectMaterial::Sidebar),
-            "acrylic" => Some(NSVisualEffectMaterial::Sidebar),
-            "macos" => Some(NSVisualEffectMaterial::Popover),
+            "acrylic" => Some(NSVisualEffectMaterial::Popover),
             _ => None,
         };
 
@@ -91,7 +90,7 @@ pub fn apply_macos_window_material(window: &WebviewWindow) -> tauri::Result<()> 
                 Ok(()) => return,
                 Err(window_vibrancy::Error::UnsupportedPlatformVersion(_)) => {}
                 Err(error) => {
-                    eprintln!("[window-material] glass failed, using Sidebar: {error}");
+                    eprintln!("[window-material] glass failed, using Popover: {error}");
                 }
             }
         }
@@ -121,10 +120,10 @@ pub fn apply_windows_window_material(window: &WebviewWindow, theme: &str, is_dar
         let _ = window_vibrancy::clear_mica(window);
     }
 
-    let glass = matches!(theme, "acrylic" | "macos" | "mica");
+    let glass = matches!(theme, "acrylic" | "mica");
     let applied = match theme {
         "mica" if build >= 22000 => window_vibrancy::apply_mica(window, Some(is_dark)),
-        "acrylic" | "macos" | "mica" if build >= 17763 => {
+        "acrylic" | "mica" if build >= 17763 => {
             // A neutral tint softens the backdrop without obscuring its colours.
             window_vibrancy::apply_acrylic(window, Some(if is_dark {
                 (28, 28, 30, 96)
