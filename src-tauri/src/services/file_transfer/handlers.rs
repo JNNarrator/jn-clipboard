@@ -513,6 +513,10 @@ pub async fn handle_text(
     );
 
     let settings = state.app_handle.state::<SettingsState>();
+    // The text is already delivered to the chat above; saving it to history is opt-in.
+    if !settings.auto_copy_file.load(Ordering::Relaxed) {
+        return (StatusCode::OK, "Text received").into_response();
+    }
     let session_hist = state.app_handle.state::<SessionHistory>();
 
     let mut preview = payload.content.clone();
@@ -521,82 +525,78 @@ pub async fn handle_text(
         preview.push_str("...");
     }
 
-    let mut id_result = Ok(0);
+    let id_result = if settings.persistent.load(Ordering::Relaxed) {
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as i64;
+        let entry = ClipboardEntry {
+            id: 0,
+            content_type: "text".to_string(),
+            content: payload.content.clone(),
+            html_content: None,
+            source_app: sender_name.to_string(),
+            source_app_path: None,
+            timestamp,
+            created_at: timestamp,
+            last_used_at: 0,
+            sort_at: timestamp,
+            preview: preview.clone(),
+            is_pinned: false,
+            tags: Vec::new(),
+            note: String::new(),
+            use_count: 0,
+            is_external: false,
+            pinned_order: 0,
+            file_preview_exists: true,
+        };
+        db_state.repo.save(&entry, None).map_err(|e| {
+            rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                e,
+            )))
+        })
+    } else {
+        let id = -(SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_micros() as i64
+            / 1000);
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as i64;
+        let entry = ClipboardEntry {
+            id,
+            content_type: "text".to_string(),
+            content: payload.content.clone(),
+            html_content: None,
+            source_app: "File Transfer".to_string(),
+            source_app_path: None,
+            timestamp,
+            created_at: timestamp,
+            last_used_at: 0,
+            sort_at: timestamp,
+            preview: preview.clone(),
+            is_pinned: false,
+            tags: Vec::new(),
+            note: String::new(),
+            use_count: 0,
+            is_external: false,
+            pinned_order: 0,
+            file_preview_exists: true,
+        };
 
-    if settings.auto_copy_file.load(Ordering::Relaxed) {
-        id_result = if settings.persistent.load(Ordering::Relaxed) {
-            let timestamp = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_millis() as i64;
-            let entry = ClipboardEntry {
-                id: 0,
-                content_type: "text".to_string(),
-                content: payload.content.clone(),
-                html_content: None,
-                source_app: sender_name.to_string(),
-                source_app_path: None,
-                timestamp,
-                created_at: timestamp,
-                last_used_at: 0,
-                sort_at: timestamp,
-                preview: preview.clone(),
-                is_pinned: false,
-                tags: Vec::new(),
-                note: String::new(),
-                use_count: 0,
-                is_external: false,
-                pinned_order: 0,
-                file_preview_exists: true,
-            };
-            db_state.repo.save(&entry, None).map_err(|e| {
-                rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    e,
-                )))
-            })
-        } else {
-            let id = -(SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_micros() as i64
-                / 1000);
-            let timestamp = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_millis() as i64;
-            let entry = ClipboardEntry {
-                id,
-                content_type: "text".to_string(),
-                content: payload.content.clone(),
-                html_content: None,
-                source_app: "File Transfer".to_string(),
-                source_app_path: None,
-                timestamp,
-                created_at: timestamp,
-                last_used_at: 0,
-                sort_at: timestamp,
-                preview: preview.clone(),
-                is_pinned: false,
-                tags: Vec::new(),
-                note: String::new(),
-                use_count: 0,
-                is_external: false,
-                pinned_order: 0,
-                file_preview_exists: true,
-            };
-
-            if let Ok(mut session) = session_hist.0.lock() {
-                session.push_back(entry);
-                if session.len() > 500 {
-                    if let Some(removed) = session.pop_front() {
-                        let _ = state.app_handle.emit("clipboard-removed", removed.id);
-                    }
+        if let Ok(mut session) = session_hist.0.lock() {
+            session.push_back(entry);
+            if session.len() > 500 {
+                if let Some(removed) = session.pop_front() {
+                    let _ = state.app_handle.emit("clipboard-removed", removed.id);
                 }
             }
-            Ok(id)
-        };
-    }
+        }
+        Ok(id)
+    };
 
     if let Ok(id) = id_result {
         if id != 0 {
