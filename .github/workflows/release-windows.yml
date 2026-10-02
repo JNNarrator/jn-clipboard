@@ -20,7 +20,6 @@ jobs:
 
     runs-on: ${{ matrix.platform }}
     env:
-      VITE_AI_DEFAULT_API_KEY: ${{ secrets.VITE_AI_DEFAULT_API_KEY }}
       TIEZ_PLATFORM: windows
       TIEZ_RELEASE_CHANNEL: stable
       TIEZ_ANNOUNCEMENT_PING_URL: ${{ vars.TIEZ_ANNOUNCEMENT_PING_URL }}

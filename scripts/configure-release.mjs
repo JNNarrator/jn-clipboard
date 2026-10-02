@@ -15,8 +15,7 @@ const isCi = process.env.GITHUB_ACTIONS === "true" || process.env.CI === "true";
 
 const requiredInCi = [
   "TIEZ_UPDATE_ENDPOINT",
-  "TIEZ_ANNOUNCEMENT_PING_URL",
-  "VITE_AI_DEFAULT_API_KEY"
+  "TIEZ_ANNOUNCEMENT_PING_URL"
 ];
 
 for (const key of requiredInCi) {

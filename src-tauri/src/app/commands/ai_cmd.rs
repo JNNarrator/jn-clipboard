@@ -283,16 +283,12 @@ pub async fn call_ai(
         (key, url, mdl, lang, persistent, thinking, thinking_budget)
     };
 
-    // Determine final API key: UI Setting > Environment Var
-    let final_api_key = if api_key.is_empty() {
-        crate::build_config::default_ai_api_key()
-    } else {
-        api_key
-    };
+    // Only the user's own key is ever sent; there is no built-in fallback key.
+    let final_api_key = api_key;
 
-    if final_api_key.is_empty() {
+    if final_api_key.trim().is_empty() {
         return Err(AppError::Validation(
-            "AI API Key is not set in settings or environment.".to_string(),
+            "AI API Key is not set. Add one in AI Assistant Settings.".to_string(),
         ));
     }
 
