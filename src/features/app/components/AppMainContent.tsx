@@ -136,6 +136,19 @@ const AppMainContent = ({
 }: AppMainContentProps) => {
   const orderedPinnedIds = pinnedOrderIds;
 
+  // Hooks must run before the view-specific early returns below.
+  const renderVirtualItem = useCallback((item: ClipboardEntry, index: number, isFirst?: boolean) => {
+    const el = renderItemContent(item, pinnedItems.length + index, undefined, true);
+    if (isFirst && pinnedItems.length === 0) {
+      return (
+        <div className="first-virtual-item" style={{ height: "100%", paddingTop: "4px" }}>
+          {el}
+        </div>
+      );
+    }
+    return el;
+  }, [renderItemContent, pinnedItems.length]);
+
   if (showTagManager && tagManagerEnabled) {
     return (
       <motion.div
@@ -222,18 +235,6 @@ const AppMainContent = ({
       </div>
     );
   }
-
-  const renderVirtualItem = useCallback((item: ClipboardEntry, index: number, isFirst?: boolean) => {
-    const el = renderItemContent(item, pinnedItems.length + index, undefined, true);
-    if (isFirst && pinnedItems.length === 0) {
-      return (
-        <div className="first-virtual-item" style={{ height: "100%", paddingTop: "4px" }}>
-          {el}
-        </div>
-      );
-    }
-    return el;
-  }, [renderItemContent, pinnedItems.length]);
 
   return (
     <>
