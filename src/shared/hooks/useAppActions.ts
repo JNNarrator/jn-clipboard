@@ -5,7 +5,7 @@ interface UseAppActionsOptions {
   t: (key: string) => string;
   mqttEnabled: boolean;
   cloudSyncEnabled: boolean;
-  openConfirm: (opts: { title: string; message: string; onConfirm: () => void }) => void;
+  openConfirm: (opts: { title: string; message: string; danger?: boolean; onConfirm: () => void }) => void;
   closeConfirm: () => void;
   pushToast: (msg: string, duration?: number) => number;
   fetchHistory: (reset?: boolean) => Promise<void>;
@@ -53,6 +53,7 @@ export const useAppActions = ({
     openConfirm({
       title: t("clear_confirm_title"),
       message: t("clear_confirm_message"),
+      danger: true,
       onConfirm: async () => {
         try {
           await invoke("clear_clipboard_history");
@@ -69,6 +70,7 @@ export const useAppActions = ({
     openConfirm({
       title: t("reset_defaults"),
       message: t("reset_confirm"),
+      danger: true,
       onConfirm: async () => {
         try {
           await invoke("reset_settings");

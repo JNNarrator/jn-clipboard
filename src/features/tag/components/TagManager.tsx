@@ -1013,7 +1013,7 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                     </button>
                     <button
                         type="button"
-                        className="modal-button primary"
+                        className="modal-button danger"
                         onClick={() => {
                             if (deleteConfirmation.tagName) {
                                 handleDeleteTag(deleteConfirmation.tagName);
@@ -1041,7 +1041,7 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                     </button>
                     <button
                         type="button"
-                        className="modal-button primary"
+                        className="modal-button danger"
                         onClick={async () => {
                             if (itemDeleteConfirmation.id === -1) {
                                 try {

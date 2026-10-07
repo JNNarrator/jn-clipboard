@@ -1249,6 +1249,7 @@ const App = () => {
         title={confirmDialog.title}
         message={confirmDialog.message}
         theme={theme}
+        danger={confirmDialog.danger}
         confirmLabel={t('confirm')}
         cancelLabel={t('cancel')}
         onClose={closeConfirm}

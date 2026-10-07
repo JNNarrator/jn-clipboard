@@ -205,7 +205,7 @@
   --segment-active-shadow: var(--shadow-xs);
 
   --modal-border: 1px solid var(--line-soft);
-  --modal-radius: 20px;
+  --modal-radius: calc(var(--panel-radius) * 1.5);
   --modal-shadow: var(--shadow-lg);
   --modal-title-background: transparent;
   --modal-title-color: var(--text-primary);
@@ -216,7 +216,7 @@
   --modal-title-letter-spacing: 0;
   --modal-title-font-weight: 700;
   --dialog-button-border: 1px solid var(--line-soft);
-  --dialog-button-radius: 12px;
+  --dialog-button-radius: var(--button-radius);
   --dialog-button-shadow: var(--shadow-xs);
   --dialog-button-hover-shadow: var(--shadow-sm);
   --dialog-button-hover-transform: translateY(-1px);
@@ -235,7 +235,7 @@
   --tag-chip-active-transform: none;
 
   --menu-border: 1px solid var(--line-soft);
-  --menu-radius: 14px;
+  --menu-radius: var(--panel-radius);
   --menu-shadow: var(--shadow-md);
   --menu-item-hover-background: var(--accent-color);
   --menu-item-hover-color: #ffffff;
@@ -377,6 +377,18 @@
     --button-active-shadow: 0 6px 14px rgba(0, 0, 0, 0.28);
     --card-active-shadow: 0 10px 24px rgba(0, 0, 0, 0.32);
   }
+}
+
+/* Popup shapes follow each theme's panel/button scale. Themes set that scale on
+   body.theme-*, so the derived tokens are re-resolved on body; otherwise every
+   theme would inherit the :root values. Themes may still override them. */
+body {
+  --menu-radius: var(--panel-radius);
+  --popover-radius: var(--menu-radius);
+  --toast-radius: var(--menu-radius);
+  --modal-radius: calc(var(--panel-radius) * 1.5);
+  --dialog-button-radius: var(--button-radius);
+  --border-color: var(--line-soft);
 }
 
 :root.dark-mode,

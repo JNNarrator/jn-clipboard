@@ -642,6 +642,19 @@ body:has(.modal-overlay) #root {
   filter: brightness(1.05);
 }
 
+/* Destructive confirmations (delete, clear, reset). White text: the danger red
+   is the same in every theme, unlike the accent color that --on-accent pairs with. */
+.modal-button.danger {
+  background: var(--status-danger);
+  border-color: var(--status-danger);
+  color: #ffffff;
+  box-shadow: var(--button-shadow);
+}
+
+.modal-button.danger:hover {
+  filter: brightness(0.94);
+}
+
 @keyframes modal-spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }

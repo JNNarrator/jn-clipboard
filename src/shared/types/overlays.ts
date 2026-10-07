@@ -7,5 +7,6 @@ export type ConfirmDialogState = {
   show: boolean;
   title: string;
   message: string;
+  danger?: boolean;
   onConfirm: () => void;
 };

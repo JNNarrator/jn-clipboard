@@ -24,11 +24,12 @@ export const useOverlays = () => {
   }, []);
 
   const openConfirm = useCallback(
-    (opts: { title: string; message: string; onConfirm: () => void }) => {
+    (opts: { title: string; message: string; danger?: boolean; onConfirm: () => void }) => {
       setConfirmDialog({
         show: true,
         title: opts.title,
         message: opts.message,
+        danger: opts.danger,
         onConfirm: opts.onConfirm
       });
     },
