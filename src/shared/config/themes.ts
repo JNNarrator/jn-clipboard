@@ -1,9 +1,8 @@
-import type { Locale } from "../types";
 import { isMacPlatform } from "../lib/platform";
 
 export interface ThemeDefinition {
   id: string;
-  labels: Record<Locale, string>;
+  labelKey: string;
   supportsCustomBackground?: boolean;
   supportsSurfaceOpacity?: boolean;
 }
@@ -28,91 +27,51 @@ export const getSelectableThemes = (): ThemeDefinition[] =>
 export const THEMES: ThemeDefinition[] = [
   {
     id: "mica",
-    labels: {
-      zh: "云母",
-      en: "Mica",
-      tw: "雲母"
-    },
+    labelKey: "theme_name_mica",
     supportsCustomBackground: true,
     supportsSurfaceOpacity: true
   },
   {
     id: "macos",
-    labels: {
-      zh: "原生极简",
-      en: "Native Minimal",
-      tw: "原生極簡"
-    },
+    labelKey: "theme_name_macos",
     supportsCustomBackground: true,
     supportsSurfaceOpacity: true
   },
   {
     id: "acrylic",
-    labels: {
-      zh: "毛玻璃",
-      en: "Acrylic",
-      tw: "毛玻璃"
-    },
+    labelKey: "theme_name_acrylic",
     supportsCustomBackground: true,
     supportsSurfaceOpacity: true
   },
   {
     id: "retro",
-    labels: {
-      zh: "3D复古",
-      en: "Retro 3D",
-      tw: "3D復古"
-    }
+    labelKey: "theme_name_retro"
   },
   {
     id: "sticky-note",
-    labels: {
-      zh: "便利贴",
-      en: "Sticky Note",
-      tw: "便利貼"
-    }
+    labelKey: "theme_name_sticky_note"
   },
   {
     id: "paper",
-    labels: {
-      zh: "纸质书感",
-      en: "Paper & Quill",
-      tw: "紙質書感"
-    }
+    labelKey: "theme_name_paper"
   },
   {
     id: "sakura",
-    labels: {
-      zh: "樱花",
-      en: "Sakura",
-      tw: "櫻花"
-    },
+    labelKey: "theme_name_sakura",
     supportsCustomBackground: true,
     supportsSurfaceOpacity: true
   },
   {
     id: "terminal",
-    labels: {
-      zh: "终端",
-      en: "Terminal",
-      tw: "終端"
-    }
+    labelKey: "theme_name_terminal"
   },
   {
     id: "receipt",
-    labels: {
-      zh: "收据小票",
-      en: "Receipt",
-      tw: "收據小票"
-    }
+    labelKey: "theme_name_receipt"
   },
   {
     id: "ink",
-    labels: {
-      zh: "水墨",
-      en: "Ink Wash",
-      tw: "水墨"
-    }
+    labelKey: "theme_name_ink"
   }
 ];
 
@@ -130,8 +89,8 @@ export const normalizeThemeId = (themeId: string): string => {
   return getThemeDefinition(themeId).id;
 };
 
-export const getThemeLabel = (themeId: string, locale: Locale): string =>
-  getThemeDefinition(themeId).labels[locale];
+export const getThemeLabel = (themeId: string, t: (key: string) => string): string =>
+  t(getThemeDefinition(themeId).labelKey);
 
 export const supportsCustomBackground = (themeId: string): boolean =>
   Boolean(getThemeDefinition(themeId).supportsCustomBackground);

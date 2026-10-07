@@ -901,6 +901,7 @@ const App = () => {
       if (type === 'color_mode') localStorage.setItem('tiez_color_mode', path);
       if (type === 'compact_mode') localStorage.setItem('tiez_compact_mode', path);
       if (type === 'compact_show_time') localStorage.setItem('tiez_compact_show_time', path);
+      if (type === 'language') localStorage.setItem('tiez_language', path);
     } catch (e) {
       // Ignore localStorage errors
     }
@@ -1003,7 +1004,7 @@ const App = () => {
 
   const { handleAIAction } = useAiActions({
     aiProfiles,
-    language,
+    t,
     pushToast,
     setShowSettings,
     setProcessingAiId,
@@ -1266,6 +1267,7 @@ const App = () => {
         status={updateStatus}
         onUpdate={updateStatus === "ready" ? onApplyUpdate : onStartDownload}
         onClose={closeUpdateDialog}
+        t={t}
       />
     </div >
   );

@@ -35,7 +35,7 @@ const DefaultAppsSettingsGroup = ({
             case "image": return t('type_image');
             case "video": return t('type_video');
             case "rich_text": return t('type_rich_text');
-            default: return t('type_text') || 'Text';
+            default: return t('type_text');
         }
     };
 

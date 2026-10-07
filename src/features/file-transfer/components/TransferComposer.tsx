@@ -22,7 +22,7 @@ interface TransferComposerProps {
     onSelectMultiFileSendMode: (mode: MultiFileSendMode) => void;
     chooseFilesToSend: (mode?: MultiFileSendMode) => Promise<void>;
     isChoosingFiles: boolean;
-    t?: (key: string) => string;
+    t: (key: string) => string;
 }
 
 export const TransferComposer = ({
@@ -139,12 +139,12 @@ export const TransferComposer = ({
                             className="wt-btn-icon wt-file-send-main"
                             title={
                                 isChoosingFiles
-                                    ? "正在打开文件选择器"
+                                    ? t("ft_choosing_files")
                                     : multiFileSendMode === "package"
-                                        ? "发送文件（多文件组成文件包）"
-                                        : "发送文件（多文件分别发送）"
+                                        ? t("ft_send_files_package")
+                                        : t("ft_send_files_separate")
                             }
-                            aria-label={isChoosingFiles ? "正在打开文件选择器" : "发送文件"}
+                            aria-label={isChoosingFiles ? t("ft_choosing_files") : t("ft_send_files")}
                             disabled={isChoosingFiles}
                             onClick={() => void chooseFilesToSend()}
                         >
@@ -157,7 +157,7 @@ export const TransferComposer = ({
                         <button
                             type="button"
                             className="wt-file-send-toggle"
-                            aria-label="选择多文件发送方式"
+                            aria-label={t("ft_send_mode_choose")}
                             aria-expanded={showFileSendOptions}
                             disabled={isChoosingFiles}
                             onClick={() => setShowFileSendOptions((value) => !value)}
@@ -178,8 +178,8 @@ export const TransferComposer = ({
                                 >
                                     <FileArchive size={17} />
                                     <span>
-                                        <strong>作为文件包发送</strong>
-                                        <small>多文件折叠显示，可整包保存</small>
+                                        <strong>{t("ft_send_as_package")}</strong>
+                                        <small>{t("ft_send_as_package_hint")}</small>
                                     </span>
                                     {multiFileSendMode === "package" && (
                                         <span className="wt-option-check">✓</span>
@@ -197,8 +197,8 @@ export const TransferComposer = ({
                                 >
                                     <FileIcon size={17} />
                                     <span>
-                                        <strong>分别发送</strong>
-                                        <small>每个文件独立显示</small>
+                                        <strong>{t("ft_send_separately")}</strong>
+                                        <small>{t("ft_send_separately_hint")}</small>
                                     </span>
                                     {multiFileSendMode === "separate" && (
                                         <span className="wt-option-check">✓</span>
@@ -216,7 +216,7 @@ export const TransferComposer = ({
                             onChange={(e) => setInput(e.target.value)}
                             onKeyDown={handleKeyDown}
                             onPaste={handlePaste}
-                            placeholder={t ? t("type_message") || "Type a message..." : "Type..."}
+                            placeholder={t("type_message")}
                             rows={1}
                         />
                     </div>
@@ -226,8 +226,8 @@ export const TransferComposer = ({
                             type="button"
                             className="wt-btn-icon"
                             onClick={() => setShowFullScreen(true)}
-                            title="展开编辑"
-                            aria-label="展开编辑"
+                            title={t("ft_expand_editor")}
+                            aria-label={t("ft_expand_editor")}
                         >
                             <Maximize2 size={16} />
                         </button>
@@ -238,8 +238,8 @@ export const TransferComposer = ({
                         onClick={handleSend}
                         className="wt-btn send"
                         disabled={!input.trim()}
-                        title="发送消息"
-                        aria-label="发送消息"
+                        title={t("ft_send_message")}
+                        aria-label={t("ft_send_message")}
                     >
                         <Send size={18} />
                     </button>
@@ -255,12 +255,12 @@ export const TransferComposer = ({
                         className="wt-fullscreen-editor"
                     >
                         <div className="wt-fullscreen-header">
-                            <div className="wt-fullscreen-title">编辑消息</div>
+                            <div className="wt-fullscreen-title">{t("ft_edit_message")}</div>
                             <button
                                 onClick={() => setShowFullScreen(false)}
                                 className="wt-overlay-icon-btn"
-                                title="收起编辑器"
-                                aria-label="收起编辑器"
+                                title={t("ft_collapse_editor")}
+                                aria-label={t("ft_collapse_editor")}
                             >
                                 <Minimize2 size={16} />
                             </button>
@@ -269,7 +269,7 @@ export const TransferComposer = ({
                         <textarea
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
-                            placeholder="输入消息…"
+                            placeholder={t("ft_message_placeholder")}
                             className="wt-fullscreen-textarea"
                             onPaste={handlePaste}
                         />
@@ -279,13 +279,13 @@ export const TransferComposer = ({
                                 onClick={() => setShowFullScreen(false)}
                                 className="wt-btn"
                             >
-                                取消
+                                {t("cancel")}
                             </button>
                             <button
                                 onClick={handleSend}
                                 className="wt-btn send"
                             >
-                                发送
+                                {t("ft_send")}
                             </button>
                         </div>
                     </motion.div>

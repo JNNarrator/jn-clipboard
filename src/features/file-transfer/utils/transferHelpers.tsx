@@ -114,7 +114,7 @@ export const decodeFileName = (value: string) => {
     }
 };
 
-export const getTransferFileName = (message: FileTransferMessage) => {
+export const getTransferFileName = (message: FileTransferMessage, t: (key: string) => string) => {
     if (message._fileName?.trim()) return message._fileName.trim();
 
     for (const value of [message.content, message.file_path]) {
@@ -129,7 +129,7 @@ export const getTransferFileName = (message: FileTransferMessage) => {
         }
     }
 
-    return '文件';
+    return t("type_file");
 };
 
 export const getTransferFileIconPath = (message: FileTransferMessage) => {
@@ -179,15 +179,15 @@ export const getMessageDayKey = (timestamp: number) => {
     return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
 };
 
-export const formatMessageDay = (timestamp: number) => {
+export const formatMessageDay = (timestamp: number, t: (key: string) => string) => {
     const date = new Date(normalizeTimestamp(timestamp));
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(today.getDate() - 1);
 
     const key = getMessageDayKey(timestamp);
-    if (key === getMessageDayKey(today.getTime())) return '今天';
-    if (key === getMessageDayKey(yesterday.getTime())) return '昨天';
+    if (key === getMessageDayKey(today.getTime())) return t("ft_today");
+    if (key === getMessageDayKey(yesterday.getTime())) return t("ft_yesterday");
     return date.toLocaleDateString([], {
         month: 'numeric',
         day: 'numeric',

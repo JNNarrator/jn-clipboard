@@ -6,7 +6,7 @@ import type { AiProfile } from "../../features/settings/types";
 
 interface UseAiActionsOptions {
   aiProfiles: AiProfile[];
-  language: string;
+  t: (key: string) => string;
   pushToast: (msg: string, duration?: number) => number;
   setShowSettings: Dispatch<SetStateAction<boolean>>;
   setProcessingAiId: Dispatch<SetStateAction<number | null>>;
@@ -15,7 +15,7 @@ interface UseAiActionsOptions {
 
 export const useAiActions = ({
   aiProfiles,
-  language,
+  t,
   pushToast,
   setShowSettings,
   setProcessingAiId,
@@ -25,9 +25,7 @@ export const useAiActions = ({
     async (id: number, content: string, actionType: string) => {
       if (aiProfiles.length === 0) {
         pushToast(
-          language === "zh"
-            ? "请先在设置中添加 AI 模型"
-            : "Please add an AI model in settings first",
+          t("ai_no_profile_toast"),
           3000
         );
         setShowSettings(true);
@@ -80,7 +78,7 @@ export const useAiActions = ({
         setProcessingAiId(null);
       }
     },
-    [aiProfiles, language, pushToast, setHistory, setProcessingAiId, setShowSettings]
+    [aiProfiles, t, pushToast, setHistory, setProcessingAiId, setShowSettings]
   );
 
   return { handleAIAction };

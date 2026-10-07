@@ -99,11 +99,11 @@ export const useClipboardActions = ({
         await invoke("delete_clipboard_entry", { id });
         setHistory((prev) => prev.filter((item) => item.id !== id));
       } catch (err) {
-        const errorMsg = "删除失败: " + (err?.toString() || "");
+        const errorMsg = t("delete_failed") + ": " + (err?.toString() || "");
         pushToast(errorMsg, 3000);
       }
     },
-    [pushToast, setHistory]
+    [pushToast, setHistory, t]
   );
 
   const togglePin = useCallback(
@@ -128,11 +128,11 @@ export const useClipboardActions = ({
         );
       } catch (err) {
         const errorMsg =
-          (currentPinned ? "取消固定失败" : "固定失败") + ": " + (err?.toString() || "");
+          (currentPinned ? t("unpin_failed") : t("pin_failed")) + ": " + (err?.toString() || "");
         pushToast(errorMsg, 3000);
       }
     },
-    [pushToast, setHistory]
+    [pushToast, setHistory, t]
   );
 
   const handleUpdateTags = useCallback(

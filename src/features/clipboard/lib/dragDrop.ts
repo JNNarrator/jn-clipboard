@@ -158,14 +158,14 @@ export const createDragGhostBadge = (
     const paths = filePaths.length > 0 ? filePaths : [item.content];
     const valid = paths.map((p) => p.trim()).filter(Boolean);
     if (valid.length > 1) {
-      labelText = `${valid.length} ${t("items") || "项"}`;
+      labelText = `${valid.length} ${t("items")}`;
     } else if (valid[0]) {
       labelText = valid[0].split(/[\\/]/).pop() || "File";
     } else {
       labelText = item.content.split(/[\\/]/).pop() || "File";
     }
   } else if (item.content_type === "image") {
-    labelText = t("image") || "图片";
+    labelText = t("image");
   } else if (item.content_type === "url") {
     labelText = item.content.replace(/^https?:\/\//, "");
   } else {

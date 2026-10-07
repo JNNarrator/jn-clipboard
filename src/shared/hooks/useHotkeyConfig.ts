@@ -97,7 +97,7 @@ export const useHotkeyConfig = ({
         try {
           await invoke<boolean>("test_hotkey_available", { hotkey: newHotkey });
         } catch (err) {
-          const errorMsg = `❌ ${newHotkey}: ${err || "快捷键被占用"}`;
+          const errorMsg = `❌ ${newHotkey}: ${err || t("hotkey_occupied")}`;
           pushToast(errorMsg, 5000);
           setIsRecording(false);
           return;
@@ -136,7 +136,7 @@ export const useHotkeyConfig = ({
         try {
           await invoke<boolean>("test_hotkey_available", { hotkey: newHotkey });
         } catch (err) {
-          const errorMsg = `❌ ${newHotkey}: ${err || "快捷键被占用"}`;
+          const errorMsg = `❌ ${newHotkey}: ${err || t("hotkey_occupied")}`;
           pushToast(errorMsg, 5000);
           setIsRecordingSequential(false);
           return;
@@ -154,6 +154,7 @@ export const useHotkeyConfig = ({
       saveAppSetting,
       setSequentialHotkey,
       setIsRecordingSequential,
+      t,
       tauriReady
     ]
   );
@@ -177,7 +178,7 @@ export const useHotkeyConfig = ({
         try {
           await invoke<boolean>("test_hotkey_available", { hotkey: newHotkey });
         } catch (err) {
-          const errorMsg = `❌ ${newHotkey}: ${err || "快捷键被占用"}`;
+          const errorMsg = `❌ ${newHotkey}: ${err || t("hotkey_occupied")}`;
           pushToast(errorMsg, 5000);
           setIsRecordingRich(false);
           return;
@@ -195,6 +196,7 @@ export const useHotkeyConfig = ({
       saveAppSetting,
       setRichPasteHotkey,
       setIsRecordingRich,
+      t,
       tauriReady
     ]
   );
@@ -218,7 +220,7 @@ export const useHotkeyConfig = ({
         try {
           await invoke<boolean>("test_hotkey_available", { hotkey: newHotkey });
         } catch (err) {
-          const errorMsg = `❌ ${newHotkey}: ${err || "快捷键被占用"}`;
+          const errorMsg = `❌ ${newHotkey}: ${err || t("hotkey_occupied")}`;
           pushToast(errorMsg, 5000);
           setIsRecordingSearch(false);
           return;
@@ -236,6 +238,7 @@ export const useHotkeyConfig = ({
       saveAppSetting,
       setSearchHotkey,
       setIsRecordingSearch,
+      t,
       tauriReady
     ]
   );

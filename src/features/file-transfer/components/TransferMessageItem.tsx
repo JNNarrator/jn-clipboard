@@ -16,6 +16,7 @@ import {
 } from "../utils/transferHelpers";
 
 export interface TransferMessageItemProps {
+    t: (key: string) => string;
     message: FileTransferMessage;
     groupedWithPrevious: boolean;
     copiedMessageId: number | null;
@@ -28,6 +29,7 @@ export interface TransferMessageItemProps {
 }
 
 export const TransferMessageItem = ({
+    t,
     message: m,
     groupedWithPrevious,
     copiedMessageId,
@@ -38,7 +40,7 @@ export const TransferMessageItem = ({
     onRetrySend,
     onContextMenu,
 }: TransferMessageItemProps) => {
-    const transferFileName = getTransferFileName(m);
+    const transferFileName = getTransferFileName(m, t);
 
     return (
         <div
@@ -79,8 +81,8 @@ export const TransferMessageItem = ({
                     <button
                         type="button"
                         className={`wt-bubble-copy-btn ${copiedMessageId === m.id ? 'is-copied' : ''}`}
-                        title={copiedMessageId === m.id ? '已复制' : '复制内容'}
-                        aria-label={copiedMessageId === m.id ? '已复制' : '复制内容'}
+                        title={copiedMessageId === m.id ? t("ft_copied") : t("ft_copy_content")}
+                        aria-label={copiedMessageId === m.id ? t("ft_copied") : t("ft_copy_content")}
                         onClick={(e) => {
                             e.stopPropagation();
                             onCopyText(m.id, m.content);
@@ -124,7 +126,7 @@ export const TransferMessageItem = ({
                     />
                     <div className="wt-media-footer">
                         <ImageIcon size={12} />
-                        <span>图片</span>
+                        <span>{t("type_image")}</span>
                     </div>
                 </>
             )}
@@ -148,7 +150,7 @@ export const TransferMessageItem = ({
                     />
                     <div className="wt-media-footer">
                         <Video size={12} />
-                        <span>视频</span>
+                        <span>{t("type_video")}</span>
                     </div>
                 </>
             )}
@@ -193,7 +195,7 @@ export const TransferMessageItem = ({
                             <div className="wt-file-name">{transferFileName}</div>
                             {!m._preparing && !m._error && (
                                 <div className="wt-file-status">
-                                    {m.direction === 'in' ? '已接收 · 点击打开' : '可供下载'}
+                                    {m.direction === 'in' ? t("ft_received_click_open") : t("ft_available_download")}
                                 </div>
                             )}
                         </div>
@@ -212,7 +214,7 @@ export const TransferMessageItem = ({
                             </div>
                             <div className="status-text">
                                 <span className="status-label">
-                                    {m.direction === 'in' ? '正在接收' : '正在发送'}
+                                    {m.direction === 'in' ? t("ft_receiving") : t("ft_sending")}
                                     {m._speed ? ` · ${m._speed}` : ''}
                                     {m._transferredBytes && m.file_size
                                         ? ` (${formatTransferBytes(m._transferredBytes)} / ${formatTransferBytes(m.file_size)})`
@@ -242,7 +244,7 @@ export const TransferMessageItem = ({
                                     }}
                                 >
                                     <RotateCcw size={11} />
-                                    <span>重试</span>
+                                    <span>{t("retry")}</span>
                                 </button>
                             )}
                         </div>

@@ -478,7 +478,7 @@ const DataSettingsGroup = ({
                                                 ), "settings:data-path-error");
                                             }
                                         }}
-                                        title={t("open_folder") || "Open"}
+                                        title={t("open_folder")}
                                         style={{ width: "auto", padding: "4px 12px", fontSize: "10px", textTransform: "uppercase", height: "24px" }}
                                     >
                                         {t("open_folder")}

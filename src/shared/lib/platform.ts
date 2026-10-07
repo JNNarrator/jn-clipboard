@@ -18,6 +18,6 @@ export const isWindowsPlatform = (): boolean => {
 
 export const getNotePlaceholder = (t: (key: string) => string): string => {
   return isMacPlatform()
-    ? (t("note_placeholder_mac") || "添加备注…（⌘+Enter 保存，Esc 取消）")
-    : (t("note_placeholder_win") || "添加备注…（Ctrl+Enter 保存，Esc 取消）");
+    ? t("note_placeholder_mac")
+    : t("note_placeholder_win");
 };

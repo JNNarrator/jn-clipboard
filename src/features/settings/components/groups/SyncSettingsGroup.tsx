@@ -136,8 +136,8 @@ const SyncSettingsGroup = ({
                     <>
                         <div className="setting-item">
                             <LabelWithHint
-                                label={t('mqtt_protocol') || 'Protocol'}
-                                hint={t('mqtt_protocol_hint') || 'mqtt:// = standard (1883), mqtts:// = SSL/TLS (8883), ws:// = WebSocket (8083), wss:// = Secure WebSocket (8084)'}
+                                label={t('mqtt_protocol')}
+                                hint={t('mqtt_protocol_hint')}
                                 hintKey="mqtt_protocol"
                             />
                             <select
@@ -169,7 +169,7 @@ const SyncSettingsGroup = ({
                         </div>
                         {(mqttProtocol === 'ws://' || mqttProtocol === 'wss://') && (
                             <div className="setting-item">
-                                <div className="item-label-group"><span className="item-label">{t('mqtt_ws_path') || 'WS Path'}</span></div>
+                                <div className="item-label-group"><span className="item-label">{t('mqtt_ws_path')}</span></div>
                                 <input
                                     className="search-input"
                                     style={{ borderRadius: '4px', padding: '8px', width: '140px' }}

@@ -107,7 +107,7 @@ const AppHeader = ({
       case "image": return t('type_image');
       case "video": return t('type_video');
       case "rich_text": return t('type_rich_text');
-      default: return t('type_text') || 'Text';
+      default: return t('type_text');
     }
   };
 
@@ -150,11 +150,11 @@ const AppHeader = ({
   }, [searchVisible]);
 
   const headerTitle = showEmojiPanel
-    ? (t('emoji_panel') || '表情包')
+    ? t('emoji_panel')
     : showTagManager && tagManagerEnabled
-      ? (t('tag_manager') || '标签管理')
+      ? t('tag_manager')
       : showSettings
-        ? (chatMode ? (t('file_transfer') || '局域网文件传输') : settingsTitle)
+        ? (chatMode ? t('file_transfer') : settingsTitle)
         : t('app_name');
 
   const hideWindow = (e: MouseEvent<HTMLButtonElement>) => {
@@ -233,12 +233,12 @@ const AppHeader = ({
                 <Trash2 size={16} />
               </button>
               {tagManagerEnabled && (
-                <button className="btn-icon" title={t('tag_manager') || '标签管理'} aria-label={t('tag_manager') || '标签管理'} onClick={() => setShowTagManager(true)}>
+                <button className="btn-icon" title={t('tag_manager')} aria-label={t('tag_manager')} onClick={() => setShowTagManager(true)}>
                   <Tag size={16} />
                 </button>
               )}
               {emojiPanelEnabled && (
-                <button className="btn-icon" title={t('emoji_panel') || '表情包'} aria-label={t('emoji_panel') || '表情包'} onClick={() => setShowEmojiPanel(true)}>
+                <button className="btn-icon" title={t('emoji_panel')} aria-label={t('emoji_panel')} onClick={() => setShowEmojiPanel(true)}>
                   <Smile size={16} />
                 </button>
               )}
@@ -290,7 +290,7 @@ const AppHeader = ({
                     className={`search-input has-sort-control ${showTagFilter && searchIsFocused && search.trim().length === 0 && allTags.length > 0 ? 'dropdown-open' : ''}`}
                     placeholder={
                       theme === "terminal"
-                        ? (t("search_placeholder_terminal") || "search history…")
+                        ? t("search_placeholder_terminal")
                         : t('search_placeholder')
                     }
                     value={search}
@@ -420,9 +420,9 @@ const AppHeader = ({
                         flexShrink: 0,
                         opacity: typeFilter === type ? 1 : 0.7
                       }}
-                      title={type === null ? (t('type_all') || '全部') : getTypeName(type)}
+                      title={type === null ? t('type_all') : getTypeName(type)}
                     >
-                      {type === null ? (t('type_all') || '全部') : getTypeName(type)}
+                      {type === null ? t('type_all') : getTypeName(type)}
                     </button>
                   ))}
                 </div>

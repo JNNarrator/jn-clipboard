@@ -10,6 +10,7 @@ import {
 import type { NetworkInterfaceInfo } from "../types";
 
 export interface TransferHeaderProps {
+    t: (key: string) => string;
     hasOnlineDevices: boolean;
     conversationTitle: string;
     onlineDevicesCount: number;
@@ -32,6 +33,7 @@ export interface TransferHeaderProps {
 }
 
 export const TransferHeader = ({
+    t,
     hasOnlineDevices,
     conversationTitle,
     onlineDevicesCount,
@@ -71,12 +73,12 @@ export const TransferHeader = ({
                 <div className="wt-header-status-copy">
                     <span className="wt-status-primary">
                         {hasOnlineDevices
-                            ? (conversationTitle || "设备已就绪")
-                            : "等待设备连接"}
+                            ? (conversationTitle || t("ft_device_ready"))
+                            : t("ft_waiting_device")}
                     </span>
                     {hasOnlineDevices && (
                         <span className="wt-status-secondary">
-                            {onlineDevicesCount === 1 ? "局域网高速传输中" : `${onlineDevicesCount} 台设备在线`}
+                            {onlineDevicesCount === 1 ? t("ft_lan_transferring") : t("ft_devices_online").replace("{n}", String(onlineDevicesCount))}
                         </span>
                     )}
                 </div>
@@ -87,8 +89,8 @@ export const TransferHeader = ({
                 <button
                     type="button"
                     className={`wt-header-action ${showSearchBar || isFiltering ? "is-active" : ""}`}
-                    title={showSearchBar ? "关闭搜索与筛选" : "搜索与筛选记录 (⌘F)"}
-                    aria-label="搜索与筛选记录"
+                    title={showSearchBar ? t("ft_close_search") : t("ft_search_records_hotkey")}
+                    aria-label={t("ft_search_records")}
                     onClick={onToggleSearch}
                 >
                     <Search size={15} strokeWidth={2.2} />
@@ -97,8 +99,8 @@ export const TransferHeader = ({
                 <button
                     type="button"
                     className={`wt-header-action ${showMoreMenu ? "is-active" : ""}`}
-                    title="更多操作"
-                    aria-label="更多操作"
+                    title={t("more_actions")}
+                    aria-label={t("more_actions")}
                     aria-expanded={showMoreMenu}
                     onClick={() => setShowMoreMenu((prev) => !prev)}
                 >
@@ -118,13 +120,13 @@ export const TransferHeader = ({
                             }}
                         >
                             <FolderOpen size={16} strokeWidth={1.8} />
-                            <span>打开保存目录</span>
+                            <span>{t("ft_open_save_folder")}</span>
                         </button>
 
                         {interfaces.length > 1 && (
                             <>
                                 <div className="wt-more-menu-divider" role="separator" />
-                                <div className="wt-more-menu-section-label">切换网络地址</div>
+                                <div className="wt-more-menu-section-label">{t("ft_switch_network")}</div>
                                 {interfaces.map((iface) => (
                                     <button
                                         key={iface.ip}
@@ -157,7 +159,7 @@ export const TransferHeader = ({
                                     }}
                                 >
                                     <Trash2 size={16} strokeWidth={1.8} />
-                                    <span>清空传输记录</span>
+                                    <span>{t("ft_clear_history")}</span>
                                 </button>
                             </>
                         )}

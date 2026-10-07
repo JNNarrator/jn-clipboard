@@ -433,12 +433,12 @@ const AdvancedSettingsGroup = ({
                     <div className="advanced-editor-toolbar">
                         <div className="advanced-editor-heading">
                             <div className="advanced-editor-title">
-                                {selectedTarget?.kind === "global" ? t("advanced_target_global") : (t("app_cleanup_policy_record_title") || "记录此应用的内容？")}
+                                {selectedTarget?.kind === "global" ? t("advanced_target_global") : t("app_cleanup_policy_record_title")}
                             </div>
                             <div className="advanced-editor-subtitle">
                                 {selectedTarget?.action !== "ignore"
-                                    ? (t("app_cleanup_policy_record_on_hint") || "当前已开启记录，可点击右侧「添加规则」配置清洗或拦截")
-                                    : (t("app_cleanup_policy_record_off_hint") || "当前已暂停记录来自此应用的内容")}
+                                    ? t("app_cleanup_policy_record_on_hint")
+                                    : t("app_cleanup_policy_record_off_hint")}
                             </div>
                         </div>
 
@@ -477,7 +477,7 @@ const AdvancedSettingsGroup = ({
                             <div className="advanced-empty-state">
                                 <div className="advanced-empty-title">{t("app_cleanup_policy_ignore")}</div>
                                 <div className="advanced-empty-text">
-                                    {t("app_cleanup_policy_ignore_hint") || "来自此应用的剪贴板内容将不会被记录。"}
+                                    {t("app_cleanup_policy_ignore_hint")}
                                 </div>
                             </div>
                         ) : (
@@ -526,13 +526,13 @@ const AdvancedSettingsGroup = ({
                                                         <textarea
                                                             className="search-input advanced-rule-textarea"
                                                             value={rule.match}
-                                                            placeholder={t("advanced_match_placeholder") || "输入正则匹配，例如：(?i)(token\\s*[:=]\\s*)\\S+"}
+                                                            placeholder={t("advanced_match_placeholder")}
                                                             onChange={(e) => updateRule(index, { match: e.target.value })}
                                                         />
                                                     </div>
 
                                                     <div className="advanced-rule-field">
-                                                        <label>{t("app_cleanup_policy_action") || "命中后动作"}</label>
+                                                        <label>{t("app_cleanup_policy_action")}</label>
                                                         <div className="settings-inline-choice-row" style={{ maxWidth: "100%" }}>
                                                             <button
                                                                 type="button"
@@ -555,11 +555,11 @@ const AdvancedSettingsGroup = ({
 
                                                     {rule.action === "clean" && (
                                                         <div className="advanced-rule-field">
-                                                            <label>{t("advanced_replace_label") || "替换"}</label>
+                                                            <label>{t("advanced_replace_label")}</label>
                                                             <textarea
                                                                 className="search-input advanced-rule-textarea"
                                                                 value={rule.replace}
-                                                                placeholder={t("advanced_replace_placeholder") || "输入替换文本，例如：$1[REDACTED]"}
+                                                                placeholder={t("advanced_replace_placeholder")}
                                                                 onChange={(e) => updateRule(index, { replace: e.target.value })}
                                                             />
                                                         </div>

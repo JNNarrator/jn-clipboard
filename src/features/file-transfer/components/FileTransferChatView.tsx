@@ -99,10 +99,10 @@ const FileTransferChatView = ({
     const primaryDeviceName =
         typeof onlineDevices[0]?.name === "string" && onlineDevices[0].name.trim()
             ? onlineDevices[0].name.trim()
-            : "已连接设备";
+            : t("ft_connected_device");
     const conversationTitle =
         onlineDevices.length > 1
-            ? `${primaryDeviceName} 等 ${onlineDevices.length} 台设备`
+            ? t("ft_conversation_multi").replace("{name}", primaryDeviceName).replace("{n}", String(onlineDevices.length))
             : primaryDeviceName;
 
     // Load available network interfaces
@@ -154,7 +154,7 @@ const FileTransferChatView = ({
             await invoke("open_file_transfer_folder");
         } catch (e) {
             console.error("Failed to open transfer folder", e);
-            void emit("toast", "打开保存目录失败");
+            void emit("toast", t("ft_open_folder_failed"));
         }
     };
 
@@ -164,10 +164,10 @@ const FileTransferChatView = ({
             await invoke("clear_chat_history");
             setMessages([]);
             setShowClearConfirm(false);
-            void emit("toast", "传输记录已清空");
+            void emit("toast", t("ft_history_cleared"));
         } catch (e) {
             console.error("Failed to clear chat history", e);
-            void emit("toast", "清空记录失败");
+            void emit("toast", t("ft_clear_failed"));
         } finally {
             setIsClearing(false);
         }
@@ -248,7 +248,7 @@ const FileTransferChatView = ({
             }
 
             if (!success) {
-                throw lastErr || new Error("上传分片失败");
+                throw lastErr || new Error(t("ft_upload_chunk_failed"));
             }
 
             const now = performance.now();
@@ -315,7 +315,7 @@ const FileTransferChatView = ({
             );
             setTimeout(fetchMessages, 300);
         } catch (err) {
-            const reason = err instanceof Error ? err.message : "上传失败";
+            const reason = err instanceof Error ? err.message : t("ft_upload_failed");
             setMessages((prev) =>
                 prev.map((m) => {
                     if (m.id === message.id) {
@@ -432,7 +432,7 @@ const FileTransferChatView = ({
             if (result.status === "rejected") {
                 const targetId = tempMessages[index].id;
                 const reason =
-                    result.reason instanceof Error ? result.reason.message : "发送失败";
+                    result.reason instanceof Error ? result.reason.message : t("ft_send_failed");
                 setMessages((prev) =>
                     prev.map((msg) => {
                         if (msg.id === targetId) {
@@ -473,7 +473,7 @@ const FileTransferChatView = ({
                 () =>
                     open({
                         multiple: true,
-                        title: "选择要发送的文件",
+                        title: t("ft_choose_files_title"),
                     }),
                 "file-transfer:choose-files"
             );
@@ -482,14 +482,14 @@ const FileTransferChatView = ({
             const paths = Array.isArray(selected) ? selected : [selected];
             await queueFilesForSending(
                 paths.map((path) => ({
-                    name: path.split(/[/\\]/).pop() || "文件",
+                    name: path.split(/[/\\]/).pop() || t("type_file"),
                     path,
                 })),
                 sendMode
             );
         } catch (error) {
             console.error("Failed to choose files", error);
-            await emit("toast", "无法打开文件选择器，请重试");
+            await emit("toast", t("ft_file_picker_failed"));
         } finally {
             setIsChoosingFiles(false);
         }
@@ -560,7 +560,7 @@ const FileTransferChatView = ({
         const localTarget = [filePath, content].find((value) => isLocalTransferPath(value));
         const rawTarget = localTarget || filePath || content;
         if (!rawTarget) {
-            await emit("toast", "没有可打开的文件");
+            await emit("toast", t("ft_nothing_to_open"));
             return;
         }
 
@@ -575,7 +575,7 @@ const FileTransferChatView = ({
             });
         } catch (error) {
             console.error("Failed to open transferred content", error);
-            await emit("toast", "无法打开此内容，请确认文件仍然存在");
+            await emit("toast", t("ft_open_content_failed"));
         }
     };
 
@@ -616,12 +616,12 @@ const FileTransferChatView = ({
             .map((message) => message.file_path)
             .filter((path): path is string => !!path && isLocalTransferPath(path));
         if (sourcePaths.length !== batchMessages.length) {
-            await emit("toast", "文件包中有文件尚未准备好或已不可用");
+            await emit("toast", t("ft_batch_not_ready"));
             return;
         }
 
         const targetDir = await withNativeDialog(
-            () => open({ directory: true, multiple: false, title: "选择文件包保存位置" }),
+            () => open({ directory: true, multiple: false, title: t("ft_choose_batch_folder") }),
             "file-transfer:save-batch"
         );
         if (!targetDir || Array.isArray(targetDir)) return;
@@ -633,10 +633,10 @@ const FileTransferChatView = ({
                 targetDir,
                 batchName: batchMessages[0].batch_name || `${batchMessages.length} 个文件`,
             });
-            await emit("toast", `文件包已保存到 ${savedPath}`);
+            await emit("toast", t("ft_batch_saved").replace("{path}", savedPath));
         } catch (error) {
             console.error("Failed to save file package", error);
-            await emit("toast", "文件包保存失败，请检查目标目录空间和权限");
+            await emit("toast", t("ft_batch_save_failed"));
         } finally {
             setSavingBatchId(null);
         }
@@ -664,7 +664,7 @@ const FileTransferChatView = ({
             try {
                 const expanded = await invoke<ExpandedTransferItem[]>("expand_transfer_paths", { paths });
                 if (expanded.length === 0) {
-                    await emit("toast", "文件夹为空或未包含可传输的文件");
+                    await emit("toast", t("ft_folder_empty"));
                     return;
                 }
                 const folderGroups = new Map<string, PendingTransferItem[]>();
@@ -701,7 +701,7 @@ const FileTransferChatView = ({
             return;
         }
 
-        void emit("toast", "未识别到拖入文件，请重启应用后重试");
+        void emit("toast", t("ft_drop_unrecognized"));
     };
 
     const send = async () => {
@@ -781,7 +781,7 @@ const FileTransferChatView = ({
                 try {
                     const expanded = await invoke<ExpandedTransferItem[]>("expand_transfer_paths", { paths });
                     if (expanded.length === 0) {
-                        await emit("toast", "文件夹为空或未包含可传输的文件");
+                        await emit("toast", t("ft_folder_empty"));
                         return;
                     }
 
@@ -888,10 +888,10 @@ const FileTransferChatView = ({
                             id: Date.now() + Math.random(),
                             direction: "in",
                             msg_type: msgType,
-                            content: "正在接收...",
+                            content: t("ft_receiving_placeholder"),
                             timestamp: Date.now(),
                             sender_id: p.sender_id,
-                            sender_name: p.sender_name || "手机设备",
+                            sender_name: p.sender_name || t("ft_phone_device"),
                             _fileName: p.file_name,
                             _uploadId: p.upload_id,
                             _preparing: true,
@@ -1162,7 +1162,7 @@ const FileTransferChatView = ({
                     >
                         <div className="wt-drag-drop-zone">
                             <Folder size={64} strokeWidth={1.5} />
-                            <div className="wt-drag-drop-text">松开发送文件</div>
+                            <div className="wt-drag-drop-text">{t("ft_drop_to_send")}</div>
                         </div>
                     </motion.div>
                 )}
@@ -1171,6 +1171,7 @@ const FileTransferChatView = ({
             {/* Header */}
             {localIp && actualPort && accessToken && (
                 <TransferHeader
+                    t={t}
                     hasOnlineDevices={hasOnlineDevices}
                     conversationTitle={conversationTitle}
                     onlineDevicesCount={onlineDevices.length}
@@ -1201,6 +1202,7 @@ const FileTransferChatView = ({
 
             {/* Search & Filter Bar */}
             <TransferFilterBar
+                t={t}
                 showSearchBar={showSearchBar}
                 filterType={filterType}
                 onSelectFilterType={setFilterType}
@@ -1213,10 +1215,10 @@ const FileTransferChatView = ({
 
             <ConfirmDialog
                 open={showClearConfirm}
-                title="清空传输记录"
-                message="确定要清空所有传输历史记录吗？此操作不会删除已保存到本地磁盘的文件。"
-                confirmLabel={isClearing ? "正在清空…" : "清空记录"}
-                cancelLabel="取消"
+                title={t("ft_clear_history")}
+                message={t("ft_clear_confirm_message")}
+                confirmLabel={isClearing ? t("ft_clearing") : t("ft_clear_confirm")}
+                cancelLabel={t("cancel")}
                 danger
                 busy={isClearing}
                 onConfirm={handleClearHistory}
@@ -1232,9 +1234,9 @@ const FileTransferChatView = ({
                                 <div className="wt-empty-icon" aria-hidden="true">
                                     <Wifi size={22} strokeWidth={1.8} />
                                 </div>
-                                <div className="wt-empty-title">开始传输</div>
+                                <div className="wt-empty-title">{t("ft_empty_title")}</div>
                                 <div className="wt-empty-copy">
-                                    输入消息、选择文件，或直接将文件拖到这里
+                                    {t("ft_empty_copy")}
                                 </div>
                             </>
                         ) : (
@@ -1242,9 +1244,9 @@ const FileTransferChatView = ({
                                 <div className="wt-pairing-qr">
                                     <QRCodeCanvas value={connectionUrl} size={128} />
                                 </div>
-                                <div className="wt-pairing-title">扫码连接手机</div>
+                                <div className="wt-pairing-title">{t("ft_pair_title")}</div>
                                 <div className="wt-pairing-tip">
-                                    手机与电脑在同一 Wi-Fi 下扫码即可互传
+                                    {t("ft_pair_tip")}
                                 </div>
                                 <div className="wt-pairing-address-row">
                                     <span className="wt-pairing-address">{activeIp}:{actualPort}</span>
@@ -1252,9 +1254,9 @@ const FileTransferChatView = ({
                                         type="button"
                                         className="wt-pairing-copy-btn"
                                         onClick={() => handleCopyLink(connectionUrl)}
-                                        title="复制连接地址"
+                                        title={t("ft_copy_connect_url")}
                                     >
-                                        {copiedLink ? "已复制" : "复制地址"}
+                                        {copiedLink ? t("ft_copied") : t("ft_copy_address")}
                                     </button>
                                 </div>
                             </div>
@@ -1267,9 +1269,9 @@ const FileTransferChatView = ({
                         <div className="wt-empty-icon" aria-hidden="true">
                             <Search size={22} strokeWidth={1.8} />
                         </div>
-                        <div className="wt-empty-title">未找到匹配的传输记录</div>
+                        <div className="wt-empty-title">{t("ft_no_match_title")}</div>
                         <div className="wt-empty-copy">
-                            没有找到符合当前筛选条件的记录，请尝试更换关键词或类型
+                            {t("ft_no_match_copy")}
                         </div>
                         <button
                             type="button"
@@ -1279,7 +1281,7 @@ const FileTransferChatView = ({
                                 setFilterType("all");
                             }}
                         >
-                            清除筛选
+                            {t("ft_clear_filters")}
                         </button>
                     </div>
                 )}
@@ -1319,7 +1321,7 @@ const FileTransferChatView = ({
                             <Fragment key={`batch-${m.batch_id}`}>
                                 {startsNewDay && m.timestamp > 0 && (
                                     <div className="wt-day-separator" role="separator">
-                                        <span>{formatMessageDay(m.timestamp)}</span>
+                                        <span>{formatMessageDay(m.timestamp, t)}</span>
                                     </div>
                                 )}
                                 <div
@@ -1336,8 +1338,8 @@ const FileTransferChatView = ({
                                         }}
                                         aria-label={
                                             m.direction === "out"
-                                                ? "我的设备"
-                                                : m.sender_name || "对方设备"
+                                                ? t("ft_my_device")
+                                                : m.sender_name || t("ft_peer_device")
                                         }
                                     >
                                         {avatar.isImg ? (
@@ -1352,6 +1354,7 @@ const FileTransferChatView = ({
                                     </div>
                                     <div className="wt-message-stack">
                                         <TransferBatchBubble
+                                            t={t}
                                             message={m}
                                             batchMessages={batchMessages}
                                             expanded={expandedBatches.has(m.batch_id!)}
@@ -1377,7 +1380,7 @@ const FileTransferChatView = ({
                         <Fragment key={m.id}>
                             {startsNewDay && m.timestamp > 0 && (
                                 <div className="wt-day-separator" role="separator">
-                                    <span>{formatMessageDay(m.timestamp)}</span>
+                                    <span>{formatMessageDay(m.timestamp, t)}</span>
                                 </div>
                             )}
                             <div
@@ -1401,8 +1404,8 @@ const FileTransferChatView = ({
                                         }}
                                         aria-label={
                                             m.direction === "out"
-                                                ? "我的设备"
-                                                : m.sender_name || "对方设备"
+                                                ? t("ft_my_device")
+                                                : m.sender_name || t("ft_peer_device")
                                         }
                                     >
                                         {avatar.isImg ? (
@@ -1411,8 +1414,8 @@ const FileTransferChatView = ({
                                                 loading="lazy"
                                                 alt={
                                                     m.direction === "out"
-                                                        ? "我的设备"
-                                                        : m.sender_name || "对方设备"
+                                                        ? t("ft_my_device")
+                                                        : m.sender_name || t("ft_peer_device")
                                                 }
                                             />
                                         ) : (
@@ -1424,6 +1427,7 @@ const FileTransferChatView = ({
                                 )}
                                 <div className="wt-message-stack">
                                     <TransferMessageItem
+                                        t={t}
                                         message={m}
                                         groupedWithPrevious={groupedWithPrevious}
                                         copiedMessageId={copiedMessageId}

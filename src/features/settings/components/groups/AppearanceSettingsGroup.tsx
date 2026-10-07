@@ -216,7 +216,7 @@ const AppearanceSettingsGroup = ({
                                 type="button"
                             >
                                 <span className="theme-choice-title">
-                                    {getThemeLabel(themeItem.id, language)}
+                                    {getThemeLabel(themeItem.id, t)}
                                 </span>
                             </button>
                         ))}
@@ -340,8 +340,8 @@ const AppearanceSettingsGroup = ({
 
                 <div className="setting-item">
                     <LabelWithHint
-                        label={t('show_source_app_icon') || '显示来源应用图标'}
-                        hint={t('show_source_app_icon_hint') || '关闭后改为显示条目类型图标。'}
+                        label={t('show_source_app_icon')}
+                        hint={t('show_source_app_icon_hint')}
                         hintKey="show_source_app_icon"
                     />
                     <label className="switch">
@@ -361,8 +361,8 @@ const AppearanceSettingsGroup = ({
 
                 <div className="setting-item">
                     <LabelWithHint
-                        label={t('hide_unselected_item_actions') || '隐藏未选中条目的操作按钮'}
-                        hint={t('hide_unselected_item_actions_hint') || '悬停或选中后才会露出右上角操作区。'}
+                        label={t('hide_unselected_item_actions')}
+                        hint={t('hide_unselected_item_actions_hint')}
                         hintKey="hide_unselected_item_actions"
                     />
                     <label className="switch">
@@ -382,8 +382,8 @@ const AppearanceSettingsGroup = ({
 
                 <div className="setting-item">
                     <LabelWithHint
-                        label={t('compact_mode') || 'Compact Mode'}
-                        hint={t('compact_mode_hint') || '列表更密、同屏条目更多；悬停可看完整预览。'}
+                        label={t('compact_mode')}
+                        hint={t('compact_mode_hint')}
                         hintKey="compact_mode"
                     />
                     <label className="switch">
@@ -404,7 +404,7 @@ const AppearanceSettingsGroup = ({
                 {compactMode && (
                     <div className="setting-item" style={{ paddingLeft: '16px' }}>
                         <div className="item-label-group">
-                            <span className="item-label">{t('compact_show_time') || '紧凑模式显示时间'}</span>
+                            <span className="item-label">{t('compact_show_time')}</span>
                         </div>
                         <label className="switch">
                             <input
@@ -425,8 +425,8 @@ const AppearanceSettingsGroup = ({
                 <div className="setting-item column">
                     <div className="setting-item-heading">
                         <LabelWithHint
-                            label={t('clipboard_item_font_size') || '条目字体大小'}
-                            hint={t('clipboard_item_font_size_hint') || '只影响列表正文，不影响标签与其它界面文字。'}
+                            label={t('clipboard_item_font_size')}
+                            hint={t('clipboard_item_font_size_hint')}
                             hintKey="clipboard_item_font_size"
                         />
                         <span className="hint setting-value" style={{ fontSize: '10px', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
@@ -451,8 +451,8 @@ const AppearanceSettingsGroup = ({
                 <div className="setting-item column">
                     <div className="setting-item-heading">
                         <LabelWithHint
-                            label={t('clipboard_tag_font_size') || '标签字体大小'}
-                            hint={t('clipboard_tag_font_size_hint') || '只影响条目标签，不影响正文。'}
+                            label={t('clipboard_tag_font_size')}
+                            hint={t('clipboard_tag_font_size_hint')}
                             hintKey="clipboard_tag_font_size"
                         />
                         <span className="hint setting-value" style={{ fontSize: '10px', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
@@ -479,7 +479,7 @@ const AppearanceSettingsGroup = ({
                         {showCustomBackgroundControls && (
                         <div className="setting-item column no-border">
                             <div className="item-label-group" style={{ marginBottom: '8px' }}>
-                                <span className="item-label">{t('custom_background') || '自定义背景'}</span>
+                                <span className="item-label">{t('custom_background')}</span>
                             </div>
                             <div style={{ display: 'flex', gap: '8px', width: '100%', alignItems: 'center' }}>
                                 <button
@@ -488,7 +488,7 @@ const AppearanceSettingsGroup = ({
                                             const selected = await withNativeDialog(async () => {
                                                 const path = await open({
                                                     multiple: false,
-                                                    title: t('choose_background') || '选择背景',
+                                                    title: t('choose_background'),
                                                     filters: [{
                                                         name: 'Image',
                                                         extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif']
@@ -501,8 +501,8 @@ const AppearanceSettingsGroup = ({
                                                     const maxSize = 10 * 1024 * 1024;
                                                     if (stats.size > maxSize) {
                                                         await message(
-                                                            t('background_size_error') || `图片文件过大！请选择小于 ${Math.round(maxSize / 1024 / 1024)}MB 的图片。`,
-                                                            { title: t('error') || '错误', kind: 'error' }
+                                                            t('background_size_error'),
+                                                            { title: t('error'), kind: 'error' }
                                                         );
                                                         return null;
                                                     }
@@ -521,7 +521,7 @@ const AppearanceSettingsGroup = ({
                                     className="btn-icon"
                                     style={{ flex: 1, height: '36px', fontSize: '12px', fontWeight: 'bold' }}
                                 >
-                                    {customBackground ? (t('change_background') || '更换背景') : (t('choose_background') || '选择背景')}
+                                    {customBackground ? t('change_background') : t('choose_background')}
                                 </button>
                                 {customBackground && (
                                     <button
@@ -531,7 +531,7 @@ const AppearanceSettingsGroup = ({
                                         }}
                                         className="btn-icon"
                                         style={{ height: '36px', fontSize: '12px', fontWeight: 'bold', padding: '0 12px' }}
-                                        title={t('clear_background') || '清除背景'}
+                                        title={t('clear_background')}
                                     >
                                         <X size={16} />
                                     </button>
@@ -569,7 +569,7 @@ const AppearanceSettingsGroup = ({
                         {showSurfaceOpacityControls && (
                         <div className="setting-item column">
                             <div className="item-label-group" style={{ marginBottom: '4px', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span className="item-label">{t('surface_opacity') || '界面底板透明度'}</span>
+                                <span className="item-label">{t('surface_opacity')}</span>
                                 <span className="hint" style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>{surfaceOpacity}%</span>
                             </div>
                             <input

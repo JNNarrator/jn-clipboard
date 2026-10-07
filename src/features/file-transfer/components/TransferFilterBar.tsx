@@ -3,6 +3,7 @@ import { Search, X } from "lucide-react";
 import type { FileTransferFilterType } from "../types";
 
 export interface TransferFilterBarProps {
+    t: (key: string) => string;
     showSearchBar: boolean;
     filterType: FileTransferFilterType;
     onSelectFilterType: (type: FileTransferFilterType) => void;
@@ -14,6 +15,7 @@ export interface TransferFilterBarProps {
 }
 
 export const TransferFilterBar = ({
+    t,
     showSearchBar,
     filterType,
     onSelectFilterType,
@@ -37,10 +39,10 @@ export const TransferFilterBar = ({
                         <div className="wt-filter-pills" role="tablist">
                             {(
                                 [
-                                    { id: 'all', label: '全部' },
-                                    { id: 'file', label: '文件' },
-                                    { id: 'media', label: '媒体' },
-                                    { id: 'text', label: '文本' },
+                                    { id: 'all', label: t("type_all") },
+                                    { id: 'file', label: t("type_file") },
+                                    { id: 'media', label: t("ft_filter_media") },
+                                    { id: 'text', label: t("type_text") },
                                 ] as const
                             ).map(pill => (
                                 <button
@@ -63,7 +65,7 @@ export const TransferFilterBar = ({
                                     ref={searchInputRef}
                                     type="text"
                                     className="wt-search-input"
-                                    placeholder="搜索记录、文件名..."
+                                    placeholder={t("ft_search_placeholder")}
                                     value={searchQuery}
                                     onChange={(e) => onSearchQueryChange(e.target.value)}
                                 />
@@ -75,8 +77,8 @@ export const TransferFilterBar = ({
                                             onSearchQueryChange('');
                                             searchInputRef.current?.focus();
                                         }}
-                                        title="清除搜索"
-                                        aria-label="清除搜索"
+                                        title={t("ft_clear_search")}
+                                        aria-label={t("ft_clear_search")}
                                     >
                                         <X size={12} />
                                     </button>
@@ -85,7 +87,7 @@ export const TransferFilterBar = ({
 
                             {isFiltering && (
                                 <div className="wt-filter-badge">
-                                    {filteredCount} 条
+                                    {t("ft_result_count").replace("{n}", String(filteredCount))}
                                 </div>
                             )}
                         </div>

@@ -1457,12 +1457,12 @@ const ClipboardItem = ({
     const renderFilePreview = () => {
         if (item.file_preview_exists === false) {
             return (
-                <div className="file-thumbnail-card error-bg" title={t('file_deleted') || "File Deleted"}>
+                <div className="file-thumbnail-card error-bg" title={t('file_deleted')}>
                     <div className="file-icon-wrapper error-icon">
                         <FileQuestion size={24} />
                     </div>
                     <div className="file-info-wrapper">
-                        <div className="file-name error-text">{t('file_deleted') || "Deleted"}</div>
+                        <div className="file-name error-text">{t('file_deleted')}</div>
                         <div className="file-hint error-text">{item.content}</div>
                     </div>
                 </div>
@@ -1491,7 +1491,7 @@ const ClipboardItem = ({
                         <File size={24} />
                     </div>
                     <div className="file-info-wrapper">
-                        <div className="file-name">{t('file') || "File"}</div>
+                        <div className="file-name">{t('file')}</div>
                         <div className="file-hint">{item.content}</div>
                     </div>
                 </div>
@@ -1657,7 +1657,7 @@ const ClipboardItem = ({
                             }}
                             className="btn-icon"
                             style={{ padding: '2px', height: '16px', width: '16px' }}
-                            title={t('add_tag') || '添加标签'}
+                            title={t('add_tag')}
                         >
                             <Plus size={10} />
                         </button>
@@ -1672,7 +1672,7 @@ const ClipboardItem = ({
                                     onTagEditCancel?.();
                                 }}
                                 className="btn-icon"
-                                title={t('confirm') || '完成'}
+                                title={t('confirm')}
                                 style={{ padding: '2px', height: '16px', width: '16px' }}
                             >
                                 <Check size={10} />
@@ -1738,7 +1738,7 @@ const ClipboardItem = ({
                         ref={noteInputRef}
                         className="item-note-input"
                         value={localNoteInput}
-                        placeholder={compactMode ? `${t('add_note') || '添加备注'}…` : getNotePlaceholder(t)}
+                        placeholder={compactMode ? `${t('add_note')}…` : getNotePlaceholder(t)}
                         rows={2}
                         onMouseDown={(e) => e.stopPropagation()}
                         onChange={(e) => setLocalNoteInput(e.target.value)}
@@ -1770,7 +1770,7 @@ const ClipboardItem = ({
                     />
                     <div className="item-note-editor-footer">
                         <span className="item-note-hint">
-                            {isMacPlatform() ? "⌘↵ 保存 · Esc 取消" : "Ctrl+↵ 保存 · Esc 取消"}
+                            {isMacPlatform() ? t("note_editor_hint_mac") : t("note_editor_hint_win")}
                         </span>
                         <div className="item-note-actions">
                             <button
@@ -1786,7 +1786,7 @@ const ClipboardItem = ({
                                     onNoteEditCancel?.();
                                 }}
                             >
-                                {t('cancel') || '取消'}
+                                {t('cancel')}
                             </button>
                             <button
                                 type="button"
@@ -1801,7 +1801,7 @@ const ClipboardItem = ({
                                     onNoteSave(localNoteInput);
                                 }}
                             >
-                                {t('save') || '保存'}
+                                {t('save')}
                             </button>
                         </div>
                     </div>
@@ -2198,8 +2198,8 @@ const ClipboardItem = ({
                                             }
                                         }}
                                         onMouseDown={(e) => e.stopPropagation()}
-                                        title={t('more_actions') || t('more') || '更多操作'}
-                                        aria-label={t('more_actions') || t('more') || '更多操作'}
+                                        title={t('more_actions')}
+                                        aria-label={t('more_actions')}
                                         aria-haspopup="menu"
                                         aria-expanded={isMoreMenuOpen}
                                     >
@@ -2210,7 +2210,7 @@ const ClipboardItem = ({
                                             ref={moreMenuRef}
                                             className="compact-action-menu"
                                             role="menu"
-                                            aria-label={t('more_actions') || '更多操作'}
+                                            aria-label={t('more_actions')}
                                             style={{
                                                 position: 'fixed',
                                                 top: menuPos.top !== undefined ? `${menuPos.top}px` : undefined,
@@ -2231,7 +2231,7 @@ const ClipboardItem = ({
                                                 }}
                                             >
                                                 <Copy size={13} />
-                                                <span>{t('copy') || '复制'}</span>
+                                                <span>{t('copy')}</span>
                                             </button>
 
                                             {(item.tags?.includes('sensitive') || item.tags?.includes('密码') || item.tags?.includes('password')) && (
@@ -2245,7 +2245,7 @@ const ClipboardItem = ({
                                                     }}
                                                 >
                                                     {isRevealed ? <EyeOff size={13} /> : <Eye size={13} />}
-                                                    <span>{isRevealed ? (t('hide') || '隐藏') : (t('reveal') || '查看明文')}</span>
+                                                    <span>{isRevealed ? t('hide') : t('reveal')}</span>
                                                 </button>
                                             )}
 
@@ -2259,7 +2259,7 @@ const ClipboardItem = ({
                                                 }}
                                             >
                                                 <ExternalLink size={13} />
-                                                <span>{t('open') || '打开'}</span>
+                                                <span>{t('open')}</span>
                                             </button>
 
                                             {item.content_type === 'image' && (
@@ -2274,7 +2274,7 @@ const ClipboardItem = ({
                                                     }}
                                                 >
                                                     <PictureInPicture2 size={13} />
-                                                    <span>{t('pin_sticker') || '贴图到桌面'}</span>
+                                                    <span>{t('pin_sticker')}</span>
                                                 </button>
                                             )}
 
@@ -2288,7 +2288,7 @@ const ClipboardItem = ({
                                                 }}
                                             >
                                                 {item.is_pinned ? <PinOff size={13} /> : <Pin size={13} />}
-                                                <span>{item.is_pinned ? (t('unpin') || '取消置顶') : (t('pin') || '置顶')}</span>
+                                                <span>{item.is_pinned ? t('unpin') : t('pin')}</span>
                                             </button>
 
                                             <button
@@ -2301,7 +2301,7 @@ const ClipboardItem = ({
                                                 }}
                                             >
                                                 <Tag size={13} />
-                                                <span>{t('edit_tags') || '标签'}</span>
+                                                <span>{t('edit_tags')}</span>
                                             </button>
 
                                             <button
@@ -2315,7 +2315,7 @@ const ClipboardItem = ({
                                                 }}
                                             >
                                                 <StickyNote size={13} />
-                                                <span>{item.note ? (t('edit_note') || '编辑备注') : (t('add_note') || '添加备注')}</span>
+                                                <span>{item.note ? t('edit_note') : t('add_note')}</span>
                                             </button>
 
                                             {(item.content_type === 'text' || item.content_type === 'rich_text') && aiEnabled && (
@@ -2333,7 +2333,7 @@ const ClipboardItem = ({
                                                     }}
                                                 >
                                                     {isAIProcessing ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
-                                                    <span>{t('ai_assistant') || 'AI 助手'}</span>
+                                                    <span>{t('ai_assistant')}</span>
                                                 </button>
                                             )}
 
@@ -2349,7 +2349,7 @@ const ClipboardItem = ({
                                                 }}
                                             >
                                                 <Trash2 size={13} />
-                                                <span>{t('delete') || '删除'}</span>
+                                                <span>{t('delete')}</span>
                                             </button>
                                         </div>,
                                         document.body
@@ -2381,7 +2381,7 @@ const ClipboardItem = ({
                                             e.stopPropagation();
                                             openPinStickerWindow(item);
                                         }}
-                                        title={t('pin_sticker') || '贴图到桌面'}
+                                        title={t('pin_sticker')}
                                     >
                                         <PictureInPicture2 size={12} />
                                     </button>
@@ -2396,7 +2396,7 @@ const ClipboardItem = ({
                                 <button
                                     className={`btn-icon ${item.tags && item.tags.length > 0 ? "active" : ""}`}
                                     onClick={onToggleTagEditor}
-                                    title={t('edit_tags') || 'Tags'}
+                                    title={t('edit_tags')}
                                 >
                                     <Tag size={12} />
                                 </button>
@@ -2411,7 +2411,7 @@ const ClipboardItem = ({
                                             onToggleNoteEditor(e);
                                         }
                                     }}
-                                    title={item.note ? (t('edit_note') || '编辑备注') : (t('add_note') || '添加备注')}
+                                    title={item.note ? t('edit_note') : t('add_note')}
                                 >
                                     <StickyNote size={12} />
                                 </button>
@@ -2471,7 +2471,7 @@ const ClipboardItem = ({
                         {(item.is_external && item.file_preview_exists === false) || imageLoadFailed ? (
                             <div className="image-preview error-placeholder" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-element)', color: 'var(--text-secondary)', height: '100px', fontSize: '12px' }}>
                                 <ImageOff size={24} style={{ marginBottom: '8px', opacity: 0.5 }} />
-                                <span>{t('image_deleted') || 'Image Deleted'}</span>
+                                <span>{t('image_deleted')}</span>
                             </div>
                         ) : (
                             <img
@@ -2548,7 +2548,7 @@ const ClipboardItem = ({
                             onClick={(e) => e.stopPropagation()}
                         />
                         <div style={{ fontSize: '10px', opacity: 0.6, marginTop: '4px' }}>
-                            {language === 'zh' ? '输入补充信息后按回车提交' : 'Press Enter to submit supplementary info'}
+                            {t("ai_supplement_hint")}
                         </div>
                     </div>
                 ) : item.content_type === "rich_text" && item.html_content && !isSensitiveHidden ? (
@@ -2626,7 +2626,7 @@ const ClipboardItem = ({
                                     {sensitivePreview}
                                 </span>
                                 <span style={{ fontSize: '10px', opacity: 0.7 }}>
-                                    ({item.content.length} {t('chars') || 'chars'})
+                                    ({item.content.length} {t('chars')})
                                 </span>
                             </div>
                         )

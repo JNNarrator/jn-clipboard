@@ -43,7 +43,9 @@ export const PinStickerWindow: React.FC = () => {
     }
   }, []);
 
-  const language = (localStorage.getItem("tiez_language") || "zh") as Locale;
+  // Mirrored from settings "app.language" by the main window (App saveAppSetting / useSettingsInit).
+  const storedLanguage = localStorage.getItem("tiez_language");
+  const language: Locale = storedLanguage === "en" || storedLanguage === "tw" ? storedLanguage : "zh";
   const t = useCallback(
     (key: keyof (typeof translations)["zh"]) => {
       return (translations[language] && (translations[language] as any)[key]) || (translations.zh as any)[key] || key;
@@ -126,7 +128,7 @@ export const PinStickerWindow: React.FC = () => {
       const nextState = !isAlwaysOnTop;
       await currentWindow.setAlwaysOnTop(nextState);
       setIsAlwaysOnTop(nextState);
-      showToast(nextState ? (t("always_on_top") || "始终置顶") : (t("unpin") || "取消置顶"));
+      showToast(nextState ? t("always_on_top") : t("unpin"));
     } catch (err) {
       console.error("Failed to set always on top:", err);
     }
@@ -189,7 +191,7 @@ export const PinStickerWindow: React.FC = () => {
               new ClipboardItem({ "image/png": blob }),
             ]);
             setCopied(true);
-            showToast(t("sticker_copied") || "已复制图片到剪贴板");
+            showToast(t("sticker_copied"));
             setTimeout(() => setCopied(false), 1500);
           }
         }, "image/png");
@@ -220,7 +222,7 @@ export const PinStickerWindow: React.FC = () => {
           sourcePath: decodeURIComponent(cleanSource),
           targetPath,
         });
-        showToast(t("save_image_success") || "图片保存成功");
+        showToast(t("save_image_success"));
         return;
       }
 
@@ -242,14 +244,14 @@ export const PinStickerWindow: React.FC = () => {
                 a.download = defaultFileName;
                 a.click();
               });
-              showToast(t("save_image_success") || "图片保存成功");
+              showToast(t("save_image_success"));
             }
           });
         }
       }
     } catch (err) {
       console.error("Failed to save image:", err);
-      showToast(t("save_image_failed") || "图片保存失败");
+      showToast(t("save_image_failed"));
     }
   }, [rawSrc, showToast, t]);
 
@@ -380,7 +382,7 @@ export const PinStickerWindow: React.FC = () => {
             type="button"
             className="pin-sticker-btn"
             onClick={handleCopyImage}
-            title={t("copy") || "复制图片 (Ctrl+C)"}
+            title={t("copy")}
           >
             {copied ? <Check size={14} style={{ color: "#10b981" }} /> : <Copy size={14} />}
           </button>
@@ -389,7 +391,7 @@ export const PinStickerWindow: React.FC = () => {
             type="button"
             className="pin-sticker-btn"
             onClick={handleSaveImage}
-            title={t("save_image") || "保存图片 (Ctrl+S)"}
+            title={t("save_image")}
           >
             <Download size={14} />
           </button>
@@ -400,7 +402,7 @@ export const PinStickerWindow: React.FC = () => {
             type="button"
             className="pin-sticker-btn"
             onClick={handleRotate}
-            title={t("rotate_image") || "顺时针旋转 90° (R)"}
+            title={t("rotate_image")}
           >
             <RotateCw size={14} />
           </button>
@@ -409,7 +411,7 @@ export const PinStickerWindow: React.FC = () => {
             type="button"
             className={`pin-sticker-btn ${flipped ? "active" : ""}`}
             onClick={() => setFlipped((f) => !f)}
-            title={t("flip_image") || "水平镜像翻转"}
+            title={t("flip_image")}
           >
             <FlipHorizontal size={14} />
           </button>
@@ -418,7 +420,7 @@ export const PinStickerWindow: React.FC = () => {
             type="button"
             className={`pin-sticker-btn ${isAlwaysOnTop ? "active" : ""}`}
             onClick={handleToggleAlwaysOnTop}
-            title={t("always_on_top") || "切换始终置顶"}
+            title={t("always_on_top")}
           >
             {isAlwaysOnTop ? <Pin size={14} /> : <PinOff size={14} />}
           </button>
@@ -427,7 +429,7 @@ export const PinStickerWindow: React.FC = () => {
             type="button"
             className="pin-sticker-btn"
             onClick={handleReset}
-            title={t("reset_view") || "重置缩放与角度 (Space)"}
+            title={t("reset_view")}
           >
             <RotateCcw size={14} />
           </button>
@@ -438,7 +440,7 @@ export const PinStickerWindow: React.FC = () => {
             type="button"
             className="pin-sticker-btn danger"
             onClick={handleClose}
-            title={t("close_sticker") || "关闭贴图 (Esc / 双击)"}
+            title={t("close_sticker")}
           >
             <X size={14} />
           </button>
@@ -448,7 +450,7 @@ export const PinStickerWindow: React.FC = () => {
         <div className="pin-sticker-image-wrapper">
           {imageError ? (
             <div style={{ color: "var(--text-primary, #ffffff)", fontSize: "12px", textAlign: "center", padding: "16px" }}>
-              图片无法加载
+              {t("sticker_image_load_failed")}
             </div>
           ) : (
             <img

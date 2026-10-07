@@ -10,6 +10,7 @@ import {
 } from "../utils/transferHelpers";
 
 export interface TransferBatchBubbleProps {
+    t: (key: string) => string;
     message: FileTransferMessage;
     batchMessages: FileTransferMessage[];
     expanded: boolean;
@@ -21,6 +22,7 @@ export interface TransferBatchBubbleProps {
 }
 
 export const TransferBatchBubble = ({
+    t,
     message: m,
     batchMessages,
     expanded,
@@ -57,9 +59,9 @@ export const TransferBatchBubble = ({
             >
                 <span className="wt-batch-icon"><FileArchive size={24} /></span>
                 <span className="wt-batch-summary">
-                    <strong>{m.batch_name || `${m.batch_total || batchMessages.length} 个文件`}</strong>
+                    <strong>{m.batch_name || t("ft_files_count").replace("{n}", String(m.batch_total || batchMessages.length))}</strong>
                     <small>
-                        {m.batch_total || batchMessages.length} 个文件
+                        {t("ft_files_count").replace("{n}", String(m.batch_total || batchMessages.length))}
                         {totalSize > 0 ? ` · ${formatTransferBytes(totalSize)}` : ''}
                     </small>
                 </span>
@@ -84,17 +86,17 @@ export const TransferBatchBubble = ({
                         >
                             <TransferFileTypeIcon
                                 filePath={getTransferFileIconPath(fileMessage)}
-                                fileName={getTransferFileName(fileMessage)}
+                                fileName={getTransferFileName(fileMessage, t)}
                                 preparing={fileMessage._preparing}
                             />
                             <span>
-                                <strong>{getTransferFileName(fileMessage)}</strong>
+                                <strong>{getTransferFileName(fileMessage, t)}</strong>
                                 <small>
                                     {fileMessage._error
                                         ? fileMessage._error
                                         : fileMessage._preparing && fileMessage._progress !== undefined
                                             ? `${fileMessage._progress}% ${fileMessage._speed ? `· ${fileMessage._speed}` : ''}`
-                                            : (formatTransferBytes(fileMessage.file_size) || (fileMessage._preparing ? '准备中…' : '点击打开'))}
+                                            : (formatTransferBytes(fileMessage.file_size) || (fileMessage._preparing ? t("ft_preparing") : t("ft_click_to_open")))}
                                 </small>
                             </span>
                         </button>
@@ -102,14 +104,14 @@ export const TransferBatchBubble = ({
                 </div>
             )}
             <div className="wt-batch-actions">
-                <span>{availableCount}/{m.batch_total || batchMessages.length} 可用</span>
+                <span>{t("ft_available_count").replace("{n}", String(availableCount)).replace("{total}", String(m.batch_total || batchMessages.length))}</span>
                 <button
                     type="button"
                     disabled={isSaving || availableCount !== batchMessages.length}
                     onClick={() => onSaveBatchAs(batchMessages)}
                 >
                     <Folder size={13} />
-                    {isSaving ? '正在保存…' : '整包另存为'}
+                    {isSaving ? t("ft_saving") : t("ft_save_batch_as")}
                 </button>
             </div>
         </div>

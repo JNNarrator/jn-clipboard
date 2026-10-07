@@ -252,7 +252,7 @@ const GeneralSettingsGroup = ({
 
                 <div className="setting-item">
                     <div className="item-label-group">
-                        <span className="item-label">{t('sound_effects') || "Sound Effects"}</span>
+                        <span className="item-label">{t('sound_effects')}</span>
                     </div>
                     <label className="switch">
                         <input
@@ -274,7 +274,7 @@ const GeneralSettingsGroup = ({
                 {soundEnabled && (
                     <div className="setting-item" style={{ marginLeft: '18px' }}>
                         <div className="item-label-group">
-                            <span className="item-label">{t('paste_sound') || "Paste Sound"}</span>
+                            <span className="item-label">{t('paste_sound')}</span>
                         </div>
                         <label className="switch">
                             <input
@@ -297,7 +297,7 @@ const GeneralSettingsGroup = ({
                 {soundEnabled && (
                     <div className="setting-item column" style={{ marginLeft: '18px', borderBottom: 'none' }}>
                         <div className="item-label-group">
-                            <span className="item-label">{t('sound_volume') || "Sound Volume"} ({Math.round(soundVolume * 100)}%)</span>
+                            <span className="item-label">{t('sound_volume')} ({Math.round(soundVolume * 100)}%)</span>
                         </div>
                         <div style={{ padding: '0 4px', width: '100%' }}>
                             <input
@@ -387,8 +387,8 @@ const GeneralSettingsGroup = ({
                 </div>
                 <div className="setting-item">
                     <LabelWithHint
-                        label={t('emoji_panel_enabled') || '表情包开关'}
-                        hint={t('emoji_panel_enabled_hint') || '关闭后顶部不再显示表情包入口。'}
+                        label={t('emoji_panel_enabled')}
+                        hint={t('emoji_panel_enabled_hint')}
                         hintKey="emoji_panel_enabled"
                     />
                     <label className="switch">
@@ -407,8 +407,8 @@ const GeneralSettingsGroup = ({
                 </div>
                 <div className="setting-item">
                     <LabelWithHint
-                        label={t('tag_manager_enabled') || '标签管理页开关'}
-                        hint={t('tag_manager_enabled_hint') || '关闭后顶部不再显示标签管理入口。'}
+                        label={t('tag_manager_enabled')}
+                        hint={t('tag_manager_enabled_hint')}
                         hintKey="tag_manager_enabled"
                     />
                     <label className="switch">

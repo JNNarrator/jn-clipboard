@@ -277,7 +277,7 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
                     <div className="setting-item">
                         <props.LabelWithHint
                             label={props.t('merge_duplicates')}
-                            hint={props.t('merge_duplicates_hint') || "Time limit to prevent accidental multiple copies"}
+                            hint={props.t('merge_duplicates_hint')}
                             hintKey="merge_duplicates"
                         />
                         <label className="switch">
@@ -306,8 +306,8 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
                     </div>
                     <div className="setting-item">
                         <props.LabelWithHint
-                            label={props.t('capture_rich_text') || '捕获富文本'}
-                            hint={props.t('capture_rich_text_hint') || '单击粘贴纯文本，右键粘贴带格式（如加粗、颜色）。'}
+                            label={props.t('capture_rich_text')}
+                            hint={props.t('capture_rich_text_hint')}
                             hintKey="capture_rich_text"
                         />
                         <label className="switch">
@@ -325,8 +325,8 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
                     </div>
                     <div className="setting-item">
                         <props.LabelWithHint
-                            label={props.t('rich_text_snapshot_preview') || '富文本快照预览'}
-                            hint={props.t('rich_text_snapshot_preview_hint') || '用内存快照图展示更稳，但会多占一点内存。'}
+                            label={props.t('rich_text_snapshot_preview')}
+                            hint={props.t('rich_text_snapshot_preview_hint')}
                             hintKey="rich_text_snapshot_preview"
                         />
                         <label className="switch">
@@ -481,9 +481,9 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
                                             const isAdmin = await invoke<boolean>("check_is_admin");
                                             if (!isAdmin) {
                                                 const confirmed = await withNativeDialog(() => ask(
-                                                    props.t('game_mode_admin_required') || "Game Mode requires Administrator privileges to work correctly with games (especially for IME/Input handling). Restart as Admin now?",
+                                                    props.t('game_mode_admin_required'),
                                                     {
-                                                        title: props.t('admin_required') || "Administrator Required",
+                                                        title: props.t('admin_required'),
                                                         kind: 'warning'
                                                     }
                                                 ), "settings:game-mode-admin");
@@ -546,7 +546,7 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
                                     props.isRecordingSequential,
                                     props.sequentialMode
                                         ? props.t('hotkey_click_hint')
-                                        : (props.t('sequential_paste_hotkey_inactive_hint') || '仅在开启顺序粘贴时生效')
+                                        : props.t('sequential_paste_hotkey_inactive_hint')
                                 )}
                             </span>
                         </div>
@@ -614,12 +614,12 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
                         {props.privacyKindsOpen && (
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginLeft: '30px' }}>
                                 {[
-                                    { id: 'url', label: props.t('privacy_kind_url') || '链接 / URL' },
+                                    { id: 'url', label: props.t('privacy_kind_url') },
                                     { id: 'phone', label: props.t('privacy_kind_phone') },
                                     { id: 'idcard', label: props.t('privacy_kind_idcard') },
                                     { id: 'email', label: props.t('privacy_kind_email') },
                                     { id: 'secret', label: props.t('privacy_kind_secret') },
-                                    { id: 'password', label: props.t('privacy_kind_password') || "Strong Password" },
+                                    { id: 'password', label: props.t('privacy_kind_password') },
                                 ].map(opt => {
                                     const checked = props.privacyProtectionKinds.includes(opt.id);
                                     return (

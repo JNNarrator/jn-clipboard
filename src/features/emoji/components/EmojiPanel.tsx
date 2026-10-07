@@ -66,6 +66,20 @@ const FALLBACK_GROUPS: EmojiGroup[] = [
   }
 ];
 
+// Group names in emoji-data.json are Chinese identifiers; map them to locale keys for display.
+const EMOJI_GROUP_LABEL_KEYS: Record<string, string> = {
+  "常用": "emoji_group_frequent",
+  "表情": "emoji_group_smileys",
+  "手势": "emoji_group_gestures",
+  "人物": "emoji_group_people",
+  "动物": "emoji_group_animals",
+  "美食": "emoji_group_food",
+  "活动": "emoji_group_activities",
+  "旅行": "emoji_group_travel",
+  "物品": "emoji_group_objects",
+  "符号": "emoji_group_symbols"
+};
+
 const IMAGE_EXTS = new Set(["png", "jpg", "jpeg", "webp", "gif", "avif"]);
 
 const normalizePath = (path: string) => path.trim();
@@ -572,7 +586,7 @@ const EmojiPanel = ({ t, language = "zh", favorites, setFavorites, activeTab, se
       addedCount += await addFavoriteUrls(httpUrls);
     }
     if (addedCount === 0) {
-      await emit("toast", t("emoji_drop_failed") || "未识别到可添加的图片，请尝试拖拽图片本身或先下载到本地");
+      await emit("toast", t("emoji_drop_failed"));
     }
     return addedCount;
   };
@@ -700,7 +714,7 @@ const EmojiPanel = ({ t, language = "zh", favorites, setFavorites, activeTab, se
           className={`emoji-tab ${activeTab === "emoji" ? "active" : ""}`}
           onClick={() => handleTabChange("emoji")}
         >
-          <span className="emoji-tab-text">{t("emoji_tab") || "Emoji"}</span>
+          <span className="emoji-tab-text">{t("emoji_tab")}</span>
           {activeTab === "emoji" && (
             <motion.div layoutId="active-indicator" className="active-tab-indicator" />
           )}
@@ -709,7 +723,7 @@ const EmojiPanel = ({ t, language = "zh", favorites, setFavorites, activeTab, se
           className={`emoji-tab ${activeTab === "favorites" ? "active" : ""}`}
           onClick={() => handleTabChange("favorites")}
         >
-          <span className="emoji-tab-text">{t("emoji_favorites") || "收藏"}</span>
+          <span className="emoji-tab-text">{t("emoji_favorites")}</span>
           {activeTab === "favorites" && (
             <motion.div layoutId="active-indicator" className="active-tab-indicator" />
           )}
@@ -729,10 +743,10 @@ const EmojiPanel = ({ t, language = "zh", favorites, setFavorites, activeTab, se
             >
               {emojiGroups.map((group, groupIndex) => (
                 <div key={`${group.name}-${groupIndex}`} className="emoji-group">
-                  <div className="emoji-group-title">{group.name}</div>
+                  <div className="emoji-group-title">{EMOJI_GROUP_LABEL_KEYS[group.name] ? t(EMOJI_GROUP_LABEL_KEYS[group.name]) : group.name}</div>
                   <div className="emoji-grid">
                     {group.emojis.map((emoji, emojiIndex) => {
-                      const emojiTitle = getEmojiName(emoji, language, group.name);
+                      const emojiTitle = getEmojiName(emoji, language === "tw" ? "zh-TW" : language, group.name);
                       return (
                         <motion.button
                           key={`${group.name}-${groupIndex}-${emojiIndex}-${emoji}`}
@@ -751,7 +765,7 @@ const EmojiPanel = ({ t, language = "zh", favorites, setFavorites, activeTab, se
                 </div>
               ))}
               {flatEmoji.length === 0 && (
-                <div className="emoji-empty">{t("emoji_empty") || "暂无表情"}</div>
+                <div className="emoji-empty">{t("emoji_empty")}</div>
               )}
             </motion.div>
           ) : (
@@ -802,7 +816,7 @@ const EmojiPanel = ({ t, language = "zh", favorites, setFavorites, activeTab, se
                     >
                       <button
                         className="emoji-fav-remove"
-                        title={t("delete") || "删除"}
+                        title={t("delete")}
                         onClick={(e) => {
                           e.stopPropagation();
                           removeFavoritePath(path);
@@ -839,7 +853,7 @@ const EmojiPanel = ({ t, language = "zh", favorites, setFavorites, activeTab, se
                       e.stopPropagation();
                       void handleSelectFiles();
                     }}
-                    title={t("emoji_add_files") || "添加表情"}
+                    title={t("emoji_add_files")}
                   >
                     <div className="add-icon-wrapper">
                       <Plus size={22} strokeWidth={2.5} />
@@ -851,11 +865,11 @@ const EmojiPanel = ({ t, language = "zh", favorites, setFavorites, activeTab, se
               <div className="emoji-fav-footer">
                 {!hasFavorites ? (
                   <p className="emoji-fav-hint">
-                    {t("emoji_fav_hint") || "还没有收藏。点加号选图，或把图片拖进来。"}
+                    {t("emoji_fav_hint")}
                   </p>
                 ) : (
                   <p className="emoji-fav-tip">
-                    {t("emoji_fav_tip") || "也可以把图片拖到此区域快速导入"}
+                    {t("emoji_fav_tip")}
                   </p>
                 )}
               </div>
@@ -868,7 +882,7 @@ const EmojiPanel = ({ t, language = "zh", favorites, setFavorites, activeTab, se
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                   >
-                    <p>{t("emoji_drop_hint") || "松开即可添加到收藏"}</p>
+                    <p>{t("emoji_drop_hint")}</p>
                   </motion.div>
                 )}
               </AnimatePresence>

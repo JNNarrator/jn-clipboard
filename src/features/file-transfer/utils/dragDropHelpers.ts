@@ -71,13 +71,14 @@ export const isExternalFileDrag = (dataTransfer: DataTransfer | null | undefined
 
 export const processDroppedPaths = async (
     paths: string[],
-    onQueue: (items: PendingTransferItem[], mode?: 'package' | 'separate', customBatchName?: string) => Promise<void>
+    onQueue: (items: PendingTransferItem[], mode?: 'package' | 'separate', customBatchName?: string) => Promise<void>,
+    t: (key: string) => string
 ): Promise<boolean> => {
     if (!paths || paths.length === 0) return false;
     try {
         const expanded = await invoke<ExpandedTransferItem[]>("expand_transfer_paths", { paths });
         if (expanded.length === 0) {
-            await emit("toast", "文件夹为空或未包含可传输的文件");
+            await emit("toast", t("ft_folder_empty"));
             return true;
         }
 
@@ -120,7 +121,8 @@ export const processDroppedPaths = async (
 
 export const processDroppedDataTransfer = async (
     dt: DataTransfer | null,
-    onQueue: (items: PendingTransferItem[], mode?: 'package' | 'separate', customBatchName?: string) => Promise<void>
+    onQueue: (items: PendingTransferItem[], mode?: 'package' | 'separate', customBatchName?: string) => Promise<void>,
+    t: (key: string) => string
 ) => {
     if (!dt) return;
     const paths: string[] = [];
@@ -140,7 +142,7 @@ export const processDroppedDataTransfer = async (
     }
 
     if (paths.length > 0) {
-        const handled = await processDroppedPaths(paths, onQueue);
+        const handled = await processDroppedPaths(paths, onQueue, t);
         if (handled) return;
     }
 
@@ -150,5 +152,5 @@ export const processDroppedDataTransfer = async (
         return;
     }
 
-    void emit("toast", "未识别到拖入文件，请重启应用后重试");
+    void emit("toast", t("ft_drop_unrecognized"));
 };

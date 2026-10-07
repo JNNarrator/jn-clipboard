@@ -30,7 +30,7 @@ interface TransferContextMenuProps {
         content?: string;
         type?: string;
     }) => Promise<void>;
-    t?: (key: string) => string;
+    t: (key: string) => string;
 }
 
 export const TransferContextMenu = ({
@@ -127,7 +127,7 @@ export const TransferContextMenu = ({
                     ref={contextMenuRef}
                     className="wt-context-menu"
                     role="menu"
-                    aria-label="消息操作"
+                    aria-label={t("ft_menu_aria")}
                     tabIndex={-1}
                     initial={{ opacity: 0, scale: 0.97 }}
                     animate={{ opacity: 1, scale: 1 }}
@@ -158,8 +158,8 @@ export const TransferContextMenu = ({
                                 )}
                                 <span>
                                     {expandedBatches.has(contextMenu.batchId)
-                                        ? "收起文件包"
-                                        : "展开文件包"}
+                                        ? t("ft_collapse_batch")
+                                        : t("ft_expand_batch")}
                                 </span>
                             </button>
                             <button
@@ -184,8 +184,8 @@ export const TransferContextMenu = ({
                                 <Folder size={16} />
                                 <span>
                                     {savingBatchId === contextMenu.batchId
-                                        ? "正在保存…"
-                                        : "整包另存为…"}
+                                        ? t("ft_saving")
+                                        : t("ft_save_batch_as_menu")}
                                 </span>
                             </button>
                         </>
@@ -210,7 +210,7 @@ export const TransferContextMenu = ({
                                 }}
                             >
                                 <ExternalLink size={16} />
-                                <span>{t ? t("open") || "打开" : "打开"}</span>
+                                <span>{t("open")}</span>
                             </button>
                             {isLocalTransferPath(contextMenu.filePath) && (
                                 <button
@@ -231,9 +231,7 @@ export const TransferContextMenu = ({
                                 >
                                     <Folder size={16} />
                                     <span>
-                                        {t
-                                            ? t("show_in_finder") || "在访达中显示"
-                                            : "在访达中显示"}
+                                        {t("show_in_finder")}
                                     </span>
                                 </button>
                             )}
@@ -261,7 +259,7 @@ export const TransferContextMenu = ({
                                                                 .pop() || "image.png",
                                                         filters: [
                                                             {
-                                                                name: "图片",
+                                                                name: t("type_image"),
                                                                 extensions: [
                                                                     "png",
                                                                     "jpg",
@@ -286,9 +284,7 @@ export const TransferContextMenu = ({
                                 >
                                     <Download size={16} />
                                     <span>
-                                        {t
-                                            ? t("save_image_as") || "图片另存为…"
-                                            : "图片另存为…"}
+                                        {t("save_image_as")}
                                     </span>
                                 </button>
                             )}
@@ -313,7 +309,7 @@ export const TransferContextMenu = ({
                                 }}
                             >
                                 <ImageIcon size={16} />
-                                <span>{t ? t("copy_image") || "复制图片" : "复制图片"}</span>
+                                <span>{t("copy_image")}</span>
                             </button>
                             <button
                                 type="button"
@@ -330,9 +326,7 @@ export const TransferContextMenu = ({
                             >
                                 <LinkIcon size={16} />
                                 <span>
-                                    {t
-                                        ? t("copy_image_link") || "复制图片链接"
-                                        : "复制图片链接"}
+                                    {t("copy_image_link")}
                                 </span>
                             </button>
                         </>
@@ -358,7 +352,7 @@ export const TransferContextMenu = ({
                                                                 .pop() || "video.mp4",
                                                         filters: [
                                                             {
-                                                                name: "视频",
+                                                                name: t("type_video"),
                                                                 extensions: [
                                                                     "mp4",
                                                                     "mov",
@@ -384,9 +378,7 @@ export const TransferContextMenu = ({
                                 >
                                     <Download size={16} />
                                     <span>
-                                        {t
-                                            ? t("save_video_as") || "视频另存为…"
-                                            : "视频另存为…"}
+                                        {t("save_video_as")}
                                     </span>
                                 </button>
                             )}
@@ -411,7 +403,7 @@ export const TransferContextMenu = ({
                                 }}
                             >
                                 <Video size={16} />
-                                <span>{t ? t("copy_video") || "复制视频" : "复制视频"}</span>
+                                <span>{t("copy_video")}</span>
                             </button>
                             <button
                                 type="button"
@@ -428,9 +420,7 @@ export const TransferContextMenu = ({
                             >
                                 <LinkIcon size={16} />
                                 <span>
-                                    {t
-                                        ? t("copy_video_link") || "复制视频链接"
-                                        : "复制视频链接"}
+                                    {t("copy_video_link")}
                                 </span>
                             </button>
                         </>
@@ -450,7 +440,7 @@ export const TransferContextMenu = ({
                                 }}
                             >
                                 <Clipboard size={16} />
-                                <span>{t ? t("copy_text") || "复制文本" : "复制文本"}</span>
+                                <span>{t("copy_text")}</span>
                             </button>
                             <button
                                 type="button"
@@ -475,7 +465,7 @@ export const TransferContextMenu = ({
                                 }}
                             >
                                 <Send size={16} />
-                                <span>复制并粘贴</span>
+                                <span>{t("ft_copy_and_paste")}</span>
                             </button>
                         </>
                     )}
@@ -495,7 +485,7 @@ export const TransferContextMenu = ({
                             }}
                         >
                             <LinkIcon size={16} />
-                            <span>{t ? t("copy_link") || "复制下载链接" : "复制下载链接"}</span>
+                            <span>{t("copy_link")}</span>
                         </button>
                     )}
                 </motion.div>

@@ -12,6 +12,7 @@ interface UpdateDialogProps {
   status: "idle" | "checking" | "downloading" | "ready" | "error";
   onUpdate: () => void;
   onClose: () => void;
+  t: (key: string) => string;
 }
 
 const UpdateDialog = ({
@@ -23,7 +24,8 @@ const UpdateDialog = ({
   downloadProgress,
   status,
   onUpdate,
-  onClose
+  onClose,
+  t
 }: UpdateDialogProps) => {
   const handleOpenWebsite = () => {
     openUrl("https://tiez.name666.top/");
@@ -35,21 +37,21 @@ const UpdateDialog = ({
       onClose={onClose}
       panelClassName="modal-panel modal-panel-update"
       closeOnOverlayClick={status !== "downloading"}
-      ariaLabel="发现新版本"
+      ariaLabel={t("update_found")}
     >
       <div className="modal-update-header">
         <div className="modal-update-header-info">
-          <h3 className="modal-update-title">发现新版本</h3>
+          <h3 className="modal-update-title">{t("update_found")}</h3>
           <span className="modal-update-version">v{version}</span>
           {releaseChannel === "beta" && <span className="modal-update-badge beta">Beta</span>}
-          {important && <span className="modal-update-badge important">重要更新</span>}
+          {important && <span className="modal-update-badge important">{t("update_important")}</span>}
         </div>
         <button
           type="button"
           onClick={onClose}
           disabled={status === "downloading"}
           className="modal-button icon-only"
-          aria-label="关闭"
+          aria-label={t("close")}
         >
           <X size={16} />
         </button>
@@ -59,16 +61,16 @@ const UpdateDialog = ({
         <div className="modal-update-notes custom-scrollbar">
           <p>
             {status === "error"
-              ? "更新过程中遇到了错误。这可能是由于网络原因或系统权限导致，请尝试前往官网手动下载最新版本。"
-              : (notes || "在这个版本中，我们带来了一些性能优化和体验改进。")}
+              ? t("update_error_message")
+              : (notes || t("update_default_notes"))}
           </p>
         </div>
 
         {(status === "downloading" || status === "ready") && (
           <div className="modal-update-progress">
             <div className="modal-update-progress-labels">
-              <span>{status === "ready" ? "下载完成" : "正在下载更新..."}</span>
-              <span>{downloadProgress === null ? "计算中" : `${Math.round(downloadProgress)}%`}</span>
+              <span>{status === "ready" ? t("update_download_complete") : t("update_downloading")}</span>
+              <span>{downloadProgress === null ? t("update_calculating") : `${Math.round(downloadProgress)}%`}</span>
             </div>
             <div className="modal-update-progress-track">
               <div
@@ -86,18 +88,18 @@ const UpdateDialog = ({
             disabled={status === "downloading"}
             className="modal-button"
           >
-            {status === "error" ? "关闭" : "稍后"}
+            {status === "error" ? t("close") : t("update_later")}
           </button>
 
           {status === "error" ? (
             <button type="button" onClick={handleOpenWebsite} className="modal-button primary">
               <ExternalLink size={16} />
-              前往官网
+              {t("update_go_website")}
             </button>
           ) : status === "ready" ? (
             <button type="button" onClick={onUpdate} className="modal-button success">
               <RefreshCw size={18} className="modal-spin-slow" />
-              立即重启
+              {t("update_restart_now")}
             </button>
           ) : (
             <button
@@ -109,12 +111,12 @@ const UpdateDialog = ({
               {status === "downloading" ? (
                 <>
                   <RefreshCw size={18} className="modal-spin" />
-                  下载中...
+                  {t("update_downloading_short")}
                 </>
               ) : (
                 <>
                   <Download size={18} />
-                  立即更新
+                  {t("update_now")}
                 </>
               )}
             </button>

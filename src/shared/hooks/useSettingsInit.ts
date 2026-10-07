@@ -65,6 +65,11 @@ export const useSettingsInit = ({
 
           if (result["app.language"]) {
             setLanguage(result["app.language"] as Locale);
+            try {
+              localStorage.setItem("tiez_language", result["app.language"]);
+            } catch {
+              // Ignore localStorage errors
+            }
           }
 
           setSettings(result);

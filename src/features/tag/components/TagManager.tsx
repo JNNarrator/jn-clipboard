@@ -639,7 +639,7 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                                                     setSelectedItemIds(new Set());
                                                 }}
                                             >
-                                                {t("cancel") || "取消"}
+                                                {t("cancel")}
                                             </button>
                                             <button
                                                 type="button"
@@ -648,7 +648,7 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                                                 onClick={() => setItemDeleteConfirmation({ show: true, id: -1 })}
                                             >
                                                 <Trash2 size={14} />
-                                                <span>{t("delete_selected") || "删除选中"}</span>
+                                                <span>{t("delete_selected")}</span>
                                             </button>
                                             <button
                                                 type="button"
@@ -671,7 +671,7 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                                                 }}
                                             >
                                                 <Copy size={14} />
-                                                <span>{t("copy_selected") || "复制选中"}</span>
+                                                <span>{t("copy_selected")}</span>
                                             </button>
                                         </>
                                     ) : (
@@ -679,10 +679,10 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                                             type="button"
                                             className={`tag-manager-sort-btn ${isManageMode ? "active" : ""}`}
                                             onClick={() => setIsManageMode(true)}
-                                            title={t("manage_items") || "管理条目"}
+                                            title={t("manage_items")}
                                         >
                                             <CheckSquare size={14} />
-                                            <span>{t("manage") || "管理"}</span>
+                                            <span>{t("manage")}</span>
                                         </button>
                                     )}
                                 </>
@@ -691,20 +691,20 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                                 <button
                                     type="button"
                                     className={`tag-manager-sort-btn ${sortBy === "time" ? "active" : ""}`}
-                                    title={t("sort_time") || "按时间"}
+                                    title={t("sort_time")}
                                     onClick={() => setSortBy("time")}
                                 >
                                     <Clock size={12} />
-                                    <span>{t("sort_time") || "时间"}</span>
+                                    <span>{t("sort_time")}</span>
                                 </button>
                                 <button
                                     type="button"
                                     className={`tag-manager-sort-btn ${sortBy === "count" ? "active" : ""}`}
-                                    title={t("sort_usage") || "按频率"}
+                                    title={t("sort_usage")}
                                     onClick={() => setSortBy("count")}
                                 >
                                     <MousePointer2 size={12} />
-                                    <span>{t("sort_usage") || "频率"}</span>
+                                    <span>{t("sort_usage")}</span>
                                 </button>
                             </div>
                             <div className="tag-manager-view-toggle">
@@ -778,7 +778,7 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                                                         {(item.content_type === "text" || item.content_type === "code") && (
                                                             <button
                                                                 className="card-action-btn"
-                                                                title="编辑"
+                                                                title={t("edit")}
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
                                                                     setEditingItem({ id: item.id, content: item.content });
@@ -789,7 +789,7 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                                                         )}
                                                         <button
                                                             className={`card-action-btn${item.note || editingNoteId === item.id ? " active" : ""}`}
-                                                            title={item.note ? (t("edit_note") || "编辑备注") : (t("add_note") || "添加备注")}
+                                                            title={item.note ? t("edit_note") : t("add_note")}
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 if (editingNoteId === item.id) {
@@ -817,7 +817,7 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                                                         </button>
                                                         <button
                                                             className="del-btn"
-                                                            title="删除"
+                                                            title={t("delete")}
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 setItemDeleteConfirmation({ show: true, id: item.id });
