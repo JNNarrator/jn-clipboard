@@ -848,14 +848,17 @@ const EmojiPanel = ({ t, language = "zh", favorites, setFavorites, activeTab, se
                 </motion.div>
               </div>
 
-              {!hasFavorites && (
-                <div className="emoji-fav-empty">
-                  <span>{t("emoji_fav_hint") || "点击添加按钮、或拖拽图片到这里"}</span>
-                </div>
-              )}
-              {hasFavorites && (
-                <div className="emoji-fav-tip">{t("emoji_fav_tip") || "可直接拖拽图片添加"}</div>
-              )}
+              <div className="emoji-fav-footer">
+                {!hasFavorites ? (
+                  <p className="emoji-fav-hint">
+                    {t("emoji_fav_hint") || "还没有收藏。点加号选图，或把图片拖进来。"}
+                  </p>
+                ) : (
+                  <p className="emoji-fav-tip">
+                    {t("emoji_fav_tip") || "也可以把图片拖到此区域快速导入"}
+                  </p>
+                )}
+              </div>
 
               <AnimatePresence>
                 {isDragging && (
@@ -865,7 +868,7 @@ const EmojiPanel = ({ t, language = "zh", favorites, setFavorites, activeTab, se
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                   >
-                    <p>{t("emoji_drop_hint") || "松开鼠标即可添加"}</p>
+                    <p>{t("emoji_drop_hint") || "松开即可添加到收藏"}</p>
                   </motion.div>
                 )}
               </AnimatePresence>

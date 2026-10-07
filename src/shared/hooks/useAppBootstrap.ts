@@ -10,6 +10,7 @@ interface UseAppBootstrapOptions {
   setDataPath: Dispatch<SetStateAction<string>>;
   setInstalledApps: Dispatch<SetStateAction<InstalledAppOption[]>>;
   setAutoStart: Dispatch<SetStateAction<boolean>>;
+  setElevatedAutostart: Dispatch<SetStateAction<boolean>>;
   setDefaultApps: Dispatch<SetStateAction<DefaultAppsMap>>;
   setFileServerEnabled: Dispatch<SetStateAction<boolean>>;
   setActualPort: Dispatch<SetStateAction<string>>;
@@ -31,6 +32,7 @@ export const useAppBootstrap = ({
   setDataPath,
   setInstalledApps,
   setAutoStart,
+  setElevatedAutostart,
   setDefaultApps,
   setFileServerEnabled,
   setActualPort,
@@ -63,7 +65,9 @@ export const useAppBootstrap = ({
       });
 
     invoke<boolean>("is_autostart_enabled").then(setAutoStart).catch(console.error);
-
+    invoke<boolean>("is_elevated_autostart_enabled")
+      .then(setElevatedAutostart)
+      .catch(console.error);
 
     const types = ["text", "rich_text", "image", "video", "code", "url"];
     types.forEach(async (type) => {
@@ -116,6 +120,7 @@ export const useAppBootstrap = ({
     fetchEffectiveTransferPath,
     setActualPort,
     setAutoStart,
+    setElevatedAutostart,
     setAvailableIps,
     setDataPath,
     setDefaultApps,

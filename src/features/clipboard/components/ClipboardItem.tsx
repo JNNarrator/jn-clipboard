@@ -619,6 +619,14 @@ const ensureCompactPreviewWindow = async (): Promise<WebviewWindow | null> => {
             }
 
             try {
+                await invoke("disable_webview_browser_accelerators", {
+                    label: COMPACT_PREVIEW_LABEL
+                });
+            } catch (err) {
+                compactPreviewLog("disable webview browser accelerators failed", err);
+            }
+
+            try {
                 await previewWindow.setSize(new PhysicalSize(1, 1));
             } catch (err) {
                 console.error("Failed to initialize compact preview size:", err);
@@ -837,6 +845,8 @@ const ClipboardItem = ({
     const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const hoverAnchorRef = useRef<CompactPreviewAnchor | null>(null);
     const hoverRequestIdRef = useRef(0);
+    const compactPreviewBlockedRef = useRef(false);
+    const moreActionHoverRef = useRef(false);
     const richTextFallback = item.content_type === "rich_text" && item.html_content
         ? (() => {
             const { cleanHtml, imagePayload } = extractRichImageFallback(item.html_content);
@@ -1123,6 +1133,7 @@ const ClipboardItem = ({
         !isSensitiveHidden;
 
     const isHoverPreviewRequestCurrent = (requestId: number) => {
+        if (compactPreviewBlockedRef.current) return false;
         const node = itemRef.current;
         return (
             hoverRequestIdRef.current === requestId &&
@@ -1149,6 +1160,13 @@ const ClipboardItem = ({
 
     const showCompactPreview = async (anchor: CompactPreviewAnchor, requestId: number) => {
         if (!compactPreviewEnabled) return;
+        if (compactPreviewBlockedRef.current) {
+            compactPreviewLog("show preview aborted: blocked by menu/editor", {
+                itemId: item.id,
+                requestId
+            });
+            return;
+        }
         if (!isHoverPreviewRequestCurrent(requestId)) {
             compactPreviewLog("show preview aborted: stale hover request before start", {
                 itemId: item.id,
@@ -1358,6 +1376,14 @@ const ClipboardItem = ({
 
     const showAIOptions = localAiOptionsOpen;
     const isInteractionActive = isItemInteractionActive(isSelected, isEditingTags, isEditingNote, showAIOptions) || isMoreMenuOpen;
+    // Keep a live gate for async hover timers / in-flight show — stale closures
+    // would otherwise re-open the preview while ··· / AI / editors are active.
+    compactPreviewBlockedRef.current =
+        isMoreMenuOpen ||
+        moreActionHoverRef.current ||
+        showAIOptions ||
+        isEditingNote ||
+        isEditingTags;
     const inlineAiVariants = {
         open: { opacity: 1, height: "auto", marginTop: 8, marginBottom: 8 },
         collapsed: { opacity: 0, height: 0, marginTop: 0, marginBottom: 0 }
@@ -1406,6 +1432,12 @@ const ClipboardItem = ({
             void hideCompactPreview();
         }
     }, [compactPreviewEnabled]);
+
+    // ··· / AI / editors own the row — never leave a hover preview on top.
+    useEffect(() => {
+        if (!compactPreviewBlockedRef.current) return;
+        void hideCompactPreview();
+    }, [isMoreMenuOpen, showAIOptions, isEditingNote, isEditingTags]);
 
     useEffect(() => {
         return () => {
@@ -1992,7 +2024,7 @@ const ClipboardItem = ({
             onMouseEnter={(e) => {
                 if (!compactPreviewEnabled) return;
                 // Don't show preview if AI options, more menu, note editor, or tag editor are open to avoid interference
-                if (showAIOptions || isMoreMenuOpen || isEditingNote || isEditingTags) return;
+                if (compactPreviewBlockedRef.current) return;
 
                 hoverAnchorRef.current = {
                     clientX: e.clientX,
@@ -2028,7 +2060,7 @@ const ClipboardItem = ({
                 hoverTimerRef.current = setTimeout(() => {
                     hoverTimerRef.current = null;
                     // Double-check AI options and more menu are still closed before showing
-                    if (showAIOptions || isMoreMenuOpen || isEditingNote || isEditingTags) return;
+                    if (compactPreviewBlockedRef.current) return;
                     if (!target.isConnected) return;
                     if (!isHoverPreviewRequestCurrent(requestId)) return;
                     const anchor = hoverAnchorRef.current;
@@ -2048,7 +2080,7 @@ const ClipboardItem = ({
 
                 const justArmed = noteCompactPreviewPointerMove(e.screenX, e.screenY);
                 if (!justArmed) return;
-                if (showAIOptions || isMoreMenuOpen || isEditingNote || isEditingTags) return;
+                if (compactPreviewBlockedRef.current) return;
                 if (hoverTimerRef.current) return;
 
                 // First real move after clipboard show: start the normal hover delay.
@@ -2061,7 +2093,7 @@ const ClipboardItem = ({
                 void ensureCompactPreviewWindow();
                 hoverTimerRef.current = setTimeout(() => {
                     hoverTimerRef.current = null;
-                    if (showAIOptions || isMoreMenuOpen || isEditingNote || isEditingTags) return;
+                    if (compactPreviewBlockedRef.current) return;
                     if (!target.isConnected) return;
                     if (!isHoverPreviewRequestCurrent(requestId)) return;
                     const anchor = hoverAnchorRef.current;
@@ -2107,17 +2139,60 @@ const ClipboardItem = ({
                     <div className="item-actions">
                         {compactMode ? (
                             (!isEditingTags && !isEditingNote) ? (
-                                <div className="compact-more-action-wrap">
+                                <div
+                                    className="compact-more-action-wrap"
+                                    onMouseEnter={() => {
+                                        moreActionHoverRef.current = true;
+                                        compactPreviewBlockedRef.current = true;
+                                        // Cancel pending/in-flight show but keep the row hover
+                                        // anchor so leaving ··· can resume preview.
+                                        hoverRequestIdRef.current = ++compactPreviewRequestSerial;
+                                        if (hoverTimerRef.current) {
+                                            clearTimeout(hoverTimerRef.current);
+                                            hoverTimerRef.current = null;
+                                        }
+                                        void hideCompactPreviewGlobal();
+                                    }}
+                                    onMouseLeave={() => {
+                                        moreActionHoverRef.current = false;
+                                        compactPreviewBlockedRef.current =
+                                            isMoreMenuOpen ||
+                                            showAIOptions ||
+                                            isEditingNote ||
+                                            isEditingTags;
+                                        // Still over the row: resume normal hover preview delay.
+                                        if (
+                                            compactPreviewBlockedRef.current ||
+                                            !compactPreviewEnabled ||
+                                            !itemRef.current?.matches(":hover") ||
+                                            !hoverAnchorRef.current
+                                        ) {
+                                            return;
+                                        }
+                                        if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+                                        const requestId = ++compactPreviewRequestSerial;
+                                        hoverRequestIdRef.current = requestId;
+                                        const anchor = hoverAnchorRef.current;
+                                        hoverTimerRef.current = setTimeout(() => {
+                                            hoverTimerRef.current = null;
+                                            if (compactPreviewBlockedRef.current) return;
+                                            if (!isHoverPreviewRequestCurrent(requestId)) return;
+                                            void showCompactPreview(anchor, requestId);
+                                        }, COMPACT_PREVIEW_HOVER_DELAY_MS);
+                                    }}
+                                >
                                     <button
                                         ref={moreButtonRef}
                                         type="button"
                                         className={`btn-icon compact-more-btn ${isMoreMenuOpen ? "active" : ""}`}
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            void hideCompactPreview();
                                             if (isMoreMenuOpen) {
                                                 setIsMoreMenuOpen(false);
                                             } else {
+                                                moreActionHoverRef.current = true;
+                                                compactPreviewBlockedRef.current = true;
+                                                void hideCompactPreview();
                                                 updateMoreMenuPosition();
                                                 setIsMoreMenuOpen(true);
                                             }

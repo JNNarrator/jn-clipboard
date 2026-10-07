@@ -45,6 +45,7 @@ export const useAppState = (): AppState => {
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
   const [revealedIds, setRevealedIds] = useState<Set<number>>(new Set());
   const [autoStart, setAutoStart] = useState(true);
+  const [elevatedAutostart, setElevatedAutostart] = useState(false);
   const [deduplicate, setDeduplicate] = useState(true);
   const [persistent, setPersistent] = useState(true);
   const [persistentLimitEnabled, setPersistentLimitEnabled] = useState(true);
@@ -106,9 +107,14 @@ export const useAppState = (): AppState => {
   const [language, setLanguage] = useState<Locale>("zh");
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [isWindowPinned, setIsWindowPinned] = useState(false);
+  /** Persistent preference: search bar always visible (settings toggle). */
+  const [searchBoxPinned, setSearchBoxPinned] = useState(true);
+  /** Transient UI visibility (may temporarily differ from pinned via scroll reveal). */
   const [showSearchBox, setShowSearchBox] = useState(true);
   const [scrollTopButtonEnabled, setScrollTopButtonEnabled] = useState(true);
   const [arrowKeySelection, setArrowKeySelection] = useState(true);
+  const [lightModeEnabled, setLightModeEnabled] = useState(false);
+  const [lightModeIdleMinutes, setLightModeIdleMinutes] = useState(15);
   const [hideTrayIcon, setHideTrayIcon] = useState(false);
   const [hideDockIcon, setHideDockIcon] = useState(false);
   const [edgeDocking, setEdgeDocking] = useState(false);
@@ -220,6 +226,8 @@ export const useAppState = (): AppState => {
     setRevealedIds,
     autoStart,
     setAutoStart,
+    elevatedAutostart,
+    setElevatedAutostart,
     deduplicate,
     setDeduplicate,
     persistent,
@@ -329,12 +337,18 @@ export const useAppState = (): AppState => {
     setSettingsLoaded,
     isWindowPinned,
     setIsWindowPinned,
+    searchBoxPinned,
+    setSearchBoxPinned,
     showSearchBox,
     setShowSearchBox,
     scrollTopButtonEnabled,
     setScrollTopButtonEnabled,
     arrowKeySelection,
     setArrowKeySelection,
+    lightModeEnabled,
+    setLightModeEnabled,
+    lightModeIdleMinutes,
+    setLightModeIdleMinutes,
     hideTrayIcon,
     setHideTrayIcon,
     hideDockIcon,

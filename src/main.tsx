@@ -6,6 +6,10 @@ import "./styles/themes/load";
 import "./styles/platform-windows.css";
 import "./styles/platform-macos.css";
 import "./styles/components/pin-sticker.css";
+import { installBrowserAcceleratorBlocker } from "./shared/lib/blockBrowserAccelerators";
+
+// Suppress Chromium/WebView browser accelerators in every window (main, preview, settings…).
+installBrowserAcceleratorBlocker();
 
 const params = new URLSearchParams(window.location.search);
 const isCompactPreview = params.get("window") === "compact-preview";

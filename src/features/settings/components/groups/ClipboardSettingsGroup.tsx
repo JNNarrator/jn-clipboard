@@ -307,7 +307,7 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
                     <div className="setting-item">
                         <props.LabelWithHint
                             label={props.t('capture_rich_text') || '捕获富文本'}
-                            hint={props.t('capture_rich_text_hint') || '开启后可记录富文本并支持双击带格式粘贴'}
+                            hint={props.t('capture_rich_text_hint') || '单击粘贴纯文本，右键粘贴带格式（如加粗、颜色）。'}
                             hintKey="capture_rich_text"
                         />
                         <label className="switch">
@@ -326,7 +326,7 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
                     <div className="setting-item">
                         <props.LabelWithHint
                             label={props.t('rich_text_snapshot_preview') || '富文本快照预览'}
-                            hint={props.t('rich_text_snapshot_preview_hint') || '开启后将富文本转换为内存快照图用于条目与悬浮预览'}
+                            hint={props.t('rich_text_snapshot_preview_hint') || '用内存快照图展示更稳，但会多占一点内存。'}
                             hintKey="rich_text_snapshot_preview"
                         />
                         <label className="switch">

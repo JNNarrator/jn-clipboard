@@ -63,6 +63,8 @@ export interface AppState {
   setRevealedIds: StateSetter<Set<number>>;
   autoStart: boolean;
   setAutoStart: StateSetter<boolean>;
+  elevatedAutostart: boolean;
+  setElevatedAutostart: StateSetter<boolean>;
   deduplicate: boolean;
   setDeduplicate: StateSetter<boolean>;
   persistent: boolean;
@@ -172,12 +174,18 @@ export interface AppState {
   setSettingsLoaded: StateSetter<boolean>;
   isWindowPinned: boolean;
   setIsWindowPinned: StateSetter<boolean>;
+  searchBoxPinned: boolean;
+  setSearchBoxPinned: StateSetter<boolean>;
   showSearchBox: boolean;
   setShowSearchBox: StateSetter<boolean>;
   scrollTopButtonEnabled: boolean;
   setScrollTopButtonEnabled: StateSetter<boolean>;
   arrowKeySelection: boolean;
   setArrowKeySelection: StateSetter<boolean>;
+  lightModeEnabled: boolean;
+  setLightModeEnabled: StateSetter<boolean>;
+  lightModeIdleMinutes: number;
+  setLightModeIdleMinutes: StateSetter<number>;
   hideTrayIcon: boolean;
   setHideTrayIcon: StateSetter<boolean>;
   hideDockIcon: boolean;

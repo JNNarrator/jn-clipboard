@@ -17,6 +17,8 @@ interface GeneralSettingsGroupProps {
     LabelWithHint: ComponentType<LabelWithHintProps>;
     autoStart: boolean;
     setAutoStart: (val: boolean) => void;
+    elevatedAutostart: boolean;
+    setElevatedAutostart: (val: boolean) => void;
     silentStart: boolean;
     setSilentStart: (val: boolean) => void;
     hideTrayIcon: boolean;
@@ -31,7 +33,8 @@ interface GeneralSettingsGroupProps {
     setSoundEnabled: (val: boolean) => void;
     pasteSoundEnabled: boolean;
     setPasteSoundEnabled: (val: boolean) => void;
-    showSearchBox: boolean;
+    searchBoxPinned: boolean;
+    setSearchBoxPinned: (val: boolean) => void;
     setShowSearchBox: (val: boolean) => void;
     scrollTopButtonEnabled: boolean;
     setScrollTopButtonEnabled: (val: boolean) => void;
@@ -41,6 +44,10 @@ interface GeneralSettingsGroupProps {
     setTagManagerEnabled: (val: boolean) => void;
     arrowKeySelection: boolean;
     setArrowKeySelection: (val: boolean) => void;
+    lightModeEnabled: boolean;
+    setLightModeEnabled: (val: boolean) => void;
+    lightModeIdleMinutes: number;
+    setLightModeIdleMinutes: (val: number) => void;
     soundVolume: number;
     setSoundVolume: (val: number) => void;
     saveAppSetting: (key: string, val: string) => void;
@@ -69,6 +76,8 @@ const GeneralSettingsGroup = ({
     LabelWithHint,
     autoStart,
     setAutoStart,
+    elevatedAutostart,
+    setElevatedAutostart,
     silentStart,
     setSilentStart,
     hideTrayIcon,
@@ -83,7 +92,8 @@ const GeneralSettingsGroup = ({
     setSoundEnabled,
     pasteSoundEnabled,
     setPasteSoundEnabled,
-    showSearchBox,
+    searchBoxPinned,
+    setSearchBoxPinned,
     setShowSearchBox,
     scrollTopButtonEnabled,
     setScrollTopButtonEnabled,
@@ -93,6 +103,10 @@ const GeneralSettingsGroup = ({
     setTagManagerEnabled,
     arrowKeySelection,
     setArrowKeySelection,
+    lightModeEnabled,
+    setLightModeEnabled,
+    lightModeIdleMinutes,
+    setLightModeIdleMinutes,
     soundVolume,
     setSoundVolume,
     saveAppSetting
@@ -115,12 +129,42 @@ const GeneralSettingsGroup = ({
                             checked={autoStart}
                             onChange={(e) => {
                                 const enabled = e.target.checked;
+                                if (!enabled) {
+                                    setElevatedAutostart(false);
+                                }
                                 applyToggle(enabled, setAutoStart, "toggle_autostart", { enabled });
                             }}
                         />
                         <div className="toggle"><div className="left" /><div className="right" /></div>
                     </label>
                 </div>
+
+                {isWindowsPlatform() && autoStart && (
+                    <div className="setting-item" style={{ marginLeft: '18px' }}>
+                        <LabelWithHint
+                            label={t('elevated_autostart')}
+                            hint={t('elevated_autostart_hint')}
+                            hintKey="elevated_autostart"
+                        />
+                        <label className="switch">
+                            <input
+                                className="cb"
+                                type="checkbox"
+                                checked={elevatedAutostart}
+                                onChange={(e) => {
+                                    const enabled = e.target.checked;
+                                    applyToggle(
+                                        enabled,
+                                        setElevatedAutostart,
+                                        "toggle_elevated_autostart",
+                                        { enabled }
+                                    );
+                                }}
+                            />
+                            <div className="toggle"><div className="left" /><div className="right" /></div>
+                        </label>
+                    </div>
+                )}
 
                 <div className="setting-item">
                     <div className="item-label-group">
@@ -310,9 +354,10 @@ const GeneralSettingsGroup = ({
                         <input
                             className="cb"
                             type="checkbox"
-                            checked={showSearchBox}
+                            checked={searchBoxPinned}
                             onChange={(e) => {
                                 const enabled = e.target.checked;
+                                setSearchBoxPinned(enabled);
                                 setShowSearchBox(enabled);
                                 saveAppSetting('show_search_box', String(enabled));
                             }}
@@ -343,7 +388,7 @@ const GeneralSettingsGroup = ({
                 <div className="setting-item">
                     <LabelWithHint
                         label={t('emoji_panel_enabled') || '表情包开关'}
-                        hint={t('emoji_panel_enabled_hint') || '关闭后隐藏表情包入口'}
+                        hint={t('emoji_panel_enabled_hint') || '关闭后顶部不再显示表情包入口。'}
                         hintKey="emoji_panel_enabled"
                     />
                     <label className="switch">
@@ -363,7 +408,7 @@ const GeneralSettingsGroup = ({
                 <div className="setting-item">
                     <LabelWithHint
                         label={t('tag_manager_enabled') || '标签管理页开关'}
-                        hint={t('tag_manager_enabled_hint') || '关闭后隐藏标签管理入口'}
+                        hint={t('tag_manager_enabled_hint') || '关闭后顶部不再显示标签管理入口。'}
                         hintKey="tag_manager_enabled"
                     />
                     <label className="switch">
@@ -400,6 +445,51 @@ const GeneralSettingsGroup = ({
                         <div className="toggle"><div className="left" /><div className="right" /></div>
                     </label>
                 </div>
+                <div className="setting-item">
+                    <LabelWithHint
+                        label={t('light_mode_enabled')}
+                        hint={t('light_mode_enabled_hint')}
+                        hintKey="light_mode_enabled"
+                    />
+                    <label className="switch">
+                        <input
+                            className="cb"
+                            type="checkbox"
+                            checked={lightModeEnabled}
+                            onChange={(e) => {
+                                const enabled = e.target.checked;
+                                setLightModeEnabled(enabled);
+                                saveAppSetting('light_mode_enabled', String(enabled));
+                            }}
+                        />
+                        <div className="toggle"><div className="left" /><div className="right" /></div>
+                    </label>
+                </div>
+                {lightModeEnabled && (
+                    <div className="setting-item">
+                        <LabelWithHint
+                            label={t('light_mode_idle_minutes')}
+                            hint={t('light_mode_idle_minutes_hint')}
+                            hintKey="light_mode_idle_minutes"
+                        />
+                        <select
+                            className="search-input settings-hotkey-select"
+                            value={lightModeIdleMinutes}
+                            onChange={(e) => {
+                                const mins = Number.parseInt(e.target.value, 10);
+                                const next = Number.isFinite(mins) ? mins : 15;
+                                setLightModeIdleMinutes(next);
+                                saveAppSetting('light_mode_idle_minutes', String(next));
+                            }}
+                        >
+                            {[5, 15, 30, 60].map((mins) => (
+                                <option key={mins} value={mins}>
+                                    {mins} {t('light_mode_minutes_unit')}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                )}
 
                 {isWindowsPlatform() && (
                     <div className="setting-item">

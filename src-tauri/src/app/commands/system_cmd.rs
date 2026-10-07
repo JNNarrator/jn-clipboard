@@ -286,28 +286,21 @@ pub fn open_file_location(file_path: String) -> AppResult<()> {
 pub fn toggle_autostart(app_handle: AppHandle, enabled: bool) -> AppResult<()> {
     #[cfg(target_os = "windows")]
     {
-        use winreg::enums::*;
-        use winreg::RegKey;
-
-        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
-        let key = hkcu
-            .open_subkey_with_flags(
-                "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
-                KEY_WRITE | KEY_READ,
-            )
-            .map_err(|e| AppError::Internal(e.to_string()))?;
-        let app_path = std::env::current_exe()
-            .map_err(|e| AppError::Internal(e.to_string()))?
-            .to_string_lossy()
-            .to_string();
-        let cmd = format!("\"{}\" --minimized", app_path);
+        use crate::infrastructure::windows_api::elevated_autostart;
 
         if enabled {
-            key.set_value("TieZ", &cmd)
-                .map_err(|e| AppError::Internal(e.to_string()))?;
+            if elevated_autostart::is_elevated_autostart_installed() {
+                // Keep elevated task; ensure registry Run is not also set.
+                elevated_autostart::clear_registry_run_entry()
+                    .map_err(AppError::Internal)?;
+            } else {
+                elevated_autostart::write_registry_run_entry().map_err(AppError::Internal)?;
+            }
         } else {
-            let _ = key.delete_value("TieZ");
-            let _ = key.delete_value("tie-z");
+            elevated_autostart::clear_registry_run_entry().map_err(AppError::Internal)?;
+            if elevated_autostart::is_elevated_autostart_installed() {
+                elevated_autostart::run_elevated_helper(false).map_err(AppError::Internal)?;
+            }
         }
         let _ = app_handle;
         return Ok(());
@@ -330,17 +323,10 @@ pub fn toggle_autostart(app_handle: AppHandle, enabled: bool) -> AppResult<()> {
 pub fn is_autostart_enabled(app_handle: AppHandle) -> AppResult<bool> {
     #[cfg(target_os = "windows")]
     {
-        use winreg::enums::*;
-        use winreg::RegKey;
-        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
-        let key = hkcu
-            .open_subkey("Software\\Microsoft\\Windows\\CurrentVersion\\Run")
-            .map_err(|e| AppError::Internal(e.to_string()))?;
+        use crate::infrastructure::windows_api::elevated_autostart;
         let _ = app_handle;
-        return Ok(
-            key.get_value::<String, _>("TieZ").is_ok()
-                || key.get_value::<String, _>("tie-z").is_ok(),
-        );
+        return Ok(elevated_autostart::registry_run_present()
+            || elevated_autostart::is_elevated_autostart_installed());
     }
 
     #[cfg(not(target_os = "windows"))]
@@ -348,6 +334,55 @@ pub fn is_autostart_enabled(app_handle: AppHandle) -> AppResult<bool> {
         use tauri_plugin_autostart::ManagerExt;
         let autolaunch = app_handle.autolaunch();
         Ok(autolaunch.is_enabled().unwrap_or(false))
+    }
+}
+
+#[tauri::command]
+pub fn is_elevated_autostart_enabled() -> bool {
+    #[cfg(target_os = "windows")]
+    {
+        crate::infrastructure::windows_api::elevated_autostart::is_elevated_autostart_installed()
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        false
+    }
+}
+
+/// Enable/disable admin logon autostart (Task Scheduler Highest). Prompts UAC once.
+#[tauri::command]
+pub fn toggle_elevated_autostart(enabled: bool) -> AppResult<()> {
+    #[cfg(target_os = "windows")]
+    {
+        use crate::infrastructure::windows_api::elevated_autostart;
+
+        if enabled {
+            if check_is_admin() {
+                elevated_autostart::install_elevated_autostart_task()
+                    .map_err(AppError::Internal)?;
+            } else {
+                elevated_autostart::run_elevated_helper(true).map_err(AppError::Internal)?;
+            }
+        } else {
+            if elevated_autostart::is_elevated_autostart_installed() {
+                if check_is_admin() {
+                    elevated_autostart::uninstall_elevated_autostart_task()
+                        .map_err(AppError::Internal)?;
+                } else {
+                    elevated_autostart::run_elevated_helper(false).map_err(AppError::Internal)?;
+                }
+            }
+            // Fall back to normal (non-elevated) registry autostart so "开机自启动" stays on.
+            elevated_autostart::write_registry_run_entry().map_err(AppError::Internal)?;
+        }
+        Ok(())
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = enabled;
+        Err(AppError::Internal(
+            "Elevated autostart is only supported on Windows".into(),
+        ))
     }
 }
 
@@ -595,7 +630,7 @@ pub fn get_app_arch() -> String {
 
 #[tauri::command]
 pub fn quit(app: AppHandle) {
-    app.exit(0);
+    crate::app::light_mode::request_app_exit(&app);
 }
 
 #[tauri::command]
@@ -604,7 +639,7 @@ pub fn relaunch(app: AppHandle) {
     if let Ok(exe) = std::env::current_exe() {
         let _ = Command::new(exe).spawn();
     }
-    app.exit(0);
+    crate::app::light_mode::request_app_exit(&app);
 }
 
 #[tauri::command]
@@ -646,7 +681,7 @@ pub fn restart_as_admin(app_handle: AppHandle) -> AppResult<()> {
             }
         }
 
-        app_handle.exit(0);
+        crate::app::light_mode::request_app_exit(&app_handle);
         Ok(())
     }
     #[cfg(not(target_os = "windows"))]

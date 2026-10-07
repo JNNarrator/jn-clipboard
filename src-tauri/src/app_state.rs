@@ -1,7 +1,7 @@
 use crate::domain::models::ClipboardEntry;
 use crate::services::encryption_queue::EncryptionQueue;
 use std::collections::VecDeque;
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, AtomicU64};
 use std::sync::Mutex;
 
 pub struct SettingsState {
@@ -32,6 +32,10 @@ pub struct SettingsState {
     pub edge_docking: AtomicBool,
     pub follow_mouse: AtomicBool,
     pub arrow_key_selection: AtomicBool,
+    /// Idle WebView release (#154): destroy main WebView after idle, keep listeners.
+    pub light_mode_enabled: AtomicBool,
+    /// Idle minutes before entering light mode (min 1).
+    pub light_mode_idle_minutes: AtomicU64,
     pub main_hotkey: Mutex<String>,
     pub monitors: Mutex<Vec<tauri::Monitor>>,
     pub sound_volume: Mutex<f64>,

@@ -541,9 +541,10 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   place-items: center;
   padding: 8px;
   border-radius: 12px;
+  /* Light pad keeps QR contrast in dark themes. */
   background: #ffffff;
   border: 1px solid var(--im-border);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--shadow-color, rgba(0, 0, 0, 0.35)) 35%, transparent);
   margin-bottom: 3px;
 }
 

@@ -178,10 +178,18 @@ body.theme-acrylic #root > * {
     --shell-border: 1px solid rgba(255, 255, 255, 0.12);
     --toolbar-border: 1px solid rgba(255, 255, 255, 0.08);
     --panel-border: 1px solid rgba(255, 255, 255, 0.1);
+    --panel-divider-color: rgba(255, 255, 255, 0.1);
     --menu-border: 1px solid rgba(255, 255, 255, 0.1);
+    --card-border: 1px solid rgba(255, 255, 255, 0.14);
+    --card-hover-border-color: rgba(255, 255, 255, 0.22);
     --card-selected-background: rgba(255, 255, 255, 0.08);
     --card-selected-border-color: rgba(255, 255, 255, 0.18);
     --card-selected-shadow: none;
+    --data-panel-border: 1px solid rgba(255, 255, 255, 0.14);
+    --data-panel-hover-background: rgba(255, 255, 255, 0.08);
+    --queue-border: 1px solid rgba(255, 255, 255, 0.16);
+    --queue-count-border: 1px solid rgba(255, 255, 255, 0.14);
+    --queue-action-border: 1px solid rgba(255, 255, 255, 0.14);
 
     --popover-background: rgba(26, 31, 40, 0.95);
     --modal-background: rgba(24, 28, 36, 0.96);
@@ -221,10 +229,18 @@ body.dark-mode.theme-acrylic {
   --shell-border: 1px solid rgba(255, 255, 255, 0.12);
   --toolbar-border: 1px solid rgba(255, 255, 255, 0.08);
   --panel-border: 1px solid rgba(255, 255, 255, 0.1);
+  --panel-divider-color: rgba(255, 255, 255, 0.1);
   --menu-border: 1px solid rgba(255, 255, 255, 0.1);
+  --card-border: 1px solid rgba(255, 255, 255, 0.14);
+  --card-hover-border-color: rgba(255, 255, 255, 0.22);
   --card-selected-background: rgba(255, 255, 255, 0.08);
   --card-selected-border-color: rgba(255, 255, 255, 0.18);
   --card-selected-shadow: none;
+  --data-panel-border: 1px solid rgba(255, 255, 255, 0.14);
+  --data-panel-hover-background: rgba(255, 255, 255, 0.08);
+  --queue-border: 1px solid rgba(255, 255, 255, 0.16);
+  --queue-count-border: 1px solid rgba(255, 255, 255, 0.14);
+  --queue-action-border: 1px solid rgba(255, 255, 255, 0.14);
 
   --popover-background: rgba(26, 31, 40, 0.95);
   --modal-background: rgba(24, 28, 36, 0.96);

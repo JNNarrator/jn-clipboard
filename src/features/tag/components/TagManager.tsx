@@ -768,7 +768,7 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                                         }}
                                     >
                                         <div className="card-top-row">
-                                            <div className="card-actions-left">
+                                            <div className="card-actions">
                                                 {isManageMode ? (
                                                     <div className={`selection-indicator ${selectedItemIds.has(item.id) ? "checked" : ""}`}>
                                                         <div className="inner-check" />
@@ -815,21 +815,19 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                                                         >
                                                             <ExternalLink size={10} />
                                                         </button>
+                                                        <button
+                                                            className="del-btn"
+                                                            title="删除"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setItemDeleteConfirmation({ show: true, id: item.id });
+                                                            }}
+                                                        >
+                                                            <X size={10} />
+                                                        </button>
                                                     </>
                                                 )}
                                             </div>
-                                            {!isManageMode && (
-                                                <button
-                                                    className="del-btn"
-                                                    title="删除"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setItemDeleteConfirmation({ show: true, id: item.id });
-                                                    }}
-                                                >
-                                                    <X size={10} />
-                                                </button>
-                                            )}
                                         </div>
 
                                         {item.content_type === "image" ? (
@@ -999,9 +997,9 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                 onClose={() => setDeleteConfirmation({ show: false, tagName: null })}
                 theme={theme}
                 panelClassName="modal-panel confirm-dialog"
-                ariaLabel={t("confirm_delete")}
+                ariaLabel={t("delete_tag")}
             >
-                <h3 className="confirm-dialog-title">{t("confirm_delete")}</h3>
+                <h3 className="confirm-dialog-title">{t("delete_tag")}</h3>
                 <p className="confirm-dialog-message">
                     {t("confirm_delete_tag")}
                     <br />
@@ -1036,7 +1034,7 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                 ariaLabel={t("confirm_delete")}
             >
                 <h3 className="confirm-dialog-title">{t("confirm_delete")}</h3>
-                <p className="confirm-dialog-message">{t("confirm_delete_desc") || "确定要删除这条记录吗？"}</p>
+                <p className="confirm-dialog-message">{t("confirm_delete_desc")}</p>
                 <div className="confirm-dialog-buttons">
                     <button type="button" className="modal-button" onClick={() => setItemDeleteConfirmation({ show: false, id: null })}>
                         {t("cancel")}
