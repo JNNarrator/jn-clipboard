@@ -299,3 +299,37 @@ body.dark-mode.theme-sticky-note .history-item {
 body.dark-mode.theme-sticky-note .history-item.selected {
   background: var(--card-selected-background) !important;
 }
+
+/* ===== Tags: search box and tag picker (theme-specific) ===== */
+
+/* --- Sticky note: warm rounded sheet --- */
+.theme-sticky-note .search-input.dropdown-open {
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+  border-bottom-color: rgba(199, 163, 93, 0.45) !important;
+}
+
+.theme-sticky-note .tags-dropdown {
+  margin-top: 0 !important;
+  padding: 8px 10px 10px !important;
+  border-top: none !important;
+  border-radius: 0 0 10px 10px !important;
+  background: var(--bg-input) !important;
+  border-color: rgba(199, 163, 93, 0.58) !important;
+  box-shadow: var(--tags-shadow) !important;
+}
+
+.theme-sticky-note .tags-dropdown .tags-list {
+  flex-direction: column;
+  gap: 6px;
+}
+
+.theme-sticky-note .tags-dropdown .tag-chip {
+  width: 100%;
+  justify-content: flex-start;
+  border-radius: 999px !important;
+}
+
+.theme-sticky-note .tags-dropdown .tag-chip:hover {
+  transform: none !important;
+}

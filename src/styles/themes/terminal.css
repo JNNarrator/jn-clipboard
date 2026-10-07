@@ -479,3 +479,129 @@ body.theme-terminal .tag-manager-page {
   border-color: rgba(63, 185, 80, 0.35);
   box-shadow: none;
 }
+
+/* ===== Tags: search box and tag picker (theme-specific) ===== */
+
+/* --- Terminal: zsh prompt search + flat tag picker --- */
+.theme-terminal .search-container .search-icon {
+  display: none;
+}
+
+.theme-terminal .search-prompt {
+  display: flex;
+  align-items: center;
+  position: absolute;
+  left: var(--layout-search-icon-left);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--term-prompt, var(--term-green, var(--accent-color)));
+  font-family: var(--font-main);
+  font-weight: 700;
+  font-size: var(--font-size-md);
+  line-height: 1;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.theme-terminal .search-input.dropdown-open {
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+  border-bottom: 1px solid var(--term-border-subtle, var(--line-soft)) !important;
+}
+
+.theme-terminal .tags-dropdown {
+  margin-top: 0 !important;
+  padding: 0 !important;
+  gap: 0 !important;
+  border: 1px solid var(--term-border, var(--line-strong)) !important;
+  border-top: none !important;
+  border-radius: 0 !important;
+  background: var(--term-bg-elevated, var(--bg-panel)) !important;
+  box-shadow: none !important;
+  max-height: min(220px, 42vh);
+}
+
+.theme-terminal .tags-dropdown .tags-list {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  gap: 0;
+  padding: 2px 0 4px;
+}
+
+.theme-terminal .tags-dropdown .tag-chip {
+  width: 100%;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  filter: none !important;
+  padding: 5px 10px !important;
+  justify-content: flex-start;
+  font-family: var(--font-main);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  text-transform: none;
+}
+
+.theme-terminal .tags-dropdown .tag-chip::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  border-radius: 50%;
+  background: var(--tag-color, var(--accent-color));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--tag-color, var(--accent-color)) 42%, transparent);
+  margin-right: 7px;
+  opacity: 1;
+}
+
+.theme-terminal .tags-dropdown .tag-chip::after {
+  content: none;
+}
+
+.theme-terminal .tags-dropdown .tag-chip:hover {
+  filter: none !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.theme-terminal .tag-chip {
+  font-weight: 600;
+  text-transform: lowercase;
+  letter-spacing: 0.02em;
+  box-shadow: none !important;
+  filter: none !important;
+  border-radius: 0 !important;
+  border: 1px solid var(--term-border-subtle, rgba(210, 168, 255, 0.22)) !important;
+}
+
+.theme-terminal .tag-chip:hover,
+.theme-terminal .tag-chip:active {
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+.theme-terminal .item-tags-container.overlay .tag-chip {
+  box-shadow: none !important;
+}
+
+.theme-terminal .tag-chip::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  border-radius: 50%;
+  background: var(--tag-color, var(--accent-color));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--tag-color, var(--accent-color)) 42%, transparent);
+  margin-right: 3px;
+}
+
+.theme-terminal .tag-chip::after {
+  content: none;
+}
+
+body.light-mode.theme-terminal .tag-chip {  border-color: var(--term-border-subtle, rgba(130, 80, 223, 0.22)) !important;
+}
+
+body.light-mode.theme-terminal .tag-chip::before {
+  background: var(--tag-color, var(--accent-color));
+}

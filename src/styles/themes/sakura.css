@@ -378,3 +378,54 @@ body.dark-mode.theme-sakura #root::before {
 .dark-mode .theme-sakura .ticker-icon {
   border-right-color: rgba(255, 255, 255, 0.06);
 }
+
+/* ===== Tags: search box and tag picker (theme-specific) ===== */
+
+/* --- Sakura: soft glass blossom --- */
+.theme-sakura .search-input.dropdown-open {
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+  border-bottom-color: rgba(255, 133, 161, 0.2) !important;
+  background: rgba(255, 255, 255, 0.72) !important;
+  box-shadow: inset 0 1px 2px rgba(255, 133, 161, 0.05) !important;
+}
+
+.theme-sakura .tags-dropdown {
+  margin-top: 0 !important;
+  padding: 8px 10px 10px !important;
+  border-top: none !important;
+  border-radius: 0 0 12px 12px !important;
+  background: var(--popover-background) !important;
+  border-color: rgba(255, 133, 161, 0.25) !important;
+  box-shadow: var(--tags-shadow) !important;
+  backdrop-filter: var(--popover-backdrop-filter, blur(24px) saturate(160%));
+  -webkit-backdrop-filter: var(--popover-backdrop-filter, blur(24px) saturate(160%));
+}
+
+body.dark-mode.theme-sakura .search-input.dropdown-open,
+:root.dark-mode .theme-sakura .search-input.dropdown-open {
+  background: var(--popover-background) !important;
+  border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+body.dark-mode.theme-sakura .tags-dropdown,
+:root.dark-mode .theme-sakura .tags-dropdown {
+  background: var(--popover-background) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.theme-sakura .tags-dropdown .tags-list {
+  flex-direction: column;
+  gap: 6px;
+}
+
+.theme-sakura .tags-dropdown .tag-chip {
+  width: 100%;
+  justify-content: flex-start;
+  border-radius: 8px !important;
+}
+
+.theme-sakura .tags-dropdown .tag-chip:hover {
+  transform: none !important;
+  box-shadow: var(--tag-chip-hover-shadow) !important;
+}

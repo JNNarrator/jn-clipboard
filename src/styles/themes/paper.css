@@ -245,3 +245,41 @@ body.dark-mode.theme-paper {
   --menu-background: #32302f;
   --popover-backdrop-filter: none;
 }
+
+/* ===== Tags: search box and tag picker (theme-specific) ===== */
+
+/* --- Paper: parchment panel --- */
+.theme-paper .search-input.dropdown-open {
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+  border-bottom-color: #d5c4a1 !important;
+}
+
+.theme-paper .tags-dropdown {
+  margin-top: 0 !important;
+  padding: 4px 0 6px !important;
+  border-top: none !important;
+  border-radius: 0 0 2px 2px !important;
+  background: var(--bg-input) !important;
+  border-color: #d5c4a1 !important;
+  box-shadow: var(--tags-shadow) !important;
+}
+
+.theme-paper .tags-dropdown .tags-list {
+  flex-direction: column;
+  gap: 0;
+  padding: 0 4px;
+}
+
+.theme-paper .tags-dropdown .tag-chip {
+  width: 100%;
+  justify-content: flex-start;
+  border-radius: 2px !important;
+  margin: 1px 0;
+  box-shadow: none !important;
+}
+
+.theme-paper .tags-dropdown .tag-chip:hover {
+  filter: brightness(1.04) !important;
+  transform: none !important;
+}

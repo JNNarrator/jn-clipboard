@@ -302,3 +302,64 @@ body.dark-mode.theme-retro {
   --menu-background: #262626;
   --popover-backdrop-filter: none;
 }
+
+/* ===== Tags: search box and tag picker (theme-specific) ===== */
+
+/* --- Retro-specific accents --- */
+.theme-retro .tag-chip {
+    font-weight: 800;
+}
+
+/* --- Retro: beveled ticket list --- */
+.theme-retro .search-input.dropdown-open {
+  border-bottom: none !important;
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+  box-shadow: inset 4px 4px 0 rgba(0, 0, 0, 0.1) !important;
+}
+
+.theme-retro .tags-dropdown {
+  margin-top: 0 !important;
+  padding: 0 !important;
+  border-top: none !important;
+  border-radius: 0 !important;
+  background: var(--bg-input) !important;
+  box-shadow: var(--tags-shadow) !important;
+}
+
+.theme-retro .tags-dropdown .tags-list {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  gap: 0;
+}
+
+.theme-retro .tags-dropdown .tag-chip {
+  width: 100%;
+  justify-content: flex-start;
+  border-radius: 0 !important;
+  border-left: none !important;
+  border-right: none !important;
+  border-top: none !important;
+  border-bottom: 2px solid var(--border-dark) !important;
+  box-shadow: none !important;
+  padding: 6px 10px !important;
+  transform: none !important;
+}
+
+.theme-retro .tags-dropdown .tag-chip:last-child {
+  border-bottom: none !important;
+}
+
+.theme-retro .tags-dropdown .tag-chip::before {
+  content: "# ";
+  color: var(--text-primary);
+  font-weight: 800;
+  margin-right: 2px;
+}
+
+.theme-retro .tags-dropdown .tag-chip:hover,
+.theme-retro .tags-dropdown .tag-chip:active {
+  filter: none !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
