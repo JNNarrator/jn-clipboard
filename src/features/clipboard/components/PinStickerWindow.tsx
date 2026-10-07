@@ -384,7 +384,7 @@ export const PinStickerWindow: React.FC = () => {
             onClick={handleCopyImage}
             title={t("copy")}
           >
-            {copied ? <Check size={14} style={{ color: "#10b981" }} /> : <Copy size={14} />}
+            {copied ? <Check size={14} style={{ color: "var(--status-success)" }} /> : <Copy size={14} />}
           </button>
 
           <button
@@ -449,7 +449,7 @@ export const PinStickerWindow: React.FC = () => {
         {/* Sticker Image Viewport */}
         <div className="pin-sticker-image-wrapper">
           {imageError ? (
-            <div style={{ color: "var(--text-primary, #ffffff)", fontSize: "12px", textAlign: "center", padding: "16px" }}>
+            <div style={{ color: "var(--text-primary, #ffffff)", fontSize: 'var(--font-size-sm)', textAlign: "center", padding: "16px" }}>
               {t("sticker_image_load_failed")}
             </div>
           ) : (

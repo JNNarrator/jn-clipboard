@@ -87,22 +87,11 @@ const SyncSettingsGroup = ({
         </button>
         {!collapsed && (
             <div className="group-content">
-                <div style={{
-                    marginBottom: '12px',
-                    padding: '8px 12px',
-                    background: 'rgba(var(--accent-color-rgb), 0.1)',
-                    border: '1px solid rgba(var(--accent-color-rgb), 0.2)',
-                    borderRadius: 'var(--button-radius)',
-                    display: 'flex',
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    gap: '12px'
-                }}>
-                    <span style={{ fontSize: '12px', color: 'var(--text-primary)' }}>{t('mqtt_tutorial_hint')}</span>
+                <div className="settings-notice settings-notice--action">
+                    <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)' }}>{t('mqtt_tutorial_hint')}</span>
                     <button
                         className="btn-icon"
-                        style={{ fontSize: '11px', padding: '4px 12px', height: '24px', width: 'auto', flexShrink: 0 }}
+                        style={{ fontSize: 'var(--font-size-xs)', padding: '4px 12px', height: '24px', width: 'auto', flexShrink: 0 }}
                         onClick={() => {
                             invoke("open_content", {
                                 id: 0,
@@ -142,7 +131,7 @@ const SyncSettingsGroup = ({
                             />
                             <select
                                 className="search-input"
-                                style={{ borderRadius: '0', padding: '6px', width: '100px', background: 'var(--bg-input)', border: '2px solid var(--border-dark)', color: 'var(--text-primary)', fontSize: '12px' }}
+                                style={{ borderRadius: '0', padding: '6px', width: '100px', background: 'var(--bg-input)', border: '2px solid var(--border-dark)', color: 'var(--text-primary)', fontSize: 'var(--font-size-sm)' }}
                                 value={mqttProtocol}
                                 onChange={e => {
                                     const protocol = e.target.value;

@@ -636,7 +636,7 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
                                                     invoke('set_privacy_protection_kinds', { kinds: next }).catch(console.error);
                                                 }}
                                             />
-                                            <span style={{ fontSize: '12px', color: 'var(--text-primary)' }}>{opt.label}</span>
+                                            <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)' }}>{opt.label}</span>
                                         </label>
                                     );
                                 })}

@@ -27,7 +27,7 @@ const ListFooter = ({ context }: { context?: VirtuosoListContext }) => {
             padding: '20px',
             textAlign: 'center',
             opacity: 0.6,
-            fontSize: '12px',
+            fontSize: 'var(--font-size-sm)',
             color: 'var(--text-secondary)'
         }}>
             <span role="status" aria-live="polite">

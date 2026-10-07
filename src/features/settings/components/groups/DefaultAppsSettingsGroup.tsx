@@ -50,12 +50,12 @@ const DefaultAppsSettingsGroup = ({
                     {APP_TYPES.map((type, idx, arr) => (
                         <div key={type} className={`setting-item column ${idx === arr.length - 1 ? 'no-border' : ''}`}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                                <span className="item-label" style={{ textTransform: 'uppercase', fontSize: '11px', opacity: 0.8 }}>{getTypeName(type)}</span>
+                                <span className="item-label" style={{ textTransform: 'uppercase', fontSize: 'var(--font-size-xs)', opacity: 0.8 }}>{getTypeName(type)}</span>
                                 <button
                                     className="btn-icon"
                                     onClick={() => setShowAppSelector(type)}
                                     title={t('change_app')}
-                                    style={{ width: 'auto', padding: '4px 12px', fontSize: '10px', textTransform: 'uppercase', height: '24px' }}
+                                    style={{ width: 'auto', padding: '4px 12px', fontSize: 'var(--font-size-2xs)', textTransform: 'uppercase', height: '24px' }}
                                 >
                                     {t('change_app')}
                                 </button>

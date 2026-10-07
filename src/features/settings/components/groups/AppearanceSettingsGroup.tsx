@@ -429,7 +429,7 @@ const AppearanceSettingsGroup = ({
                             hint={t('clipboard_item_font_size_hint')}
                             hintKey="clipboard_item_font_size"
                         />
-                        <span className="hint setting-value" style={{ fontSize: '10px', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                        <span className="hint setting-value" style={{ fontSize: 'var(--font-size-2xs)', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
                             {clipboardItemFontSize}px
                         </span>
                     </div>
@@ -455,7 +455,7 @@ const AppearanceSettingsGroup = ({
                             hint={t('clipboard_tag_font_size_hint')}
                             hintKey="clipboard_tag_font_size"
                         />
-                        <span className="hint setting-value" style={{ fontSize: '10px', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                        <span className="hint setting-value" style={{ fontSize: 'var(--font-size-2xs)', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
                             {clipboardTagFontSize}px
                         </span>
                     </div>
@@ -519,7 +519,7 @@ const AppearanceSettingsGroup = ({
                                         }
                                     }}
                                     className="btn-icon"
-                                    style={{ flex: 1, height: '36px', fontSize: '12px', fontWeight: 'bold' }}
+                                    style={{ flex: 1, height: '36px', fontSize: 'var(--font-size-sm)', fontWeight: 'bold' }}
                                 >
                                     {customBackground ? t('change_background') : t('choose_background')}
                                 </button>
@@ -530,7 +530,7 @@ const AppearanceSettingsGroup = ({
                                             saveAppSetting('custom_background', '');
                                         }}
                                         className="btn-icon"
-                                        style={{ height: '36px', fontSize: '12px', fontWeight: 'bold', padding: '0 12px' }}
+                                        style={{ height: '36px', fontSize: 'var(--font-size-sm)', fontWeight: 'bold', padding: '0 12px' }}
                                         title={t('clear_background')}
                                     >
                                         <X size={16} />
@@ -538,7 +538,7 @@ const AppearanceSettingsGroup = ({
                                 )}
                             </div>
                             {customBackground && (
-                                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px', wordBreak: 'break-all' }}>
+                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', marginTop: '4px', wordBreak: 'break-all' }}>
                                     {customBackground.split(/[/\\]/).pop()}
                                 </div>
                             )}
@@ -547,7 +547,7 @@ const AppearanceSettingsGroup = ({
                                 <div className="setting-item column no-border" style={{ marginTop: '12px' }}>
                                     <div className="item-label-group" style={{ marginBottom: '4px', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <span className="item-label">{t('background_opacity')}</span>
-                                        <span className="hint" style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>{customBackgroundOpacity}%</span>
+                                        <span className="hint" style={{ fontSize: 'var(--font-size-2xs)', color: 'var(--text-secondary)' }}>{customBackgroundOpacity}%</span>
                                     </div>
                                     <input
                                         type="range"
@@ -570,7 +570,7 @@ const AppearanceSettingsGroup = ({
                         <div className="setting-item column">
                             <div className="item-label-group" style={{ marginBottom: '4px', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <span className="item-label">{t('surface_opacity')}</span>
-                                <span className="hint" style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>{surfaceOpacity}%</span>
+                                <span className="hint" style={{ fontSize: 'var(--font-size-2xs)', color: 'var(--text-secondary)' }}>{surfaceOpacity}%</span>
                             </div>
                             <input
                                 type="range"

@@ -422,7 +422,7 @@ const DataSettingsGroup = ({
                     <div className="group-content">
                         <div className="setting-item column no-border">
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                                <span className="item-label" style={{ textTransform: "uppercase", fontSize: "11px", opacity: 0.8 }}>{t("data_path")}</span>
+                                <span className="item-label" style={{ textTransform: "uppercase", fontSize: 'var(--font-size-xs)', opacity: 0.8 }}>{t("data_path")}</span>
                                 <div style={{ display: "flex", gap: "8px" }}>
                                     <button
                                         className="btn-icon"
@@ -459,7 +459,7 @@ const DataSettingsGroup = ({
                                                 }
                                             }, "settings:change-data-path");
                                         }}
-                                        style={{ width: "auto", padding: "4px 12px", fontSize: "10px", textTransform: "uppercase", height: "24px" }}
+                                        style={{ width: "auto", padding: "4px 12px", fontSize: 'var(--font-size-2xs)', textTransform: "uppercase", height: "24px" }}
                                     >
                                         {t("change_app")}
                                     </button>
@@ -479,13 +479,13 @@ const DataSettingsGroup = ({
                                             }
                                         }}
                                         title={t("open_folder")}
-                                        style={{ width: "auto", padding: "4px 12px", fontSize: "10px", textTransform: "uppercase", height: "24px" }}
+                                        style={{ width: "auto", padding: "4px 12px", fontSize: 'var(--font-size-2xs)', textTransform: "uppercase", height: "24px" }}
                                     >
                                         {t("open_folder")}
                                     </button>
                                 </div>
                             </div>
-                            <div className="data-panel" style={{ fontSize: "11px", color: "var(--text-secondary)", wordBreak: "break-all" }}>
+                            <div className="data-panel" style={{ fontSize: 'var(--font-size-xs)', color: "var(--text-secondary)", wordBreak: "break-all" }}>
                                 {dataPath}
                             </div>
                         </div>

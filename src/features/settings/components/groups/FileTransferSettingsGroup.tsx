@@ -123,7 +123,7 @@ const FileTransferSettingsGroup = ({
                                             background: 'transparent',
                                             padding: 0,
                                             margin: 0,
-                                            fontSize: '11px',
+                                            fontSize: 'var(--font-size-xs)',
                                             height: 'auto',
                                             width: 'auto',
                                             minWidth: '0',
@@ -141,9 +141,9 @@ const FileTransferSettingsGroup = ({
                                         ))}
                                     </select>
                                 ) : (
-                                    <span style={{ fontSize: '11px' }}>{localIp}</span>
+                                    <span style={{ fontSize: 'var(--font-size-xs)' }}>{localIp}</span>
                                 )}
-                                <span style={{ fontSize: '11px', opacity: 0.7 }}>:{Number(actualPort) > 0 ? actualPort : fileServerPort}</span>
+                                <span style={{ fontSize: 'var(--font-size-xs)', opacity: 0.7 }}>:{Number(actualPort) > 0 ? actualPort : fileServerPort}</span>
                             </div>
                         </div>
                         <div className="setting-item">
@@ -189,7 +189,7 @@ const FileTransferSettingsGroup = ({
                         </div>
 
                         {showAutoCloseHint && (
-                            <div style={{ margin: '4px 8px 12px', padding: '10px 14px', background: 'rgba(var(--accent-color-rgb), 0.08)', border: '1px solid rgba(var(--accent-color-rgb), 0.2)', borderRadius: 'var(--button-radius)', fontSize: '11px', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
+                            <div className="settings-notice">
                                 {t('auto_close_hint')}
                             </div>
                         )}
@@ -256,7 +256,7 @@ const FileTransferSettingsGroup = ({
                                 <span className="item-label">{t('custom_save_path')}</span>
                                 <button
                                     className="btn-icon"
-                                    style={{ width: 'auto', fontSize: '10px', height: '24px', padding: '0 8px' }}
+                                    style={{ width: 'auto', fontSize: 'var(--font-size-2xs)', height: '24px', padding: '0 8px' }}
                                     onClick={async () => {
                                         try {
                                             const selected = await withNativeDialog(
@@ -275,7 +275,7 @@ const FileTransferSettingsGroup = ({
                             </div>
                             <div
                                 className="data-panel"
-                                style={{ fontSize: '11px', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
                                 onClick={async () => {
                                     let path = fileTransferPath;
                                     if (!path) {

@@ -414,7 +414,7 @@ const AppHeader = ({
                       style={{
                         width: 'auto',
                         padding: '4px 8px',
-                        fontSize: '11px',
+                        fontSize: 'var(--font-size-xs)',
                         borderRadius: '4px',
                         whiteSpace: 'nowrap',
                         flexShrink: 0,

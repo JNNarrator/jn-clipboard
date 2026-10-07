@@ -1680,3 +1680,27 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
   background-color: var(--bg-button);
 }
 
+
+/* Accent-tinted hint shown at the top of a settings group (tutorial links,
+   auto-close notes). Shared so every group renders the same box. */
+.settings-notice {
+  margin: 4px 8px 12px;
+  padding: 10px 14px;
+  border: 1px solid rgba(var(--accent-color-rgb), 0.2);
+  border-radius: var(--button-radius);
+  background: rgba(var(--accent-color-rgb), 0.08);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+}
+
+.settings-notice--action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  background: rgba(var(--accent-color-rgb), 0.1);
+  color: var(--text-primary);
+}

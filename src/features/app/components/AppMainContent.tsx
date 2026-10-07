@@ -208,7 +208,7 @@ const AppMainContent = ({
           <>
             <p
               style={{
-                fontSize: "15px",
+                fontSize: 'var(--font-size-lg)',
                 fontWeight: "bold",
                 color: "var(--text-primary)",
                 marginBottom: "4px"
@@ -216,7 +216,7 @@ const AppMainContent = ({
             >
               {t("empty_title")}
             </p>
-            <p style={{ fontSize: "12px", opacity: 0.6 }}>{t("empty_desc")}</p>
+            <p style={{ fontSize: 'var(--font-size-sm)', opacity: 0.6 }}>{t("empty_desc")}</p>
           </>
         )}
       </div>

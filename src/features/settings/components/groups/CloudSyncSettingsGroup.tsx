@@ -118,7 +118,7 @@ const CloudSyncSettingsGroup = ({
                     <h3 style={{ margin: 0 }}>{t("cloud_sync_settings")}</h3>
                     <span
                         style={{
-                            fontSize: "11px",
+                            fontSize: 'var(--font-size-xs)',
                             fontWeight: 600,
                             color: "var(--text-secondary)",
                             opacity: 0.75,
@@ -144,24 +144,11 @@ const CloudSyncSettingsGroup = ({
             </button>
             {!collapsed && (
                 <div className="group-content">
-                    <div
-                        style={{
-                            marginBottom: "12px",
-                            padding: "8px 12px",
-                            background: "rgba(var(--accent-color-rgb), 0.1)",
-                            border: "1px solid rgba(var(--accent-color-rgb), 0.2)",
-                            borderRadius: "var(--button-radius)",
-                            display: "flex",
-                            flexDirection: "row",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            gap: "12px"
-                        }}
-                    >
-                        <span style={{ fontSize: "12px", color: "var(--text-primary)" }}>{t("mqtt_tutorial_hint")}</span>
+                    <div className="settings-notice settings-notice--action">
+                        <span style={{ fontSize: 'var(--font-size-sm)', color: "var(--text-primary)" }}>{t("mqtt_tutorial_hint")}</span>
                         <button
                             className="btn-icon"
-                            style={{ fontSize: "11px", padding: "4px 12px", height: "24px", width: "auto", flexShrink: 0 }}
+                            style={{ fontSize: 'var(--font-size-xs)', padding: "4px 12px", height: "24px", width: "auto", flexShrink: 0 }}
                             onClick={() => {
                                 invoke("open_content", {
                                     id: 0,
@@ -217,10 +204,10 @@ const CloudSyncSettingsGroup = ({
                     </div>
 
                     <div style={{ marginTop: "6px", marginBottom: "4px" }}>
-                        <div style={{ fontSize: "12px", fontWeight: 600, marginBottom: "6px", color: "var(--text-primary)" }}>
+                        <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: "6px", color: "var(--text-primary)" }}>
                             {t("cloud_sync_content_scope")}
                         </div>
-                        <div style={{ fontSize: "11px", marginBottom: "10px", color: "var(--text-secondary)" }}>
+                        <div style={{ fontSize: 'var(--font-size-xs)', marginBottom: "10px", color: "var(--text-secondary)" }}>
                             {t("cloud_sync_content_scope_hint")}
                         </div>
                         <div className="setting-item">
@@ -423,19 +410,19 @@ const CloudSyncSettingsGroup = ({
                             background: "var(--bg-element)"
                         }}
                     >
-                        <div style={{ fontSize: "11px", marginBottom: "6px", color: "var(--text-secondary)" }}>
+                        <div style={{ fontSize: 'var(--font-size-xs)', marginBottom: "6px", color: "var(--text-secondary)" }}>
                             {t("cloud_sync_status_label")}
                         </div>
-                        <div style={{ fontSize: "12px", display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                        <div style={{ fontSize: 'var(--font-size-sm)', display: "flex", gap: "10px", flexWrap: "wrap" }}>
                             <span>{statusLabel(t, status.state)}</span>
                             <span>{t("cloud_sync_uploaded")}: {status.uploaded_items ?? 0}</span>
                             <span>{t("cloud_sync_received")}: {status.received_items ?? 0}</span>
                         </div>
-                        <div style={{ marginTop: "4px", fontSize: "11px", color: "var(--text-secondary)" }}>
+                        <div style={{ marginTop: "4px", fontSize: 'var(--font-size-xs)', color: "var(--text-secondary)" }}>
                             {t("cloud_sync_last_sync")}: {status.last_sync_at ? new Date(status.last_sync_at).toLocaleString() : "-"}
                         </div>
                         {status.last_error && (
-                            <div style={{ marginTop: "4px", fontSize: "11px", color: "var(--status-danger)" }}>
+                            <div style={{ marginTop: "4px", fontSize: 'var(--font-size-xs)', color: "var(--status-danger)" }}>
                                 {t("cloud_sync_last_error")}: {status.last_error}
                             </div>
                         )}

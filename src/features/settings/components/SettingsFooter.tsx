@@ -61,7 +61,7 @@ const SettingsFooter = ({
             >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <MessageSquare size={16} />
-                    <span style={{ fontSize: '13px', fontWeight: 600 }}>
+                    <span style={{ fontSize: 'var(--font-size-base)', fontWeight: 600 }}>
                         {emailCopied ? t('email_copied') : t('feedback')}
                     </span>
                 </div>
@@ -85,7 +85,7 @@ const SettingsFooter = ({
             >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <RotateCcw size={16} />
-                    <span style={{ fontSize: '13px', fontWeight: 600 }}>{t('reset_defaults')}</span>
+                    <span style={{ fontSize: 'var(--font-size-base)', fontWeight: 600 }}>{t('reset_defaults')}</span>
                 </div>
             </div>
         </div>
@@ -98,7 +98,7 @@ const SettingsFooter = ({
             opacity: 1
         }}>
             <div style={{
-                fontSize: '13px',
+                fontSize: 'var(--font-size-base)',
                 fontWeight: 600,
                 color: 'var(--text-secondary)',
                 letterSpacing: '0.5px',
@@ -156,7 +156,7 @@ const SettingsFooter = ({
                         color: (updateStatus && (updateStatus === t('checking_failed'))) ? 'var(--status-danger)' :
                                (updateStatus === t('up_to_date')) ? 'var(--status-success)' : 'var(--accent-color)',
                         cursor: updateStatus ? 'default' : 'pointer',
-                        fontSize: '11px',
+                        fontSize: 'var(--font-size-xs)',
                         padding: '2px 6px',
                         borderRadius: '4px',
                         opacity: updateStatus ? 1 : 0.8,
@@ -170,7 +170,7 @@ const SettingsFooter = ({
                 </button>
             </div>
             <div style={{
-                fontSize: '11px',
+                fontSize: 'var(--font-size-xs)',
                 color: 'var(--text-secondary)',
                 fontWeight: 500,
                 marginBottom: '4px'
@@ -181,7 +181,7 @@ const SettingsFooter = ({
                 <button
                     onClick={() => openUrl('https://tiez.name666.top/')}
                     style={{
-                        fontSize: '11px',
+                        fontSize: 'var(--font-size-xs)',
                         color: 'var(--accent-color)',
                         background: 'transparent',
                         border: 'none',
@@ -199,7 +199,7 @@ const SettingsFooter = ({
                 <button
                     onClick={() => openUrl('https://github.com/jimuzhe/tiez-clipboard')}
                     style={{
-                        fontSize: '11px',
+                        fontSize: 'var(--font-size-xs)',
                         color: 'var(--accent-color)',
                         background: 'transparent',
                         border: 'none',

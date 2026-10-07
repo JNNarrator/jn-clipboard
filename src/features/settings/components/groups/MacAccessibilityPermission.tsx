@@ -82,7 +82,7 @@ const MacAccessibilityPermission = ({ t, LabelWithHint }: MacAccessibilityPermis
         {checking ? (
           <span
             style={{
-              fontSize: "12px",
+              fontSize: 'var(--font-size-sm)',
               color: "var(--text-secondary)",
               whiteSpace: "nowrap"
             }}
@@ -92,7 +92,7 @@ const MacAccessibilityPermission = ({ t, LabelWithHint }: MacAccessibilityPermis
         ) : granted ? (
           <span
             style={{
-              fontSize: "12px",
+              fontSize: 'var(--font-size-sm)',
               fontWeight: 600,
               color: "var(--status-success)",
               whiteSpace: "nowrap"
@@ -107,7 +107,7 @@ const MacAccessibilityPermission = ({ t, LabelWithHint }: MacAccessibilityPermis
               void openSettings();
             }}
             style={{
-              fontSize: "12px",
+              fontSize: 'var(--font-size-sm)',
               fontWeight: 600,
               color: "var(--status-warning)",
               background: "none",
@@ -125,7 +125,7 @@ const MacAccessibilityPermission = ({ t, LabelWithHint }: MacAccessibilityPermis
       {!checking && !granted && (
         <div
           style={{
-            fontSize: "12px",
+            fontSize: 'var(--font-size-sm)',
             lineHeight: 1.5,
             color: "var(--text-secondary)",
             paddingLeft: 2
@@ -143,7 +143,7 @@ const MacAccessibilityPermission = ({ t, LabelWithHint }: MacAccessibilityPermis
                 }}
                 style={{
                   marginLeft: 8,
-                  fontSize: "12px",
+                  fontSize: 'var(--font-size-sm)',
                   color: "var(--accent-color, #0a84ff)",
                   background: "none",
                   border: "none",

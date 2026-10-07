@@ -84,7 +84,7 @@ const AiSettingsGroup = ({
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', padding: '0 4px' }}>
                             <button
                                 className="btn-icon"
-                                style={{ padding: '4px 12px', fontSize: '11px', marginLeft: 'auto', height: '24px' }}
+                                style={{ padding: '4px 12px', fontSize: 'var(--font-size-xs)', marginLeft: 'auto', height: '24px' }}
                                 onClick={() => setEditingProfile({ isNew: true, baseUrl: 'https://api.deepseek.com/v1', apiKey: '', model: '', enableThinking: false })}
                             >
                                 {t('ai_add_model')}
@@ -120,7 +120,7 @@ const AiSettingsGroup = ({
                                     />
                                     <div style={{ flex: 1, minWidth: 0 }}>
                                         <div className="ai-profile-name" style={{ fontWeight: '800', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{profile.model}</div>
-                                        {profile.enableThinking && <div className="ai-profile-sub" style={{ fontSize: '9px', opacity: 0.7 }}>Thinking Mode Enabled</div>}
+                                        {profile.enableThinking && <div className="ai-profile-sub" style={{ fontSize: 'var(--font-size-2xs)', opacity: 0.7 }}>Thinking Mode Enabled</div>}
                                     </div>
                                     <div style={{ display: 'flex', gap: '4px', marginLeft: '8px' }}>
                                         <button className="btn-icon" onClick={() => checkModelStatus(profile)} title="Check Connection">
@@ -147,7 +147,7 @@ const AiSettingsGroup = ({
                                 </div>
                                 <select
                                     className="search-input"
-                                    style={{ borderRadius: '4px', padding: '4px 8px', width: '160px', background: 'var(--bg-input)', border: '1px solid var(--border-dark)', color: 'var(--text-primary)', fontSize: '12px', height: '28px' }}
+                                    style={{ borderRadius: '4px', padding: '4px 8px', width: '160px', background: 'var(--bg-input)', border: '1px solid var(--border-dark)', color: 'var(--text-primary)', fontSize: 'var(--font-size-sm)', height: '28px' }}
                                     value={strategy.value}
                                     onChange={e => {
                                         strategy.setter(e.target.value);
@@ -168,7 +168,7 @@ const AiSettingsGroup = ({
                             </div>
                             <select
                                 className="search-input"
-                                style={{ borderRadius: '4px', padding: '4px 8px', width: '160px', background: 'var(--bg-input)', border: '1px solid var(--border-dark)', color: 'var(--text-primary)', fontSize: '12px', height: '28px' }}
+                                style={{ borderRadius: '4px', padding: '4px 8px', width: '160px', background: 'var(--bg-input)', border: '1px solid var(--border-dark)', color: 'var(--text-primary)', fontSize: 'var(--font-size-sm)', height: '28px' }}
                                 value={aiAssignedProfileTranslate}
                                 onChange={e => {
                                     setAiAssignedProfileTranslate(e.target.value);
@@ -188,7 +188,7 @@ const AiSettingsGroup = ({
                             </div>
                             <select
                                 className="search-input"
-                                style={{ borderRadius: '4px', padding: '4px 8px', width: '160px', background: 'var(--bg-input)', border: '1px solid var(--border-dark)', color: 'var(--text-primary)', fontSize: '12px', height: '28px' }}
+                                style={{ borderRadius: '4px', padding: '4px 8px', width: '160px', background: 'var(--bg-input)', border: '1px solid var(--border-dark)', color: 'var(--text-primary)', fontSize: 'var(--font-size-sm)', height: '28px' }}
                                 value={aiTargetLang}
                                 onChange={e => {
                                     setAiTargetLang(e.target.value);
@@ -210,7 +210,7 @@ const AiSettingsGroup = ({
                             </div>
                             <input
                                 className="search-input"
-                                style={{ borderRadius: '4px', padding: '4px 8px', width: '160px', background: 'var(--bg-input)', border: '1px solid var(--border-dark)', color: 'var(--text-primary)', fontSize: '12px', height: '28px' }}
+                                style={{ borderRadius: '4px', padding: '4px 8px', width: '160px', background: 'var(--bg-input)', border: '1px solid var(--border-dark)', color: 'var(--text-primary)', fontSize: 'var(--font-size-sm)', height: '28px' }}
                                 type="number"
                                 min="1024"
                                 max="10000"

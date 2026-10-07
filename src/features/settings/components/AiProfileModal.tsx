@@ -51,7 +51,7 @@ const AiProfileModal = ({ editingProfile, t, onClose, onSave, setEditingProfile 
                     </label>
                 </div>
                 <div className="modal-field-row modal-form-toggle-row">
-                    <span style={{ fontSize: "13px", fontWeight: 600 }}>{t("ai_thinking_enabled")}</span>
+                    <span style={{ fontSize: 'var(--font-size-base)', fontWeight: 600 }}>{t("ai_thinking_enabled")}</span>
                     <label className="switch">
                         <input
                             className="cb"

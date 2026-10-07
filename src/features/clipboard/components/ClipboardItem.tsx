@@ -1643,7 +1643,7 @@ const ClipboardItem = ({
                                 border: 'none',
                                 borderRadius: '0',
                                 padding: '2px 6px',
-                                fontSize: '10px',
+                                fontSize: 'var(--font-size-2xs)',
                                 color: 'var(--text-primary)',
                                 outline: 'none'
                             }}
@@ -2469,7 +2469,7 @@ const ClipboardItem = ({
                 {item.content_type === "image" ? (
                     <div style={{ position: 'relative' }}>
                         {(item.is_external && item.file_preview_exists === false) || imageLoadFailed ? (
-                            <div className="image-preview error-placeholder" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-element)', color: 'var(--text-secondary)', height: '100px', fontSize: '12px' }}>
+                            <div className="image-preview error-placeholder" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-element)', color: 'var(--text-secondary)', height: '100px', fontSize: 'var(--font-size-sm)' }}>
                                 <ImageOff size={24} style={{ marginBottom: '8px', opacity: 0.5 }} />
                                 <span>{t('image_deleted')}</span>
                             </div>
@@ -2494,7 +2494,7 @@ const ClipboardItem = ({
                             />
                         )}
                         {isSensitiveHidden && (
-                            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', fontWeight: 'bold', opacity: 0.5, fontSize: '10px' }}>
+                            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', fontWeight: 'bold', opacity: 0.5, fontSize: 'var(--font-size-2xs)' }}>
                                 SENSITIVE
                             </div>
                         )}
@@ -2534,7 +2534,7 @@ const ClipboardItem = ({
                         <input
                             autoFocus
                             className="search-input"
-                            style={{ width: '100%', fontSize: '12px', padding: '8px', border: '1px solid var(--accent-color)' }}
+                            style={{ width: '100%', fontSize: 'var(--font-size-sm)', padding: '8px', border: '1px solid var(--accent-color)' }}
                             placeholder={item.content}
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter') {
@@ -2547,7 +2547,7 @@ const ClipboardItem = ({
                             }}
                             onClick={(e) => e.stopPropagation()}
                         />
-                        <div style={{ fontSize: '10px', opacity: 0.6, marginTop: '4px' }}>
+                        <div style={{ fontSize: 'var(--font-size-2xs)', opacity: 0.6, marginTop: '4px' }}>
                             {t("ai_supplement_hint")}
                         </div>
                     </div>
@@ -2625,7 +2625,7 @@ const ClipboardItem = ({
                                 <span style={{ letterSpacing: '1px' }}>
                                     {sensitivePreview}
                                 </span>
-                                <span style={{ fontSize: '10px', opacity: 0.7 }}>
+                                <span style={{ fontSize: 'var(--font-size-2xs)', opacity: 0.7 }}>
                                     ({item.content.length} {t('chars')})
                                 </span>
                             </div>
