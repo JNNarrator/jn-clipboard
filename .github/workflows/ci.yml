@@ -24,6 +24,10 @@ jobs:
         run: npm run validate-release-matrix
       - name: Type-check and build frontend
         run: npm run build
+      - name: Frontend unit tests
+        run: npm test
+      - name: Lint (hooks and correctness)
+        run: npm run lint
 
   rust:
     name: Rust (${{ matrix.os }})
