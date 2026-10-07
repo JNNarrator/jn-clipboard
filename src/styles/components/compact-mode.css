@@ -14,10 +14,6 @@
     gap: 0;
     overflow: visible !important;
     border-radius: var(--compact-card-radius, 8px) !important;
-    /* Base items use `contain: content`, whose paint containment clips the
-       action strip that intentionally floats above the compact row. Keep the
-       layout/style containment without clipping descendants. */
-    contain: layout style;
     z-index: 1;
     margin-bottom: 0 !important;
 }

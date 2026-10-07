@@ -295,7 +295,6 @@ html.platform-macos body.dark-mode.theme-acrylic {
 
 /* Cards on top of acrylic glass retain distinct frosted tile appearance */
 .theme-acrylic .history-item {
-  contain: layout style;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }

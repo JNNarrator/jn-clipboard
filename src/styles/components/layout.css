@@ -667,7 +667,9 @@ select.search-input option {
 
 .history-item {
   position: relative;
-  contain: content;
+  /* No paint containment: tag suggestions and other popovers anchored inside
+     a card must be able to extend past its edge. */
+  contain: layout style;
   padding: var(--layout-item-padding);
   background: var(--layout-item-background);
   border-bottom: var(--layout-item-divider);
