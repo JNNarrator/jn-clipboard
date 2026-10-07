@@ -95,7 +95,7 @@
 
 .wt-status-primary {
   color: var(--im-text);
-  font-size: 12.5px;
+  font-size: var(--font-size-base);
   font-weight: 650;
   line-height: 1.25;
   letter-spacing: -0.01em;
@@ -106,7 +106,7 @@
 
 .wt-status-secondary {
   color: var(--im-muted);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   line-height: 1.25;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -198,7 +198,7 @@
   border-radius: var(--compact-action-radius, 4px);
   background: transparent;
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: var(--font-size-base);
   font-weight: 500;
   line-height: 1.4;
   text-align: left;
@@ -275,7 +275,7 @@
 .wt-more-menu-section-label {
   padding: 7px 11px 3px;
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   font-weight: 600;
   letter-spacing: 0.02em;
   user-select: none;
@@ -288,7 +288,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   font-weight: 500;
   letter-spacing: -0.01em;
 }
@@ -362,7 +362,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   color: var(--im-muted);
   background: color-mix(in srgb, var(--im-surface) 78%, transparent);
   box-shadow: 0 1px 2px rgba(15, 35, 52, 0.04);
-  font-size: 9px;
+  font-size: var(--font-size-2xs);
   line-height: 1.25;
   backdrop-filter: blur(8px);
 }
@@ -423,14 +423,14 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
 }
 
 .wt-empty-title {
-  font-size: 13px;
+  font-size: var(--font-size-base);
   font-weight: 650;
 }
 
 .wt-empty-copy {
   margin-top: 4px;
   color: var(--im-muted);
-  font-size: 10.5px;
+  font-size: var(--font-size-xs);
   line-height: 1.5;
 }
 
@@ -458,14 +458,14 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
 
 .wt-pairing-title {
   color: var(--im-text);
-  font-size: 13.5px;
+  font-size: var(--font-size-md);
   font-weight: 650;
   line-height: 1.25;
 }
 
 .wt-pairing-tip {
   color: var(--im-muted);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   line-height: 1.45;
   max-width: 240px;
 }
@@ -483,7 +483,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
 
 .wt-pairing-address {
   color: var(--im-muted);
-  font: 10px/1.2 var(--font-mono);
+  font: var(--font-size-2xs)/1.2 var(--font-mono);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -495,7 +495,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   border-radius: var(--button-radius);
   background: rgba(var(--im-accent-rgb), 0.12);
   color: var(--im-accent);
-  font-size: 9.5px;
+  font-size: var(--font-size-2xs);
   font-weight: 600;
   cursor: pointer;
   flex-shrink: 0;
@@ -548,7 +548,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   box-shadow:
     0 0 0 1px rgba(var(--im-accent-rgb), 0.22),
     0 2px 6px rgba(15, 35, 52, 0.1);
-  font-size: 9px;
+  font-size: var(--font-size-2xs);
   font-weight: 720;
   letter-spacing: -0.02em;
 }
@@ -581,7 +581,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   color: var(--im-text);
   background: var(--im-incoming);
   box-shadow: var(--im-bubble-shadow);
-  font-size: 12.5px;
+  font-size: var(--font-size-base);
   line-height: 1.44;
   overflow-wrap: anywhere;
 }
@@ -615,7 +615,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
 .wt-sender-name {
   margin: -1px 0 4px;
   color: var(--im-accent);
-  font-size: 9.5px;
+  font-size: var(--font-size-2xs);
   font-weight: 680;
   line-height: 1.2;
 }
@@ -673,7 +673,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
 }
 
 .wt-copy-check {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: 800;
 }
 
@@ -685,14 +685,14 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   gap: 3px;
   margin: 2px 5px 0;
   color: var(--im-muted);
-  font: 8.5px/1 var(--font-mono);
+  font: var(--font-size-2xs)/1 var(--font-mono);
   pointer-events: none;
 }
 
 .wt-delivery-mark {
   color: var(--im-accent);
   font-family: var(--font-main);
-  font-size: 9px;
+  font-size: var(--font-size-2xs);
   font-weight: 800;
 }
 
@@ -728,7 +728,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   gap: 5px;
   padding: 5px 5px 2px;
   color: var(--im-muted);
-  font-size: 8.5px;
+  font-size: var(--font-size-2xs);
 }
 
 .wt-file-card {
@@ -782,7 +782,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
 
 .wt-file-name {
   overflow: hidden;
-  font-size: 11.5px;
+  font-size: var(--font-size-sm);
   font-weight: 650;
   line-height: 1.35;
   text-overflow: ellipsis;
@@ -792,7 +792,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
 .wt-file-status {
   margin-top: 3px;
   color: var(--im-muted);
-  font-size: 8.8px;
+  font-size: var(--font-size-2xs);
   line-height: 1.3;
 }
 
@@ -832,7 +832,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   align-items: center;
   margin-top: 5px;
   color: var(--im-muted);
-  font-size: 9.5px;
+  font-size: var(--font-size-2xs);
   line-height: 1.25;
 }
 
@@ -867,7 +867,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   align-items: center;
   gap: 5px;
   color: var(--status-danger);
-  font-size: 9.5px;
+  font-size: var(--font-size-2xs);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -882,7 +882,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   border-radius: var(--button-radius);
   background: var(--status-danger);
   color: #fff;
-  font-size: 9.5px;
+  font-size: var(--font-size-2xs);
   font-weight: 500;
   cursor: pointer;
   flex-shrink: 0;
@@ -1040,19 +1040,19 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
 }
 
 .wt-file-send-options strong {
-  font-size: 11.5px;
+  font-size: var(--font-size-sm);
   font-weight: 650;
 }
 
 .wt-file-send-options small {
   margin-top: 2px;
   color: var(--im-muted);
-  font-size: 9.5px;
+  font-size: var(--font-size-2xs);
 }
 
 .wt-option-check {
   justify-self: center;
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   font-weight: 700;
 }
 
@@ -1098,7 +1098,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   background: transparent !important;
   box-shadow: none !important;
   font-family: var(--font-main);
-  font-size: 13px;
+  font-size: var(--font-size-base);
   line-height: 22px;
   resize: none;
   box-sizing: border-box;
@@ -1154,7 +1154,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   min-height: 34px;
   padding: 0 15px;
   border-radius: var(--radius-pill);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   font-weight: 650;
 }
 
@@ -1244,7 +1244,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
 }
 
 .wt-fullscreen-title {
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   font-weight: 680;
   letter-spacing: 0.02em;
 }
@@ -1264,7 +1264,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   outline: 0;
   color: var(--im-text);
   background: var(--im-canvas);
-  font: 14px/1.6 var(--font-main);
+  font: var(--font-size-md)/1.6 var(--font-main);
   resize: none;
 }
 
@@ -1295,7 +1295,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
 }
 
 .wt-drag-drop-text {
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   font-weight: 650;
 }
 
@@ -1332,7 +1332,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   border-radius: var(--compact-action-radius, 4px);
   color: var(--im-text);
   background: transparent;
-  font: 11px/1.3 var(--font-main);
+  font: var(--font-size-xs)/1.3 var(--font-main);
   text-align: left;
   cursor: pointer;
 }
@@ -1420,7 +1420,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
 .wt-batch-file small,
 .wt-batch-actions {
   color: var(--im-muted);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
 }
 
 .wt-batch-files {
@@ -1644,7 +1644,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   padding: 3px 9px;
   border: 1px solid transparent;
   border-radius: var(--button-radius);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   font-weight: 500;
   color: var(--im-muted);
   background: transparent;
@@ -1703,7 +1703,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   border: none;
   background: transparent;
   color: var(--im-text);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   outline: none;
   padding: 0;
 }
@@ -1734,7 +1734,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
 }
 
 .wt-filter-badge {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: 600;
   color: var(--im-accent);
   background: rgba(var(--im-accent-rgb), 0.1);
@@ -1750,7 +1750,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   border-radius: var(--button-radius);
   background: rgba(var(--im-accent-rgb), 0.08);
   color: var(--im-accent);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   font-weight: 600;
   cursor: pointer;
   transition: all 140ms ease;

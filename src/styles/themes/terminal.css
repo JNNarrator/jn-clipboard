@@ -321,7 +321,7 @@ body.theme-terminal .tag-manager-page {
 /* Title */
 .theme-terminal .header-title {
   color: var(--term-fg-dim);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   font-weight: 500;
 }
 
@@ -355,7 +355,7 @@ body.theme-terminal .tag-manager-page {
 
 .theme-terminal .search-prompt {
   color: var(--term-prompt);
-  font-size: 14px;
+  font-size: var(--font-size-md);
   font-weight: 700;
   letter-spacing: 0;
 }
@@ -447,7 +447,7 @@ body.theme-terminal .tag-manager-page {
 .theme-terminal .theme-choice-btn {
   border-radius: 0;
   font-family: var(--font-main);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
 }
 
 /* Empty / status copy like shell messages */

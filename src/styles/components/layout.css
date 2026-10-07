@@ -64,7 +64,7 @@ header {
 }
 
 .header-title.page-header-title.is-page-title {
-  font-size: 14px;
+  font-size: var(--font-size-md);
   font-weight: 600;
   letter-spacing: 0;
 }
@@ -454,7 +454,7 @@ header {
 .clipboard-sort-menu-title {
   padding: 4px 8px 4px;
   color: var(--text-secondary);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: 600;
   letter-spacing: 0.04em;
   white-space: nowrap;
@@ -475,7 +475,7 @@ header {
   border: 0;
   border-radius: var(--compact-action-radius, 4px);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   text-align: left;
   cursor: pointer;
   white-space: nowrap;

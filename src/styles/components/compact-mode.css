@@ -96,7 +96,7 @@
 
 /* Popover Content Styling */
 .popover-meta {
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     color: var(--text-secondary);
     margin-bottom: 8px;
     display: flex;
@@ -223,7 +223,7 @@ html.compact-show-time .history-item.compact .item-tags-container {
 
 .history-item.compact.editing-note .content-preview,
 .history-item.compact:has(.item-note-editor) .content-preview {
-    font-size: 11px !important;
+    font-size: var(--font-size-xs) !important;
     font-weight: 500 !important;
     color: var(--text-secondary) !important;
     opacity: 0.75 !important;
@@ -269,7 +269,7 @@ html.compact-show-time .history-item.compact .item-tags-container {
     outline: none !important;
     box-shadow: none !important;
     background: transparent !important;
-    font-size: 12px !important;
+    font-size: var(--font-size-sm) !important;
     line-height: 1.45 !important;
     resize: none !important;
     color: var(--text-primary) !important;
@@ -289,14 +289,14 @@ html.compact-show-time .history-item.compact .item-tags-container {
 
 .history-item.compact.editing-note .item-note-hint,
 .history-item.compact:has(.item-note-editor) .item-note-hint {
-    font-size: 10px !important;
+    font-size: var(--font-size-2xs) !important;
     color: var(--text-secondary) !important;
     opacity: 0.7 !important;
 }
 
 .history-item.compact.editing-note .btn-note-action,
 .history-item.compact:has(.item-note-editor) .btn-note-action {
-    font-size: 11px !important;
+    font-size: var(--font-size-xs) !important;
     padding: 2px 8px !important;
     border-radius: 4px !important;
 }
@@ -492,7 +492,7 @@ body.hide-unselected-item-actions .history-item.compact:hover .item-actions {
     display: inline-flex !important;
     align-items: center !important;
     gap: 6px !important;
-    font-size: 11px !important;
+    font-size: var(--font-size-xs) !important;
     line-height: 1 !important;
     font-variant-numeric: tabular-nums !important;
     color: var(--text-secondary) !important;
@@ -660,7 +660,7 @@ body.hide-unselected-item-actions .history-item.compact:hover .item-meta-right-i
     border-radius: var(--compact-action-radius, 4px);
     background: transparent;
     color: var(--text-primary);
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     font-family: inherit;
     text-align: left;
     cursor: pointer;
@@ -765,7 +765,7 @@ html.theme-retro .compact-action-menu-item {
 
 .popover-meta .meta-dot {
     opacity: 0.3;
-    font-size: 10px;
+    font-size: var(--font-size-2xs);
 }
 
 /* Force icon sizes in popover header */
@@ -795,7 +795,7 @@ html.theme-retro .compact-action-menu-item {
 }
 
 .popover-content {
-    font-size: 13px;
+    font-size: var(--font-size-base);
     color: var(--text-primary);
     line-height: 1.5;
     white-space: pre-wrap;

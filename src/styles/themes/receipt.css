@@ -326,5 +326,5 @@ body.theme-receipt .settings-group {
   color: var(--rc-ink-ghost);
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
 }

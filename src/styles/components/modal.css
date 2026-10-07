@@ -78,7 +78,7 @@ body:has(.modal-overlay) #root {
 .modal-form-title {
   margin: 0;
   color: var(--text-primary);
-  font-size: 16px;
+  font-size: var(--font-size-lg);
   font-weight: 650;
   line-height: 1.4;
 }
@@ -87,7 +87,7 @@ body:has(.modal-overlay) #root {
   max-width: 100%;
   margin: 0;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   font-weight: 400;
   line-height: 1.45;
   overflow-wrap: anywhere;
@@ -109,7 +109,7 @@ body:has(.modal-overlay) #root {
 .modal-form-dialog .modal-field-label {
   margin: 0;
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   font-weight: 650;
   letter-spacing: 0.01em;
   text-transform: none;
@@ -128,7 +128,7 @@ body:has(.modal-overlay) #root {
   background: var(--bg-input);
   color: var(--text-primary);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--font-size-base);
   line-height: 1.45;
   box-shadow: none;
   transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
@@ -174,7 +174,7 @@ body:has(.modal-overlay) #root {
   min-height: 34px;
   padding: 0 14px;
   border-radius: min(8px, var(--dialog-button-radius));
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   font-weight: 600;
   box-shadow: none;
 }
@@ -205,7 +205,7 @@ body:has(.modal-overlay) #root {
 }
 
 .modal-title {
-  font-size: 14px;
+  font-size: var(--font-size-md);
   font-weight: var(--modal-title-font-weight);
   text-transform: var(--modal-title-transform);
   letter-spacing: var(--modal-title-letter-spacing);
@@ -218,7 +218,7 @@ body:has(.modal-overlay) #root {
 }
 
 .modal-field-label {
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   font-weight: 700;
   margin-bottom: 4px;
   text-transform: uppercase;
@@ -243,7 +243,7 @@ body:has(.modal-overlay) #root {
   resize: vertical;
   outline: none;
   font-family: inherit;
-  font-size: 13px;
+  font-size: var(--font-size-base);
 }
 
 .modal-textarea:focus {
@@ -315,7 +315,7 @@ body:has(.modal-overlay) #root {
   box-shadow: none;
   color: var(--text-primary);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--font-size-base);
 }
 
 .app-selector-search input:focus-visible {
@@ -345,7 +345,7 @@ body:has(.modal-overlay) #root {
   padding: 8px 12px 6px;
   background: var(--bg-element);
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -365,7 +365,7 @@ body:has(.modal-overlay) #root {
   color: var(--text-primary);
   cursor: pointer;
   font: inherit;
-  font-size: 13px;
+  font-size: var(--font-size-base);
   font-weight: 500;
   line-height: 1.3;
   text-align: left;
@@ -379,7 +379,7 @@ body:has(.modal-overlay) #root {
 .app-selector-status {
   padding: 16px 12px;
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: var(--font-size-base);
 }
 
 /* Confirm variant */
@@ -393,7 +393,7 @@ body:has(.modal-overlay) #root {
 
 .confirm-dialog-title {
   margin: 0 0 12px;
-  font-size: 18px;
+  font-size: var(--font-size-xl);
   font-weight: var(--modal-title-font-weight);
   color: var(--text-primary);
   text-transform: var(--modal-title-transform);
@@ -402,7 +402,7 @@ body:has(.modal-overlay) #root {
 
 .confirm-dialog-message {
   margin: 0 0 24px;
-  font-size: 14px;
+  font-size: var(--font-size-md);
   line-height: 1.6;
   color: var(--text-primary);
   opacity: 0.8;
@@ -432,7 +432,7 @@ body:has(.modal-overlay) #root {
   gap: 8px;
   min-height: 38px;
   padding: 0 18px;
-  font-size: 13px;
+  font-size: var(--font-size-base);
   font-weight: 600;
   cursor: pointer;
   border: var(--dialog-button-border);
@@ -524,13 +524,13 @@ body:has(.modal-overlay) #root {
 
 .modal-update-title {
   margin: 0;
-  font-size: 15px;
+  font-size: var(--font-size-lg);
   font-weight: 700;
   color: var(--text-primary);
 }
 
 .modal-update-version {
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   font-weight: 500;
   color: var(--text-secondary);
 }
@@ -540,7 +540,7 @@ body:has(.modal-overlay) #root {
   align-items: center;
   padding: 2px 6px;
   border-radius: 999px;
-  font-size: 9px;
+  font-size: var(--font-size-2xs);
   font-weight: 800;
   letter-spacing: 0.04em;
 }
@@ -563,7 +563,7 @@ body:has(.modal-overlay) #root {
   margin: 0 0 12px;
   max-height: 100px;
   overflow-y: auto;
-  font-size: 13px;
+  font-size: var(--font-size-base);
   color: var(--text-secondary);
   line-height: 1.5;
   white-space: pre-wrap;
@@ -576,7 +576,7 @@ body:has(.modal-overlay) #root {
 .modal-update-progress-labels {
   display: flex;
   justify-content: space-between;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: 600;
   color: var(--text-secondary);
   margin-bottom: 4px;
@@ -682,7 +682,7 @@ body:has(.modal-overlay) #root {
 .clipboard-import-modal-header h2 {
   margin: 0;
   color: var(--text-primary);
-  font-size: 16px;
+  font-size: var(--font-size-lg);
   font-weight: 750;
   letter-spacing: normal;
   line-height: 1.3;
@@ -692,7 +692,7 @@ body:has(.modal-overlay) #root {
 .clipboard-import-modal-header p {
   margin: 3px 0 0;
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   line-height: 1.45;
 }
 
@@ -703,7 +703,7 @@ body:has(.modal-overlay) #root {
 .clipboard-import-modal-intro {
   margin-bottom: 9px;
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   font-weight: 650;
 }
 
@@ -762,13 +762,13 @@ body:has(.modal-overlay) #root {
 }
 
 .clipboard-import-app-heading strong {
-  font-size: 13px;
+  font-size: var(--font-size-base);
   line-height: 1.3;
 }
 
 .clipboard-import-app-heading span {
   color: var(--text-secondary);
-  font-size: 9px;
+  font-size: var(--font-size-2xs);
   font-weight: 650;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -777,7 +777,7 @@ body:has(.modal-overlay) #root {
 .clipboard-import-app-summary {
   overflow: hidden;
   color: var(--text-secondary);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   line-height: 1.4;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -785,7 +785,7 @@ body:has(.modal-overlay) #root {
 
 .clipboard-import-detection {
   color: var(--text-secondary);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: 600;
 }
 
@@ -807,12 +807,12 @@ body:has(.modal-overlay) #root {
 }
 
 .clipboard-import-selected-app strong {
-  font-size: 14px;
+  font-size: var(--font-size-md);
 }
 
 .clipboard-import-selected-app small {
   color: var(--text-secondary);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
 }
 
 .clipboard-import-reminder {
@@ -827,7 +827,7 @@ body:has(.modal-overlay) #root {
   align-items: center;
   gap: 7px;
   color: var(--text-primary);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   font-weight: 700;
 }
 
@@ -841,7 +841,7 @@ body:has(.modal-overlay) #root {
   margin: 8px 0 0;
   padding-left: 20px;
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   line-height: 1.45;
 }
 
@@ -852,7 +852,7 @@ body:has(.modal-overlay) #root {
 .clipboard-import-source-label {
   margin-bottom: 6px;
   color: var(--text-secondary);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: 700;
 }
 
@@ -867,7 +867,7 @@ body:has(.modal-overlay) #root {
   border: var(--panel-border);
   border-radius: var(--button-radius);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
 }
 
 .clipboard-import-source-path svg {
@@ -897,7 +897,7 @@ body:has(.modal-overlay) #root {
   border: 0;
   cursor: pointer;
   font: inherit;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: 700;
 }
 
@@ -945,7 +945,7 @@ body:has(.modal-overlay) #root {
 .clipboard-import-progress > strong,
 .clipboard-import-result > strong {
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: var(--font-size-md);
 }
 
 .clipboard-import-progress > p,
@@ -953,7 +953,7 @@ body:has(.modal-overlay) #root {
   max-width: 42ch;
   margin: 5px 0 0;
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   line-height: 1.5;
 }
 
@@ -978,7 +978,7 @@ body:has(.modal-overlay) #root {
 .clipboard-import-progress-count {
   margin-top: 7px;
   color: var(--text-secondary);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: 650;
 }
 
@@ -989,7 +989,7 @@ body:has(.modal-overlay) #root {
   gap: 12px;
   margin-top: 12px;
   color: var(--text-secondary);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
 }
 
 .clipboard-import-live-stats strong {
@@ -1017,13 +1017,13 @@ body:has(.modal-overlay) #root {
 
 .clipboard-import-result-grid strong {
   color: var(--text-primary);
-  font-size: 16px;
+  font-size: var(--font-size-lg);
 }
 
 .clipboard-import-result-grid span {
   overflow: hidden;
   color: var(--text-secondary);
-  font-size: 9px;
+  font-size: var(--font-size-2xs);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1036,7 +1036,7 @@ body:has(.modal-overlay) #root {
   width: 100%;
   margin-top: 12px;
   color: var(--text-secondary);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   text-align: left;
 }
 

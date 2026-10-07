@@ -88,10 +88,16 @@
 
   --font-main: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", "Inter", sans-serif;
   --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "Segoe UI Mono", "Menlo", "Consolas", monospace;
+  /* Type scale. Use these instead of pixel values; 10px is the smallest
+     readable size in the compact window. */
+  --font-size-2xs: 10px;
   --font-size-xs: 11px;
   --font-size-sm: 12px;
+  --font-size-base: 13px;
   --font-size-md: 14px;
   --font-size-lg: 16px;
+  --font-size-xl: 18px;
+  --font-size-2xl: 20px;
 
   /* Stacking layers for anything that floats above the page. Pick a layer
      instead of inventing a number; values below 1000 are local to a component. */

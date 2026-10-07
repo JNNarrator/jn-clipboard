@@ -120,7 +120,7 @@ body.compact-preview .compact-popover-portal,
     max-width: none !important;
     overflow: visible !important;
     white-space: nowrap !important;
-    font-size: 11px !important;
+    font-size: var(--font-size-xs) !important;
     margin-bottom: 8px !important;
     user-select: none !important;
     flex: 0 0 auto !important;
@@ -181,7 +181,7 @@ body.compact-preview .compact-popover-portal,
 .compact-preview-root .popover-content.compact-preview-code {
     font-family: var(--font-mono);
     tab-size: 4;
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     line-height: 1.45;
     background: rgba(0, 0, 0, 0.03);
     border-radius: 4px;
@@ -206,7 +206,7 @@ body.compact-preview .compact-popover-portal,
 
 .compact-preview-root .compact-preview-file-count {
     color: var(--text-secondary);
-    font-size: 12px;
+    font-size: var(--font-size-sm);
 }
 
 .compact-preview-root .compact-preview-file-row svg {
@@ -223,7 +223,7 @@ body.compact-preview .compact-popover-portal,
 .compact-preview-root .compact-preview-file-more {
     padding-left: 21px;
     color: var(--text-secondary);
-    font-size: 11px;
+    font-size: var(--font-size-xs);
 }
 
 .compact-preview-root .compact-preview-unavailable {
@@ -234,5 +234,5 @@ body.compact-preview .compact-popover-portal,
     justify-content: center;
     gap: 8px;
     color: var(--text-secondary);
-    font-size: 12px;
+    font-size: var(--font-size-sm);
 }

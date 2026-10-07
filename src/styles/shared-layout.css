@@ -6,7 +6,7 @@ html:root .brand-mark {
 }
 
 html:root .header-title.page-header-title.is-page-title {
-  font-size: 14px;
+  font-size: var(--font-size-md);
   font-weight: 600;
   letter-spacing: 0;
 }

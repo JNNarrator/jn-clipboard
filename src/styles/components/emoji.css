@@ -38,7 +38,7 @@
 .emoji-tab-text {
   position: relative;
   z-index: 2;
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   font-weight: 700;
   color: var(--text-secondary);
   transition: color 0.2s ease;
@@ -92,7 +92,7 @@ html.platform-macos .emoji-fav-container::-webkit-scrollbar {
 }
 
 .emoji-group-title {
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   font-weight: 800;
   text-transform: uppercase;
   color: var(--text-muted);
@@ -113,7 +113,7 @@ html.platform-macos .emoji-fav-container::-webkit-scrollbar {
   border: var(--emoji-button-border);
   border-radius: var(--emoji-button-radius);
   box-shadow: var(--emoji-button-shadow);
-  font-size: 18px;
+  font-size: var(--font-size-xl);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -149,7 +149,7 @@ html.platform-macos .emoji-fav-container::-webkit-scrollbar {
 .emoji-fav-hint,
 .emoji-fav-tip {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   line-height: 1.45;
   color: var(--text-muted);
   text-align: center;
@@ -158,7 +158,7 @@ html.platform-macos .emoji-fav-container::-webkit-scrollbar {
 }
 
 .emoji-fav-hint {
-  font-size: 13px;
+  font-size: var(--font-size-base);
   font-weight: 500;
   opacity: 0.55;
 }
@@ -287,7 +287,7 @@ html.platform-macos .emoji-fav-container::-webkit-scrollbar {
 }
 
 .drop-overlay p {
-  font-size: 14px;
+  font-size: var(--font-size-md);
   font-weight: 600;
   color: var(--accent-color);
   background: var(--bg-panel);

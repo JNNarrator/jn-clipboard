@@ -54,7 +54,7 @@
   min-width: 80px;
   height: 28px;
   padding: 0 12px;
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   font-weight: 600;
   font-family: var(--font-main);
   display: inline-flex;
@@ -200,7 +200,7 @@
 }
 
 .ai-profile-name {
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -209,7 +209,7 @@
 }
 
 .ai-profile-sub {
-  font-size: 9px;
+  font-size: var(--font-size-2xs);
   font-family: var(--font-mono);
   color: var(--text-secondary);
   background: rgba(var(--accent-color-rgb), 0.08);
@@ -219,7 +219,7 @@
 
 .ai-sub-label {
   display: block;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: 800;
   text-transform: uppercase;
   color: var(--accent-color);

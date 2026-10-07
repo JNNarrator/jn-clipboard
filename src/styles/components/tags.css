@@ -151,7 +151,7 @@
     border-radius: 5px;
     background: transparent;
     color: var(--text-primary);
-    font-size: 10px;
+    font-size: var(--font-size-2xs);
     font-weight: 600;
     text-align: left;
     cursor: pointer;
@@ -167,7 +167,7 @@
     white-space: nowrap;
     padding: 1px 6px;
     border-radius: 4px;
-    font-size: 9px;
+    font-size: var(--font-size-2xs);
     font-weight: 700;
     line-height: 1.25;
     vertical-align: middle;
@@ -211,7 +211,7 @@
   color: var(--term-prompt, var(--term-green, var(--accent-color)));
   font-family: var(--font-main);
   font-weight: 700;
-  font-size: 14px;
+  font-size: var(--font-size-md);
   line-height: 1;
   pointer-events: none;
   z-index: 2;
@@ -251,7 +251,7 @@
   padding: 5px 10px !important;
   justify-content: flex-start;
   font-family: var(--font-main);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   font-weight: 500;
   text-transform: none;
   background: transparent !important;
@@ -541,7 +541,7 @@ body.dark-mode.theme-ink .tags-dropdown {
   border-radius: 0;
   background: none !important;
   color: var(--tag-color, var(--accent-color));
-  font-size: 20px;
+  font-size: var(--font-size-2xl);
   font-weight: 700;
   line-height: 1;
   opacity: 0.9;
@@ -884,7 +884,7 @@ body[class*="theme-"].dark-mode .tags-dropdown .tag-chip {
   color: var(--text-primary) !important;
   text-shadow: none !important;
   box-shadow: none !important;
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   font-weight: 500;
   cursor: pointer;
   transform: none !important;
