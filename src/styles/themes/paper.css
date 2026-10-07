@@ -250,9 +250,9 @@ body.dark-mode.theme-paper {
 
 /* --- Paper: parchment panel --- */
 .theme-paper .search-input.dropdown-open {
-  border-bottom-left-radius: 0 !important;
-  border-bottom-right-radius: 0 !important;
-  border-bottom-color: #d5c4a1 !important;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  border-bottom-color: #d5c4a1;
 }
 
 .theme-paper .tags-dropdown {
@@ -274,9 +274,9 @@ body.dark-mode.theme-paper {
 .theme-paper .tags-dropdown .tag-chip {
   width: 100%;
   justify-content: flex-start;
-  border-radius: 2px !important;
+  border-radius: 2px;
   margin: 1px 0;
-  box-shadow: none !important;
+  box-shadow: none;
 }
 
 .theme-paper .tags-dropdown .tag-chip:hover {

@@ -312,10 +312,10 @@ body.dark-mode.theme-retro {
 
 /* --- Retro: beveled ticket list --- */
 .theme-retro .search-input.dropdown-open {
-  border-bottom: none !important;
-  border-bottom-left-radius: 0 !important;
-  border-bottom-right-radius: 0 !important;
-  box-shadow: inset 4px 4px 0 rgba(0, 0, 0, 0.1) !important;
+  border-bottom: none;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  box-shadow: inset 4px 4px 0 rgba(0, 0, 0, 0.1);
 }
 
 .theme-retro .tags-dropdown {

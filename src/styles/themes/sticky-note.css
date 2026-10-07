@@ -141,7 +141,7 @@ body.theme-sticky-note {
 }
 
 .theme-sticky-note .history-item {
-  background: #fffde7 !important;
+  background: #fffde7;
 }
 
 .theme-sticky-note .search-input {
@@ -161,17 +161,17 @@ body.theme-sticky-note {
 }
 
 .theme-sticky-note .history-item.selected {
-  background: var(--card-selected-background) !important;
-  transform: none !important;
+  background: var(--card-selected-background);
+  transform: none;
   z-index: 12;
 }
 
 .theme-sticky-note .theme-choice-btn.active,
 .theme-sticky-note .btn-icon.active {
-  background: var(--button-active-filled-background) !important;
-  color: var(--button-active-filled-color) !important;
-  border: 2px solid var(--button-active-filled-border-color) !important;
-  box-shadow: var(--button-active-filled-shadow) !important;
+  background: var(--button-active-filled-background);
+  color: var(--button-active-filled-color);
+  border: 2px solid var(--button-active-filled-border-color);
+  box-shadow: var(--button-active-filled-shadow);
 }
 
 .theme-sticky-note .theme-choice-btn.active .theme-choice-title {
@@ -231,7 +231,7 @@ body.theme-sticky-note {
   }
 
   .theme-sticky-note:not(.light-mode) .history-item {
-    background: #3a3a3c !important;
+    background: #3a3a3c;
   }
 }
 
@@ -293,20 +293,20 @@ body.dark-mode.theme-sticky-note {
 }
 
 body.dark-mode.theme-sticky-note .history-item {
-  background: #3a3a3c !important;
+  background: #3a3a3c;
 }
 
 body.dark-mode.theme-sticky-note .history-item.selected {
-  background: var(--card-selected-background) !important;
+  background: var(--card-selected-background);
 }
 
 /* ===== Tags: search box and tag picker (theme-specific) ===== */
 
 /* --- Sticky note: warm rounded sheet --- */
 .theme-sticky-note .search-input.dropdown-open {
-  border-bottom-left-radius: 0 !important;
-  border-bottom-right-radius: 0 !important;
-  border-bottom-color: rgba(199, 163, 93, 0.45) !important;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  border-bottom-color: rgba(199, 163, 93, 0.45);
 }
 
 .theme-sticky-note .tags-dropdown {
@@ -327,7 +327,7 @@ body.dark-mode.theme-sticky-note .history-item.selected {
 .theme-sticky-note .tags-dropdown .tag-chip {
   width: 100%;
   justify-content: flex-start;
-  border-radius: 999px !important;
+  border-radius: 999px;
 }
 
 .theme-sticky-note .tags-dropdown .tag-chip:hover {

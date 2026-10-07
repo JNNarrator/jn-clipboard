@@ -288,5 +288,5 @@ body.dark-mode.compact-preview.theme-mica #root {
 }
 
 .theme-mica .history-item.selected {
-  box-shadow: none !important;
+  box-shadow: none;
 }

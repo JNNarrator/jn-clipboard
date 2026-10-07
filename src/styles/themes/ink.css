@@ -275,7 +275,7 @@ body.dark-mode.theme-ink #root {
 }
 
 body.dark-mode.theme-ink .search-input {
-  color: var(--ink-fg) !important;
+  color: var(--ink-fg);
 }
 
 body.dark-mode.theme-ink .search-input::placeholder {
@@ -288,7 +288,7 @@ body.dark-mode.theme-ink .btn-icon:hover {
 
 body.dark-mode.theme-ink .btn-icon.active,
 body.dark-mode.theme-ink .theme-choice-btn.active {
-  border-color: rgba(168, 72, 72, 0.38) !important;
+  border-color: rgba(168, 72, 72, 0.38);
 }
 
 body.dark-mode.theme-ink .settings-group {
@@ -313,10 +313,10 @@ body.theme-ink .header-title {
 }
 
 .theme-ink .search-input {
-  border: none !important;
-  border-bottom: 1px solid var(--ink-line) !important;
-  border-radius: 0 !important;
-  background: transparent !important;
+  border: none;
+  border-bottom: 1px solid var(--ink-line);
+  border-radius: 0;
+  background: transparent;
   caret-color: var(--ink-seal);
 }
 
@@ -349,15 +349,15 @@ body.dark-mode.theme-ink .search-container:has(.search-input.dropdown-open) {
 }
 
 .theme-ink .history-item.selected {
-  transform: none !important;
-  background: var(--ink-mist) !important;
+  transform: none;
+  background: var(--ink-mist);
 }
 
 .theme-ink .btn-icon {
   color: var(--ink-dim);
   border-color: var(--ink-line);
   background: transparent;
-  box-shadow: none !important;
+  box-shadow: none;
 }
 
 .theme-ink .btn-icon:hover {
@@ -368,10 +368,10 @@ body.dark-mode.theme-ink .search-container:has(.search-input.dropdown-open) {
 
 .theme-ink .btn-icon.active,
 .theme-ink .theme-choice-btn.active {
-  box-shadow: none !important;
-  background: var(--ink-seal-soft) !important;
-  color: var(--ink-seal) !important;
-  border-color: rgba(155, 45, 48, 0.35) !important;
+  box-shadow: none;
+  background: var(--ink-seal-soft);
+  color: var(--ink-seal);
+  border-color: rgba(155, 45, 48, 0.35);
 }
 
 .theme-ink .header-title {
@@ -411,10 +411,10 @@ body.dark-mode.theme-ink .search-container:has(.search-input.dropdown-open) {
 }
 
 .theme-ink .search-input.dropdown-open {
-  border-bottom-left-radius: 0 !important;
-  border-bottom-right-radius: 0 !important;
-  border-bottom-color: var(--ink-seal, var(--accent-color)) !important;
-  background: transparent !important;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  border-bottom-color: var(--ink-seal, var(--accent-color));
+  background: transparent;
 }
 
 .theme-ink .tags-dropdown {

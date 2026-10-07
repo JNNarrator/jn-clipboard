@@ -297,16 +297,16 @@ body.theme-receipt .settings-group {
 }
 
 .theme-receipt .history-item.selected {
-  background: var(--card-selected-background) !important;
+  background: var(--card-selected-background);
   color: var(--text-primary);
 }
 
 .theme-receipt .theme-choice-btn.active,
 .theme-receipt .btn-icon.active {
-  background: var(--button-active-filled-background) !important;
-  color: var(--button-active-filled-color) !important;
-  border: 2px solid var(--button-active-filled-border-color) !important;
-  box-shadow: var(--button-active-filled-shadow) !important;
+  background: var(--button-active-filled-background);
+  color: var(--button-active-filled-color);
+  border: 2px solid var(--button-active-filled-border-color);
+  box-shadow: var(--button-active-filled-shadow);
 }
 
 .theme-receipt .theme-choice-btn.active .theme-choice-title {
@@ -356,7 +356,7 @@ body.theme-receipt .settings-group {
 }
 
 .theme-receipt .search-input.dropdown-open {
-  border-bottom: none !important;
+  border-bottom: none;
 }
 
 .theme-receipt .tags-dropdown {
@@ -434,6 +434,6 @@ body.dark-mode.theme-receipt .tags-dropdown .tag-chip {
 
 /* --- Receipt: tighten input + dropdown seam --- */
 .theme-receipt .search-input.dropdown-open {
-  border-bottom-left-radius: 0 !important;
-  border-bottom-right-radius: 0 !important;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
 }

@@ -298,5 +298,5 @@ body.dark-mode.compact-preview.theme-macos #root {
 }
 
 .theme-macos .history-item.selected {
-  box-shadow: none !important;
+  box-shadow: none;
 }
