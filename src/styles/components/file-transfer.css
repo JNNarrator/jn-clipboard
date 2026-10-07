@@ -113,88 +113,6 @@
   white-space: nowrap;
 }
 
-.wt-presence-line {
-  display: flex;
-  align-items: center;
-  color: var(--im-muted);
-  font-size: 10px;
-  line-height: 1.25;
-}
-
-.wt-presence-line::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  margin-right: 5px;
-  border-radius: 50%;
-  background: #2fbf71;
-  box-shadow: 0 0 0 3px rgba(47, 191, 113, 0.13);
-}
-
-.wt-qr-popover-address {
-  color: var(--im-muted);
-  font: 8.5px/1.3 var(--font-mono);
-}
-
-.wt-ip-picker {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.wt-ip-select {
-  appearance: none;
-  -webkit-appearance: none;
-  background: rgba(var(--im-accent-rgb), 0.07);
-  border: 1px solid var(--im-border);
-  border-radius: var(--input-radius);
-  color: var(--im-text);
-  font: 8.5px/1.3 var(--font-mono);
-  padding: 2px 18px 2px 6px;
-  cursor: pointer;
-  outline: none;
-  max-width: 200px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  overflow: hidden;
-  transition: border-color 140ms ease, background 140ms ease;
-}
-
-.wt-ip-select:hover,
-.wt-ip-select:focus {
-  border-color: var(--im-accent);
-  background: rgba(var(--im-accent-rgb), 0.12);
-}
-
-.wt-ip-select-arrow {
-  position: absolute;
-  right: 5px;
-  pointer-events: none;
-  color: var(--im-muted);
-}
-
-.wt-copy-link-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  padding: 0;
-  border: 1px solid var(--im-border);
-  border-radius: var(--button-radius);
-  background: transparent;
-  color: var(--im-muted);
-  cursor: pointer;
-  transition: color 140ms ease, background 140ms ease, border-color 140ms ease;
-}
-
-.wt-copy-link-btn:hover {
-  color: var(--im-accent);
-  border-color: var(--im-accent);
-  background: rgba(var(--im-accent-rgb), 0.08);
-}
-
 .wt-header-action {
   display: grid;
   width: 30px;
@@ -1669,8 +1587,8 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
 @media (max-width: 560px) {
   .wt-header { padding-inline: 11px 8px; }
   .wt-header.is-onboarding { min-height: 64px; }
-  .wt-onboarding-qr { width: 48px; height: 48px; }
-  .wt-onboarding-qr canvas { width: 42px !important; height: 42px !important; }
+  
+  
   .wt-message { max-width: 90%; }
   .wt-file-card { width: min(270px, 66vw); }
   .wt-img-preview,
@@ -1678,7 +1596,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
 }
 
 @media (max-width: 380px) {
-  .wt-onboarding-address { display: none; }
+  
   .wt-chat-box { padding-inline: 10px; }
   .wt-avatar,
   .wt-avatar-spacer { width: 27px; height: 27px; flex-basis: 27px; }

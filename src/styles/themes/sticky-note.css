@@ -167,7 +167,6 @@ body.theme-sticky-note {
 }
 
 .theme-sticky-note .theme-choice-btn.active,
-.theme-sticky-note .segment-btn.active,
 .theme-sticky-note .btn-icon.active {
   background: var(--button-active-filled-background) !important;
   color: var(--button-active-filled-color) !important;

@@ -27,37 +27,6 @@
   animation: settings-page-enter 160ms ease-out;
 }
 
-.settings-skeleton {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 3px 0;
-  animation: settings-page-enter 160ms ease-out;
-}
-
-.settings-skeleton-group {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 56px;
-  padding: 0 16px;
-  background: var(--bg-panel);
-  border: var(--panel-border);
-  border-radius: var(--panel-radius);
-  box-shadow: var(--panel-shadow);
-}
-
-.settings-skeleton-group span {
-  background: currentColor;
-  opacity: 0.08;
-  border-radius: 4px;
-  animation: settings-skeleton-pulse 1.6s ease-in-out infinite;
-}
-
-.settings-skeleton-icon { width: 20px; height: 20px; flex-shrink: 0; }
-.settings-skeleton-title { height: 12px; max-width: 60%; }
-.settings-skeleton-chevron { width: 8px; height: 12px; margin-left: auto; }
-
 @keyframes settings-page-enter {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -68,9 +37,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .settings-panel-root,
-  .settings-skeleton,
-  .settings-skeleton-group span {
+  .settings-panel-root {
     animation: none;
   }
 }
@@ -243,15 +210,6 @@
   color: var(--text-secondary);
   background: var(--bg-input);
   border: 1px solid var(--border-color);
-}
-
-.settings-inline-note {
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 1.35;
-  color: var(--text-secondary);
-  white-space: normal;
-  opacity: 0.85;
 }
 
 .secure-transfer-description,
@@ -1722,39 +1680,3 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
   background-color: var(--bg-button);
 }
 
-.segmented-control {
-  display: flex;
-  background: var(--bg-element);
-  border: var(--segmented-border);
-  padding: 2px;
-  border-radius: var(--segmented-radius);
-  gap: 2px;
-  box-shadow: var(--segmented-shadow);
-}
-
-.segment-btn {
-  flex: 1;
-  background: transparent;
-  border: none;
-  color: var(--text-secondary);
-  padding: 6px 12px;
-  font-size: 12px;
-  font-weight: var(--segment-font-weight);
-  text-transform: var(--segment-text-transform);
-  cursor: pointer;
-  border-radius: var(--segment-radius);
-  transition: all 0.2s;
-  font-family: inherit;
-  white-space: nowrap;
-}
-
-.segment-btn:hover {
-  background: rgba(var(--accent-color-rgb), 0.08);
-  color: var(--text-primary);
-}
-
-.segment-btn.active {
-  background: var(--segment-active-background);
-  color: var(--segment-active-color);
-  box-shadow: var(--segment-active-shadow);
-}

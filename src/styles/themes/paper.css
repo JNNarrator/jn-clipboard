@@ -154,11 +154,6 @@ body.theme-paper::before {
   position: relative;
 }
 
-.theme-paper .item-content {
-  margin-left: 0;
-  font-family: var(--font-main);
-}
-
 .theme-paper .history-item.selected {
   background-color: #fbf1c7 !important;
 }

@@ -239,10 +239,6 @@ body.theme-retro {
   background: rgba(0, 0, 0, 0.05);
 }
 
-.theme-retro .queue-bar .start-btn {
-  font-style: italic;
-}
-
 @media (prefers-color-scheme: dark) {
   :root.theme-retro:not(.light-mode),
   body.theme-retro:not(.light-mode) {

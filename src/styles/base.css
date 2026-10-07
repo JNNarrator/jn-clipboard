@@ -451,7 +451,6 @@ body {
   overflow: hidden;
 }
 
-
 html,
 body {
   width: 100%;
@@ -475,12 +474,6 @@ body {
   backdrop-filter: var(--shell-backdrop-filter);
   -webkit-backdrop-filter: var(--shell-backdrop-filter);
   background-clip: padding-box;
-}
-
-:root.hide-app-border #root,
-body.hide-app-border #root {
-  border-color: transparent !important;
-  box-shadow: none !important;
 }
 
 #root::before {

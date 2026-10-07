@@ -246,8 +246,7 @@ header {
     max-width: 7.5em;
   }
 
-  .brand-mark,
-  .windows-brand-mark {
+  .brand-mark {
     height: 13px;
     width: 36px;
   }

@@ -156,7 +156,6 @@
     color: var(--on-accent);
 }
 
-
 /* =========================================
    THEME SPECIFIC OVERRIDES
    ========================================= */
@@ -329,128 +328,8 @@
 .dark-mode .theme-paper .ticker-tag.warning { color: #fbbf24; }
 .dark-mode .theme-paper .ticker-tag.update { color: #34d399; }
 
-
-/* =========================================
-   ANNOUNCEMENT MODAL (Universal)
-   ========================================= */
-
-.announcement-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.45);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    z-index: 9999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-}
-
-.announcement-modal {
-    background: var(--modal-background, var(--popover-background, #fff));
-    backdrop-filter: var(--popover-backdrop-filter, none);
-    -webkit-backdrop-filter: var(--popover-backdrop-filter, none);
-    border: var(--panel-border, 2px solid var(--border-dark));
-    border-radius: var(--radius-panel, 8px);
-    width: 100%;
-    max-width: 420px;
-    box-shadow: var(--shadow-lg, 0 20px 40px rgba(0,0,0,0.2));
-    overflow: hidden;
-    color: var(--text-primary);
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    animation: modal-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
 @keyframes modal-pop {
     from { transform: scale(0.9) translateY(10px); opacity: 0; }
     to { transform: scale(1) translateY(0); opacity: 1; }
 }
 
-.announcement-header {
-    padding: 16px 20px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    border-bottom: var(--panel-border, 1px solid var(--border-dark));
-    background: var(--bg-toolbar, rgba(0,0,0,0.02));
-}
-
-.announcement-icon-wrapper {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-    background: var(--accent-color);
-    color: var(--on-accent);
-    flex-shrink: 0;
-}
-
-.announcement-header h3 {
-    margin: 0;
-    font-size: 16px;
-    font-weight: 800;
-    flex: 1;
-    color: var(--text-primary);
-}
-
-.announcement-body {
-    padding: 24px;
-    font-size: 14px;
-    line-height: 1.6;
-    color: var(--text-secondary);
-}
-
-.announcement-footer {
-    padding: 16px 20px;
-    display: flex;
-    justify-content: flex-end;
-    gap: 12px;
-    background: var(--bg-toolbar, rgba(0,0,0,0.02));
-    border-top: var(--panel-border, 1px solid var(--border-dark));
-}
-
-.announcement-btn {
-    padding: 8px 16px;
-    border: var(--button-border, 1px solid var(--border-dark));
-    font-size: 13px;
-    font-weight: 700;
-    cursor: pointer;
-    border-radius: var(--button-radius, 6px);
-    transition: all 0.2s;
-}
-
-.announcement-btn.secondary {
-    background: var(--bg-button, #f0f0f0);
-    color: var(--text-primary);
-}
-
-.announcement-btn.primary {
-    background: var(--accent-color);
-    color: var(--on-accent);
-    border: none;
-}
-
-.announcement-btn:hover {
-    filter: brightness(1.1);
-    transform: translateY(-1px);
-}
-
-.announcement-btn:active {
-    transform: translateY(1px);
-}
-
-/* --- Retro Specific Modal Overrides (Windows 95 style) --- */
-.theme-retro .announcement-modal {
-    border-width: 3px;
-    box-shadow: 8px 8px 0 var(--shadow-color, #000);
-    border-radius: 0;
-}
-.theme-retro .announcement-btn {
-    border-radius: 0;
-    box-shadow: 2px 2px 0 var(--shadow-color, #000);
-}

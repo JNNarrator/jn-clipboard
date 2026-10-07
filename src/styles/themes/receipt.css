@@ -302,7 +302,6 @@ body.theme-receipt .settings-group {
 }
 
 .theme-receipt .theme-choice-btn.active,
-.theme-receipt .segment-btn.active,
 .theme-receipt .btn-icon.active {
   background: var(--button-active-filled-background) !important;
   color: var(--button-active-filled-color) !important;

@@ -19,16 +19,12 @@
 
 .history-list-container,
 .virtuoso-grid,
-.scrollable-panel,
-.settings-content-body,
 .settings-view {
   scrollbar-gutter: stable;
 }
 
 html.platform-windows .history-list-container,
 html.platform-windows .virtuoso-grid,
-html.platform-windows .scrollable-panel,
-html.platform-windows .settings-content-body,
 html.platform-windows .settings-view {
   /* Overlay bars do not reserve a permanent gutter like classic Win32 ones. */
   scrollbar-gutter: auto;

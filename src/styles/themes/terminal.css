@@ -307,9 +307,7 @@ body.light-mode.theme-terminal {
 body.theme-terminal,
 body.theme-terminal .search-input,
 body.theme-terminal .history-item,
-body.theme-terminal .item-content,
 body.theme-terminal .item-meta,
-body.theme-terminal .preview-text,
 body.theme-terminal .settings-group,
 body.theme-terminal .theme-choice-title,
 body.theme-terminal .header-title,
@@ -402,14 +400,12 @@ body.theme-terminal .tag-manager-page {
 }
 
 .theme-terminal .item-meta-right-info,
-.theme-terminal .item-time,
 .theme-terminal .meta-time {
   color: var(--term-fg-muted);
   font-variant-numeric: tabular-nums;
 }
 
 .theme-terminal .content-preview,
-.theme-terminal .preview-text,
 .theme-terminal .card-body-text {
   color: var(--term-fg);
 }
@@ -442,10 +438,6 @@ body.theme-terminal .tag-manager-page {
 .theme-terminal .btn-icon.active {
   color: var(--term-green);
   background: rgba(63, 185, 80, 0.1);
-}
-
-.theme-terminal .segment-btn.active {
-  color: var(--term-green);
 }
 
 .theme-terminal .settings-choice-grid {

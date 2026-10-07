@@ -287,8 +287,7 @@ body.dark-mode.theme-ink .btn-icon:hover {
 }
 
 body.dark-mode.theme-ink .btn-icon.active,
-body.dark-mode.theme-ink .theme-choice-btn.active,
-body.dark-mode.theme-ink .segment-btn.active {
+body.dark-mode.theme-ink .theme-choice-btn.active {
   border-color: rgba(168, 72, 72, 0.38) !important;
 }
 
@@ -300,7 +299,6 @@ body.dark-mode.theme-ink .settings-group {
 body.theme-ink,
 body.theme-ink .search-input,
 body.theme-ink .history-item,
-body.theme-ink .item-content,
 body.theme-ink .item-meta,
 body.theme-ink .settings-group,
 body.theme-ink .header-title {
@@ -369,8 +367,7 @@ body.dark-mode.theme-ink .search-container:has(.search-input.dropdown-open) {
 }
 
 .theme-ink .btn-icon.active,
-.theme-ink .theme-choice-btn.active,
-.theme-ink .segment-btn.active {
+.theme-ink .theme-choice-btn.active {
   box-shadow: none !important;
   background: var(--ink-seal-soft) !important;
   color: var(--ink-seal) !important;

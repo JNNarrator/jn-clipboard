@@ -391,8 +391,7 @@ body:has(.modal-overlay) #root {
   -webkit-backdrop-filter: var(--popover-backdrop-filter, none);
 }
 
-.confirm-dialog-title,
-.modal-panel-title {
+.confirm-dialog-title {
   margin: 0 0 12px;
   font-size: 18px;
   font-weight: var(--modal-title-font-weight);
@@ -401,17 +400,12 @@ body:has(.modal-overlay) #root {
   letter-spacing: var(--modal-title-letter-spacing);
 }
 
-.confirm-dialog-message,
-.modal-panel-message {
+.confirm-dialog-message {
   margin: 0 0 24px;
   font-size: 14px;
   line-height: 1.6;
   color: var(--text-primary);
   opacity: 0.8;
-}
-
-.modal-panel-message:last-child {
-  margin-bottom: 0;
 }
 
 .modal-panel-actions,
