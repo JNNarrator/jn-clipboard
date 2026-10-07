@@ -156,7 +156,7 @@
 /* "···" More Menu */
 .wt-more-menu {
   position: absolute;
-  z-index: 600;
+  z-index: var(--z-dropdown);
   top: calc(100% + 8px);
   right: 0;
   min-width: 220px;
@@ -980,7 +980,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
 
 .wt-file-send-options {
   position: absolute;
-  z-index: 2200;
+  z-index: var(--z-dropdown);
   bottom: calc(100% + 8px);
   left: 0;
   display: grid;
@@ -1209,7 +1209,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
 /* Full-screen editor */
 .wt-fullscreen-editor {
   position: absolute;
-  z-index: 1000;
+  z-index: var(--z-overlay);
   inset: 10px;
   display: flex;
   flex-direction: column;
@@ -1271,7 +1271,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
 /* Drag overlay */
 .wt-drag-overlay {
   position: absolute;
-  z-index: 2000;
+  z-index: var(--z-overlay);
   inset: 0;
   display: grid;
   place-items: center;
@@ -1302,7 +1302,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
 /* Context menu */
 .wt-context-menu {
   position: fixed;
-  z-index: 3000;
+  z-index: var(--z-context-menu);
   display: grid;
   min-width: 176px;
   max-width: min(260px, calc(100vw - 16px));

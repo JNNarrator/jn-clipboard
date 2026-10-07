@@ -167,7 +167,7 @@ html.dark-mode .pin-sticker-shell:hover .pin-sticker-image-wrapper {
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.2s cubic-bezier(0.2, 0, 0, 1), transform 0.2s cubic-bezier(0.2, 0, 0, 1);
-  z-index: 1000;
+  z-index: var(--z-overlay);
 }
 
 .pin-sticker-shell:hover .pin-sticker-toolbar {
@@ -237,7 +237,7 @@ html.dark-mode .pin-sticker-shell:hover .pin-sticker-image-wrapper {
   font-size: 11px;
   font-weight: 600;
   pointer-events: none;
-  z-index: 1100;
+  z-index: var(--z-toast);
   animation: fadeInOut 1.2s ease forwards;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
   letter-spacing: 0.5px;

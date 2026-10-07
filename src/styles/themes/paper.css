@@ -134,7 +134,7 @@ body.theme-paper::before {
   background-size: 120px 120px;
   opacity: 0.04;
   pointer-events: none;
-  z-index: 9999;
+  z-index: var(--z-texture);
 }
 
 /* Code / URL / spreadsheet text reads better monospaced than in serif. */

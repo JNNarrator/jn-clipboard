@@ -447,7 +447,7 @@ header {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  z-index: 100050;
+  z-index: var(--z-dropdown);
   user-select: none;
 }
 
@@ -734,7 +734,7 @@ select.search-input option {
 }
 
 .history-item[data-reordering="true"] {
-  z-index: 9999;
+  z-index: var(--z-overlay);
   box-shadow: var(--card-selected-shadow);
   background: var(--card-selected-background);
   transform: scale(1.01);

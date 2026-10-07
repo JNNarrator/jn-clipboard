@@ -4,7 +4,7 @@
     top: 100%;
     left: 0;
     right: 0;
-    z-index: 100000 !important;
+    z-index: var(--z-dropdown) !important;
     display: block !important;
     visibility: visible !important;
     opacity: 1 !important;
@@ -137,7 +137,7 @@
     -webkit-backdrop-filter: var(--popover-backdrop-filter, none);
     border: var(--tags-border);
     box-shadow: var(--tags-shadow);
-    z-index: 10060;
+    z-index: var(--z-popover);
     box-sizing: border-box;
 }
 

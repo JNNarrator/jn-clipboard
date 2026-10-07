@@ -253,7 +253,7 @@ html.platform-macos .tag-manager-chip-row::-webkit-scrollbar-thumb {
 
 .tag-manager-action-menu {
   position: fixed;
-  z-index: 3000;
+  z-index: var(--z-context-menu);
   width: 144px;
   padding: 4px;
   border: var(--menu-border);

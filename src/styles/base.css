@@ -93,6 +93,16 @@
   --font-size-md: 14px;
   --font-size-lg: 16px;
 
+  /* Stacking layers for anything that floats above the page. Pick a layer
+     instead of inventing a number; values below 1000 are local to a component. */
+  --z-popover: 1000;       /* hover previews, inline suggestion lists */
+  --z-dropdown: 1100;      /* menus opened from a button: sort, AI, tags, "more" */
+  --z-overlay: 2000;       /* in-view overlays: drag-drop zone, fullscreen editor, dragged card */
+  --z-context-menu: 3000;  /* right-click menus */
+  --z-modal: 4000;         /* dialog scrim and panel */
+  --z-toast: 5000;         /* toasts stay visible above dialogs */
+  --z-texture: 9000;       /* decorative full-window textures (pointer-events: none) */
+
   --clipboard-item-font-size: 13px;
   --clipboard-tag-font-size: 10px;
 

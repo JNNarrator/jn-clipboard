@@ -67,7 +67,7 @@
     box-shadow: var(--popover-shadow);
     border-radius: var(--popover-radius);
     padding: 12px;
-    z-index: 99999;
+    z-index: var(--z-popover);
     line-height: 1.5;
     pointer-events: auto;
 }
@@ -619,7 +619,7 @@ body.hide-unselected-item-actions .history-item.compact:hover .item-meta-right-i
 
 .compact-action-menu {
     position: fixed;
-    z-index: 100050;
+    z-index: var(--z-dropdown);
     width: max-content;
     min-width: 140px;
     max-width: 220px;
@@ -984,17 +984,6 @@ html.compact-show-time .history-item.compact:has(.item-tags-container) .content-
 .compact-popover-portal.retro.dark-mode .popover-meta .meta-row svg {
     color: #cccccc !important;
     opacity: 1;
-}
-
-/* AI Dropdown Panel in Compact Mode - Higher z-index than preview popover */
-.history-item.compact .item-actions [style*="z-index: 1000"] {
-    /* Ensure AI dropdown is above preview popover (z-index 99999) */
-    z-index: 100000 !important;
-}
-
-/* AI dropdown scrollbar styling */
-html.platform-macos .history-item.compact .item-actions [style*="overflow-y: auto"]::-webkit-scrollbar {
-    width: var(--scrollbar-size-thin);
 }
 
 .history-item.compact .rich-text-snapshot-viewport {
