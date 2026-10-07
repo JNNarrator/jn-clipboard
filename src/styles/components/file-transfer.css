@@ -26,11 +26,12 @@
   --im-border: var(--line-soft);
   --im-strong-border: var(--line-strong);
   --im-bubble-shadow: 0 1px 2px rgba(15, 35, 52, 0.08);
-  --im-menu-shadow: 0 16px 40px rgba(15, 35, 52, 0.18);
-  --im-bubble-radius: 14px;
-  --im-control-radius: 11px;
-  --im-panel-radius: 14px;
-  --im-avatar-radius: 50%;
+  --im-menu-shadow: var(--menu-shadow);
+  /* Shapes follow the active theme's scale instead of a private one. */
+  --im-bubble-radius: var(--card-radius);
+  --im-control-radius: var(--input-radius);
+  --im-panel-radius: var(--panel-radius);
+  --im-avatar-radius: var(--radius-pill);
 
   position: relative;
   display: flex;
@@ -147,7 +148,7 @@
   -webkit-appearance: none;
   background: rgba(var(--im-accent-rgb), 0.07);
   border: 1px solid var(--im-border);
-  border-radius: 5px;
+  border-radius: var(--input-radius);
   color: var(--im-text);
   font: 8.5px/1.3 var(--font-mono);
   padding: 2px 18px 2px 6px;
@@ -181,7 +182,7 @@
   height: 18px;
   padding: 0;
   border: 1px solid var(--im-border);
-  border-radius: 4px;
+  border-radius: var(--button-radius);
   background: transparent;
   color: var(--im-muted);
   cursor: pointer;
@@ -202,7 +203,7 @@
   place-items: center;
   padding: 0;
   border: 1px solid var(--im-border);
-  border-radius: 7px;
+  border-radius: var(--button-radius);
   color: var(--im-text);
   background: color-mix(in srgb, var(--im-surface) 75%, transparent);
   cursor: pointer;
@@ -217,10 +218,10 @@
 }
 
 .wt-header-action.is-active {
-  color: #ffffff;
-  background: var(--im-accent);
-  border-color: var(--im-accent);
-  box-shadow: 0 2px 6px rgba(var(--im-accent-rgb), 0.32);
+  color: var(--button-active-filled-color);
+  background: var(--button-active-filled-background);
+  border-color: var(--button-active-filled-border-color);
+  box-shadow: var(--button-active-filled-shadow);
 }
 
 .wt-header-action:active {
@@ -243,14 +244,11 @@
   min-width: 220px;
   max-width: 280px;
   padding: 6px;
-  border: 1px solid var(--im-strong-border);
-  border-radius: 12px;
+  border: var(--menu-border);
+  border-radius: var(--menu-radius);
   color: var(--text-primary);
   background: var(--menu-background, var(--popover-background));
-  box-shadow:
-    0 12px 36px rgba(0, 0, 0, 0.18),
-    0 3px 10px rgba(0, 0, 0, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  box-shadow: var(--menu-shadow);
   backdrop-filter: var(--popover-backdrop-filter, blur(28px) saturate(180%));
   -webkit-backdrop-filter: var(--popover-backdrop-filter, blur(28px) saturate(180%));
   display: flex;
@@ -258,14 +256,6 @@
   gap: 2px;
   transform-origin: top right;
   animation: wt-menu-in 150ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-:root.dark-mode .wt-more-menu {
-  background: var(--menu-background, var(--popover-background));
-  box-shadow:
-    0 16px 42px rgba(0, 0, 0, 0.48),
-    0 4px 14px rgba(0, 0, 0, 0.32),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 @keyframes wt-menu-in {
@@ -287,7 +277,7 @@
   min-height: 34px;
   padding: 7px 11px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--compact-action-radius, 4px);
   background: transparent;
   color: var(--text-primary);
   font-size: 13px;
@@ -314,12 +304,12 @@
 }
 
 .wt-more-menu-item:hover {
-  background: rgba(var(--im-accent-rgb), 0.1);
-  color: var(--text-primary);
+  background: var(--menu-item-hover-background);
+  color: var(--menu-item-hover-color);
 }
 
 .wt-more-menu-item:hover svg {
-  color: var(--im-accent);
+  color: var(--menu-item-hover-color);
 }
 
 .wt-more-menu-item:active {
@@ -341,20 +331,20 @@
 }
 
 .wt-more-menu-item.is-danger {
-  color: #ef4444;
+  color: var(--status-danger);
 }
 
 .wt-more-menu-item.is-danger svg {
-  color: #ef4444;
+  color: var(--status-danger);
 }
 
 .wt-more-menu-item.is-danger:hover {
-  background: rgba(239, 68, 68, 0.12);
-  color: #dc2626;
+  background: rgba(var(--status-danger-rgb), 0.12);
+  color: var(--status-danger);
 }
 
 .wt-more-menu-item.is-danger:hover svg {
-  color: #dc2626;
+  color: var(--status-danger);
 }
 
 .wt-more-menu-divider {
@@ -402,7 +392,7 @@
   overflow-x: hidden;
   overflow-y: auto;
   padding: 14px clamp(12px, 3.5vw, 30px) 20px;
-  background-color: var(--im-canvas);
+  background-color: transparent;
   background-image:
     linear-gradient(var(--im-canvas-shade), var(--im-canvas-shade)),
     var(--custom-bg-image, none),
@@ -450,7 +440,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
 .wt-day-separator span {
   padding: 3px 8px;
   border: 1px solid color-mix(in srgb, var(--im-border) 76%, transparent);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--im-muted);
   background: color-mix(in srgb, var(--im-surface) 78%, transparent);
   box-shadow: 0 1px 2px rgba(15, 35, 52, 0.04);
@@ -540,7 +530,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   display: grid;
   place-items: center;
   padding: 8px;
-  border-radius: 12px;
+  border-radius: var(--im-panel-radius);
   /* Light pad keeps QR contrast in dark themes. */
   background: #ffffff;
   border: 1px solid var(--im-border);
@@ -569,7 +559,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   margin-top: 4px;
   padding: 3px 8px;
   border: 1px solid var(--im-border);
-  border-radius: 6px;
+  border-radius: var(--im-control-radius);
   background: rgba(var(--im-accent-rgb), 0.05);
 }
 
@@ -584,7 +574,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
 .wt-pairing-copy-btn {
   padding: 1.5px 6px;
   border: 0;
-  border-radius: 4px;
+  border-radius: var(--button-radius);
   background: rgba(var(--im-accent-rgb), 0.12);
   color: var(--im-accent);
   font-size: 9.5px;
@@ -636,7 +626,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   overflow: hidden;
   border: 2px solid color-mix(in srgb, var(--im-surface) 88%, transparent);
   border-radius: var(--im-avatar-radius);
-  color: #fff;
+  color: var(--on-accent);
   box-shadow:
     0 0 0 1px rgba(var(--im-accent-rgb), 0.22),
     0 2px 6px rgba(15, 35, 52, 0.1);
@@ -679,29 +669,29 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
 }
 
 .wt-message.received .wt-bubble {
-  border-bottom-left-radius: 4px;
+  border-bottom-left-radius: min(4px, var(--im-bubble-radius));
 }
 
 .wt-message.sent .wt-bubble {
   border-color: color-mix(in srgb, var(--im-accent) 16%, var(--im-border));
-  border-bottom-right-radius: 4px;
+  border-bottom-right-radius: min(4px, var(--im-bubble-radius));
   background: var(--im-outgoing);
 }
 
 .wt-message.received.is-grouped-with-previous .wt-bubble {
-  border-top-left-radius: 7px;
+  border-top-left-radius: min(7px, var(--im-bubble-radius));
 }
 
 .wt-message.received.is-grouped-with-next .wt-bubble {
-  border-bottom-left-radius: 7px;
+  border-bottom-left-radius: min(7px, var(--im-bubble-radius));
 }
 
 .wt-message.sent.is-grouped-with-previous .wt-bubble {
-  border-top-right-radius: 7px;
+  border-top-right-radius: min(7px, var(--im-bubble-radius));
 }
 
 .wt-message.sent.is-grouped-with-next .wt-bubble {
-  border-bottom-right-radius: 7px;
+  border-bottom-right-radius: min(7px, var(--im-bubble-radius));
 }
 
 .wt-sender-name {
@@ -733,7 +723,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   justify-content: center;
   padding: 0;
   border: 1px solid var(--im-border);
-  border-radius: 5px;
+  border-radius: var(--button-radius);
   background: var(--im-surface);
   color: var(--im-muted);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
@@ -839,7 +829,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   flex: 0 0 40px;
   place-items: center;
   overflow: hidden;
-  border-radius: 12px;
+  border-radius: var(--im-control-radius);
   color: var(--im-accent);
   background: rgba(var(--im-accent-rgb), 0.12);
 }
@@ -897,7 +887,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
 .progress-container {
   height: 4px;
   overflow: hidden;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: rgba(var(--im-accent-rgb), 0.14);
 }
 
@@ -949,7 +939,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   gap: 8px;
   margin-top: 6px;
   padding: 4px 8px;
-  border-radius: 6px;
+  border-radius: var(--im-control-radius);
   background: rgba(239, 68, 68, 0.08);
   border: 1px solid rgba(239, 68, 68, 0.2);
 }
@@ -958,7 +948,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   display: flex;
   align-items: center;
   gap: 5px;
-  color: #ef4444;
+  color: var(--status-danger);
   font-size: 9.5px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -971,8 +961,8 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   gap: 4px;
   padding: 2px 7px;
   border: 0;
-  border-radius: 4px;
-  background: #ef4444;
+  border-radius: var(--button-radius);
+  background: var(--status-danger);
   color: #fff;
   font-size: 9.5px;
   font-weight: 500;
@@ -987,92 +977,6 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
 
 .wt-transfer-retry-btn:active {
   transform: scale(0.95);
-}
-
-.wt-confirm-backdrop {
-  position: absolute;
-  inset: 0;
-  z-index: 1000;
-  display: grid;
-  place-items: center;
-  padding: 20px;
-  background: rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-}
-
-.wt-confirm-modal {
-  width: 100%;
-  max-width: 320px;
-  padding: 18px;
-  border: 1px solid var(--im-strong-border);
-  border-radius: var(--im-panel-radius);
-  background: var(--modal-background, var(--popover-background));
-  backdrop-filter: var(--popover-backdrop-filter, blur(28px) saturate(180%));
-  -webkit-backdrop-filter: var(--popover-backdrop-filter, blur(28px) saturate(180%));
-  box-shadow: var(--im-menu-shadow);
-  color: var(--im-text);
-}
-
-.wt-confirm-title {
-  font-size: 13.5px;
-  font-weight: 700;
-  margin-bottom: 8px;
-}
-
-.wt-confirm-message {
-  font-size: 11.5px;
-  color: var(--im-muted);
-  line-height: 1.45;
-  margin-bottom: 16px;
-}
-
-.wt-confirm-message span {
-  display: inline-block;
-  margin-top: 4px;
-  font-size: 10.5px;
-  opacity: 0.85;
-}
-
-.wt-confirm-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.wt-confirm-btn {
-  padding: 5px 12px;
-  border-radius: 6px;
-  font-size: 11.5px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 140ms ease;
-  border: 1px solid transparent;
-}
-
-.wt-confirm-cancel {
-  background: var(--im-button-bg);
-  border-color: var(--im-border);
-  color: var(--im-text);
-}
-
-.wt-confirm-cancel:hover {
-  background: var(--im-button-hover);
-}
-
-.wt-confirm-danger {
-  background: #ef4444;
-  color: #ffffff;
-}
-
-.wt-confirm-danger:hover {
-  background: #dc2626;
-}
-
-.wt-confirm-danger:disabled,
-.wt-confirm-cancel:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 /* Composer */
@@ -1165,8 +1069,8 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   width: 244px;
   gap: 3px;
   padding: 5px;
-  border: 1px solid var(--im-strong-border);
-  border-radius: var(--im-control-radius);
+  border: var(--menu-border);
+  border-radius: var(--menu-radius);
   background: var(--menu-background, var(--popover-background));
   box-shadow: var(--im-menu-shadow);
   backdrop-filter: var(--popover-backdrop-filter, blur(28px) saturate(180%));
@@ -1181,16 +1085,20 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   width: 100%;
   padding: 8px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--compact-action-radius, 4px);
   color: var(--im-text);
   background: transparent;
   text-align: left;
   cursor: pointer;
 }
 
-.wt-file-send-options button:hover,
 .wt-file-send-options button.is-active {
   background: color-mix(in srgb, var(--im-accent) 10%, transparent);
+}
+
+.wt-file-send-options button:hover {
+  color: var(--menu-item-hover-color);
+  background: var(--menu-item-hover-background);
 }
 
 .wt-file-send-options button > svg {
@@ -1200,6 +1108,12 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
 .wt-file-send-options button.is-active > svg,
 .wt-option-check {
   color: var(--im-accent);
+}
+
+.wt-file-send-options button:hover > svg,
+.wt-file-send-options button:hover small,
+.wt-file-send-options button:hover .wt-option-check {
+  color: inherit;
 }
 
 .wt-file-send-options strong,
@@ -1321,7 +1235,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
 .wt-btn {
   min-height: 34px;
   padding: 0 15px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: 11px;
   font-weight: 650;
 }
@@ -1336,8 +1250,8 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   flex: 0 0 36px !important;
   padding: 0 !important;
   border: 0 !important;
-  border-radius: 50% !important;
-  color: #fff;
+  border-radius: var(--radius-pill) !important;
+  color: var(--on-accent);
   background: var(--im-accent);
   display: inline-flex;
   align-items: center;
@@ -1421,7 +1335,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   width: 30px;
   height: 30px;
   padding: 0;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
 }
 
 .wt-fullscreen-textarea {
@@ -1476,8 +1390,8 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   max-width: min(260px, calc(100vw - 16px));
   padding: 5px;
   overflow: hidden;
-  border: 1px solid var(--im-strong-border);
-  border-radius: var(--im-control-radius);
+  border: var(--menu-border);
+  border-radius: var(--menu-radius);
   background: var(--menu-background, var(--popover-background));
   box-shadow: var(--im-menu-shadow);
   backdrop-filter: var(--popover-backdrop-filter, blur(28px) saturate(180%));
@@ -1497,7 +1411,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   gap: 10px;
   padding: 6px 9px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--compact-action-radius, 4px);
   color: var(--im-text);
   background: transparent;
   font: 11px/1.3 var(--font-main);
@@ -1512,13 +1426,13 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
 
 .wt-context-item:hover,
 .wt-context-item:focus-visible {
-  color: var(--im-text);
-  background: rgba(var(--im-accent-rgb), 0.1);
+  color: var(--menu-item-hover-color);
+  background: var(--menu-item-hover-background);
 }
 
 .wt-context-item:hover svg,
 .wt-context-item:focus-visible svg {
-  color: var(--im-accent);
+  color: var(--menu-item-hover-color);
 }
 
 .wt-context-separator {
@@ -1610,7 +1524,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   gap: 9px;
   padding: 5px 7px;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--im-control-radius);
   background: transparent;
   text-align: left;
   cursor: pointer;
@@ -1673,12 +1587,15 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   opacity: 0.5;
 }
 
-/* Theme token adapters: geometry remains untouched. */
+/* Theme token adapters: colors only. Shapes already follow each theme's
+   radius tokens through the --im-*-radius defaults above. */
 .theme-mica .wt-chat-view,
 .theme-acrylic .wt-chat-view,
 .theme-macos .wt-chat-view {
+  /* Let the native glass show through exactly as it does behind the main list. */
   --im-canvas: transparent;
-  --im-canvas-shade: color-mix(in srgb, var(--bg-window) 68%, transparent);
+  --im-canvas-shade: transparent;
+  --im-canvas-pattern: none;
   --im-header: color-mix(in srgb, var(--bg-toolbar) 78%, transparent);
   --im-surface: color-mix(in srgb, var(--bg-input) 86%, transparent);
   --im-input: color-mix(in srgb, var(--bg-input) 92%, transparent);
@@ -1698,8 +1615,6 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   --im-canvas-shade: color-mix(in srgb, var(--im-canvas) 84%, transparent);
   --im-incoming: color-mix(in srgb, var(--bg-element) 94%, #fff 6%);
   --im-outgoing: color-mix(in srgb, var(--accent-color) 14%, var(--bg-element) 86%);
-  --im-bubble-radius: 12px;
-  --im-control-radius: 10px;
 }
 
 .theme-terminal .wt-chat-view {
@@ -1707,9 +1622,6 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   --im-canvas-shade: color-mix(in srgb, var(--bg-window) 90%, transparent);
   --im-incoming: var(--bg-element);
   --im-outgoing: color-mix(in srgb, var(--accent-color) 14%, var(--bg-element) 86%);
-  --im-bubble-radius: 8px;
-  --im-control-radius: 7px;
-  --im-panel-radius: 9px;
 }
 
 .theme-paper .wt-chat-view,
@@ -1719,25 +1631,20 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   --im-canvas-shade: color-mix(in srgb, var(--bg-window) 88%, transparent);
   --im-incoming: var(--bg-element);
   --im-outgoing: color-mix(in srgb, var(--accent-color) 12%, var(--bg-element) 88%);
-  --im-bubble-radius: 10px;
-  --im-control-radius: 8px;
 }
 
 .theme-retro .wt-chat-view {
   --im-bubble-shadow: 2px 2px 0 var(--line-strong);
-  --im-menu-shadow: 4px 4px 0 var(--line-strong);
-  --im-bubble-radius: 7px;
-  --im-control-radius: 6px;
-  --im-panel-radius: 8px;
 }
 
-:root.dark-mode .wt-chat-view {
+/* Dark defaults only. :where() keeps this at the specificity of the base rule so
+   the theme adapters above still win in dark mode (glass stays transparent). */
+:where(:root.dark-mode) .wt-chat-view {
   --im-canvas: color-mix(in srgb, var(--bg-window) 92%, var(--accent-color) 8%);
   --im-canvas-shade: color-mix(in srgb, var(--im-canvas) 78%, transparent);
   --im-incoming: color-mix(in srgb, var(--bg-panel) 95%, var(--accent-color) 5%);
   --im-outgoing: color-mix(in srgb, var(--bg-panel) 76%, var(--accent-color) 24%);
   --im-bubble-shadow: 0 1px 2px rgba(0, 0, 0, 0.24);
-  --im-menu-shadow: 0 18px 44px rgba(0, 0, 0, 0.42);
 }
 
 @keyframes wt-message-in {
@@ -1795,7 +1702,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
 .wt-filter-bar {
   overflow: hidden;
   border-bottom: 1px solid var(--im-border);
-  background: color-mix(in srgb, var(--im-surface) 92%, var(--im-bg));
+  background: color-mix(in srgb, var(--im-surface) 92%, transparent);
   backdrop-filter: blur(12px);
   position: relative;
   z-index: 10;
@@ -1818,7 +1725,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
 .wt-filter-pill {
   padding: 3px 9px;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--button-radius);
   font-size: 11px;
   font-weight: 500;
   color: var(--im-muted);
@@ -1856,7 +1763,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   width: 100%;
   background: rgba(var(--im-accent-rgb), 0.05);
   border: 1px solid var(--im-border);
-  border-radius: 6px;
+  border-radius: var(--input-radius);
   padding: 0 6px;
   transition: border-color 140ms ease, box-shadow 140ms ease;
 }
@@ -1895,7 +1802,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   height: 16px;
   padding: 0;
   border: 0;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   color: var(--im-muted);
   background: rgba(var(--im-accent-rgb), 0.1);
   cursor: pointer;
@@ -1914,7 +1821,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   color: var(--im-accent);
   background: rgba(var(--im-accent-rgb), 0.1);
   padding: 2px 6px;
-  border-radius: 10px;
+  border-radius: var(--radius-pill);
   white-space: nowrap;
 }
 
@@ -1922,7 +1829,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   margin-top: 12px;
   padding: 6px 14px;
   border: 1px solid rgba(var(--im-accent-rgb), 0.25);
-  border-radius: 6px;
+  border-radius: var(--button-radius);
   background: rgba(var(--im-accent-rgb), 0.08);
   color: var(--im-accent);
   font-size: 11px;

@@ -45,6 +45,7 @@ import { TransferBatchBubble } from "./TransferBatchBubble";
 import { TransferMessageItem } from "./TransferMessageItem";
 import { TransferComposer } from "./TransferComposer";
 import { TransferContextMenu } from "./TransferContextMenu";
+import ConfirmDialog from "../../../shared/components/ConfirmDialog";
 
 const FileTransferChatView = ({
     t,
@@ -1210,45 +1211,17 @@ const FileTransferChatView = ({
                 filteredCount={filteredMessages.length}
             />
 
-            {/* Clear History Confirmation Modal */}
-            <AnimatePresence>
-                {showClearConfirm && (
-                    <div className="wt-confirm-backdrop" onClick={() => setShowClearConfirm(false)}>
-                        <motion.div
-                            className="wt-confirm-modal"
-                            initial={{ scale: 0.95, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.95, opacity: 0 }}
-                            transition={{ duration: 0.15 }}
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <div className="wt-confirm-title">清空传输记录</div>
-                            <div className="wt-confirm-message">
-                                确定要清空所有传输历史记录吗？<br />
-                                <span>此操作不会删除已保存到本地磁盘的文件。</span>
-                            </div>
-                            <div className="wt-confirm-actions">
-                                <button
-                                    type="button"
-                                    className="wt-confirm-btn wt-confirm-cancel"
-                                    onClick={() => setShowClearConfirm(false)}
-                                    disabled={isClearing}
-                                >
-                                    取消
-                                </button>
-                                <button
-                                    type="button"
-                                    className="wt-confirm-btn wt-confirm-danger"
-                                    onClick={handleClearHistory}
-                                    disabled={isClearing}
-                                >
-                                    {isClearing ? "正在清空…" : "清空记录"}
-                                </button>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
+            <ConfirmDialog
+                open={showClearConfirm}
+                title="清空传输记录"
+                message="确定要清空所有传输历史记录吗？此操作不会删除已保存到本地磁盘的文件。"
+                confirmLabel={isClearing ? "正在清空…" : "清空记录"}
+                cancelLabel="取消"
+                danger
+                busy={isClearing}
+                onConfirm={handleClearHistory}
+                onClose={() => setShowClearConfirm(false)}
+            />
 
             {/* Chat Box */}
             <div className="wt-chat-box" ref={chatBoxRef}>
@@ -1388,7 +1361,7 @@ const FileTransferChatView = ({
                                             isSaving={savingBatchId === m.batch_id}
                                             onContextMenu={openContextMenu}
                                         />
-                                        <div className="wt-meta">
+                                        <div className="wt-message-meta">
                                             <span>{formatMessageTime(m.timestamp)}</span>
                                             {m.direction === "out" && (
                                                 <span className="wt-delivery-mark">✓</span>
@@ -1461,7 +1434,7 @@ const FileTransferChatView = ({
                                         onRetrySend={retrySendFile}
                                         onContextMenu={openContextMenu}
                                     />
-                                    <div className="wt-meta">
+                                    <div className="wt-message-meta">
                                         <span>{formatMessageTime(m.timestamp)}</span>
                                         {m.direction === "out" && (
                                             <span className="wt-delivery-mark">✓</span>
