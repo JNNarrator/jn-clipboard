@@ -4,18 +4,18 @@
     top: 100%;
     left: 0;
     right: 0;
-    z-index: var(--z-dropdown) !important;
-    display: block !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    pointer-events: auto !important;
+    z-index: var(--z-dropdown);
+    display: block;
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
     max-height: min(240px, 45vh);
     overflow-y: auto;
     overflow-x: hidden;
     width: 100%;
     margin-top: 2px;
     padding: 6px 8px;
-    background: var(--popover-background, var(--bg-panel)) !important;
+    background: var(--popover-background, var(--bg-panel));
     border: var(--tags-border);
     border-radius: var(--tags-radius);
     box-shadow: var(--tags-shadow);
@@ -195,13 +195,13 @@
 .theme-mica .search-input.dropdown-open,
 .theme-acrylic .search-input.dropdown-open,
 .theme-macos .search-input.dropdown-open {
-    border-bottom-left-radius: 0 !important;
-    border-bottom-right-radius: 0 !important;
-    border-radius: 12px 12px 0 0 !important;
-    border: 1px solid rgba(128, 128, 128, 0.2) !important;
-    border-bottom-color: transparent !important;
-    box-shadow: none !important;
-    background: var(--popover-background) !important;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    border-radius: 12px 12px 0 0;
+    border: 1px solid rgba(128, 128, 128, 0.2);
+    border-bottom-color: transparent;
+    box-shadow: none;
+    background: var(--popover-background);
     backdrop-filter: var(--popover-backdrop-filter, blur(28px) saturate(180%));
     -webkit-backdrop-filter: var(--popover-backdrop-filter, blur(28px) saturate(180%));
 }
@@ -209,30 +209,30 @@
 :root.dark-mode .theme-mica .search-input.dropdown-open,
 :root.dark-mode .theme-acrylic .search-input.dropdown-open,
 :root.dark-mode .theme-macos .search-input.dropdown-open {
-    background: var(--popover-background) !important;
-    border-color: rgba(255, 255, 255, 0.1) !important;
+    background: var(--popover-background);
+    border-color: rgba(255, 255, 255, 0.1);
 }
 
 .theme-mica .tags-dropdown,
 .theme-acrylic .tags-dropdown,
 .theme-macos .tags-dropdown {
-    margin-top: 0 !important;
-    padding: 5px 6px 6px !important;
-    border: 1px solid var(--line-soft) !important;
-    border-top: none !important;
-    border-radius: 0 0 12px 12px !important;
-    background: var(--popover-background) !important;
+    margin-top: 0;
+    padding: 5px 6px 6px;
+    border: 1px solid var(--line-soft);
+    border-top: none;
+    border-radius: 0 0 12px 12px;
+    background: var(--popover-background);
     backdrop-filter: var(--popover-backdrop-filter, blur(28px) saturate(180%));
     -webkit-backdrop-filter: var(--popover-backdrop-filter, blur(28px) saturate(180%));
-    box-shadow: var(--shadow-md) !important;
+    box-shadow: var(--shadow-md);
 }
 
 :root.dark-mode .theme-mica .tags-dropdown,
 :root.dark-mode .theme-acrylic .tags-dropdown,
 :root.dark-mode .theme-macos .tags-dropdown {
-    background: var(--popover-background) !important;
-    border-color: rgba(255, 255, 255, 0.1) !important;
-    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.38) !important;
+    background: var(--popover-background);
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.38);
 }
 
 .theme-mica .tags-dropdown .tags-list,
@@ -250,12 +250,12 @@
     gap: 8px;
     padding: 6px 8px;
     border: 1px solid transparent;
-    border-radius: 7px !important;
-    background: transparent !important;
-    color: var(--text-primary) !important;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--text-primary);
     font-weight: 550;
-    box-shadow: none !important;
-    transform: none !important;
+    box-shadow: none;
+    transform: none;
 }
 
 .theme-mica .tags-dropdown .tag-chip::before,
@@ -362,7 +362,7 @@ body[class*="theme-"].dark-mode .tags-dropdown .tag-chip:active {
 }
 
 .tags-dropdown .tag-color-dot {
-  display: inline-block !important;
+  display: inline-block;
   width: 8px;
   height: 8px;
   min-width: 8px;
@@ -396,7 +396,7 @@ body[class*="theme-"].dark-mode .tag-chip::after {
 
 /* --- Global Fix for Search Input Accessibility in Dark Mode --- */
 :root.dark-mode .search-input {
-    color: #ffffff !important;
+    color: #ffffff;
 }
 
 :root.dark-mode .search-input::placeholder {

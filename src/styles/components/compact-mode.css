@@ -112,7 +112,7 @@
     bottom: auto;
     right: auto;
     top: auto;
-    margin: 0 !important;
+    margin: 0;
     z-index: 5;
     opacity: 0.9;
     max-width: min(42vw, 160px);
@@ -122,11 +122,11 @@
     justify-content: flex-end;
     gap: 4px;
     flex: 0 1 auto;
-    flex-wrap: nowrap !important;
+    flex-wrap: nowrap;
     overflow: hidden;
     pointer-events: auto;
-    transform: none !important;
-    padding-right: 0 !important;
+    transform: none;
+    padding-right: 0;
     transition: opacity 0.18s ease, max-width 0.18s ease;
 }
 
@@ -303,14 +303,14 @@ html.compact-show-time .history-item.compact .item-tags-container {
 
 /* Larger tags styling for better readability */
 .history-item.compact .item-tags-container .tag-chip {
-    font-size: var(--clipboard-tag-font-size) !important;
-    padding: 0px 4px !important;
+    font-size: var(--clipboard-tag-font-size);
+    padding: 0px 4px;
     min-height: 16px;
     line-height: 1;
     white-space: nowrap;
     display: inline-flex;
     align-items: center;
-    border-radius: var(--compact-action-radius, 4px) !important;
+    border-radius: var(--compact-action-radius, 4px);
     max-width: 90px;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -328,7 +328,7 @@ html.compact-show-time .history-item.compact .item-tags-container {
 
 /* Hide the App Info (Source/Icon/Pin) on the left side */
 .history-item.compact .item-meta .app-info {
-    display: none !important;
+    display: none;
 }
 
 /* Show Drag Handle in Compact Mode */
@@ -360,66 +360,66 @@ html.compact-show-time .history-item.compact .item-tags-container {
 /* The right side wrapper: [tags][time/actions slot] */
 .history-item.compact .item-meta-right,
 .history-item.compact .item-meta>div:last-child {
-    position: absolute !important;
-    top: 50% !important;
-    right: 8px !important;
-    bottom: auto !important;
-    transform: translateY(-50%) !important;
-    height: auto !important;
-    z-index: 200 !important;
-    display: flex !important;
-    flex-direction: row !important;
-    align-items: center !important;
-    justify-content: flex-end !important;
-    gap: 6px !important;
+    position: absolute;
+    top: 50%;
+    right: 8px;
+    bottom: auto;
+    transform: translateY(-50%);
+    height: auto;
+    z-index: 200;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
     max-width: min(72%, 300px);
     min-width: 0;
-    pointer-events: none !important;
+    pointer-events: none;
 }
 
 /* Maintain vertical center for first item */
 .first-virtual-item .history-item.compact .item-meta-right,
 .first-virtual-item .history-item.compact .item-meta>div:last-child {
-    top: 50% !important;
-    transform: translateY(-50%) !important;
+    top: 50%;
+    transform: translateY(-50%);
 }
 
 /* Time and ··· share one slot; tags never enter this grid. */
 .history-item.compact .item-meta-right-slot {
-    position: relative !important;
-    display: grid !important;
-    grid-template-areas: "slot" !important;
-    align-items: center !important;
-    justify-items: end !important;
-    flex: 0 0 auto !important;
+    position: relative;
+    display: grid;
+    grid-template-areas: "slot";
+    align-items: center;
+    justify-items: end;
+    flex: 0 0 auto;
     min-width: 20px;
     min-height: 20px;
-    pointer-events: none !important;
+    pointer-events: none;
 }
 
 /* Button Actions Styling — only overlays the time slot, not tags */
 .history-item.compact .item-actions {
-    grid-area: slot !important;
-    position: relative !important;
-    display: flex !important;
-    flex-direction: row !important;
-    align-items: center !important;
-    gap: 4px !important;
+    grid-area: slot;
+    position: relative;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
     opacity: 0;
     visibility: hidden;
     transform: translateX(6px);
     transition: opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1), transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.18s;
     pointer-events: none;
 
-    background: transparent !important;
-    box-shadow: none !important;
+    background: transparent;
+    box-shadow: none;
     padding: 0;
     border-radius: 0;
     border: none;
 }
 
 .dark-mode .history-item.compact .item-actions {
-    background: transparent !important;
+    background: transparent;
     border-color: transparent;
 }
 
@@ -488,27 +488,27 @@ body.hide-unselected-item-actions .history-item.compact:hover .item-actions {
 
 /* Timestamp & Quick Paste Hint — shares the slot with ···, not with tags */
 .history-item.compact .item-meta-right-info {
-    grid-area: slot !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    gap: 6px !important;
-    font-size: var(--font-size-xs) !important;
-    line-height: 1 !important;
-    font-variant-numeric: tabular-nums !important;
-    color: var(--text-secondary) !important;
-    opacity: 0.68 !important;
-    white-space: nowrap !important;
-    user-select: none !important;
-    pointer-events: none !important;
-    transform: none !important;
-    transition: opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.18s !important;
+    grid-area: slot;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: var(--font-size-xs);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-secondary);
+    opacity: 0.68;
+    white-space: nowrap;
+    user-select: none;
+    pointer-events: none;
+    transform: none;
+    transition: opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.18s;
 }
 
 /* In compact mode, timestamp is hidden by default; visible only when compact-show-time is active */
 .history-item.compact .item-meta-right-info > span:not(.quick-paste-hint) {
-    display: none !important;
-    white-space: nowrap !important;
-    line-height: 1 !important;
+    display: none;
+    white-space: nowrap;
+    line-height: 1;
 }
 
 body.compact-show-time .history-item.compact .item-meta-right-info > span:not(.quick-paste-hint),
@@ -538,14 +538,14 @@ body.hide-unselected-item-actions .history-item.compact:hover .item-meta-right-i
 }
 
 .history-item.compact .item-actions .btn-icon {
-    width: 20px !important;
-    height: 20px !important;
-    padding: 3px !important;
-    background: var(--compact-action-background) !important;
-    color: var(--compact-action-color) !important;
-    border: var(--compact-action-border) !important;
-    border-radius: var(--compact-action-radius) !important;
-    box-shadow: var(--compact-action-shadow) !important;
+    width: 20px;
+    height: 20px;
+    padding: 3px;
+    background: var(--compact-action-background);
+    color: var(--compact-action-color);
+    border: var(--compact-action-border);
+    border-radius: var(--compact-action-radius);
+    box-shadow: var(--compact-action-shadow);
     backdrop-filter: var(--compact-action-backdrop-filter);
     -webkit-backdrop-filter: var(--compact-action-backdrop-filter);
     transition:
@@ -582,8 +582,8 @@ body.hide-unselected-item-actions .history-item.compact:hover .item-meta-right-i
 }
 
 .history-item.compact .item-actions .btn-icon svg {
-    width: 14px !important;
-    height: 14px !important;
+    width: 14px;
+    height: 14px;
 }
 
 .history-item.compact .ai-options-dropdown {
@@ -1001,8 +1001,8 @@ html.theme-mica .history-item.compact,
 html.theme-acrylic .history-item.compact,
 html.theme-macos .history-item.compact {
     /* Still denser than normal cards, but keep room for the 20px ··· control. */
-    padding-top: 4px !important;
-    padding-bottom: 4px !important;
+    padding-top: 4px;
+    padding-bottom: 4px;
     min-height: 28px;
 }
 
