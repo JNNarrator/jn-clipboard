@@ -827,6 +827,12 @@ html.compact-show-time .history-item.compact .content-preview {
     padding-right: 56px;
 }
 
+/* Tags float over the right edge; reserve their width so they never cover text.
+   With the time slot shown they also need its 56px (rule below). */
+.history-item.compact:has(.item-tags-container) .content-preview {
+    padding-right: 120px;
+}
+
 body.compact-show-time .history-item.compact:has(.item-tags-container) .content-preview,
 html.compact-show-time .history-item.compact:has(.item-tags-container) .content-preview {
     /* Tags left of time slot — reserve room for both. */
@@ -860,6 +866,10 @@ html.compact-show-time .history-item.compact:has(.item-tags-container) .content-
 body.compact-show-time .history-item.compact .content-preview.rich-text,
 html.compact-show-time .history-item.compact .content-preview.rich-text {
     padding-right: 56px;
+}
+
+.history-item.compact:has(.item-tags-container) .content-preview.rich-text {
+    padding-right: 120px;
 }
 
 body.compact-show-time .history-item.compact:has(.item-tags-container) .content-preview.rich-text,
