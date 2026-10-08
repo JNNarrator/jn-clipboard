@@ -96,14 +96,14 @@ fn register_unique_shortcut(
     registered: &mut HashSet<String>,
 ) -> AppResult<()> {
     let shortcut = parse_shortcut(hotkey).ok_or_else(|| {
-        AppError::Validation(format!("快捷键格式无效: {hotkey}"))
+        AppError::Validation(format!("快捷键格式不正确，请重新设置。\n当前：{hotkey}"))
     })?;
     let key = format!("{shortcut:?}");
     if registered.insert(key) {
         app_handle
             .global_shortcut()
             .register(shortcut)
-            .map_err(|e| AppError::Internal(format!("快捷键 {hotkey} 注册失败: {e}")))?;
+            .map_err(|e| AppError::Internal(format!("快捷键设置失败，请换一组按键。\n当前：{hotkey}\n详情：{e}")))?;
     }
     Ok(())
 }
@@ -174,7 +174,7 @@ pub fn test_hotkey_available(app_handle: AppHandle, hotkey: String) -> AppResult
     let normalized = hotkey.replace("Win", "Super");
     let shortcut = normalized
         .parse::<Shortcut>()
-        .map_err(|_| AppError::Validation("快捷键格式无效".to_string()))?;
+        .map_err(|_| AppError::Validation("请重新设置快捷键组合。".to_string()))?;
 
     match app_handle.global_shortcut().register(shortcut.clone()) {
         Ok(_) => {

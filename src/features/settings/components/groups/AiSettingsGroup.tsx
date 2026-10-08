@@ -120,10 +120,10 @@ const AiSettingsGroup = ({
                                     />
                                     <div style={{ flex: 1, minWidth: 0 }}>
                                         <div className="ai-profile-name" style={{ fontWeight: '800', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{profile.model}</div>
-                                        {profile.enableThinking && <div className="ai-profile-sub" style={{ fontSize: 'var(--font-size-2xs)', opacity: 0.7 }}>Thinking Mode Enabled</div>}
+                                        {profile.enableThinking && <div className="ai-profile-sub" style={{ fontSize: 'var(--font-size-2xs)', opacity: 0.7 }}>{t('ai_thinking_enabled')}</div>}
                                     </div>
                                     <div style={{ display: 'flex', gap: '4px', marginLeft: '8px' }}>
-                                        <button className="btn-icon" onClick={() => checkModelStatus(profile)} title="Check Connection">
+                                        <button className="btn-icon" onClick={() => checkModelStatus(profile)} title={t('ai_check_connection')}>
                                             <RotateCcw size={12} className={profileStatuses[profile.id] === 'loading' ? 'animate-spin' : ''} />
                                         </button>
                                         <button className="btn-icon" onClick={() => setEditingProfile(profile)}><Edit2 size={12} /></button>

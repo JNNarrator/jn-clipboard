@@ -250,7 +250,7 @@ where
     F: FnMut(&ImportProgress),
 {
     if !source_path.is_file() {
-        return Err("所选文件不存在或不是普通文件".to_string());
+        return Err("请选择有效的文件。".to_string());
     }
 
     let importers: Vec<Box<dyn ClipboardImporter>> = vec![

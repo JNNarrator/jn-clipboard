@@ -101,7 +101,7 @@ export default function SecureTransfer({ t, collapsed, onToggle }: SecureTransfe
               disabled={busy}
               onChange={(event) => setAcknowledged(event.target.checked)}
             />
-            <span className="hint" style={{ whiteSpace: "normal" }}>{t("secure_transfer_ack")}</span>
+            <span className="hint">{t("secure_transfer_ack")}</span>
           </label>
           <div className="setting-item no-border" style={{ gap: 8, justifyContent: "flex-start" }}>
             <button type="button" className="settings-action-button" disabled={busy} onClick={() => void run(false)}>

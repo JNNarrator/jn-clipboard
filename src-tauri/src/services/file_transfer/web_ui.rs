@@ -619,7 +619,7 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
-    <title>TieZ 终端传输</title>
+    <title>TieZ 文件互传</title>
     <style>
         * {{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }}
         
@@ -1069,7 +1069,7 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
             <div class="status-dot connected" id="status-dot"></div>
             <span id="device-count">已连接</span>
         </div>
-        <h1>TieZ 终端</h1>
+        <h1>文件互传</h1>
     </header>
 
     <div id="chat-box">
@@ -1077,8 +1077,8 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
         <div class="message received">
             <div class="avatar"><img src="{logo_base64}" onerror="this.innerText='T'"></div>
             <div class="bubble">
-                <div style="font-weight:900; margin-bottom:4px">SYSTEM READY</div>
-                发送文字、图片或文件到电脑。
+                <div style="font-weight:900; margin-bottom:4px">传输就绪</div>
+                向电脑发送文字、图片或文件。
             </div>
         </div>
     </div>
@@ -1086,35 +1086,35 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
     <!-- Full Screen Editor Modal -->
     <div id="fs-editor">
         <div style="font-weight:bold; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center">
-            <span>FULL SCREEN EDIT</span>
+            <span>展开编辑</span>
             <span onclick="closeFullscreen()" style="cursor:pointer; padding:4px;">✕</span>
         </div>
-        <textarea id="fs-textarea" placeholder="输入内容..."></textarea>
+        <textarea id="fs-textarea" placeholder="输入要发送的内容"></textarea>
         <div class="fs-toolbar">
-            <button class="retro-btn" onclick="closeFullscreen()">CANCEL</button>
-            <button class="retro-btn send-btn" onclick="sendFullscreen()">SEND</button>
+            <button class="retro-btn" onclick="closeFullscreen()">取消</button>
+            <button class="retro-btn send-btn" onclick="sendFullscreen()">发送</button>
         </div>
     </div>
 
     <footer>
         <div class="file-send-control" id="file-send-control">
             <label for="file-input" class="retro-btn add-btn" aria-label="发送文件">+</label>
-            <button type="button" class="retro-btn file-mode-toggle" id="file-mode-toggle" aria-label="选择多文件发送方式" aria-expanded="false">⌃</button>
+            <button type="button" class="retro-btn file-mode-toggle" id="file-mode-toggle" aria-label="发送方式" aria-expanded="false">⌃</button>
             <div class="file-mode-menu" id="file-mode-menu">
                 <button type="button" class="file-mode-option" data-mode="package">
-                    <span>▣</span><span><strong>作为文件包发送</strong><small>折叠显示，可下载 ZIP</small></span><span class="file-mode-check"></span>
+                    <span>▣</span><span><strong>成组发送</strong><small>文件收在一组，可下载压缩包。</small></span><span class="file-mode-check"></span>
                 </button>
                 <button type="button" class="file-mode-option" data-mode="separate">
-                    <span>▤</span><span><strong>分别发送</strong><small>每个文件独立显示</small></span><span class="file-mode-check"></span>
+                    <span>▤</span><span><strong>分别发送</strong><small>每个文件单独显示。</small></span><span class="file-mode-check"></span>
                 </button>
             </div>
         </div>
         <div style="position:relative; flex:1; display:flex;">
-            <textarea class="text-input" id="text-input" placeholder="输入文字..." rows="1"></textarea>
+            <textarea class="text-input" id="text-input" placeholder="输入要发送的文字" rows="1"></textarea>
             <div class="expand-btn" id="expand-btn" onclick="openFullscreen()">⤢</div>
         </div>
-        <button type="button" class="retro-btn paste-btn" id="paste-btn" title="粘贴剪贴板" aria-label="粘贴剪贴板">📋</button>
-        <button class="retro-btn send-btn" id="send-btn">SEND</button>
+        <button type="button" class="retro-btn paste-btn" id="paste-btn" title="粘贴内容" aria-label="粘贴内容">📋</button>
+        <button class="retro-btn send-btn" id="send-btn">发送</button>
         <input type="file" id="file-input" multiple style="display:none">
     </footer>
 
@@ -1316,7 +1316,7 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
                     <div class="batch-files"></div>
                     <div class="batch-actions">
                         <span class="batch-file-status">文件独立传输</span>
-                        <button type="button" class="batch-download">下载 ZIP</button>
+                        <button type="button" class="batch-download">下载整组</button>
                     </div>`;
                 outer.appendChild(bubble);
                 bubble.querySelector('.batch-header').onclick = () => {{
@@ -1658,7 +1658,7 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
                             return;
                         }}
                     }}
-                    alert('剪贴板为空或未获取读取权限');
+                    alert('请先复制内容，并允许读取剪贴板。');
                 }} catch (err) {{
                     console.warn('Clipboard read failed:', err);
                     textInput.focus();
@@ -1756,7 +1756,7 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
                         }}
                         if (attempt < 2) await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)));
                     }}
-                    if (!res || !res.ok) throw lastError || new Error('网络连接已中断');
+                    if (!res || !res.ok) throw lastError || new Error('网络已断开，请检查连接。');
                     
                     const percent = Math.round(((i + 1) / totalChunks) * 100);
                     if (batchRow) {{
@@ -1782,7 +1782,7 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
             }}
             if (uploadFailed) {{
                 const reason = uploadError === 'Failed to fetch' || uploadError.toLowerCase().includes('network')
-                    ? '文件传输服务已断开，请在电脑端重新打开文件传输并扫码。'
+                    ? '连接已断开。\n请在电脑端重新开启「文件互传」。\n再扫码连接。'
                     : `上传失败：${{uploadError || '未知错误'}}`;
                 alert(`${{file.name}}\n${{reason}}`);
                 isUploading = false;

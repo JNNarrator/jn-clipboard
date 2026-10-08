@@ -51,13 +51,13 @@ pub struct NetworkInterfaceInfo {
 fn get_interface_label(name: &str, ip: &str, is_virtual: bool) -> String {
     let name_lower = name.to_lowercase();
     let type_desc = if is_virtual {
-        "VPN / 虚拟网卡"
+        "虚拟网络"
     } else if name_lower.contains("wi-fi") || name_lower.contains("wlan") || name_lower == "en0" {
         "Wi-Fi"
     } else if name_lower.contains("eth") || name_lower.contains("ethernet") || name_lower.starts_with("en") {
-        "以太网 / 局域网"
+        "有线网络"
     } else {
-        "局域网"
+        "同一网络"
     };
 
     format!("{} · {} ({})", ip, name, type_desc)
@@ -234,4 +234,3 @@ fn collect_files_from_dir(
         }
     }
 }
-

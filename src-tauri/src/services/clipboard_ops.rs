@@ -844,7 +844,7 @@ async fn copy_content_to_system_clipboard(
 
                 let bytes = general_purpose::STANDARD
                     .decode(b64_data)
-                    .map_err(|e| AppError::Internal(format!("Base64 解码失败: {}", e)))?;
+                    .map_err(|e| AppError::Internal(format!("无法读取图片内容。\n详情：{}", e)))?;
 
                 let (primary_hash, _secondary_hash) =
                     copy_image_bytes_to_clipboard(bytes, current_time, None)?;
@@ -1020,7 +1020,7 @@ fn encode_png_from_rgba(rgba: &image::RgbaImage) -> AppResult<Vec<u8>> {
             &mut std::io::Cursor::new(&mut png_buf),
             image::ImageFormat::Png,
         )
-        .map_err(|e| AppError::Internal(format!("PNG 编码失败: {}", e)))?;
+        .map_err(|e| AppError::Internal(format!("无法生成图片。\n详情：{}", e)))?;
     Ok(png_buf)
 }
 
@@ -1034,7 +1034,7 @@ fn copy_image_bytes_to_clipboard(
 
     let (width, height, raw_bytes) = {
         let img = image::load_from_memory(&bytes)
-            .map_err(|e| AppError::Internal(format!("加载图像失败: {}", e)))?
+            .map_err(|e| AppError::Internal(format!("无法打开图片。\n详情：{}", e)))?
             .to_rgba8();
         let (w, h) = img.dimensions();
         (w, h, img.into_raw())
@@ -1075,7 +1075,7 @@ fn copy_image_bytes_to_clipboard(
         } else {
             Some(encode_png_from_rgba(
                 &image::RgbaImage::from_raw(width, height, raw_bytes.clone())
-                    .ok_or_else(|| AppError::Internal("无法构建 RGBA 图像".to_string()))?,
+                    .ok_or_else(|| AppError::Internal("无法处理图片，请重新复制。".to_string()))?,
             )?)
         };
 

@@ -147,7 +147,10 @@ const FileTransferSettingsGroup = ({
                             </div>
                         </div>
                         <div className="setting-item">
-                            <div className="item-label-group"><span className="item-label">{t('file_transfer_auto_open')}</span></div>
+                            <div className="item-label-group">
+                                <span className="item-label">{t('file_transfer_auto_open')}</span>
+                                <span className="hint">{t('file_transfer_auto_open_hint')}</span>
+                            </div>
                             <label className="switch">
                                 <input
                                     className="cb"
@@ -194,7 +197,10 @@ const FileTransferSettingsGroup = ({
                             </div>
                         )}
                         <div className="setting-item">
-                            <div className="item-label-group"><span className="item-label">{t('file_transfer_auto_copy')}</span></div>
+                            <div className="item-label-group">
+                                <span className="item-label">{t('file_transfer_auto_copy')}</span>
+                                <span className="hint">{t('file_transfer_auto_copy_hint')}</span>
+                            </div>
                             <label className="switch">
                                 <input
                                     className="cb"

@@ -78,7 +78,7 @@ export const useSettingsInit = ({
         .catch((error) => {
           if (disposed) return;
           console.error("Settings initialization failed", error);
-          void message("无法读取设置。原始数据已保留，请检查原设备密钥或系统钥匙串权限，再重新启动。\n" + formatError(error), { title: "TieZ：设置读取失败", kind: "error" });
+          void message("设置读取失败，原数据已保留。\n请检查原设备密钥或钥匙串权限。\n然后重新启动应用。\n" + formatError(error), { title: "设置异常", kind: "error" });
         });
     };
 

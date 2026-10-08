@@ -99,7 +99,7 @@ fn validate_theme_id(id: &str) -> AppResult<()> {
         Regex::new(r"^[a-z0-9-]{3,50}$").map_err(|error| AppError::Internal(error.to_string()))?;
     if !id_regex.is_match(id) || id.starts_with("store-") {
         return Err(AppError::Validation(
-            "主题 ID 必须由 3–50 个小写字母、数字或连字符组成，且不能以 store- 开头".to_string(),
+            "主题标识需为 3–50 个字符。\n只用小写字母、数字或连字符。\n不能以 store- 开头。".to_string(),
         ));
     }
     Ok(())
@@ -289,16 +289,16 @@ fn read_package(path: &Path) -> AppResult<(ThemePackageMetadata, HashMap<String,
 
     for required in REQUIRED_FILES {
         if !files.contains_key(*required) {
-            return Err(AppError::Validation(format!("主题包缺少 {required}")));
+            return Err(AppError::Validation(format!("主题文件不完整。\n缺少：{required}")));
         }
     }
 
     let metadata: ThemePackageMetadata = serde_json::from_slice(&files["metadata.json"])
-        .map_err(|error| AppError::Validation(format!("metadata.json 无效：{error}")))?;
+        .map_err(|error| AppError::Validation(format!("无法读取主题信息。\n文件：metadata.json\n详情：{error}")))?;
     validate_metadata(&metadata)?;
     let runtime_id = installed_id(&metadata.id);
     let css = std::str::from_utf8(&files["theme.css"])
-        .map_err(|_| AppError::Validation("theme.css 必须使用 UTF-8 编码".to_string()))?;
+        .map_err(|_| AppError::Validation("请用 UTF-8 保存样式文件。\n文件：theme.css".to_string()))?;
     validate_theme_css(css, &runtime_id)?;
     validate_preview(&files["preview-light.png"], "preview-light.png")?;
     validate_preview(&files["preview-dark.png"], "preview-dark.png")?;
@@ -324,7 +324,7 @@ fn to_installed_theme(metadata: ThemePackageMetadata) -> InstalledTheme {
 fn read_installed_metadata(path: &Path) -> AppResult<ThemePackageMetadata> {
     let raw = fs::read(path.join("metadata.json")).map_err(AppError::from)?;
     let metadata = serde_json::from_slice::<ThemePackageMetadata>(&raw)
-        .map_err(|error| AppError::Validation(format!("已安装主题元数据无效：{error}")))?;
+        .map_err(|error| AppError::Validation(format!("无法读取已安装主题的信息。\n详情：{error}")))?;
     validate_metadata(&metadata)?;
     Ok(metadata)
 }
@@ -382,7 +382,7 @@ async fn download_limited(url: &str, maximum_size: usize) -> AppResult<Vec<u8>> 
         .error_for_status()
         .map_err(|error| AppError::Network(error.to_string()))?;
     if response.content_length().unwrap_or(0) > maximum_size as u64 {
-        return Err(AppError::Validation("远程主题包超过大小限制".to_string()));
+        return Err(AppError::Validation("主题文件过大，无法下载。".to_string()));
     }
 
     let mut result = Vec::new();
@@ -390,7 +390,7 @@ async fn download_limited(url: &str, maximum_size: usize) -> AppResult<Vec<u8>> 
     while let Some(chunk) = stream.next().await {
         let chunk = chunk.map_err(|error| AppError::Network(error.to_string()))?;
         if result.len().saturating_add(chunk.len()) > maximum_size {
-            return Err(AppError::Validation("远程主题包超过大小限制".to_string()));
+            return Err(AppError::Validation("主题文件过大，无法下载。".to_string()));
         }
         result.extend_from_slice(&chunk);
     }
@@ -404,7 +404,7 @@ pub fn install_theme_package(
 ) -> AppResult<InstalledTheme> {
     let package_path = PathBuf::from(package_path);
     if !package_path.is_file() {
-        return Err(AppError::Validation("主题包文件不存在".to_string()));
+        return Err(AppError::Validation("找不到主题文件，请重新选择。".to_string()));
     }
 
     let (metadata, files) = read_package(&package_path)?;
@@ -412,7 +412,7 @@ pub fn install_theme_package(
         let data_dir = data_dir
             .0
             .lock()
-            .map_err(|_| AppError::Internal("无法读取应用数据目录".to_string()))?;
+            .map_err(|_| AppError::Internal("无法打开数据位置，请检查访问权限。".to_string()))?;
         data_dir.clone()
     };
     install_validated_theme(metadata, files, &data_root)
@@ -425,7 +425,7 @@ pub async fn install_theme_from_store(
 ) -> AppResult<InstalledTheme> {
     let package_id = theme_id
         .strip_prefix("store-")
-        .ok_or_else(|| AppError::Validation("商店主题 ID 无效".to_string()))?;
+        .ok_or_else(|| AppError::Validation("主题标识不正确，请重新选择主题。".to_string()))?;
     validate_theme_id(package_id)?;
 
     let package_url = format!(
@@ -438,7 +438,7 @@ pub async fn install_theme_from_store(
         let data_dir = data_dir
             .0
             .lock()
-            .map_err(|_| AppError::Internal("无法读取应用数据目录".to_string()))?;
+            .map_err(|_| AppError::Internal("无法打开数据位置，请检查访问权限。".to_string()))?;
         data_dir.clone()
     };
     let download_directory = themes_dir(&data_root);
@@ -450,7 +450,7 @@ pub async fn install_theme_from_store(
         let (metadata, files) = read_package(&temporary_package)?;
         if installed_id(&metadata.id) != theme_id {
             return Err(AppError::Validation(
-                "下载的主题包与请求的主题不匹配".to_string(),
+                "下载的文件与所选主题不同。\n请重新下载。".to_string(),
             ));
         }
         install_validated_theme(metadata, files, &data_root)
@@ -465,7 +465,7 @@ pub fn list_installed_themes(data_dir: State<'_, AppDataDir>) -> AppResult<Vec<I
         let data_dir = data_dir
             .0
             .lock()
-            .map_err(|_| AppError::Internal("无法读取应用数据目录".to_string()))?;
+            .map_err(|_| AppError::Internal("无法打开数据位置，请检查访问权限。".to_string()))?;
         themes_dir(&data_dir)
     };
     if !root.exists() {
@@ -503,18 +503,18 @@ pub fn get_installed_theme_css(
 ) -> AppResult<String> {
     let package_id = theme_id
         .strip_prefix("store-")
-        .ok_or_else(|| AppError::Validation("只能读取已安装的商店主题".to_string()))?;
+        .ok_or_else(|| AppError::Validation("请先安装这个商店主题。".to_string()))?;
     validate_theme_id(package_id)?;
     let theme_directory = {
         let data_dir = data_dir
             .0
             .lock()
-            .map_err(|_| AppError::Internal("无法读取应用数据目录".to_string()))?;
+            .map_err(|_| AppError::Internal("无法打开数据位置，请检查访问权限。".to_string()))?;
         themes_dir(&data_dir).join(&theme_id)
     };
     let metadata = read_installed_metadata(&theme_directory)?;
     if metadata.id != package_id {
-        return Err(AppError::Validation("主题目录与元数据不匹配".to_string()));
+        return Err(AppError::Validation("主题文件位置与主题信息不符。\n请重新导入。".to_string()));
     }
     let css = fs::read_to_string(theme_directory.join("theme.css")).map_err(AppError::from)?;
     validate_theme_css(&css, &theme_id)?;
@@ -525,13 +525,13 @@ pub fn get_installed_theme_css(
 pub fn uninstall_theme_package(theme_id: String, data_dir: State<'_, AppDataDir>) -> AppResult<()> {
     let package_id = theme_id
         .strip_prefix("store-")
-        .ok_or_else(|| AppError::Validation("只能卸载商店主题".to_string()))?;
+        .ok_or_else(|| AppError::Validation("这里只能卸载从商店安装的主题。".to_string()))?;
     validate_theme_id(package_id)?;
     let theme_directory = {
         let data_dir = data_dir
             .0
             .lock()
-            .map_err(|_| AppError::Internal("无法读取应用数据目录".to_string()))?;
+            .map_err(|_| AppError::Internal("无法打开数据位置，请检查访问权限。".to_string()))?;
         themes_dir(&data_dir).join(&theme_id)
     };
     if theme_directory.exists() {

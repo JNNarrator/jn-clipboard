@@ -268,7 +268,7 @@ fn launch_windows_url_with_app(app: &str, content: &str) -> Result<(), AppError>
         command.arg(content).creation_flags(0x08000000);
         command
             .spawn()
-            .map_err(|e| AppError::Internal(format!("启动程序失败: {}", e)))?;
+            .map_err(|e| AppError::Internal(format!("无法打开应用。\n详情：{}", e)))?;
         return Ok(());
     }
 
@@ -396,7 +396,7 @@ async fn launch_target_with_app(app: &str, target: &str) -> Result<(), AppError>
             command.arg(target).creation_flags(0x08000000);
             command
                 .spawn()
-                .map_err(|e| AppError::Internal(format!("启动程序失败: {}", e)))?;
+                .map_err(|e| AppError::Internal(format!("无法打开应用。\n详情：{}", e)))?;
             return Ok(());
         }
 
@@ -438,14 +438,14 @@ async fn launch_target_with_app(app: &str, target: &str) -> Result<(), AppError>
             Command::new("open")
                 .args(["-a", app, target])
                 .spawn()
-                .map_err(|e| AppError::Internal(format!("启动程序失败: {}", e)))?;
+                .map_err(|e| AppError::Internal(format!("无法打开应用。\n详情：{}", e)))?;
             return Ok(());
         }
 
         Command::new(app)
             .arg(target)
             .spawn()
-            .map_err(|e| AppError::Internal(format!("启动程序失败: {}", e)))?;
+            .map_err(|e| AppError::Internal(format!("无法打开应用。\n详情：{}", e)))?;
         return Ok(());
     }
 
@@ -454,7 +454,7 @@ async fn launch_target_with_app(app: &str, target: &str) -> Result<(), AppError>
         Command::new(app)
             .arg(target)
             .spawn()
-            .map_err(|e| AppError::Internal(format!("启动程序失败: {}", e)))?;
+            .map_err(|e| AppError::Internal(format!("无法打开应用。\n详情：{}", e)))?;
         return Ok(());
     }
 

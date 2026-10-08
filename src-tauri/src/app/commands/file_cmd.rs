@@ -43,7 +43,7 @@ pub async fn save_file_batch(
     }
     let target_root = PathBuf::from(target_dir);
     if !target_root.is_dir() {
-        return Err(AppError::Validation("目标文件夹无效".to_string()));
+        return Err(AppError::Validation("请选择有效的文件夹。".to_string()));
     }
 
     tauri::async_runtime::spawn_blocking(move || {

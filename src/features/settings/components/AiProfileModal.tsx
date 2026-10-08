@@ -24,7 +24,7 @@ const AiProfileModal = ({ editingProfile, t, onClose, onSave, setEditingProfile 
 
                 <div className="modal-form-fields">
                     <label className="modal-form-field">
-                        <span className="modal-field-label">Endpoint URL</span>
+                        <span className="modal-field-label">{t("ai_base_url")}</span>
                         <input
                             className="search-input modal-form-control"
                             value={editingProfile.baseUrl}
@@ -32,7 +32,7 @@ const AiProfileModal = ({ editingProfile, t, onClose, onSave, setEditingProfile 
                         />
                     </label>
                     <label className="modal-form-field">
-                        <span className="modal-field-label">API Key</span>
+                        <span className="modal-field-label">{t("ai_api_key")}</span>
                         <input
                             className="search-input modal-form-control"
                             type="password"
@@ -41,7 +41,7 @@ const AiProfileModal = ({ editingProfile, t, onClose, onSave, setEditingProfile 
                         />
                     </label>
                     <label className="modal-form-field">
-                        <span className="modal-field-label">Model ID</span>
+                        <span className="modal-field-label">{t("ai_model_id")}</span>
                         <input
                             className="search-input modal-form-control"
                             value={editingProfile.model}

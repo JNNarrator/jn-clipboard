@@ -99,7 +99,7 @@ pub fn init(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     let db_path = app_dir.join("clipboard.db");
     let db_path_str = db_path.to_string_lossy();
     let conn = database::init_db(&db_path_str).map_err(|e| {
-        let err_msg = format!("数据库初始化失败: {}", e);
+        let err_msg = format!("无法打开记录存储。\n详情：{}", e);
         eprintln!("TieZ Startup Error: {}", err_msg);
         e
     })?;
@@ -1620,8 +1620,8 @@ fn setup_tray(app: &App, hide_tray: bool) {
     use tauri::menu::{Menu, MenuItem};
     use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
 
-    let show_i = MenuItem::with_id(app, "show", "显示主界面", true, None::<&str>).unwrap();
-    let quit_i = MenuItem::with_id(app, "quit", "退出 贴汁", true, None::<&str>).unwrap();
+    let show_i = MenuItem::with_id(app, "show", "打开窗口", true, None::<&str>).unwrap();
+    let quit_i = MenuItem::with_id(app, "quit", "退出应用", true, None::<&str>).unwrap();
     let menu = Menu::with_items(app, &[&show_i, &quit_i]).unwrap();
     let icon =
         tauri::image::Image::from_bytes(include_bytes!("../../icons/tray-icon.png")).unwrap();

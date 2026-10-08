@@ -89,6 +89,8 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
     const isMac = isMacPlatform();
     const isWindows = isWindowsPlatform();
     const isWinVManaged = isWindows && props.registryWinVEnabled;
+    const sequentialHotkeyLabel = getHotkeyDisplayTokens(props.sequentialHotkey, { preferMacSymbols: isMac })
+        .map((token) => token.label).join(isMac ? "" : " + ") || props.t('not_set');
     const quickPasteOptions: Array<{ value: QuickPasteModifier; label: string }> = isMac
         ? [
             { value: "disabled", label: props.t("quick_paste_modifier_disabled") },
@@ -293,6 +295,7 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
                     <div className="setting-item">
                         <div className="item-label-group">
                             <span className="item-label">{props.t('capture_files')}</span>
+                            <span className="hint">{props.t('capture_files_hint')}</span>
                         </div>
                         <label className="switch">
                             <input
@@ -515,7 +518,7 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
                     <div className="setting-item">
                         <props.LabelWithHint
                             label={props.t('sequential_paste_mode')}
-                            hint={props.t('sequential_paste_hint')}
+                            hint={props.t('sequential_paste_hint').replace('{hotkey}', sequentialHotkeyLabel)}
                             hintKey="sequential_paste_mode"
                         />
                         <label className="switch">
@@ -623,7 +626,7 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
                                 ].map(opt => {
                                     const checked = props.privacyProtectionKinds.includes(opt.id);
                                     return (
-                                        <label key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <label key={opt.id} title={opt.id === 'secret' ? props.t('privacy_kind_secret_hint') : undefined} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                             <input
                                                 className="cb"
                                                 type="checkbox"

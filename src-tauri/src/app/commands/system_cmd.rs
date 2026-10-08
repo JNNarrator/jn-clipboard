@@ -759,7 +759,7 @@ pub fn set_data_path(app_handle: AppHandle, new_path: String) -> AppResult<()> {
         if !source.exists() { continue; }
         let bytes = std::fs::read(&source).map_err(AppError::from)?;
         if destination.exists() && std::fs::read(&destination).map_err(AppError::from)? != bytes {
-            return Err(AppError::Validation("目标目录含有不同的加密密钥，请选择空目录。".into()));
+            return Err(AppError::Validation("这个目录使用了其他加密密钥。\n请选择空目录。".into()));
         }
     }
     for name in ["master.key", "master.key.dpapi"] {
@@ -1196,7 +1196,7 @@ pub fn open_macos_accessibility_settings() -> AppResult<()> {
             return Ok(());
         }
         return Err(AppError::Internal(
-            "无法打开系统「辅助功能」设置页".to_string(),
+            "请手动打开系统「辅助功能」设置。".to_string(),
         ));
     }
     #[cfg(not(target_os = "macos"))]

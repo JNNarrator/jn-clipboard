@@ -538,7 +538,7 @@ fn load_formats(
 
 fn decompress_export_blob(bytes: &[u8], expected_size: i64) -> Result<Vec<u8>, String> {
     if expected_size <= 0 || expected_size > MAX_FORMAT_BYTES {
-        return Err("Ditto 导出条目大小无效".to_string());
+        return Err("Ditto 记录大小不正确。\n请选择其他记录文件。".to_string());
     }
     let decoder = ZlibDecoder::new(bytes);
     let mut output = Vec::with_capacity(expected_size as usize);
@@ -547,7 +547,7 @@ fn decompress_export_blob(bytes: &[u8], expected_size: i64) -> Result<Vec<u8>, S
         .read_to_end(&mut output)
         .map_err(|error| error.to_string())?;
     if output.len() as i64 > MAX_FORMAT_BYTES {
-        return Err("Ditto 导出条目解压后过大".to_string());
+        return Err("Ditto 记录过大，无法导入。".to_string());
     }
     Ok(output)
 }

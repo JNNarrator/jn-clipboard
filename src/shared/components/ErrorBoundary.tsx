@@ -4,8 +4,8 @@ import { formatError } from "../lib/errorMessage";
 // Rendered above App, so translations are not loaded yet; the main window
 // mirrors the chosen language into localStorage for exactly this purpose.
 const TEXT = {
-  zh: { title: "界面出现异常", body: "剪贴板记录不受影响。可以重新加载界面继续使用。", reload: "重新加载" },
-  tw: { title: "介面出現異常", body: "剪貼簿紀錄不受影響。可以重新載入介面繼續使用。", reload: "重新載入" },
+  zh: { title: "界面异常", body: "复制记录已保留。\n重新加载后可继续使用。", reload: "重新加载" },
+  tw: { title: "介面異常", body: "複製紀錄已保留。\n重新載入後可繼續使用。", reload: "重新載入" },
   en: { title: "Something went wrong", body: "Your clipboard history is safe. Reload the window to continue.", reload: "Reload" },
 } as const;
 

@@ -66,7 +66,7 @@ pub fn send_system_notification(app: AppHandle, title: String, body: String) -> 
         .title(title)
         .body(body)
         .show()
-        .map_err(|err| AppError::Internal(format!("发送系统通知失败: {}", err)))?;
+        .map_err(|err| AppError::Internal(format!("无法发送系统通知。\n详情：{}", err)))?;
 
     Ok(())
 }
