@@ -196,22 +196,35 @@ export default function TagManager({ t, theme }: TagManagerProps) {
         };
     }, [isResizing, persistSidebarWidth]);
 
+    const isDeletingRef = useRef(isDeleting);
+    isDeletingRef.current = isDeleting;
+    // Latest refresh logic for the long-lived listeners below.
+    const refreshFromEventRef = useRef(() => {});
+    refreshFromEventRef.current = () => {
+        // Don't refresh if we're in the middle of a delete operation
+        if (isDeletingRef.current) return;
+        fetchTags();
+        if (selectedTagRef.current) loadTagItems(selectedTagRef.current);
+    };
+
+    // Subscribe once. listen() resolves asynchronously, so a cleanup that runs
+    // before it resolves must still unlisten; re-subscribing whenever
+    // isDeleting changed used to leave duplicate handlers behind.
     useEffect(() => {
-        let unlisteners: (() => void)[] = [];
-        const setupListeners = async () => {
-            const handleUpdate = () => {
-                // Don't refresh if we're in the middle of a delete operation
-                if (isDeleting) return;
-                fetchTags();
-                if (selectedTagRef.current) loadTagItems(selectedTagRef.current);
-            };
-            unlisteners.push(await listen('clipboard-changed', handleUpdate));
-            unlisteners.push(await listen('clipboard-updated', handleUpdate));
-            unlisteners.push(await listen('clipboard-removed', handleUpdate));
+        let disposed = false;
+        const unlisteners: (() => void)[] = [];
+        const handleUpdate = () => refreshFromEventRef.current();
+        for (const event of ['clipboard-changed', 'clipboard-updated', 'clipboard-removed']) {
+            void listen(event, handleUpdate).then((unlisten) => {
+                if (disposed) unlisten();
+                else unlisteners.push(unlisten);
+            });
+        }
+        return () => {
+            disposed = true;
+            unlisteners.forEach((unlisten) => unlisten());
         };
-        setupListeners();
-        return () => unlisteners.forEach(f => f());
-    }, [isDeleting]);
+    }, []);
 
     useEffect(() => { fetchTags(); }, []);
 

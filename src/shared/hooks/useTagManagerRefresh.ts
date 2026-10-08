@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 interface UseTagManagerRefreshOptions {
   showTagManager: boolean;
@@ -15,10 +15,15 @@ export const useTagManagerRefresh = ({
   persistentLimit,
   fetchHistory
 }: UseTagManagerRefreshOptions) => {
+  // fetchHistory changes identity with search / type / sort, which
+  // useSearchFetchTrigger already handles; depending on it here fetched twice.
+  const fetchHistoryRef = useRef(fetchHistory);
+  fetchHistoryRef.current = fetchHistory;
+
   useEffect(() => {
     if (!settingsLoaded) return;
     if (!showTagManager) {
-      fetchHistory(true);
+      fetchHistoryRef.current(true);
     }
-  }, [showTagManager, settingsLoaded, persistentLimitEnabled, persistentLimit, fetchHistory]);
+  }, [showTagManager, settingsLoaded, persistentLimitEnabled, persistentLimit]);
 };
