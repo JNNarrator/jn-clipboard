@@ -39,6 +39,8 @@ import AiSettingsGroup from "./groups/AiSettingsGroup";
 import SettingsFooter from "./SettingsFooter";
 import SecureTransfer from "./SecureTransfer";
 import { useWideWindow } from "../../../shared/hooks/useWideWindow";
+import { usePaneWidth } from "../../../shared/hooks/usePaneWidth";
+import PaneDivider from "../../../shared/components/PaneDivider";
 import { CLOUD_SYNC_ENABLED } from "../../../shared/config/edition";
 import { getReleaseBuildInfo, type ReleaseBuildInfo } from "../../../shared/lib/releaseBuild";
 
@@ -379,6 +381,16 @@ const SettingsPanel = (props: SettingsPanelProps) => {
     const isWide = useWideWindow();
     const wideLayout = splitViewEnabled && isWide;
     const [activeSection, setActiveSection] = useState("general");
+    const wideRef = useRef<HTMLDivElement | null>(null);
+    const navRef = useRef<HTMLElement | null>(null);
+    const { value: navWidth, resizing: navResizing, dividerProps: navDividerProps } = usePaneWidth({
+        storageKey: "app.pane.settings",
+        containerRef: wideRef,
+        paneRef: navRef,
+        min: 148,
+        max: 320,
+        minRest: 360
+    });
 
     const applyFileServerPort = async (portStr: string) => {
         const port = Number(portStr);
@@ -956,8 +968,12 @@ const SettingsPanel = (props: SettingsPanelProps) => {
     const renderWide = () => {
         const current = sections.find((section) => section.id === activeSection);
         return (
-            <div className="settings-wide">
-                <nav className="settings-nav" aria-label={t("settings")}>
+            <div
+                ref={wideRef}
+                className="settings-wide"
+                style={navWidth != null ? { ["--settings-nav-width" as string]: `${navWidth}px` } : undefined}
+            >
+                <nav ref={navRef} className="settings-nav" aria-label={t("settings")}>
                     {NAV_GROUPS.map((group) => {
                         const items = group.ids.flatMap((id) => {
                             if (id === ADVANCED_ENTRY) {
@@ -983,6 +999,7 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                         {renderNavItem(ABOUT_SECTION, t("settings_about"), () => setActiveSection(ABOUT_SECTION))}
                     </div>
                 </nav>
+                <PaneDivider active={navResizing} label={t("pane_divider_hint")} {...navDividerProps} />
                 {/* Keyed so switching sections starts at the top. */}
                 <div className="settings-wide-content" key={activeSection}>
                     <div className="settings-wide-inner">

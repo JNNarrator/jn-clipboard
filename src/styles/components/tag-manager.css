@@ -1,12 +1,5 @@
+/* Scrollbars follow the app-wide rule in scrollbar.css, as on the settings page. */
 .tag-manager-page {
-  /* Keep tag and item scrollers equally slim across all themes. */
-  --scrollbar-size: 2px;
-  --scrollbar-size-thin: 2px;
-  --scrollbar-thumb-border: 0;
-  --scrollbar-radius: 999px;
-  --scrollbar-track-background: transparent;
-  --scrollbar-thumb-color: color-mix(in srgb, var(--text-secondary) 35%, transparent);
-  --scrollbar-thumb-hover-color: color-mix(in srgb, var(--text-secondary) 60%, transparent);
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -140,18 +133,16 @@
   overflow-x: auto;
   overflow-y: hidden;
   padding-bottom: 6px;
-  /* Let the explicit WebKit dimensions control the native scroll indicator. */
-  scrollbar-width: thin;
-  scrollbar-color: var(--scrollbar-thumb-color) transparent;
   scrollbar-gutter: auto;
 }
 
-html.platform-macos .tag-manager-chip-row::-webkit-scrollbar {
+/* The narrow layout's horizontal chip strip keeps a hairline indicator. */
+html.platform-macos .tag-manager-body:not(.is-split) .tag-manager-chip-row::-webkit-scrollbar {
   width: 2px;
   height: 2px;
 }
 
-html.platform-macos .tag-manager-chip-row::-webkit-scrollbar-thumb {
+html.platform-macos .tag-manager-body:not(.is-split) .tag-manager-chip-row::-webkit-scrollbar-thumb {
   border: 0;
   border-radius: 999px;
 }
@@ -389,20 +380,9 @@ html.platform-macos .tag-manager-chip-row::-webkit-scrollbar-thumb {
   padding: 8px 10px 40px;
   min-width: 0;
   overflow-x: hidden;
-  scrollbar-width: thin;
-  scrollbar-color: var(--scrollbar-thumb-color) transparent;
   /* Overlay scrollbars need no permanent gutter. */
   scrollbar-gutter: auto;
   gap: 6px;
-}
-
-html.platform-macos .tag-manager-items::-webkit-scrollbar-thumb {
-  border: 0;
-  border-radius: 999px;
-}
-
-html.platform-macos .tag-manager-items::-webkit-scrollbar-track {
-  margin-block: 8px;
 }
 
 /* Empty state is the editor's own message, not a list item or nested card. */
@@ -767,42 +747,6 @@ html.platform-macos .tag-manager-items::-webkit-scrollbar-track {
 
 .tag-manager-body.tag-manager-modal-open {
   pointer-events: none;
-}
-
-.tag-manager-divider {
-  position: relative;
-  width: 8px;
-  flex-shrink: 0;
-  cursor: col-resize;
-  background: transparent;
-  z-index: 2;
-}
-
-.tag-manager-divider::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 50%;
-  width: 1px;
-  transform: translateX(-50%);
-  background: var(--panel-divider-color);
-}
-
-.tag-manager-divider.active::before,
-.tag-manager-divider:hover::before {
-  background: rgba(var(--accent-color-rgb), 0.35);
-}
-
-.tag-manager-divider-handle {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 3px;
-  height: 36px;
-  transform: translate(-50%, -50%);
-  border-radius: 999px;
-  background: rgba(var(--accent-color-rgb), 0.35);
 }
 
 .tag-manager-body.is-split {

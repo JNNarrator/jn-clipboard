@@ -411,6 +411,16 @@ body {
   --modal-radius: calc(var(--panel-radius) * 1.5);
   --dialog-button-radius: var(--button-radius);
   --border-color: var(--line-soft);
+
+  /* Two-pane pages (settings, copy rules, tag manager) share one sidebar. */
+  --pane-sidebar-width: clamp(148px, 26%, 216px);
+  --pane-sidebar-background: color-mix(in srgb, var(--bg-panel) 55%, transparent);
+  --pane-divider: var(--panel-divider-color);
+  --pane-item-height: 32px;
+  --pane-item-radius: 6px;
+  --pane-item-hover: color-mix(in srgb, var(--text-primary) 6%, transparent);
+  --pane-item-selected: rgba(var(--accent-color-rgb), 0.14);
+  --pane-content-pad-x: 16px;
 }
 
 :root.dark-mode,

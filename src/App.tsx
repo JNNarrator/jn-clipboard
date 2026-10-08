@@ -67,6 +67,8 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import ClipboardDetailPane from "./features/clipboard/components/ClipboardDetailPane";
 import { useSplitView } from "./features/app/hooks/useSplitView";
 import { useDetailPaneActions } from "./features/app/hooks/useDetailPaneActions";
+import { usePaneWidth } from "./shared/hooks/usePaneWidth";
+import PaneDivider from "./shared/components/PaneDivider";
 
 const SENSITIVE_TAGS = ["sensitive", "密码", "password"];
 
@@ -1070,6 +1072,18 @@ const App = () => {
   useEffect(() => {
     if (editingNoteId === null) setNoteDraftState(null);
   }, [editingNoteId]);
+  const mainRef = useRef<HTMLElement | null>(null);
+  const splitListRef = useRef<HTMLDivElement | null>(null);
+  // Stored as the list's share of the width: grid fr tracks keep the open/close
+  // animation, and the split survives window resizes.
+  const { value: splitRatio, resizing: splitResizing, dividerProps: splitDividerProps } = usePaneWidth({
+    storageKey: "app.pane.clipboard_split",
+    containerRef: mainRef,
+    paneRef: splitListRef,
+    min: 240,
+    minRest: 280,
+    unit: "ratio"
+  });
   const detailIsSensitive = !!detailItem && SENSITIVE_TAGS.some((tag) => detailItem.tags?.includes(tag));
   const detailIsRevealed = !!detailItem && revealedIds.has(detailItem.id);
   const detailActions = useDetailPaneActions({
@@ -1244,12 +1258,17 @@ const App = () => {
       />
 
       <main
-        className={`main-content${chatMode ? " file-transfer-mode" : ""}${effectiveShowTagManager ? " tag-manager-mode" : ""}${showSettings ? " settings-mode" : ""}${splitActive ? " is-split" : ""}`}
+        ref={mainRef}
+        className={`main-content${chatMode ? " file-transfer-mode" : ""}${effectiveShowTagManager ? " tag-manager-mode" : ""}${showSettings ? " settings-mode" : ""}${splitActive ? " is-split" : ""}${splitResizing ? " is-pane-resizing" : ""}`}
         style={{
-          padding: effectiveShowTagManager ? "0" : undefined
+          padding: effectiveShowTagManager ? "0" : undefined,
+          ...(splitRatio != null
+            ? { ["--split-columns" as string]: `minmax(240px, ${splitRatio * 100}fr) minmax(0, ${(1 - splitRatio) * 100}fr)` }
+            : {})
         }}
       >
         <div
+          ref={splitListRef}
           className="main-split-list"
           onMouseOver={splitActive ? handleListMouseOver : undefined}
           onMouseLeave={splitActive ? handleListMouseLeave : undefined}
@@ -1295,6 +1314,9 @@ const App = () => {
         </div>
         {/* Always mounted so the column can animate open/closed; content only when wide. */}
         <aside className="main-split-detail" aria-hidden={!splitActive}>
+          {splitActive && (
+            <PaneDivider overlay active={splitResizing} label={t("pane_divider_hint")} {...splitDividerProps} />
+          )}
           {splitActive && (
             <ClipboardDetailPane
               item={detailItem}

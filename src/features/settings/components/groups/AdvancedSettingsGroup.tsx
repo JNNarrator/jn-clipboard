@@ -3,6 +3,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { ChevronDown, ChevronRight, Plus, Trash2 } from "lucide-react";
 import type { InstalledAppOption } from "../../../app/types";
 import type { AppCleanupPolicy, AppCleanupPolicyAction } from "../../types";
+import PaneDivider from "../../../../shared/components/PaneDivider";
+import { usePaneWidth } from "../../../../shared/hooks/usePaneWidth";
 
 interface AdvancedSettingsGroupProps {
     t: (key: string) => string;
@@ -99,10 +101,18 @@ const AdvancedSettingsGroup = ({
     const [selectedSourceId, setSelectedSourceId] = useState("global");
     const [expandedRuleIndex, setExpandedRuleIndex] = useState<number | null>(0);
     const [draftRules, setDraftRules] = useState<EditableRule[]>(parseRules(cleanupRules));
-    const [sidebarWidth, setSidebarWidth] = useState(148);
     const [isSplit, setIsSplit] = useState(false);
-    const [isResizing, setIsResizing] = useState(false);
     const workbenchRef = useRef<HTMLElement | null>(null);
+    const sidebarRef = useRef<HTMLElement | null>(null);
+    // null until the divider is dragged: the shared --pane-sidebar-width applies.
+    const { value: sidebarWidth, resizing, dividerProps } = usePaneWidth({
+        storageKey: "app.pane.copy_rules",
+        containerRef: workbenchRef,
+        paneRef: sidebarRef,
+        min: 120,
+        max: 320,
+        minRest: 240
+    });
 
     const configuredAppPolicies = useMemo(
         () => appCleanupPolicies,
@@ -193,35 +203,6 @@ const AdvancedSettingsGroup = ({
         observer.observe(el);
         return () => observer.disconnect();
     }, []);
-
-    useEffect(() => {
-        if (!isResizing) return;
-
-        const handleMouseMove = (event: MouseEvent) => {
-            const bounds = workbenchRef.current?.getBoundingClientRect();
-            if (!bounds) return;
-            const nextWidth = Math.min(Math.max(event.clientX - bounds.left, 96), 260);
-            setSidebarWidth(nextWidth);
-        };
-
-        const handleMouseUp = () => {
-            setIsResizing(false);
-            document.body.style.cursor = "";
-            document.body.style.userSelect = "";
-        };
-
-        document.body.style.cursor = "col-resize";
-        document.body.style.userSelect = "none";
-        window.addEventListener("mousemove", handleMouseMove);
-        window.addEventListener("mouseup", handleMouseUp);
-
-        return () => {
-            window.removeEventListener("mousemove", handleMouseMove);
-            window.removeEventListener("mouseup", handleMouseUp);
-            document.body.style.cursor = "";
-            document.body.style.userSelect = "";
-        };
-    }, [isResizing]);
 
     const persistAppPolicies = (nextPolicies: AppCleanupPolicy[]) => {
         setAppCleanupPolicies(nextPolicies);
@@ -352,9 +333,9 @@ const AdvancedSettingsGroup = ({
             <section
                 ref={workbenchRef}
                 className={`advanced-workbench${isSplit ? " is-split" : ""}`}
-                style={isSplit ? { ["--advanced-sidebar-width" as string]: `${sidebarWidth}px` } : undefined}
+                style={isSplit && sidebarWidth != null ? { ["--advanced-sidebar-width" as string]: `${sidebarWidth}px` } : undefined}
             >
-                <aside className="advanced-sidebar">
+                <aside ref={sidebarRef} className="advanced-sidebar">
                     <div className="advanced-sidebar-search">
                         <input
                             className="search-input advanced-search-input"
@@ -418,15 +399,7 @@ const AdvancedSettingsGroup = ({
                 </aside>
 
                 {isSplit && (
-                    <div
-                        className={`advanced-divider${isResizing ? " active" : ""}`}
-                        onMouseDown={(e) => {
-                            e.preventDefault();
-                            setIsResizing(true);
-                        }}
-                    >
-                        <span className="advanced-divider-handle" />
-                    </div>
+                    <PaneDivider active={resizing} label={t("pane_divider_hint")} {...dividerProps} />
                 )}
 
                 <div className="advanced-editor">

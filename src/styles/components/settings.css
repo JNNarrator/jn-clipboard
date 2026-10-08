@@ -23,13 +23,13 @@
   --st-row-pad-y: 10px;
   --st-child-indent: 20px;
   --st-control-height: 28px;
-  --st-control-radius: 6px;
+  --st-control-radius: var(--pane-item-radius);
   --st-field-width: 200px;
   --st-field-width-sm: 104px;
   --st-range-width: 168px;
-  --st-divider: var(--panel-divider-color);
-  --st-hover: color-mix(in srgb, var(--text-primary) 6%, transparent);
-  --st-selected: rgba(var(--accent-color-rgb), 0.14);
+  --st-divider: var(--pane-divider);
+  --st-hover: var(--pane-item-hover);
+  --st-selected: var(--pane-item-selected);
 
   --settings-inline-pad: 8px;
   background: transparent;
@@ -1483,10 +1483,6 @@ html.platform-macos .advanced-target-list:focus-within::-webkit-scrollbar-thumb:
   color: var(--status-danger) !important;
 }
 
-.advanced-divider {
-  display: none;
-}
-
 .advanced-editor {
   display: flex;
   flex-direction: column;
@@ -1795,43 +1791,6 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
 .advanced-workbench.is-split .advanced-target-item:hover .advanced-target-meta,
 .advanced-workbench.is-split .advanced-target-item.active .advanced-target-meta {
   padding-right: 24px;
-}
-
-.advanced-workbench.is-split .advanced-divider {
-  display: block;
-  position: relative;
-  width: 8px;
-  flex-shrink: 0;
-  cursor: col-resize;
-  background: transparent;
-  z-index: 2;
-}
-
-.advanced-workbench.is-split .advanced-divider::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 50%;
-  width: 1px;
-  transform: translateX(-50%);
-  background: var(--panel-divider-color);
-}
-
-.advanced-workbench.is-split .advanced-divider.active::before,
-.advanced-workbench.is-split .advanced-divider:hover::before {
-  background: rgba(var(--accent-color-rgb), 0.35);
-}
-
-.advanced-divider-handle {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 3px;
-  height: 36px;
-  transform: translate(-50%, -50%);
-  border-radius: 999px;
-  background: rgba(var(--accent-color-rgb), 0.35);
 }
 
 .settings-view input[type="range"]::-webkit-slider-runnable-track {
@@ -2310,7 +2269,8 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
 
 /* Sidebar: grouped, icon-led list that scrolls on its own. */
 .settings-nav {
-  flex: 0 0 clamp(176px, 26%, 216px);
+  flex: 0 0 var(--settings-nav-width, var(--pane-sidebar-width));
+  width: var(--settings-nav-width, var(--pane-sidebar-width));
   display: flex;
   flex-direction: column;
   gap: var(--st-space-3);
@@ -2318,7 +2278,7 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
   padding: var(--st-space-3) var(--st-space-2);
   overflow-y: auto;
   overscroll-behavior: contain;
-  background: color-mix(in srgb, var(--bg-panel) 55%, transparent);
+  background: var(--pane-sidebar-background);
   border-right: 1px solid var(--st-divider);
 }
 
@@ -2348,8 +2308,8 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
   align-items: center;
   gap: 10px;
   width: 100%;
-  height: 32px;
-  min-height: 32px;
+  height: var(--pane-item-height);
+  min-height: var(--pane-item-height);
   padding: 0 10px;
   border: none;
   border-radius: var(--st-control-radius);

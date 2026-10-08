@@ -7,10 +7,16 @@
 }
 
 .main-content.is-split {
-  grid-template-columns: minmax(240px, 2fr) minmax(0, 3fr);
+  grid-template-columns: var(--split-columns, minmax(240px, 2fr) minmax(0, 3fr));
+}
+
+/* Follow the pointer while dragging the divider instead of easing behind it. */
+.main-content.is-pane-resizing {
+  transition: none;
 }
 
 .main-split-detail {
+  position: relative;
   display: flex;
   flex-direction: column;
   container-type: size;

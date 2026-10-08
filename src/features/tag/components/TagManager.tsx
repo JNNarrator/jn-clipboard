@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback, useId, type MouseEvent as ReactMouseEvent } from 'react';
+import { useState, useEffect, useRef, useMemo, useId, type MouseEvent as ReactMouseEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { listen, emit } from '@tauri-apps/api/event';
@@ -7,6 +7,8 @@ import {
     Clock, MousePointer2, Plus, ExternalLink, CheckSquare, Copy, StickyNote, Search, Ellipsis
 } from 'lucide-react';
 import AppModal from "../../../shared/components/AppModal";
+import PaneDivider from "../../../shared/components/PaneDivider";
+import { usePaneWidth } from "../../../shared/hooks/usePaneWidth";
 import { getTagColor } from "../../../shared/lib/utils";
 import { toTauriLocalImageSrc, withImageCacheBust } from "../../../shared/lib/localImageSrc";
 import { activateForInput } from "../../../shared/lib/focus";
@@ -26,9 +28,6 @@ interface TagInfo {
 export default function TagManager({ t, theme }: TagManagerProps) {
     const TAG_MANAGER_VIEW_MODE_KEY = "tiez_tag_manager_view_mode";
     const TAG_MANAGER_SPLIT_MIN_WIDTH = 320;
-    const TAG_SIDEBAR_MIN = 96;
-    const TAG_SIDEBAR_MAX = 260;
-    const TAG_SIDEBAR_DEFAULT = 148;
     const [tags, setTags] = useState<TagInfo[]>([]);
     const [tagSearch, setTagSearch] = useState('');
     const [isTagSearchOpen, setIsTagSearchOpen] = useState(false);
@@ -67,16 +66,23 @@ export default function TagManager({ t, theme }: TagManagerProps) {
     const [newItemContent, setNewItemContent] = useState('');
     const [isManageMode, setIsManageMode] = useState(false);
     const [selectedItemIds, setSelectedItemIds] = useState<Set<number>>(new Set());
-    const [sidebarWidth, setSidebarWidth] = useState(TAG_SIDEBAR_DEFAULT);
     const [isSplit, setIsSplit] = useState(false);
     const isTagSearchExpanded = isSplit || isTagSearchOpen || tagSearch.length > 0;
-    const [isResizing, setIsResizing] = useState(false);
     const pageRef = useRef<HTMLDivElement | null>(null);
-    const sidebarWidthRef = useRef(TAG_SIDEBAR_DEFAULT);
+    const sidebarRef = useRef<HTMLDivElement | null>(null);
+    // null until the user drags the divider (or has a stored width); the
+    // sidebar then follows the shared --pane-sidebar-width default.
+    const { value: sidebarWidth, resizing, dividerProps } = usePaneWidth({
+        storageKey: "app.tag_manager_size",
+        containerRef: pageRef,
+        paneRef: sidebarRef,
+        min: 120,
+        max: 320,
+        minRest: 240
+    });
 
     const selectedTagRef = useRef<string | null>(null);
     useEffect(() => { selectedTagRef.current = selectedTag; }, [selectedTag]);
-    useEffect(() => { sidebarWidthRef.current = sidebarWidth; }, [sidebarWidth]);
 
     useEffect(() => {
         if (!isTagSearchOpen) return;
@@ -142,59 +148,6 @@ export default function TagManager({ t, theme }: TagManagerProps) {
         observer.observe(el);
         return () => observer.disconnect();
     }, []);
-
-    useEffect(() => {
-        invoke<Record<string, string>>("get_settings")
-            .then((settings) => {
-                const raw = settings["app.tag_manager_size"];
-                if (!raw) return;
-                const parsed = JSON.parse(raw) as { width?: number };
-                if (typeof parsed.width === "number" && parsed.width >= TAG_SIDEBAR_MIN) {
-                    setSidebarWidth(Math.min(parsed.width, TAG_SIDEBAR_MAX));
-                }
-            })
-            .catch(console.error);
-    }, []);
-
-    const persistSidebarWidth = useCallback(() => {
-        invoke("save_setting", {
-            key: "app.tag_manager_size",
-            value: JSON.stringify({ width: sidebarWidthRef.current, height: 0 }),
-        }).catch(console.error);
-    }, []);
-
-    useEffect(() => {
-        if (!isResizing) return;
-
-        const handleMouseMove = (event: MouseEvent) => {
-            const bounds = pageRef.current?.getBoundingClientRect();
-            if (!bounds) return;
-            const nextWidth = Math.min(
-                Math.max(event.clientX - bounds.left, TAG_SIDEBAR_MIN),
-                TAG_SIDEBAR_MAX
-            );
-            setSidebarWidth(nextWidth);
-        };
-
-        const handleMouseUp = () => {
-            setIsResizing(false);
-            document.body.style.cursor = "";
-            document.body.style.userSelect = "";
-            persistSidebarWidth();
-        };
-
-        document.body.style.cursor = "col-resize";
-        document.body.style.userSelect = "none";
-        window.addEventListener("mousemove", handleMouseMove);
-        window.addEventListener("mouseup", handleMouseUp);
-
-        return () => {
-            window.removeEventListener("mousemove", handleMouseMove);
-            window.removeEventListener("mouseup", handleMouseUp);
-            document.body.style.cursor = "";
-            document.body.style.userSelect = "";
-        };
-    }, [isResizing, persistSidebarWidth]);
 
     const isDeletingRef = useRef(isDeleting);
     isDeletingRef.current = isDeleting;
@@ -433,9 +386,9 @@ export default function TagManager({ t, theme }: TagManagerProps) {
         <div ref={pageRef} className={`tag-manager-page theme-${theme}`}>
             <div
                 className={`tag-manager-body${isSplit ? " is-split" : ""}${isModalOpen ? " tag-manager-modal-open" : ""}`}
-                style={isSplit ? { ["--tag-sidebar-width" as string]: `${sidebarWidth}px` } : undefined}
+                style={isSplit && sidebarWidth != null ? { ["--tag-sidebar-width" as string]: `${sidebarWidth}px` } : undefined}
             >
-                <div className="tag-manager-filter">
+                <div ref={sidebarRef} className="tag-manager-filter">
                     <div
                         className={`tag-manager-search-control${isTagSearchExpanded ? " is-open" : ""}`}
                         onBlur={(e) => {
@@ -618,15 +571,7 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                 </div>
 
                 {isSplit && (
-                    <div
-                        className={`tag-manager-divider${isResizing ? " active" : ""}`}
-                        onMouseDown={(e) => {
-                            e.preventDefault();
-                            setIsResizing(true);
-                        }}
-                    >
-                        <span className="tag-manager-divider-handle" />
-                    </div>
+                    <PaneDivider active={resizing} label={t("pane_divider_hint")} {...dividerProps} />
                 )}
 
                 <div className="advanced-editor tag-manager-editor">
