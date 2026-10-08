@@ -427,16 +427,20 @@ body.split-view-active .main-content.is-split .history-item.compact.selected .it
   gap: 6px;
   margin-inline-start: auto;
   padding: 0 16px;
-  background: var(--accent-color);
-  color: var(--on-accent);
+  /* Themes pair these two for legibility; accent + --on-accent is not
+     (white on terminal green or sakura pink is barely readable). */
+  background: var(--button-active-filled-background);
+  border-color: var(--button-active-filled-border-color);
+  color: var(--button-active-filled-color);
   font-family: var(--font-main);
   font-size: var(--font-size-sm);
   font-weight: 600;
 }
 
 .detail-action.is-primary:hover {
-  background: var(--accent-hover);
-  color: var(--on-accent);
+  background: var(--button-active-filled-background);
+  color: var(--button-active-filled-color);
+  filter: brightness(0.95);
 }
 
 .detail-action:focus-visible,

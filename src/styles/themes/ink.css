@@ -260,6 +260,7 @@ body.dark-mode.theme-ink {
   --card-selected-background: rgba(228, 221, 209, 0.05);
 
   --button-active-filled-border-color: rgba(168, 72, 72, 0.38);
+  --button-active-filled-color: #e09a90;
   --tag-chip-border: 1px solid rgba(168, 72, 72, 0.26);
 
   --menu-shadow: 0 8px 22px rgba(0, 0, 0, 0.42);
@@ -289,6 +290,8 @@ body.dark-mode.theme-ink .btn-icon:hover {
 body.dark-mode.theme-ink .btn-icon.active,
 body.dark-mode.theme-ink .theme-choice-btn.active {
   border-color: rgba(168, 72, 72, 0.38);
+  /* The light-mode seal red is ~2.6:1 on the dark paper. */
+  color: #e09a90;
 }
 
 body.dark-mode.theme-ink .settings-group {

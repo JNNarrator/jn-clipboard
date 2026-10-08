@@ -78,6 +78,7 @@ body.theme-sakura {
   --button-active-transform: translateY(0) scale(0.98);
   --button-active-shadow: none;
   --button-active-filled-shadow: none;
+  --button-active-filled-color: #4a1424;
 
   --card-border: 1px solid rgba(212, 160, 175, 0.18);
   --card-radius: 14px;
@@ -258,6 +259,8 @@ body.has-custom-bg.theme-sakura #root::after {
     --accent-color: #ff9fb4;
     --accent-color-rgb: 255, 159, 180;
     --accent-hover: #ff85a1;
+    --button-active-filled-color: #2a0b14;
+    --segment-active-background: rgba(255, 255, 255, 0.14);
 
     --border-dark: rgba(255, 255, 255, 0.08);
     --shadow-color: rgba(0, 0, 0, 0.3);
@@ -322,6 +325,8 @@ body.dark-mode.theme-sakura {
   --accent-color: #e87088;
   --accent-color-rgb: 232, 112, 136;
   --accent-hover: #d85a72;
+  --button-active-filled-color: #2a0b14;
+  --segment-active-background: rgba(255, 255, 255, 0.14);
 
   --border-dark: rgba(255, 255, 255, 0.08);
   --shadow-color: rgba(0, 0, 0, 0.3);
