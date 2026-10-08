@@ -66,6 +66,7 @@ import { isTauriRuntime } from "./shared/lib/tauriRuntime";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import ClipboardDetailPane from "./features/clipboard/components/ClipboardDetailPane";
 import { useSplitView } from "./features/app/hooks/useSplitView";
+import { useDetailPaneActions } from "./features/app/hooks/useDetailPaneActions";
 
 const SENSITIVE_TAGS = ["sensitive", "密码", "password"];
 
@@ -1038,18 +1039,6 @@ const App = () => {
 
   const effectiveHasMore = hasMore && filteredHistory.length >= PAGE_SIZE;
 
-  const { splitActive, detailItem, handleListMouseOver } = useSplitView({
-    enabled: splitViewEnabled,
-    listVisible: !showSettings && !effectiveShowTagManager && !showEmojiPanel && !chatMode,
-    items: filteredHistory,
-    selectedItemId,
-    isKeyboardMode
-  });
-  const detailSensitiveHidden = !!detailItem
-    && privacyProtection
-    && SENSITIVE_TAGS.some((tag) => detailItem.tags?.includes(tag))
-    && !revealedIds.has(detailItem.id);
-
   const {
     pinnedItems,
     unpinnedItems,
@@ -1063,6 +1052,31 @@ const App = () => {
     filteredHistory,
     history,
     setHistory
+  });
+
+  const { splitActive, detailItem, handleListMouseOver, handleListMouseLeave, focusDetailItem } = useSplitView({
+    enabled: splitViewEnabled,
+    listVisible: !showSettings && !effectiveShowTagManager && !showEmojiPanel && !chatMode,
+    items: navigableHistory,
+    selectedItemId,
+    isKeyboardMode,
+    lockedId: editingTagsId ?? editingNoteId
+  });
+  const detailIsSensitive = !!detailItem && SENSITIVE_TAGS.some((tag) => detailItem.tags?.includes(tag));
+  const detailIsRevealed = !!detailItem && revealedIds.has(detailItem.id);
+  const detailActions = useDetailPaneActions({
+    items: navigableHistory,
+    focusDetailItem,
+    copyToClipboard,
+    openContent,
+    togglePin,
+    deleteEntry,
+    handleAIAction,
+    setEditingTagsId,
+    setEditingNoteId,
+    setTagInput,
+    setRevealedIds,
+    virtualListRef
   });
 
   useListSelectionReset({
@@ -1108,6 +1122,7 @@ const App = () => {
     revealedIds,
     isKeyboardMode,
     selectedItemId,
+    detailFocusedId: detailItem?.id ?? null,
     isWindowPinned,
     editingTagsId,
     editingNoteId,
@@ -1222,7 +1237,11 @@ const App = () => {
           padding: effectiveShowTagManager ? "0" : undefined
         }}
       >
-        <div className="main-split-list" onMouseOver={splitActive ? handleListMouseOver : undefined}>
+        <div
+          className="main-split-list"
+          onMouseOver={splitActive ? handleListMouseOver : undefined}
+          onMouseLeave={splitActive ? handleListMouseLeave : undefined}
+        >
           <AppMainContent
             t={t}
             theme={theme}
@@ -1269,7 +1288,14 @@ const App = () => {
               item={detailItem}
               t={t}
               language={language}
-              isSensitiveHidden={detailSensitiveHidden}
+              actions={detailActions}
+              isSensitive={detailIsSensitive}
+              isSensitiveHidden={detailIsSensitive && privacyProtection && !detailIsRevealed}
+              isRevealed={detailIsRevealed}
+              isEditingTags={!!detailItem && editingTagsId === detailItem.id}
+              isEditingNote={!!detailItem && editingNoteId === detailItem.id}
+              aiEnabled={aiEnabled}
+              isAIProcessing={!!detailItem && processingAiId === detailItem.id}
               showSourceAppIcon={showSourceAppIcon}
             />
           )}

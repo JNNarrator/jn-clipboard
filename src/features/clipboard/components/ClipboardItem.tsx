@@ -791,6 +791,7 @@ const getFallbackFileIcon = (filePath: string) => {
 const ClipboardItem = ({
     item,
     isSelected,
+    isDetailFocused,
     isSensitiveHidden,
     isRevealed,
     isEditingTags,
@@ -1870,7 +1871,7 @@ const ClipboardItem = ({
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.1 }}
             draggable={!isEditingTags && !isEditingNote}
-            className={`history-item ${isInteractionActive ? "selected" : ""} ${compactMode ? "compact" : ""} ${item.is_pinned ? "pinned" : ""} ${isDragging ? "is-dragging" : ""} ${isEditingTags ? "editing-tags" : ""} ${isEditingNote ? "editing-note" : ""} ${className || ''}`}
+            className={`history-item ${isInteractionActive ? "selected" : ""} ${isDetailFocused ? "detail-focused" : ""} ${compactMode ? "compact" : ""} ${item.is_pinned ? "pinned" : ""} ${isDragging ? "is-dragging" : ""} ${isEditingTags ? "editing-tags" : ""} ${isEditingNote ? "editing-note" : ""} ${className || ''}`}
             onMouseDownCapture={(e) => {
                 const target = e.target as HTMLElement;
                 if (e.button !== 0) return;
@@ -2708,6 +2709,7 @@ const ClipboardItem = ({
 
 export default memo(ClipboardItem, (prevProps, nextProps) => {
     return prevProps.isSelected === nextProps.isSelected &&
+        prevProps.isDetailFocused === nextProps.isDetailFocused &&
         prevProps.navigationIndex === nextProps.navigationIndex &&
         prevProps.item.id === nextProps.item.id &&
         prevProps.item.content_type === nextProps.item.content_type &&

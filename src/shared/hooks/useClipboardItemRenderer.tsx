@@ -14,6 +14,8 @@ interface UseClipboardItemRendererOptions {
   revealedIds: Set<number>;
   isKeyboardMode: boolean;
   selectedItemId: number | null;
+  /** Entry shown in the wide layout's detail pane, if any. */
+  detailFocusedId: number | null;
   isWindowPinned: boolean;
   editingTagsId: number | null;
   editingNoteId: number | null;
@@ -67,6 +69,7 @@ export const useClipboardItemRenderer = ({
   revealedIds,
   isKeyboardMode,
   selectedItemId,
+  detailFocusedId,
   isWindowPinned,
   editingTagsId,
   editingNoteId,
@@ -118,6 +121,7 @@ export const useClipboardItemRenderer = ({
           item={item}
           navigationIndex={index}
           isSelected={isKeyboardSelectedItem(item.id, selectedItemId, isKeyboardMode)}
+          isDetailFocused={detailFocusedId === item.id}
           windowPinned={isWindowPinned}
           isSensitiveHidden={!!isSensitiveHidden}
           isRevealed={revealedIds.has(item.id)}
@@ -226,6 +230,7 @@ export const useClipboardItemRenderer = ({
       privacyProtection,
       revealedIds,
       selectedItemId,
+      detailFocusedId,
       isKeyboardMode,
       isWindowPinned,
       editingTagsId,

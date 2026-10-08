@@ -178,3 +178,71 @@
     animation: none;
   }
 }
+
+/* ---- Actions: per-row buttons move into the pane's action bar ---- */
+
+/* Must outrank `body.hide-unselected-item-actions … .item-actions`, which
+   forces display:flex; this file loads after clipboard-item.css. */
+body.split-view-active .main-content.is-split .history-item .item-actions {
+  display: none !important;
+}
+
+/* Compact rows hid the time slot on hover to make room for ···; with no
+   actions in the row it stays put. */
+body.split-view-active .main-content.is-split .history-item.compact:hover .item-meta-right-info,
+body.split-view-active .main-content.is-split .history-item.compact.selected .item-meta-right-info {
+  opacity: 0.68 !important;
+  visibility: visible !important;
+}
+
+/* The row the pane (and its action bar) is showing, even after the pointer
+   has moved over to the pane. */
+.main-content.is-split .history-item.detail-focused:not(.selected) {
+  background: var(--card-selected-background);
+  border-color: var(--card-selected-border-color) !important;
+}
+
+.detail-actions-wrap {
+  flex: 0 0 auto;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.detail-action {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  flex: 0 0 auto;
+}
+
+.detail-action.is-primary {
+  width: auto;
+  gap: 6px;
+  padding: 0 12px;
+  font-family: var(--font-main);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.detail-action.is-danger {
+  margin-left: auto;
+}
+
+.detail-action.is-danger:hover {
+  color: var(--status-danger);
+}
+
+.detail-action:disabled {
+  cursor: default;
+}
+
+.detail-ai-actions {
+  margin-top: 8px;
+}

@@ -12,6 +12,8 @@ export interface ClipboardItemProps {
   /** Current position in the combined pinned + history list. */
   navigationIndex: number;
   isSelected: boolean;
+  /** Shown in the wide layout's detail pane, whose action bar targets it. */
+  isDetailFocused?: boolean;
   windowPinned: boolean;
   isSensitiveHidden: boolean;
   isRevealed: boolean;
