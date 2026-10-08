@@ -4,6 +4,7 @@ import { ChevronDown, ChevronRight, Plus, Trash2 } from "lucide-react";
 import type { InstalledAppOption } from "../../../app/types";
 import type { AppCleanupPolicy, AppCleanupPolicyAction } from "../../types";
 import PaneDivider from "../../../../shared/components/PaneDivider";
+import ExpandableSearch from "../../../../shared/components/ExpandableSearch";
 import { usePaneWidth } from "../../../../shared/hooks/usePaneWidth";
 
 interface AdvancedSettingsGroupProps {
@@ -336,13 +337,16 @@ const AdvancedSettingsGroup = ({
                 style={isSplit && sidebarWidth != null ? { ["--advanced-sidebar-width" as string]: `${sidebarWidth}px` } : undefined}
             >
                 <aside ref={sidebarRef} className="advanced-sidebar">
-                    <div className="advanced-sidebar-search">
-                        <input
-                            className="search-input advanced-search-input"
-                            placeholder={t("search_apps_placeholder")}
-                            value={searchText}
-                            onChange={(e) => setSearchText(e.target.value)}
-                        />
+                    <ExpandableSearch
+                        value={searchText}
+                        onChange={setSearchText}
+                        label={t("search_apps_placeholder")}
+                        clearLabel={t(isSplit ? "clear_search" : "close")}
+                        alwaysOpen={isSplit}
+                        onSubmit={() => {
+                            if (searchResults.length > 0) handleAddApp(searchResults[0]);
+                        }}
+                    >
                         {searchResults.length > 0 && (
                             <div className="advanced-search-results">
                                 {searchResults.map((app) => (
@@ -362,7 +366,7 @@ const AdvancedSettingsGroup = ({
                                 ))}
                             </div>
                         )}
-                    </div>
+                    </ExpandableSearch>
 
                     <div className="advanced-target-list">
                         {filteredTargets.map((target) => (

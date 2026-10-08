@@ -682,10 +682,6 @@
   cursor: pointer;
 }
 
-.settings-address-port {
-  opacity: 0.7;
-}
-
 /* Value-picker that opens a chooser: reads as a field, acts as a button. */
 .settings-picker-button {
   display: inline-flex;
@@ -1282,22 +1278,6 @@
   border-bottom: 1px solid var(--panel-divider-color);
 }
 
-.advanced-sidebar-search {
-  position: relative;
-  width: 128px;
-  flex-shrink: 0;
-  padding: 0;
-}
-
-.advanced-search-input {
-  width: 100%;
-  max-width: 100%;
-  box-sizing: border-box;
-  min-height: 28px;
-  padding: 0 10px !important;
-  font-size: var(--font-size-sm);
-}
-
 .advanced-search-results {
   position: absolute;
   top: calc(100% + 4px);
@@ -1421,11 +1401,6 @@ html.platform-macos .advanced-target-list:focus-within::-webkit-scrollbar-thumb:
 
 .advanced-target-item.active .advanced-target-name {
   font-weight: 500;
-}
-
-.settings-view .advanced-search-input.search-input {
-  height: var(--st-control-height, 28px);
-  font-size: var(--st-control-size, var(--font-size-sm)) !important;
 }
 
 .advanced-target-meta {
@@ -1573,9 +1548,6 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
   width: 100%;
   max-width: 420px;
   padding: 16px 14px;
-  border: var(--advanced-card-border);
-  border-radius: var(--advanced-card-radius);
-  background: var(--advanced-card-background);
   text-align: center;
 }
 
@@ -1734,7 +1706,7 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
   border-bottom: none;
 }
 
-.advanced-workbench.is-split .advanced-sidebar-search {
+.advanced-workbench.is-split .expandable-search.is-open {
   width: 100%;
 }
 

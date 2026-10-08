@@ -4,10 +4,11 @@ import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { listen, emit } from '@tauri-apps/api/event';
 import {
     Edit2, Trash2, X, LayoutGrid, List,
-    Clock, MousePointer2, Plus, ExternalLink, CheckSquare, Copy, StickyNote, Search, Ellipsis
+    Clock, MousePointer2, Plus, ExternalLink, CheckSquare, Copy, StickyNote, Ellipsis
 } from 'lucide-react';
 import AppModal from "../../../shared/components/AppModal";
 import PaneDivider from "../../../shared/components/PaneDivider";
+import ExpandableSearch from "../../../shared/components/ExpandableSearch";
 import { usePaneWidth } from "../../../shared/hooks/usePaneWidth";
 import { getTagColor } from "../../../shared/lib/utils";
 import { toTauriLocalImageSrc, withImageCacheBust } from "../../../shared/lib/localImageSrc";
@@ -30,10 +31,6 @@ export default function TagManager({ t, theme }: TagManagerProps) {
     const TAG_MANAGER_SPLIT_MIN_WIDTH = 320;
     const [tags, setTags] = useState<TagInfo[]>([]);
     const [tagSearch, setTagSearch] = useState('');
-    const [isTagSearchOpen, setIsTagSearchOpen] = useState(false);
-    const tagSearchInputRef = useRef<HTMLInputElement | null>(null);
-    const tagSearchButtonRef = useRef<HTMLButtonElement | null>(null);
-    const tagSearchInputId = useId();
     const [selectedTag, setSelectedTag] = useState<string | null>(null);
     const [tagItems, setTagItems] = useState<ClipboardEntry[]>([]);
     const [tagColors, setTagColors] = useState<Record<string, string>>({});
@@ -67,7 +64,6 @@ export default function TagManager({ t, theme }: TagManagerProps) {
     const [isManageMode, setIsManageMode] = useState(false);
     const [selectedItemIds, setSelectedItemIds] = useState<Set<number>>(new Set());
     const [isSplit, setIsSplit] = useState(false);
-    const isTagSearchExpanded = isSplit || isTagSearchOpen || tagSearch.length > 0;
     const pageRef = useRef<HTMLDivElement | null>(null);
     const sidebarRef = useRef<HTMLDivElement | null>(null);
     // null until the user drags the divider (or has a stored width); the
@@ -83,22 +79,6 @@ export default function TagManager({ t, theme }: TagManagerProps) {
 
     const selectedTagRef = useRef<string | null>(null);
     useEffect(() => { selectedTagRef.current = selectedTag; }, [selectedTag]);
-
-    useEffect(() => {
-        if (!isTagSearchOpen) return;
-        let disposed = false;
-        void activateForInput().catch(console.error).finally(() => {
-            if (!disposed) tagSearchInputRef.current?.focus({ preventScroll: true });
-        });
-        return () => { disposed = true; };
-    }, [isTagSearchOpen]);
-
-    const closeTagSearch = () => {
-        setTagSearch('');
-        setIsTagSearchOpen(false);
-        if (isSplit) tagSearchInputRef.current?.focus({ preventScroll: true });
-        else tagSearchButtonRef.current?.focus({ preventScroll: true });
-    };
 
     useEffect(() => {
         if (!tagMenu) return;
@@ -389,69 +369,22 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                 style={isSplit && sidebarWidth != null ? { ["--tag-sidebar-width" as string]: `${sidebarWidth}px` } : undefined}
             >
                 <div ref={sidebarRef} className="tag-manager-filter">
-                    <div
-                        className={`tag-manager-search-control${isTagSearchExpanded ? " is-open" : ""}`}
-                        onBlur={(e) => {
-                            if (!e.currentTarget.contains(e.relatedTarget as Node | null) && !tagSearch.trim()) {
-                                setIsTagSearchOpen(false);
+                    <ExpandableSearch
+                        value={tagSearch}
+                        onChange={setTagSearch}
+                        label={t("find_or_create")}
+                        clearLabel={t(isSplit ? "clear_tag_search" : "close")}
+                        alwaysOpen={isSplit}
+                        prepareFocus={activateForInput}
+                        onSubmit={(value) => {
+                            const exactMatch = tags.find((tag) => tag.name.toLowerCase() === normalizedTagSearch);
+                            if (exactMatch) {
+                                loadTagItems(exactMatch.name);
+                            } else {
+                                void createTag(value);
                             }
                         }}
-                    >
-                        <button
-                            ref={tagSearchButtonRef}
-                            type="button"
-                            className="tag-manager-search-trigger"
-                            title={t("find_or_create")}
-                            aria-label={t("find_or_create")}
-                            aria-expanded={isTagSearchExpanded}
-                            aria-controls={tagSearchInputId}
-                            onClick={() => {
-                                if (isTagSearchOpen) tagSearchInputRef.current?.focus();
-                                else setIsTagSearchOpen(true);
-                            }}
-                        >
-                            <Search size={14} aria-hidden="true" />
-                        </button>
-                        <input
-                            id={tagSearchInputId}
-                            ref={tagSearchInputRef}
-                            className="search-input tag-manager-filter-search"
-                            placeholder={t("find_or_create")}
-                            aria-label={t("find_or_create")}
-                            tabIndex={isTagSearchExpanded ? 0 : -1}
-                            aria-hidden={!isTagSearchExpanded}
-                            value={tagSearch}
-                            onChange={(e) => setTagSearch(e.target.value)}
-                            onKeyDown={async (e) => {
-                                if (e.key === "Escape") {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    closeTagSearch();
-                                    return;
-                                }
-                                if (e.nativeEvent.isComposing) return;
-                                if (e.key === "Enter" && tagSearch.trim()) {
-                                    const exactMatch = tags.find((tag) => tag.name.toLowerCase() === normalizedTagSearch);
-                                    if (exactMatch) {
-                                        loadTagItems(exactMatch.name);
-                                    } else {
-                                        await createTag(tagSearch);
-                                    }
-                                }
-                            }}
-                        />
-                        <button
-                            type="button"
-                            className="tag-manager-search-close"
-                            title={t(isSplit ? "clear_tag_search" : "close")}
-                            aria-label={t(isSplit ? "clear_tag_search" : "close")}
-                            tabIndex={isTagSearchExpanded ? 0 : -1}
-                            aria-hidden={!isTagSearchExpanded}
-                            onClick={closeTagSearch}
-                        >
-                            <X size={12} aria-hidden="true" />
-                        </button>
-                    </div>
+                    />
                     <div className="tag-manager-chip-row custom-scrollbar">
                         {filteredTags.map((tag) => {
                             const isSelected = selectedTag === tag.name;

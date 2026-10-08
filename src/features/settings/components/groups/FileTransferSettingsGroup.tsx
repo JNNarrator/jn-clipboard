@@ -131,7 +131,6 @@ const FileTransferSettingsGroup = ({
                                 ) : (
                                     <span>{localIp}</span>
                                 )}
-                                <span className="settings-address-port">:{Number(actualPort) > 0 ? actualPort : fileServerPort}</span>
                             </div>
                         </div>
                         <div className="setting-item">
