@@ -137,16 +137,19 @@ const AppMainContent = ({
   const orderedPinnedIds = pinnedOrderIds;
 
   // Hooks must run before the view-specific early returns below.
+  // Same wrapper for every row so the top card does not remount when a new
+  // copy pushes it down to index 1.
   const renderVirtualItem = useCallback((item: ClipboardEntry, index: number, isFirst?: boolean) => {
     const el = renderItemContent(item, pinnedItems.length + index, undefined, true);
-    if (isFirst && pinnedItems.length === 0) {
-      return (
-        <div className="first-virtual-item" style={{ height: "100%", paddingTop: "4px" }}>
-          {el}
-        </div>
-      );
-    }
-    return el;
+    const first = isFirst && pinnedItems.length === 0;
+    return (
+      <div
+        className={first ? "first-virtual-item" : undefined}
+        style={first ? { height: "100%", paddingTop: "4px" } : undefined}
+      >
+        {el}
+      </div>
+    );
   }, [renderItemContent, pinnedItems.length]);
 
   if (showTagManager && tagManagerEnabled) {

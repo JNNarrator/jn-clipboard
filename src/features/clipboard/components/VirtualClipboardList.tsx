@@ -135,6 +135,8 @@ const VirtualClipboardList = React.forwardRef<VirtualClipboardListHandle, Virtua
             );
         }, [renderItem, compactMode]);
 
+        const computeItemKey = useCallback((_index: number, item: ClipboardEntry) => item.id, []);
+
         const components = useMemo(() => ({
             Header: ListHeader,
             Footer: ListFooter
@@ -153,6 +155,9 @@ const VirtualClipboardList = React.forwardRef<VirtualClipboardListHandle, Virtua
                 <Virtuoso
                     ref={virtuosoRef}
                     data={items}
+                    // Key rows by entry id, not index: a new copy shifts every
+                    // index, which otherwise remounts every visible card.
+                    computeItemKey={computeItemKey}
                     itemContent={itemContent}
                     components={components}
                     context={context}
