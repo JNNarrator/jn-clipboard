@@ -33,6 +33,13 @@ html.platform-windows #root {
   border-radius: 0;
 }
 
+/* Windows 11 draws the window border itself (DWMWA_BORDER_COLOR in
+   set_theme). A CSS border here sits on the WebView edge and loses its right
+   and bottom sides at fractional display scaling. */
+html.platform-windows #root {
+  border: none;
+}
+
 html.platform-windows .app-container {
   border-radius: 0;
   clip-path: none;

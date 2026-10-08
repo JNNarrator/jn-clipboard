@@ -143,11 +143,12 @@ pub fn set_theme(
                     std::mem::size_of::<BOOL>() as u32,
                 );
 
-                // Theme CSS already draws --shell-border on #root. A Win11 DWM
-                // border follows the HWND shape instead, so it sits on a
-                // different radius than the theme corners.
-                const DWMWA_COLOR_NONE: u32 = 0xFFFF_FFFE;
-                let border_color = DWMWA_COLOR_NONE;
+                // Let DWM draw the window border. A CSS border on #root sits on
+                // the WebView edge, which rounds differently from the window at
+                // fractional scaling and loses its right and bottom sides; the
+                // DWM border follows the real (rounded) window edge on all four.
+                const DWMWA_COLOR_DEFAULT: u32 = 0xFFFF_FFFF;
+                let border_color = DWMWA_COLOR_DEFAULT;
                 let _ = DwmSetWindowAttribute(
                     hwnd,
                     DWMWA_BORDER_COLOR,
