@@ -141,10 +141,75 @@ pub fn apply_macos_window_material(window: &WebviewWindow) -> tauri::Result<()> 
     })
 }
 
+/// Windows 10-style composition acrylic (SetWindowCompositionAttribute,
+/// accent 4). From 22H2 window-vibrancy maps apply_acrylic to the DWM system
+/// backdrop instead, which DWM draws only while the window is focused and
+/// often not at all on frameless windows; apply_blur no longer blurs there.
+/// This accent keeps blurring when unfocused and honours the tint.
+#[cfg(target_os = "windows")]
+fn apply_composition_acrylic(
+    window: &WebviewWindow,
+    (r, g, b, a): (u8, u8, u8, u8),
+) -> Result<(), String> {
+    use std::ffi::c_void;
+    use windows::core::{s, w};
+    use windows::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryW};
+
+    #[repr(C)]
+    struct AccentPolicy {
+        accent_state: u32,
+        accent_flags: u32,
+        gradient_color: u32,
+        animation_id: u32,
+    }
+    #[repr(C)]
+    struct CompositionAttributeData {
+        attribute: u32,
+        data: *mut c_void,
+        size: usize,
+    }
+    type SetWindowCompositionAttribute =
+        unsafe extern "system" fn(*mut c_void, *mut CompositionAttributeData) -> i32;
+    const WCA_ACCENT_POLICY: u32 = 0x13;
+    const ACCENT_ENABLE_ACRYLICBLURBEHIND: u32 = 4;
+
+    let hwnd = window.hwnd().map_err(|error| error.to_string())?;
+    unsafe {
+        let user32 = LoadLibraryW(w!("user32.dll")).map_err(|error| error.to_string())?;
+        let proc = GetProcAddress(user32, s!("SetWindowCompositionAttribute"))
+            .ok_or_else(|| "SetWindowCompositionAttribute unavailable".to_string())?;
+        let set_attribute = std::mem::transmute::<
+            unsafe extern "system" fn() -> isize,
+            SetWindowCompositionAttribute,
+        >(proc);
+        let mut policy = AccentPolicy {
+            accent_state: ACCENT_ENABLE_ACRYLICBLURBEHIND,
+            accent_flags: 0,
+            // Acrylic misbehaves with a fully transparent tint.
+            gradient_color: u32::from(r)
+                | (u32::from(g) << 8)
+                | (u32::from(b) << 16)
+                | (u32::from(a.max(1)) << 24),
+            animation_id: 0,
+        };
+        let mut data = CompositionAttributeData {
+            attribute: WCA_ACCENT_POLICY,
+            data: &mut policy as *mut AccentPolicy as *mut c_void,
+            size: std::mem::size_of::<AccentPolicy>(),
+        };
+        if set_attribute(hwnd.0 as *mut c_void, &mut data) == 0 {
+            return Err("SetWindowCompositionAttribute failed".to_string());
+        }
+    }
+    Ok(())
+}
+
 #[cfg(target_os = "windows")]
 pub fn apply_windows_window_material(window: &WebviewWindow, theme: &str, is_dark: bool) {
     let build = windows_version::OsVersion::current().build;
     // Clear the actual Windows materials, including when leaving glass themes.
+    // clear_blur resets the composition accent, which also removes
+    // apply_composition_acrylic.
     if build >= 17763 {
         let _ = window_vibrancy::clear_acrylic(window);
         let _ = window_vibrancy::clear_blur(window);
@@ -156,15 +221,16 @@ pub fn apply_windows_window_material(window: &WebviewWindow, theme: &str, is_dar
     let glass = matches!(theme, "acrylic" | "mica");
     // A neutral tint softens the backdrop without obscuring its colours.
     let tint = if is_dark { (28, 28, 30, 96) } else { (246, 246, 248, 80) };
-    let applied = match theme {
-        "mica" if build >= 22000 => window_vibrancy::apply_mica(window, Some(is_dark)),
-        // From 22H2 apply_acrylic switches to the DWM "transient" system
-        // backdrop: DWM draws it only while the window is focused (a flat
-        // colour otherwise), ignores the tint, and often skips frameless
-        // windows entirely. The clipboard mostly sits unfocused over other
-        // apps, so use the composition blur, which keeps blurring and tints.
-        "acrylic" if build >= 22523 => window_vibrancy::apply_blur(window, Some(tint)),
-        "acrylic" | "mica" if build >= 17763 => window_vibrancy::apply_acrylic(window, Some(tint)),
+    let applied: Result<(), String> = match theme {
+        "mica" if build >= 22000 => {
+            window_vibrancy::apply_mica(window, Some(is_dark)).map_err(|error| error.to_string())
+        }
+        // The clipboard mostly sits unfocused over other apps; see
+        // apply_composition_acrylic for why 22H2+ needs its own path.
+        "acrylic" if build >= 22523 => apply_composition_acrylic(window, tint),
+        "acrylic" | "mica" if build >= 17763 => {
+            window_vibrancy::apply_acrylic(window, Some(tint)).map_err(|error| error.to_string())
+        }
         _ => {
             // Built-in themes below paint an opaque shell, so an opaque window
             // costs nothing visually. A transparent WebView2 background makes
