@@ -586,6 +586,7 @@ select.search-input option {
 }
 
 .main-content.settings-mode:has(.advanced-workbench),
+.main-content.settings-mode:has(.settings-wide),
 .main-content.tag-manager-mode {
   padding-bottom: 0;
 }

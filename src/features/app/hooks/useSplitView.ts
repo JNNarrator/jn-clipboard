@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import type { ClipboardEntry } from "../../../shared/types";
+import { useWideWindow } from "../../../shared/hooks/useWideWindow";
 
-/** Window width (CSS px) at which the list gains a detail pane. */
-export const SPLIT_VIEW_MIN_WIDTH = 640;
 const ITEM_ID_PREFIX = "clipboard-item-";
 /** How long the pointer must rest on a row before the pane switches to it. */
 const HOVER_DWELL_MS = 100;
@@ -19,25 +18,10 @@ interface UseSplitViewOptions {
   lockedId: number | null;
 }
 
-const isWideNow = () => typeof window !== "undefined" && window.innerWidth >= SPLIT_VIEW_MIN_WIDTH;
-
 export const useSplitView = ({ enabled, listVisible, items, selectedItemId, isKeyboardMode, lockedId }: UseSplitViewOptions) => {
-  const [isWide, setIsWide] = useState(isWideNow);
+  const isWide = useWideWindow();
   const [focusedId, setFocusedId] = useState<number | null>(null);
   const dwellRef = useRef<{ id: number | null; timer: number }>({ id: null, timer: 0 });
-
-  useEffect(() => {
-    let frame = 0;
-    const onResize = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => setIsWide(isWideNow()));
-    };
-    window.addEventListener("resize", onResize);
-    return () => {
-      cancelAnimationFrame(frame);
-      window.removeEventListener("resize", onResize);
-    };
-  }, []);
 
   useEffect(() => {
     const dwell = dwellRef.current;

@@ -42,7 +42,8 @@
   }
 }
 
-.settings-view:has(.advanced-workbench) .settings-panel-root {
+.settings-view:has(.advanced-workbench) .settings-panel-root,
+.settings-view:has(.settings-wide) .settings-panel-root {
   flex: 1;
   min-height: 0;
   height: 100%;
@@ -50,6 +51,7 @@
 }
 
 .settings-view:has(.advanced-workbench),
+.settings-view:has(.settings-wide),
 .settings-view:has(.tag-manager-page) {
   max-width: 100% !important;
   height: 100% !important;
@@ -1703,4 +1705,101 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
   padding: 8px 12px;
   background: rgba(var(--accent-color-rgb), 0.1);
   color: var(--text-primary);
+}
+
+/* Wide settings: section list on the left, the selected group on the right.
+   Mirrors the advanced workbench sidebar. */
+.settings-wide {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.settings-nav {
+  flex: 0 0 172px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  padding: 10px 8px;
+  overflow-y: auto;
+  background: var(--bg-panel);
+  border-right: 1px solid var(--panel-divider-color);
+}
+
+.settings-nav-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  width: 100%;
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--button-radius);
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-main);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease;
+}
+
+.settings-nav-item:hover {
+  background: var(--bg-input);
+}
+
+.settings-nav-item.active {
+  background: color-mix(in srgb, var(--accent-color) 12%, var(--bg-content));
+  border-color: rgba(var(--accent-color-rgb), 0.28);
+  color: var(--accent-color);
+}
+
+.settings-nav-divider {
+  flex: 0 0 1px;
+  margin: 6px 4px;
+  background: var(--panel-divider-color);
+}
+
+.settings-wide-content {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 14px;
+  /* Container queries inside groups measure this pane, not the whole view. */
+  container-type: inline-size;
+  container-name: settings;
+  animation: settings-page-enter 160ms ease-out;
+}
+
+.settings-wide-inner {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+/* The selected group is always open here; its header is just the title. */
+.settings-wide-content .settings-group > .group-header {
+  cursor: default;
+  pointer-events: none;
+}
+
+.settings-wide-content .settings-group > .group-header > svg:last-child {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-wide-content {
+    animation: none;
+  }
+}
+
+/* Narrow layout wrapper: an anchor for scrolling, not a box. */
+.settings-section {
+  display: contents;
 }

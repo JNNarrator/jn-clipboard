@@ -7,10 +7,11 @@ import { formatError } from "../../../shared/lib/errorMessage";
 
 interface SecureTransferProps {
   t: (key: string) => string;
+  collapsed: boolean;
+  onToggle: () => void;
 }
 
-export default function SecureTransfer({ t }: SecureTransferProps) {
-  const [collapsed, setCollapsed] = useState(true);
+export default function SecureTransfer({ t, collapsed, onToggle }: SecureTransferProps) {
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [acknowledged, setAcknowledged] = useState(false);
@@ -63,7 +64,7 @@ export default function SecureTransfer({ t }: SecureTransferProps) {
         type="button"
         className="group-header"
         aria-expanded={!collapsed}
-        onClick={() => setCollapsed((value) => !value)}
+        onClick={onToggle}
       >
         <h3 style={{ margin: 0 }}>{t("secure_transfer")}</h3>
         {collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}

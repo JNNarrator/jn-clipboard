@@ -12,24 +12,14 @@ import type {
 } from "../types";
 import { DEFAULT_CLOUD_SYNC_CONTENT_PREFS } from "../types";
 import type { AiProfile, AppCleanupPolicy } from "../../settings/types";
+import { DEFAULT_COLLAPSED_GROUPS } from "../../settings/types";
 
 export const useAppState = (): AppState => {
   const [showSettings, setShowSettings] = useState(false);
   const [settingsSubpage, setSettingsSubpage] = useState<SettingsSubpage>("home");
   const [showTagManager, setShowTagManager] = useState(false);
   const [tagManagerEnabled, setTagManagerEnabled] = useState(true);
-  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({
-    general: true,
-    clipboard: true,
-    advanced: true,
-    appearance: true,
-    sync: true,
-    cloud_sync: true,
-    ai: true,
-    file_transfer: true,
-    default_apps: true,
-    data: true
-  });
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(DEFAULT_COLLAPSED_GROUPS);
   const [history, setHistory] = useState<ClipboardEntry[]>([]);
   const [clipboardSortMode, setClipboardSortMode] =
     useState<ClipboardSortMode>("activity");
