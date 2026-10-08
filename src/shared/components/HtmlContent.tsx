@@ -100,21 +100,16 @@ const resolveImgSource = (el: Element): string | null => {
 };
 
 const SANITIZE_CACHE_LIMIT = 100;
-const sanitizeCache = new Map<string, { html: string; hasRenderable: boolean }>();
-
-const hashSanitizeKey = (html: string, preview?: boolean): string => {
-  let hash = 2166136261;
-  const str = (preview ? "p:" : "f:") + html;
-  for (let i = 0; i < str.length; i++) {
-    hash ^= str.charCodeAt(i);
-    hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
-  }
-  return (hash >>> 0).toString(16) + ":" + html.length;
+// Keyed by the HTML string itself: engines cache a string's hash, so lookups
+// stay cheap for the same item, unlike re-hashing every character per render.
+const sanitizeCaches = {
+  preview: new Map<string, { html: string; hasRenderable: boolean }>(),
+  full: new Map<string, { html: string; hasRenderable: boolean }>()
 };
 
 const sanitizeHTML = (html: string, preview?: boolean) => {
-  const cacheKey = hashSanitizeKey(html, preview);
-  const cached = sanitizeCache.get(cacheKey);
+  const sanitizeCache = preview ? sanitizeCaches.preview : sanitizeCaches.full;
+  const cached = sanitizeCache.get(html);
   if (cached) return cached;
 
   const parser = new DOMParser();
@@ -280,7 +275,7 @@ const sanitizeHTML = (html: string, preview?: boolean) => {
     const firstKey = sanitizeCache.keys().next().value;
     if (firstKey) sanitizeCache.delete(firstKey);
   }
-  sanitizeCache.set(cacheKey, result);
+  sanitizeCache.set(html, result);
   return result;
 };
 
@@ -562,45 +557,48 @@ const LIGHT_READABLE_TEXT: Rgba = { r: 255, g: 255, b: 255, a: 1 };
 const colorToCss = ({ r, g, b }: Rgba) =>
   `rgb(${Math.round(r)} ${Math.round(g)} ${Math.round(b)})`;
 
-const effectiveBackground = (element: Element, host: HTMLElement): Rgba => {
-  let background: Rgba = { r: 0, g: 0, b: 0, a: 0 };
-  let current: Element | null = element;
-
-  while (current) {
-    const parsed = parseCssColor(getComputedStyle(current).backgroundColor);
-    if (parsed && parsed.a > 0) {
-      background = compositeColor(background, parsed);
-      if (background.a >= 0.99) return background;
-    }
-    current = current.parentElement;
-  }
-
-  current = host;
-  while (current) {
-    const parsed = parseCssColor(getComputedStyle(current).backgroundColor);
-    if (parsed && parsed.a > 0) {
-      background = compositeColor(background, parsed);
-      if (background.a >= 0.99) return background;
-    }
-    current = current.parentElement;
-  }
-
-  const fallback = parseCssColor(
-    getComputedStyle(host).getPropertyValue("--bg-element").trim()
-  );
-  return fallback ?? { r: 255, g: 255, b: 255, a: 1 };
-};
-
 const repairUnreadableSourceColors = (root: ShadowRoot, host: HTMLElement) => {
   const themedForeground = parseCssColor(
     getComputedStyle(host).getPropertyValue("--text-primary").trim()
   );
 
+  // Every text element walks up through the same ancestors (and the card's
+  // ~15 outer layers), so cache each element's own background for this pass.
+  const ownBackgrounds = new Map<Element, Rgba | null>();
+  const ownBackground = (element: Element) => {
+    if (!ownBackgrounds.has(element)) {
+      ownBackgrounds.set(element, parseCssColor(getComputedStyle(element).backgroundColor));
+    }
+    return ownBackgrounds.get(element) ?? null;
+  };
+
+  const effectiveBackground = (element: Element): Rgba => {
+    let background: Rgba = { r: 0, g: 0, b: 0, a: 0 };
+    for (const start of [element, host]) {
+      let current: Element | null = start;
+      while (current) {
+        const parsed = ownBackground(current);
+        if (parsed && parsed.a > 0) {
+          background = compositeColor(background, parsed);
+          if (background.a >= 0.99) return background;
+        }
+        current = current.parentElement;
+      }
+    }
+    const fallback = parseCssColor(
+      getComputedStyle(host).getPropertyValue("--bg-element").trim()
+    );
+    return fallback ?? { r: 255, g: 255, b: 255, a: 1 };
+  };
+
+  // Read everything first, then write: interleaving setProperty with
+  // getComputedStyle forced a style recalculation per element.
+  const fixes: Array<[HTMLElement, string]> = [];
   root.querySelectorAll<HTMLElement>(".tiez-rich-root *").forEach((element) => {
     if (!(element.textContent || "").trim()) return;
     const foreground = parseCssColor(getComputedStyle(element).color);
     if (!foreground) return;
-    const background = effectiveBackground(element, host);
+    const background = effectiveBackground(element);
     const opaqueForeground = compositeColor(foreground, background);
     if (contrastRatio(opaqueForeground, background) >= READABLE_PREVIEW_CONTRAST) return;
 
@@ -614,8 +612,11 @@ const repairUnreadableSourceColors = (root: ShadowRoot, host: HTMLElement) => {
         ? candidate
         : best
     );
-    element.style.setProperty("color", colorToCss(readable), "important");
+    fixes.push([element, colorToCss(readable)]);
   });
+  for (const [element, color] of fixes) {
+    element.style.setProperty("color", color, "important");
+  }
 };
 
 const HtmlContent = ({ htmlContent, fallbackText, className, style, preview }: HtmlContentProps) => {
