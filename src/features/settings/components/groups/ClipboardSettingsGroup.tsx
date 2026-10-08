@@ -197,11 +197,12 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
     return (
         <div className={`settings-group ${props.collapsed ? 'collapsed' : ''}`}>
             <button type="button" className="group-header" aria-expanded={!props.collapsed} onClick={props.onToggle}>
-                <h3 style={{ margin: 0 }}>{props.t('clipboard_settings')}</h3>
+                <h3>{props.t('clipboard_settings')}</h3>
                 {props.collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
             </button>
             {!props.collapsed && (
                 <div className="group-content">
+                    <h4 className="settings-section-title">{props.t('settings_section_history')}</h4>
                     <div className="setting-item">
                         <props.LabelWithHint
                             label={props.t('persistent_storage')}
@@ -220,7 +221,7 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
                     </div>
                     {props.persistent && (
                         <>
-                            <div className="setting-item">
+                            <div className="setting-item is-child">
                                 <props.LabelWithHint
                                     label={props.t('persistent_limit_enabled')}
                                     hint={props.t('persistent_limit_enabled_hint')}
@@ -240,14 +241,14 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
                                 </label>
                             </div>
                             {props.persistentLimitEnabled && (
-                                <div className="setting-item">
+                                <div className="setting-item is-child">
                                     <props.LabelWithHint
                                         label={props.t('persistent_limit')}
                                         hint={props.t('persistent_limit_hint')}
                                         hintKey="persistent_limit"
                                     />
                                     <input
-                                        className="search-input settings-compact-number"
+                                        className="search-input settings-field settings-field--sm"
                                         type="number"
                                         value={persistentLimitDraft}
                                         onFocus={(e) => {
@@ -348,407 +349,10 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
                     </div>
 
 
+                    <h4 className="settings-section-title">{props.t('settings_section_shortcuts')}</h4>
                     <div className="setting-item">
                         <div className="item-label-group">
-                            <span className="item-label">{props.t('rich_paste_hotkey_label')}</span>
-                            <span className="hint hotkey-hint">{renderHotkeyHint(props.isRecordingRich)}</span>
-                        </div>
-                        <div
-                            className={`key-group ${props.isRecordingRich ? 'recording' : ''}`}
-                            role="button"
-                            aria-label={props.t('rich_paste_hotkey_label')}
-                            onClick={(event) => {
-                                props.setIsRecordingRich(true);
-                                event.currentTarget.focus();
-                            }}
-                            tabIndex={0}
-                            onKeyDown={(event) => handleHotkeyKeyDown(
-                                event,
-                                props.isRecordingRich,
-                                props.setIsRecordingRich,
-                                props.updateRichPasteHotkey
-                            )}
-                        >
-                            {props.isRecordingRich ? (
-                                <div className="key-cap key-cap-recording">{props.t('waiting_for_input')}</div>
-                            ) : (
-                                renderHotkeyCaps(props.richPasteHotkey)
-                            )}
-                        </div>
-                    </div>
-                    <div className="setting-item">
-                        <div className="item-label-group">
-                            <span className="item-label">{props.t('search_hotkey_label')}</span>
-                            <span className="hint hotkey-hint">{renderHotkeyHint(props.isRecordingSearch)}</span>
-                        </div>
-                        <div
-                            className={`key-group ${props.isRecordingSearch ? 'recording' : ''}`}
-                            role="button"
-                            aria-label={props.t('search_hotkey_label')}
-                            onClick={(event) => {
-                                props.setIsRecordingSearch(true);
-                                event.currentTarget.focus();
-                            }}
-                            tabIndex={0}
-                            onKeyDown={(event) => handleHotkeyKeyDown(
-                                event,
-                                props.isRecordingSearch,
-                                props.setIsRecordingSearch,
-                                props.updateSearchHotkey
-                            )}
-                        >
-                            {props.isRecordingSearch ? (
-                                <div className="key-cap key-cap-recording">{props.t('waiting_for_input')}</div>
-                            ) : (
-                                renderHotkeyCaps(props.searchHotkey)
-                            )}
-                        </div>
-                    </div>
-                    <div className="setting-item">
-                        <props.LabelWithHint
-                            label={props.t('quick_paste_modifier')}
-                            hint={props.t('quick_paste_modifier_hint')}
-                            hintKey="quick_paste_modifier"
-                        />
-                        <select
-                            className="search-input settings-hotkey-select quick-paste-select"
-                            value={props.quickPasteModifier}
-                            onChange={(e) => {
-                                const value = e.target.value as QuickPasteModifier;
-                                props.setQuickPasteModifier(value);
-                                invoke("set_quick_paste_modifier", { modifier: value }).catch(console.error);
-                            }}
-                        >
-                            {quickPasteOptions.map((option) => (
-                                <option key={option.value} value={option.value}>
-                                    {option.label}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                    <div className="setting-item">
-                        <props.LabelWithHint
-                            label={props.t('delete_after_paste')}
-                            hint={props.t('delete_after_paste_hint')}
-                            hintKey="delete_after_paste"
-                        />
-                        <label className="switch">
-                            <input
-                                className="cb"
-                                type="checkbox"
-                                checked={props.deleteAfterPaste}
-                                onChange={(e) => {
-                                    const val = e.target.checked;
-                                    props.setDeleteAfterPaste(val);
-                                    props.saveAppSetting('delete_after_paste', String(val));
-                                }}
-                            />
-                            <div className="toggle"><div className="left" /><div className="right" /></div>
-                        </label>
-                    </div>
-                    <div className="setting-item">
-                        <props.LabelWithHint
-                            label={props.t('move_to_top_after_paste')}
-                            hint={props.t('move_to_top_after_paste_hint')}
-                            hintKey="move_to_top_after_paste"
-                        />
-                        <label className="switch">
-                            <input
-                                className="cb"
-                                type="checkbox"
-                                checked={props.moveToTopAfterPaste}
-                                onChange={(e) => {
-                                    const val = e.target.checked;
-                                    props.setMoveToTopAfterPaste(val);
-                                    props.saveAppSetting('move_to_top_after_paste', String(val));
-                                }}
-                            />
-                            <div className="toggle"><div className="left" /><div className="right" /></div>
-                        </label>
-                    </div>
-                    {isWindows && (
-                        <div className="setting-item">
-                            <props.LabelWithHint
-                                label={props.t('paste_method')}
-                                hint={props.t(`paste_method_${props.pasteMethod}_hint`)}
-                                hintKey="paste_method"
-                            />
-                            <select
-                                className="search-input settings-compact-select"
-                                value={props.pasteMethod}
-                                onChange={async (e) => {
-                                    const val = e.target.value;
-
-                                    if (val === 'game_mode') {
-                                        try {
-                                            const isAdmin = await invoke<boolean>("check_is_admin");
-                                            if (!isAdmin) {
-                                                const confirmed = await withNativeDialog(() => ask(
-                                                    props.t('game_mode_admin_required'),
-                                                    {
-                                                        title: props.t('admin_required'),
-                                                        kind: 'warning'
-                                                    }
-                                                ), "settings:game-mode-admin");
-
-                                                if (confirmed) {
-                                                    await invoke("save_setting", { key: 'app.paste_method', value: 'game_mode' });
-                                                    await invoke("restart_as_admin");
-                                                    return;
-                                                } else {
-                                                    return;
-                                                }
-                                            }
-                                        } catch (err) {
-                                            console.error("Failed to check admin status:", err);
-                                        }
-                                    }
-
-                                    props.setPasteMethod(val);
-                                    invoke("save_setting", { key: 'app.paste_method', value: val }).catch(console.error);
-                                }}
-                            >
-                                <option value="shift_insert">{props.t('paste_method_shift_insert')}</option>
-                                <option value="ctrl_v">{props.t('paste_method_ctrl_v')}</option>
-                                <option value="game_mode">{props.t('paste_method_game_mode')}</option>
-                            </select>
-                        </div>
-                    )}
-                    {/* macOS cleanup: Removed Paste Method selection */}
-                    <div className="setting-item">
-                        <props.LabelWithHint
-                            label={props.t('sequential_paste_mode')}
-                            hint={props.t('sequential_paste_hint').replace('{hotkey}', sequentialHotkeyLabel)}
-                            hintKey="sequential_paste_mode"
-                        />
-                        <label className="switch">
-                            <input
-                                className="cb"
-                                type="checkbox"
-                                checked={props.sequentialMode}
-                                onChange={(e) => {
-                                    const val = e.target.checked;
-                                    props.setSequentialModeState(val);
-                                    invoke('set_sequential_mode', { enabled: val }).catch(console.error);
-                                    if (val) {
-                                        if (props.checkHotkeyConflict(props.sequentialHotkey, 'sequential')) {
-                                            props.updateSequentialHotkey("");
-                                        }
-                                    }
-                                }}
-                            />
-                            <div className="toggle"><div className="left" /><div className="right" /></div>
-                        </label>
-                    </div>
-
-                    <div className="setting-item">
-                        <div className="item-label-group">
-                            <span className="item-label">{props.t('sequential_paste_hotkey_label')}</span>
-                            <span className="hint hotkey-hint">
-                                {renderHotkeyHint(
-                                    props.isRecordingSequential,
-                                    props.sequentialMode
-                                        ? props.t('hotkey_click_hint')
-                                        : props.t('sequential_paste_hotkey_inactive_hint')
-                                )}
-                            </span>
-                        </div>
-                        <div
-                            className={`key-group ${props.isRecordingSequential ? 'recording' : ''}`}
-                            role="button"
-                            aria-label={props.t('sequential_paste_hotkey_label')}
-                            onClick={(event) => {
-                                props.setIsRecordingSequential(true);
-                                event.currentTarget.focus();
-                            }}
-                            tabIndex={0}
-                            onKeyDown={(event) => handleHotkeyKeyDown(
-                                event,
-                                props.isRecordingSequential,
-                                props.setIsRecordingSequential,
-                                props.updateSequentialHotkey
-                            )}
-                        >
-                            {props.isRecordingSequential ? (
-                                <div className="key-cap key-cap-recording">{props.t('waiting_for_input')}</div>
-                            ) : (
-                                renderHotkeyCaps(props.sequentialHotkey)
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="setting-item">
-                        <props.LabelWithHint
-                            label={props.t('privacy_protection')}
-                            hint={props.t('privacy_protection_hint')}
-                            hintKey="privacy_protection"
-                        />
-                        <label className="switch">
-                            <input
-                                className="cb"
-                                type="checkbox"
-                                checked={props.privacyProtection}
-                                onChange={(e) => {
-                                    const val = e.target.checked;
-                                    props.setPrivacyProtection(val);
-                                    invoke('set_privacy_protection', { enabled: val }).catch(console.error);
-                                }}
-                            />
-                            <div className="toggle"><div className="left" /><div className="right" /></div>
-                        </label>
-                    </div>
-
-                    <div className="setting-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '6px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <button
-                                type="button"
-                                className="btn-icon"
-                                onClick={() => props.setPrivacyKindsOpen(!props.privacyKindsOpen)}
-                                style={{ width: '24px', height: '24px' }}
-                            >
-                                {props.privacyKindsOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                            </button>
-                            <props.LabelWithHint
-                                label={props.t('privacy_protection_kinds')}
-                                hint={props.t('privacy_protection_kinds_hint')}
-                                hintKey="privacy_protection_kinds"
-                            />
-                        </div>
-                        {props.privacyKindsOpen && (
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginLeft: '30px' }}>
-                                {[
-                                    { id: 'url', label: props.t('privacy_kind_url') },
-                                    { id: 'phone', label: props.t('privacy_kind_phone') },
-                                    { id: 'idcard', label: props.t('privacy_kind_idcard') },
-                                    { id: 'email', label: props.t('privacy_kind_email') },
-                                    { id: 'secret', label: props.t('privacy_kind_secret') },
-                                    { id: 'password', label: props.t('privacy_kind_password') },
-                                ].map(opt => {
-                                    const checked = props.privacyProtectionKinds.includes(opt.id);
-                                    return (
-                                        <label key={opt.id} title={opt.id === 'secret' ? props.t('privacy_kind_secret_hint') : undefined} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                            <input
-                                                className="cb"
-                                                type="checkbox"
-                                                checked={checked}
-                                                onChange={(e) => {
-                                                    const next = e.target.checked
-                                                        ? [...props.privacyProtectionKinds, opt.id]
-                                                        : props.privacyProtectionKinds.filter(t => t !== opt.id);
-                                                    props.setPrivacyProtectionKinds(next);
-                                                    invoke('set_privacy_protection_kinds', { kinds: next }).catch(console.error);
-                                                }}
-                                            />
-                                            <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)' }}>{opt.label}</span>
-                                        </label>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="setting-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '6px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <button
-                                type="button"
-                                className="btn-icon"
-                                onClick={() => props.setPrivacyRulesOpen(!props.privacyRulesOpen)}
-                                style={{ width: '24px', height: '24px' }}
-                            >
-                                {props.privacyRulesOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                            </button>
-                            <props.LabelWithHint
-                                label={props.t('privacy_protection_custom_rules')}
-                                hint={props.t('privacy_protection_custom_rules_hint')}
-                                hintKey="privacy_protection_custom_rules"
-                            />
-                        </div>
-                        {props.privacyRulesOpen && (
-                            <textarea
-                                className="search-input"
-                                style={{ width: 'calc(100% - 30px)', maxWidth: '100%', minHeight: '80px', padding: '8px', borderRadius: '0', marginLeft: '30px', boxSizing: 'border-box' }}
-                                placeholder={props.t('privacy_protection_custom_rules_placeholder')}
-                                value={props.privacyProtectionCustomRules}
-                                onChange={(e) => {
-                                    const val = e.target.value;
-                                    props.setPrivacyProtectionCustomRules(val);
-                                    invoke('set_privacy_protection_custom_rules', { rules: val }).catch(console.error);
-                                }}
-                            />
-                        )}
-                    </div>
-
-                    <div className="setting-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '6px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <button
-                                type="button"
-                                className="btn-icon"
-                                onClick={() => setMaskSettingsOpen(!maskSettingsOpen)}
-                                style={{ width: '24px', height: '24px' }}
-                            >
-                                {maskSettingsOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                            </button>
-                            <span className="item-label">{props.t('sensitive_mask_settings')}</span>
-                        </div>
-                        {maskSettingsOpen && (
-                            <div style={{ width: 'calc(100% - 30px)', marginLeft: '30px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                <div className="setting-item" style={{ padding: 0, borderBottom: 'none' }}>
-                                    <span className="item-label">{props.t('sensitive_mask_prefix_visible')}</span>
-                                    <input
-                                        type="number"
-                                        className="search-input"
-                                        style={{ width: '60px', padding: '4px 8px', textAlign: 'center' }}
-                                        min={0}
-                                        max={20}
-                                        value={props.sensitiveMaskPrefixVisible}
-                                        onChange={(e) => {
-                                            const val = Math.min(20, Math.max(0, parseInt(e.target.value) || 0));
-                                            props.setSensitiveMaskPrefixVisible(val);
-                                            invoke('save_setting', { key: 'app.sensitive_mask_prefix_visible', value: val.toString() }).catch(console.error);
-                                        }}
-                                    />
-                                </div>
-                                <div className="setting-item" style={{ padding: 0, borderBottom: 'none' }}>
-                                    <span className="item-label">{props.t('sensitive_mask_suffix_visible')}</span>
-                                    <input
-                                        type="number"
-                                        className="search-input"
-                                        style={{ width: '60px', padding: '4px 8px', textAlign: 'center' }}
-                                        min={0}
-                                        max={20}
-                                        value={props.sensitiveMaskSuffixVisible}
-                                        onChange={(e) => {
-                                            const val = Math.min(20, Math.max(0, parseInt(e.target.value) || 0));
-                                            props.setSensitiveMaskSuffixVisible(val);
-                                            invoke('save_setting', { key: 'app.sensitive_mask_suffix_visible', value: val.toString() }).catch(console.error);
-                                        }}
-                                    />
-                                </div>
-                                <div className="setting-item" style={{ padding: 0, borderBottom: 'none' }}>
-                                    <props.LabelWithHint
-                                        label={props.t('sensitive_mask_email_domain')}
-                                        hint={props.t('sensitive_mask_email_domain_hint')}
-                                        hintKey="sensitive_mask_email_domain"
-                                    />
-                                    <label className="switch">
-                                        <input
-                                            type="checkbox"
-                                            checked={props.sensitiveMaskEmailDomain}
-                                            onChange={(e) => {
-                                                props.setSensitiveMaskEmailDomain(e.target.checked);
-                                                invoke('save_setting', { key: 'app.sensitive_mask_email_domain', value: e.target.checked.toString() }).catch(console.error);
-                                            }}
-                                        />
-                                        <span className="slider" />
-                                    </label>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="setting-item no-border">
-                        <div className="item-label-group">
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <div className="item-label-row">
                                 <span className="item-label">{props.t('global_hotkey')}</span>
                                 {!isWinVManaged && (
                                     <button
@@ -761,7 +365,7 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
                                             setMainHotkeyHintOpen((open) => !open);
                                         }}
                                     >
-                                        <HelpCircle size={12} />
+                                        <HelpCircle size={13} />
                                     </button>
                                 )}
                             </div>
@@ -888,6 +492,404 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
                             </label>
                         </div>
                     )}
+
+                    <div className="setting-item">
+                        <div className="item-label-group">
+                            <span className="item-label">{props.t('rich_paste_hotkey_label')}</span>
+                            <span className="hint hotkey-hint">{renderHotkeyHint(props.isRecordingRich)}</span>
+                        </div>
+                        <div
+                            className={`key-group ${props.isRecordingRich ? 'recording' : ''}`}
+                            role="button"
+                            aria-label={props.t('rich_paste_hotkey_label')}
+                            onClick={(event) => {
+                                props.setIsRecordingRich(true);
+                                event.currentTarget.focus();
+                            }}
+                            tabIndex={0}
+                            onKeyDown={(event) => handleHotkeyKeyDown(
+                                event,
+                                props.isRecordingRich,
+                                props.setIsRecordingRich,
+                                props.updateRichPasteHotkey
+                            )}
+                        >
+                            {props.isRecordingRich ? (
+                                <div className="key-cap key-cap-recording">{props.t('waiting_for_input')}</div>
+                            ) : (
+                                renderHotkeyCaps(props.richPasteHotkey)
+                            )}
+                        </div>
+                    </div>
+                    <div className="setting-item">
+                        <div className="item-label-group">
+                            <span className="item-label">{props.t('search_hotkey_label')}</span>
+                            <span className="hint hotkey-hint">{renderHotkeyHint(props.isRecordingSearch)}</span>
+                        </div>
+                        <div
+                            className={`key-group ${props.isRecordingSearch ? 'recording' : ''}`}
+                            role="button"
+                            aria-label={props.t('search_hotkey_label')}
+                            onClick={(event) => {
+                                props.setIsRecordingSearch(true);
+                                event.currentTarget.focus();
+                            }}
+                            tabIndex={0}
+                            onKeyDown={(event) => handleHotkeyKeyDown(
+                                event,
+                                props.isRecordingSearch,
+                                props.setIsRecordingSearch,
+                                props.updateSearchHotkey
+                            )}
+                        >
+                            {props.isRecordingSearch ? (
+                                <div className="key-cap key-cap-recording">{props.t('waiting_for_input')}</div>
+                            ) : (
+                                renderHotkeyCaps(props.searchHotkey)
+                            )}
+                        </div>
+                    </div>
+                    <div className="setting-item">
+                        <props.LabelWithHint
+                            label={props.t('quick_paste_modifier')}
+                            hint={props.t('quick_paste_modifier_hint')}
+                            hintKey="quick_paste_modifier"
+                        />
+                        <select
+                            className="search-input settings-field settings-field--sm quick-paste-select"
+                            value={props.quickPasteModifier}
+                            onChange={(e) => {
+                                const value = e.target.value as QuickPasteModifier;
+                                props.setQuickPasteModifier(value);
+                                invoke("set_quick_paste_modifier", { modifier: value }).catch(console.error);
+                            }}
+                        >
+                            {quickPasteOptions.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                    {option.label}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <h4 className="settings-section-title">{props.t('settings_section_paste')}</h4>
+                    <div className="setting-item">
+                        <props.LabelWithHint
+                            label={props.t('delete_after_paste')}
+                            hint={props.t('delete_after_paste_hint')}
+                            hintKey="delete_after_paste"
+                        />
+                        <label className="switch">
+                            <input
+                                className="cb"
+                                type="checkbox"
+                                checked={props.deleteAfterPaste}
+                                onChange={(e) => {
+                                    const val = e.target.checked;
+                                    props.setDeleteAfterPaste(val);
+                                    props.saveAppSetting('delete_after_paste', String(val));
+                                }}
+                            />
+                            <div className="toggle"><div className="left" /><div className="right" /></div>
+                        </label>
+                    </div>
+                    <div className="setting-item">
+                        <props.LabelWithHint
+                            label={props.t('move_to_top_after_paste')}
+                            hint={props.t('move_to_top_after_paste_hint')}
+                            hintKey="move_to_top_after_paste"
+                        />
+                        <label className="switch">
+                            <input
+                                className="cb"
+                                type="checkbox"
+                                checked={props.moveToTopAfterPaste}
+                                onChange={(e) => {
+                                    const val = e.target.checked;
+                                    props.setMoveToTopAfterPaste(val);
+                                    props.saveAppSetting('move_to_top_after_paste', String(val));
+                                }}
+                            />
+                            <div className="toggle"><div className="left" /><div className="right" /></div>
+                        </label>
+                    </div>
+                    {isWindows && (
+                        <div className="setting-item">
+                            <props.LabelWithHint
+                                label={props.t('paste_method')}
+                                hint={props.t(`paste_method_${props.pasteMethod}_hint`)}
+                                hintKey="paste_method"
+                            />
+                            <select
+                                className="search-input settings-field settings-field--md"
+                                value={props.pasteMethod}
+                                onChange={async (e) => {
+                                    const val = e.target.value;
+
+                                    if (val === 'game_mode') {
+                                        try {
+                                            const isAdmin = await invoke<boolean>("check_is_admin");
+                                            if (!isAdmin) {
+                                                const confirmed = await withNativeDialog(() => ask(
+                                                    props.t('game_mode_admin_required'),
+                                                    {
+                                                        title: props.t('admin_required'),
+                                                        kind: 'warning'
+                                                    }
+                                                ), "settings:game-mode-admin");
+
+                                                if (confirmed) {
+                                                    await invoke("save_setting", { key: 'app.paste_method', value: 'game_mode' });
+                                                    await invoke("restart_as_admin");
+                                                    return;
+                                                } else {
+                                                    return;
+                                                }
+                                            }
+                                        } catch (err) {
+                                            console.error("Failed to check admin status:", err);
+                                        }
+                                    }
+
+                                    props.setPasteMethod(val);
+                                    invoke("save_setting", { key: 'app.paste_method', value: val }).catch(console.error);
+                                }}
+                            >
+                                <option value="shift_insert">{props.t('paste_method_shift_insert')}</option>
+                                <option value="ctrl_v">{props.t('paste_method_ctrl_v')}</option>
+                                <option value="game_mode">{props.t('paste_method_game_mode')}</option>
+                            </select>
+                        </div>
+                    )}
+                    {/* macOS cleanup: Removed Paste Method selection */}
+                    <div className="setting-item">
+                        <props.LabelWithHint
+                            label={props.t('sequential_paste_mode')}
+                            hint={props.t('sequential_paste_hint').replace('{hotkey}', sequentialHotkeyLabel)}
+                            hintKey="sequential_paste_mode"
+                        />
+                        <label className="switch">
+                            <input
+                                className="cb"
+                                type="checkbox"
+                                checked={props.sequentialMode}
+                                onChange={(e) => {
+                                    const val = e.target.checked;
+                                    props.setSequentialModeState(val);
+                                    invoke('set_sequential_mode', { enabled: val }).catch(console.error);
+                                    if (val) {
+                                        if (props.checkHotkeyConflict(props.sequentialHotkey, 'sequential')) {
+                                            props.updateSequentialHotkey("");
+                                        }
+                                    }
+                                }}
+                            />
+                            <div className="toggle"><div className="left" /><div className="right" /></div>
+                        </label>
+                    </div>
+
+                    <div className="setting-item is-child">
+                        <div className="item-label-group">
+                            <span className="item-label">{props.t('sequential_paste_hotkey_label')}</span>
+                            <span className="hint hotkey-hint">
+                                {renderHotkeyHint(
+                                    props.isRecordingSequential,
+                                    props.sequentialMode
+                                        ? props.t('hotkey_click_hint')
+                                        : props.t('sequential_paste_hotkey_inactive_hint')
+                                )}
+                            </span>
+                        </div>
+                        <div
+                            className={`key-group ${props.isRecordingSequential ? 'recording' : ''}`}
+                            role="button"
+                            aria-label={props.t('sequential_paste_hotkey_label')}
+                            onClick={(event) => {
+                                props.setIsRecordingSequential(true);
+                                event.currentTarget.focus();
+                            }}
+                            tabIndex={0}
+                            onKeyDown={(event) => handleHotkeyKeyDown(
+                                event,
+                                props.isRecordingSequential,
+                                props.setIsRecordingSequential,
+                                props.updateSequentialHotkey
+                            )}
+                        >
+                            {props.isRecordingSequential ? (
+                                <div className="key-cap key-cap-recording">{props.t('waiting_for_input')}</div>
+                            ) : (
+                                renderHotkeyCaps(props.sequentialHotkey)
+                            )}
+                        </div>
+                    </div>
+
+                    <h4 className="settings-section-title">{props.t('settings_section_privacy')}</h4>
+                    <div className="setting-item">
+                        <props.LabelWithHint
+                            label={props.t('privacy_protection')}
+                            hint={props.t('privacy_protection_hint')}
+                            hintKey="privacy_protection"
+                        />
+                        <label className="switch">
+                            <input
+                                className="cb"
+                                type="checkbox"
+                                checked={props.privacyProtection}
+                                onChange={(e) => {
+                                    const val = e.target.checked;
+                                    props.setPrivacyProtection(val);
+                                    invoke('set_privacy_protection', { enabled: val }).catch(console.error);
+                                }}
+                            />
+                            <div className="toggle"><div className="left" /><div className="right" /></div>
+                        </label>
+                    </div>
+
+                    <div className="setting-item column is-child">
+                        <div className="setting-disclosure-row">
+                            <button
+                                type="button"
+                                className="setting-disclosure-toggle"
+                                aria-expanded={props.privacyKindsOpen}
+                                onClick={() => props.setPrivacyKindsOpen(!props.privacyKindsOpen)}
+                            >
+                                {props.privacyKindsOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                            </button>
+                            <props.LabelWithHint
+                                label={props.t('privacy_protection_kinds')}
+                                hint={props.t('privacy_protection_kinds_hint')}
+                                hintKey="privacy_protection_kinds"
+                            />
+                        </div>
+                        {props.privacyKindsOpen && (
+                            <div className="setting-disclosure-body settings-checkbox-list">
+                                {[
+                                    { id: 'url', label: props.t('privacy_kind_url') },
+                                    { id: 'phone', label: props.t('privacy_kind_phone') },
+                                    { id: 'idcard', label: props.t('privacy_kind_idcard') },
+                                    { id: 'email', label: props.t('privacy_kind_email') },
+                                    { id: 'secret', label: props.t('privacy_kind_secret') },
+                                    { id: 'password', label: props.t('privacy_kind_password') },
+                                ].map(opt => {
+                                    const checked = props.privacyProtectionKinds.includes(opt.id);
+                                    return (
+                                        <label key={opt.id} className="settings-checkbox" title={opt.id === 'secret' ? props.t('privacy_kind_secret_hint') : undefined}>
+                                            <input
+                                                type="checkbox"
+                                                checked={checked}
+                                                onChange={(e) => {
+                                                    const next = e.target.checked
+                                                        ? [...props.privacyProtectionKinds, opt.id]
+                                                        : props.privacyProtectionKinds.filter(t => t !== opt.id);
+                                                    props.setPrivacyProtectionKinds(next);
+                                                    invoke('set_privacy_protection_kinds', { kinds: next }).catch(console.error);
+                                                }}
+                                            />
+                                            <span>{opt.label}</span>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="setting-item column is-child">
+                        <div className="setting-disclosure-row">
+                            <button
+                                type="button"
+                                className="setting-disclosure-toggle"
+                                aria-expanded={props.privacyRulesOpen}
+                                onClick={() => props.setPrivacyRulesOpen(!props.privacyRulesOpen)}
+                            >
+                                {props.privacyRulesOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                            </button>
+                            <props.LabelWithHint
+                                label={props.t('privacy_protection_custom_rules')}
+                                hint={props.t('privacy_protection_custom_rules_hint')}
+                                hintKey="privacy_protection_custom_rules"
+                            />
+                        </div>
+                        {props.privacyRulesOpen && (
+                            <textarea
+                                className="search-input setting-disclosure-body settings-textarea"
+                                placeholder={props.t('privacy_protection_custom_rules_placeholder')}
+                                value={props.privacyProtectionCustomRules}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    props.setPrivacyProtectionCustomRules(val);
+                                    invoke('set_privacy_protection_custom_rules', { rules: val }).catch(console.error);
+                                }}
+                            />
+                        )}
+                    </div>
+
+                    <div className="setting-item column is-child">
+                        <div className="setting-disclosure-row">
+                            <button
+                                type="button"
+                                className="setting-disclosure-toggle"
+                                aria-expanded={maskSettingsOpen}
+                                onClick={() => setMaskSettingsOpen(!maskSettingsOpen)}
+                            >
+                                {maskSettingsOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                            </button>
+                            <div className="item-label-group"><span className="item-label">{props.t('sensitive_mask_settings')}</span></div>
+                        </div>
+                        {maskSettingsOpen && (
+                            <div className="setting-disclosure-body">
+                                <div className="setting-item">
+                                    <div className="item-label-group"><span className="item-label">{props.t('sensitive_mask_prefix_visible')}</span></div>
+                                    <input
+                                        type="number"
+                                        className="search-input settings-field settings-field--xs"
+                                        min={0}
+                                        max={20}
+                                        value={props.sensitiveMaskPrefixVisible}
+                                        onChange={(e) => {
+                                            const val = Math.min(20, Math.max(0, parseInt(e.target.value) || 0));
+                                            props.setSensitiveMaskPrefixVisible(val);
+                                            invoke('save_setting', { key: 'app.sensitive_mask_prefix_visible', value: val.toString() }).catch(console.error);
+                                        }}
+                                    />
+                                </div>
+                                <div className="setting-item">
+                                    <div className="item-label-group"><span className="item-label">{props.t('sensitive_mask_suffix_visible')}</span></div>
+                                    <input
+                                        type="number"
+                                        className="search-input settings-field settings-field--xs"
+                                        min={0}
+                                        max={20}
+                                        value={props.sensitiveMaskSuffixVisible}
+                                        onChange={(e) => {
+                                            const val = Math.min(20, Math.max(0, parseInt(e.target.value) || 0));
+                                            props.setSensitiveMaskSuffixVisible(val);
+                                            invoke('save_setting', { key: 'app.sensitive_mask_suffix_visible', value: val.toString() }).catch(console.error);
+                                        }}
+                                    />
+                                </div>
+                                <div className="setting-item">
+                                    <props.LabelWithHint
+                                        label={props.t('sensitive_mask_email_domain')}
+                                        hint={props.t('sensitive_mask_email_domain_hint')}
+                                        hintKey="sensitive_mask_email_domain"
+                                    />
+                                    <label className="switch">
+                                        <input
+                                            className="cb"
+                                            type="checkbox"
+                                            checked={props.sensitiveMaskEmailDomain}
+                                            onChange={(e) => {
+                                                props.setSensitiveMaskEmailDomain(e.target.checked);
+                                                invoke('save_setting', { key: 'app.sensitive_mask_email_domain', value: e.target.checked.toString() }).catch(console.error);
+                                            }}
+                                        />
+                                        <div className="toggle"><div className="left" /><div className="right" /></div>
+                                    </label>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
                 </div>
             )}
         </div>

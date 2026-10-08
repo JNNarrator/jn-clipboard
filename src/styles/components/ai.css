@@ -175,58 +175,69 @@
   background: transparent !important;
 }
 
-/* AI Profile Library Styles */
-.ai-profile-card {
-  padding: 10px 12px;
-  background: transparent;
-  border-bottom: 1px solid var(--panel-divider-color);
-  color: var(--text-primary);
+/* AI Profile Library: a plain list of rows that shares the settings row rhythm. */
+.ai-profile-list {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+}
+
+.ai-profile-card {
+  display: flex;
   align-items: center;
-  transition: background 0.2s;
+  gap: var(--st-space-3, 12px);
+  min-height: 44px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--st-divider, var(--panel-divider-color));
+  color: var(--text-primary);
+  box-sizing: border-box;
 }
 
-.ai-profile-card:last-child {
-  border-bottom: none;
-}
-
-.ai-profile-card:hover {
-  background: rgba(var(--accent-color-rgb), 0.06);
-}
-
-.ai-profile-card::before {
-  display: none;
+.ai-profile-text {
+  flex: 1;
+  min-width: 0;
 }
 
 .ai-profile-name {
-  font-size: var(--font-size-xs);
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  overflow: hidden;
   color: var(--text-primary);
-  margin-bottom: 2px;
+  font-size: var(--st-label-size, var(--font-size-base));
+  font-weight: 500;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ai-profile-sub {
-  font-size: var(--font-size-2xs);
-  font-family: var(--font-mono);
   color: var(--text-secondary);
-  background: rgba(var(--accent-color-rgb), 0.08);
-  padding: 1px 4px;
-  display: inline-block;
+  font-size: var(--st-desc-size, var(--font-size-xs));
+  line-height: 18px;
 }
 
-.ai-sub-label {
-  display: block;
-  font-size: var(--font-size-2xs);
-  font-weight: 800;
-  text-transform: uppercase;
-  color: var(--accent-color);
-  margin-top: 16px;
-  margin-bottom: 8px;
-  border-left: 3px solid var(--accent-color);
-  padding-left: 8px;
+.ai-profile-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: var(--st-space-1, 4px);
+}
+
+.settings-view .ai-profile-actions .btn-icon {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-secondary);
+  transform: none;
+}
+
+.settings-view .ai-profile-actions .btn-icon:hover {
+  background: var(--st-hover);
+  color: var(--text-primary);
+}
+
+.settings-view .ai-profile-actions .btn-icon.is-danger:hover {
+  color: var(--status-danger);
 }
 
 /* AI Skeleton Loading */

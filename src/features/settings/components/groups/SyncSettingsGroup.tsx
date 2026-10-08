@@ -2,6 +2,7 @@ import type { ComponentType, ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import ConfigShareQr from "../ConfigShareQr";
+import { SettingSwitch } from "../SettingControls";
 import {
     buildMqttConfigQrPayload,
     isMqttConfigQrReady,
@@ -68,17 +69,11 @@ const SyncSettingsGroup = ({
 }: SyncSettingsGroupProps) => (
     <div className={`settings-group ${collapsed ? 'collapsed' : ''}`}>
         <button type="button" className="group-header" aria-expanded={!collapsed} onClick={onToggle}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <h3 style={{ margin: 0 }}>{t('sync_settings')}</h3>
+            <div className="group-header-title">
+                <h3>{t('sync_settings')}</h3>
                 {mqttEnabled && (
                     <span
-                        style={{
-                            width: '8px',
-                            height: '8px',
-                            borderRadius: '50%',
-                            backgroundColor: mqttStatus === 'connected' ? 'var(--status-success)' : mqttStatus === 'connecting' ? 'var(--status-warning)' : 'var(--status-danger)',
-                            display: 'inline-block'
-                        }}
+                        className={`settings-status-dot is-${mqttStatus}`}
                         title={mqttStatus === 'connected' ? "Connected" : mqttStatus === 'connecting' ? "Connecting..." : "Disconnected"}
                     />
                 )}
@@ -88,10 +83,10 @@ const SyncSettingsGroup = ({
         {!collapsed && (
             <div className="group-content">
                 <div className="settings-notice settings-notice--action">
-                    <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)' }}>{t('mqtt_tutorial_hint')}</span>
+                    <span>{t('mqtt_tutorial_hint')}</span>
                     <button
-                        className="btn-icon"
-                        style={{ fontSize: 'var(--font-size-xs)', padding: '4px 12px', height: '24px', width: 'auto', flexShrink: 0 }}
+                        type="button"
+                        className="settings-action-button settings-action-button--small"
                         onClick={() => {
                             invoke("open_content", {
                                 id: 0,
@@ -107,22 +102,34 @@ const SyncSettingsGroup = ({
                     <div className="item-label-group">
                         <span className="item-label">{t('enable_sync')}</span>
                     </div>
-                    <label className="switch">
-                        <input
-                            className="cb"
-                            type="checkbox"
-                            checked={mqttEnabled}
-                            onChange={(e) => {
-                                const val = e.target.checked;
-                                setMqttEnabled(val);
-                                saveMqtt('mqtt_enabled', String(val));
-                            }}
-                        />
-                        <div className="toggle"><div className="left" /><div className="right" /></div>
-                    </label>
+                    <SettingSwitch
+                        checked={mqttEnabled}
+                        onChange={(e) => {
+                            const val = e.target.checked;
+                            setMqttEnabled(val);
+                            saveMqtt('mqtt_enabled', String(val));
+                        }}
+                    />
                 </div>
                 {mqttEnabled && (
                     <>
+                        <div className="setting-item is-child">
+                            <LabelWithHint
+                                label={t('mqtt_notification_enabled')}
+                                hint={t('mqtt_notification_enabled_hint')}
+                                hintKey="mqtt_notification_enabled"
+                            />
+                            <SettingSwitch
+                                checked={mqttNotificationEnabled}
+                                onChange={(e) => {
+                                    const val = e.target.checked;
+                                    setMqttNotificationEnabled(val);
+                                    saveMqtt('mqtt_notification_enabled', String(val));
+                                }}
+                            />
+                        </div>
+
+                        <h4 className="settings-section-title">{t('settings_section_connection')}</h4>
                         <div className="setting-item">
                             <LabelWithHint
                                 label={t('mqtt_protocol')}
@@ -130,8 +137,7 @@ const SyncSettingsGroup = ({
                                 hintKey="mqtt_protocol"
                             />
                             <select
-                                className="search-input"
-                                style={{ borderRadius: '0', padding: '6px', width: '100px', background: 'var(--bg-input)', border: '2px solid var(--border-dark)', color: 'var(--text-primary)', fontSize: 'var(--font-size-sm)' }}
+                                className="search-input settings-field"
                                 value={mqttProtocol}
                                 onChange={e => {
                                     const protocol = e.target.value;
@@ -160,8 +166,7 @@ const SyncSettingsGroup = ({
                             <div className="setting-item">
                                 <div className="item-label-group"><span className="item-label">{t('mqtt_ws_path')}</span></div>
                                 <input
-                                    className="search-input"
-                                    style={{ borderRadius: '4px', padding: '8px', width: '140px' }}
+                                    className="search-input settings-field"
                                     value={mqttWsPath}
                                     onChange={e => { setMqttWsPath(e.target.value); saveMqtt('mqtt_ws_path', e.target.value); }}
                                     placeholder="/mqtt"
@@ -171,8 +176,7 @@ const SyncSettingsGroup = ({
                         <div className="setting-item">
                             <div className="item-label-group"><span className="item-label">{t('mqtt_host')}</span></div>
                             <input
-                                className="search-input"
-                                style={{ borderRadius: '4px', padding: '8px', width: '140px' }}
+                                className="search-input settings-field"
                                 value={mqttServer}
                                 onChange={e => { setMqttServer(e.target.value); saveMqtt('mqtt_server', e.target.value); }}
                                 placeholder="mqtt.example.com"
@@ -181,8 +185,7 @@ const SyncSettingsGroup = ({
                         <div className="setting-item">
                             <div className="item-label-group"><span className="item-label">{t('mqtt_port')}</span></div>
                             <input
-                                className="search-input"
-                                style={{ borderRadius: '4px', padding: '8px', width: '140px' }}
+                                className="search-input settings-field"
                                 value={mqttPort}
                                 onChange={e => { setMqttPort(e.target.value); saveMqtt('mqtt_port', e.target.value); }}
                                 placeholder="1883"
@@ -191,8 +194,7 @@ const SyncSettingsGroup = ({
                         <div className="setting-item">
                             <div className="item-label-group"><span className="item-label">{t('mqtt_user')}</span></div>
                             <input
-                                className="search-input"
-                                style={{ borderRadius: '4px', padding: '8px', width: '140px' }}
+                                className="search-input settings-field"
                                 value={mqttUser}
                                 onChange={e => { setMqttUser(e.target.value); saveMqtt('mqtt_username', e.target.value); }}
                                 placeholder="Optional"
@@ -201,45 +203,21 @@ const SyncSettingsGroup = ({
                         <div className="setting-item">
                             <div className="item-label-group"><span className="item-label">{t('mqtt_password')}</span></div>
                             <input
-                                className="search-input"
-                                style={{ borderRadius: '4px', padding: '8px', width: '140px' }}
+                                className="search-input settings-field"
                                 type="password"
                                 value={mqttPass}
                                 onChange={e => { setMqttPass(e.target.value); saveMqtt('mqtt_password', e.target.value); }}
                                 placeholder="Optional"
                             />
                         </div>
-                        <div className="setting-item no-border">
-                            <>
-                                <div className="item-label-group"><span className="item-label">{t('mqtt_topic')}</span></div>
-                                <input
-                                    className="search-input"
-                                    style={{ borderRadius: '4px', padding: '8px', width: '140px' }}
-                                    value={mqttTopic}
-                                    onChange={e => { setMqttTopic(e.target.value); saveMqtt('mqtt_topic', e.target.value); }}
-                                    placeholder="tiez/my_device"
-                                />
-                            </>
-                        </div>
-                        <div className="setting-item no-border">
-                            <LabelWithHint
-                                label={t('mqtt_notification_enabled')}
-                                hint={t('mqtt_notification_enabled_hint')}
-                                hintKey="mqtt_notification_enabled"
+                        <div className="setting-item">
+                            <div className="item-label-group"><span className="item-label">{t('mqtt_topic')}</span></div>
+                            <input
+                                className="search-input settings-field"
+                                value={mqttTopic}
+                                onChange={e => { setMqttTopic(e.target.value); saveMqtt('mqtt_topic', e.target.value); }}
+                                placeholder="tiez/my_device"
                             />
-                            <label className="switch">
-                                <input
-                                    className="cb"
-                                    type="checkbox"
-                                    checked={mqttNotificationEnabled}
-                                    onChange={(e) => {
-                                        const val = e.target.checked;
-                                        setMqttNotificationEnabled(val);
-                                        saveMqtt('mqtt_notification_enabled', String(val));
-                                    }}
-                                />
-                                <div className="toggle"><div className="left" /><div className="right" /></div>
-                            </label>
                         </div>
                         {(() => {
                             const mqttQr = buildMqttConfigQrPayload({

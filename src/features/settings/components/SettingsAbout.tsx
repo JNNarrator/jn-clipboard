@@ -28,7 +28,7 @@ const SettingsAbout = ({ t, appVersion, releaseChannel, portable, updateButton, 
             <p className="settings-about-description">{t("about_description")}</p>
         </header>
 
-        <div className="settings-group settings-about-version">
+        <div className="settings-about-version">
             <div className="settings-about-version-info">
                 <span className="settings-about-caption">{t("about_version")}</span>
                 <div className="settings-about-version-number">
@@ -42,7 +42,7 @@ const SettingsAbout = ({ t, appVersion, releaseChannel, portable, updateButton, 
 
         <section className="settings-about-resources" aria-labelledby="settings-about-links-title">
             <h3 id="settings-about-links-title">{t("about_links")}</h3>
-            <div className="settings-group settings-about-links">
+            <div className="settings-about-links">
                 <button type="button" className="settings-about-link" onClick={() => void openUrl("https://tiez.name666.top/")}>
                     <Globe size={18} aria-hidden="true" />
                     <span className="settings-about-link-text">
@@ -70,7 +70,7 @@ const SettingsAbout = ({ t, appVersion, releaseChannel, portable, updateButton, 
             </div>
         </section>
 
-        <div className="settings-group settings-about-reset">
+        <div className="settings-about-reset">
             <div>
                 <h3>{t("reset_defaults")}</h3>
                 <p>{t("about_reset_desc")}</p>

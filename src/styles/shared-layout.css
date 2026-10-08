@@ -12,8 +12,8 @@ html:root .header-title.page-header-title.is-page-title {
 }
 
 html:root .settings-view .quick-paste-select {
-  width: 118px;
-  flex: 0 1 118px;
+  width: var(--st-field-width-sm);
+  flex: 0 1 var(--st-field-width-sm);
 }
 
 html:root .settings-view {
@@ -48,14 +48,18 @@ html:root .settings-group:not(.collapsed) .group-content {
 }
 
 html:root .setting-item {
-  gap: 10px 16px;
-  padding: 9px 0;
-  min-height: 38px;
+  gap: var(--st-space-2) var(--st-space-4);
+  padding-block: var(--st-row-pad-y);
+  min-height: var(--st-row-min-height);
+}
+
+html:root .setting-item.is-child {
+  min-height: 44px;
 }
 
 html:root .setting-item.column {
-  gap: 8px;
-  padding: 7px 0;
+  gap: var(--st-space-2);
+  padding-block: var(--st-space-3);
 }
 
 @media (max-width: 360px) {

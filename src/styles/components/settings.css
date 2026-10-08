@@ -1,5 +1,36 @@
 /* Settings Panel */
 .settings-view {
+  /* Type scale: one size and weight per role. Weight, not size, separates a
+     label from its description; nothing on these pages is bolder than 600. */
+  --st-title-size: var(--font-size-xl);
+  --st-title-weight: 600;
+  --st-section-size: var(--font-size-sm);
+  --st-section-weight: 600;
+  --st-label-size: var(--font-size-md);
+  --st-label-weight: 500;
+  --st-desc-size: var(--font-size-sm);
+  --st-nav-size: var(--font-size-base);
+  --st-control-size: var(--font-size-base);
+
+  /* 4px spacing scale. */
+  --st-space-1: 4px;
+  --st-space-2: 8px;
+  --st-space-3: 12px;
+  --st-space-4: 16px;
+  --st-space-5: 24px;
+
+  --st-row-min-height: 48px;
+  --st-row-pad-y: 10px;
+  --st-child-indent: 20px;
+  --st-control-height: 28px;
+  --st-control-radius: 6px;
+  --st-field-width: 200px;
+  --st-field-width-sm: 104px;
+  --st-range-width: 168px;
+  --st-divider: var(--panel-divider-color);
+  --st-hover: color-mix(in srgb, var(--text-primary) 6%, transparent);
+  --st-selected: rgba(var(--accent-color-rgb), 0.14);
+
   --settings-inline-pad: 8px;
   background: transparent;
   /* Overlay scrollbars reserve no space. Classic scrollbars get a matching
@@ -136,12 +167,13 @@
   padding: 0;
   margin: 0;
   font-size: var(--font-size-md);
-}
-
-.settings-group:not(.collapsed) h3 {
-  font-weight: 700;
+  font-weight: 600;
   text-transform: none;
   letter-spacing: 0;
+}
+
+.settings-group.collapsed h3 {
+  font-weight: var(--st-label-weight, 500);
 }
 
 .settings-group:not(.collapsed) .group-content {
@@ -198,7 +230,7 @@
   padding: 2px 6px;
   border-radius: 999px;
   font-size: var(--font-size-2xs);
-  font-weight: 800;
+  font-weight: 500;
   letter-spacing: 0.04em;
   line-height: 1.2;
 }
@@ -218,59 +250,176 @@
 .secure-transfer-status {
   min-width: 0;
   color: var(--text-secondary);
-  font-size: var(--font-size-sm);
+  font-size: var(--st-desc-size);
   font-weight: 400;
-  line-height: 1.45;
+  line-height: 18px;
   white-space: normal;
 }
 
+.secure-transfer-status {
+  white-space: pre-line;
+}
+
 .secure-transfer-description {
-  margin: 0 0 10px;
+  max-width: 560px;
+  margin: 0 0 var(--st-space-4);
 }
 
 .secure-transfer-status {
-  margin: 4px 0 0;
+  margin: var(--st-space-3) 0 0;
 }
 
+.secure-transfer-field {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--st-space-1);
+  max-width: 320px;
+  margin: 0 0 var(--st-space-3);
+}
+
+.secure-transfer-field .item-label {
+  font-weight: var(--st-label-weight);
+  color: var(--text-primary);
+  font-size: var(--st-label-size);
+  line-height: 20px;
+}
+
+.settings-view .secure-transfer-field input.search-input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.secure-transfer-ack {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--st-space-2);
+  max-width: 560px;
+  margin: var(--st-space-1) 0 var(--st-space-4);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: 400;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.secure-transfer-ack:has(input:disabled) {
+  cursor: default;
+}
+
+.secure-transfer-ack input {
+  flex: 0 0 auto;
+  margin: 3px 0 0;
+  accent-color: var(--accent-color);
+}
+
+.secure-transfer-ack span {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.secure-transfer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ---- Rows ------------------------------------------------------------
+   Label and description on the left, one control on the right. Every row
+   shares the same left edge and the same right edge for its control. */
 .setting-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
   align-content: flex-start;
-  gap: 8px 12px;
-  padding: 7px 0;
-  border-bottom: 1px solid var(--panel-divider-color);
-  min-height: 34px;
+  gap: var(--st-space-2) var(--st-space-4);
+  padding: var(--st-row-pad-y) 0;
+  border-bottom: 1px solid var(--st-divider);
+  min-height: var(--st-row-min-height);
   min-width: 0;
+}
+
+.setting-item:last-child,
+.setting-item:has(+ .settings-section-title) {
+  border-bottom: none;
 }
 
 .setting-item.column {
   flex-direction: column;
   align-items: stretch;
-  gap: 6px;
-  padding: 5px 0;
+  gap: var(--st-space-2);
+  padding: var(--st-space-3) 0;
+}
+
+/* A dependent setting sits under its parent: indented, tighter, and dimmed
+   while the parent is off. */
+.setting-item.is-child {
+  padding-left: var(--st-child-indent);
+  min-height: 44px;
+}
+
+.setting-item.is-disabled > .item-label-group,
+.setting-item.is-disabled > .setting-range-control .setting-range-value {
+  opacity: 0.45;
+}
+
+.settings-section-title {
+  margin: var(--st-space-5) 0 var(--st-space-1);
+  padding: 0;
+  color: var(--text-secondary);
+  font-size: var(--st-section-size);
+  font-weight: var(--st-section-weight);
+  line-height: 16px;
+  letter-spacing: 0.02em;
+}
+
+.group-content > .settings-section-title:first-child,
+.settings-notice + .settings-section-title {
+  margin-top: 0;
+}
+
+.item-desc,
+.setting-item .hint {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-secondary);
+  font-size: var(--st-desc-size);
+  font-weight: 400;
+  line-height: 18px;
 }
 
 .setting-item .hint {
-  font-size: var(--font-size-xs);
-  color: var(--text-secondary);
-  font-weight: normal;
-  display: block;
-  margin-top: 2px;
+  margin-top: var(--st-space-1);
+}
+
+.item-label-row {
+  display: flex;
+  align-items: center;
+  gap: var(--st-space-1);
+  min-width: 0;
 }
 
 .hint-icon-btn {
-  width: 18px;
-  height: 18px;
-  padding: 2px;
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  padding: 0;
   background: transparent;
   border: none;
+  border-radius: 4px;
   box-shadow: none !important;
-  color: var(--status-warning);
+  color: var(--text-muted);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.hint-icon-btn:hover,
+.hint-icon-btn[aria-expanded="true"] {
+  color: var(--text-secondary);
+  background: var(--st-hover);
 }
 
 .setting-item.no-border {
@@ -302,7 +451,7 @@
   box-sizing: border-box;
 }
 
-.setting-item-heading > .item-label-group {
+.setting-item .setting-item-heading > .item-label-group {
   flex: 1 1 auto;
   width: auto;
   min-width: 0;
@@ -321,13 +470,14 @@
   max-width: 100%;
 }
 
-.setting-item span.item-label {
-  font-weight: 700;
+.setting-item span.item-label,
+.settings-view .item-label {
+  font-weight: var(--st-label-weight);
   color: var(--text-primary);
-  font-size: var(--font-size-md);
+  font-size: var(--st-label-size);
   display: block;
   min-width: 0;
-  line-height: 1.35;
+  line-height: 20px;
   white-space: normal;
   overflow: visible;
 }
@@ -342,7 +492,6 @@
   min-width: 0;
   flex: 0 1 auto;
   box-sizing: border-box;
-  padding-left: 10px !important;
 }
 
 .setting-item:not(.column) .switch,
@@ -356,12 +505,133 @@
   flex-wrap: wrap;
 }
 
+/* Text fields and selects in a row share one width so their edges line up. */
+.settings-view .setting-item .search-input.settings-field {
+  flex: 0 1 var(--st-field-width);
+  width: var(--st-field-width);
+}
+
+.settings-view .setting-item .search-input.settings-field--md {
+  flex-basis: 144px;
+  width: 144px;
+}
+
+.settings-view .setting-item .search-input.settings-field--sm {
+  flex-basis: var(--st-field-width-sm);
+  width: var(--st-field-width-sm);
+}
+
+.settings-view .setting-item .search-input.settings-field--xs {
+  flex-basis: 64px;
+  width: 64px;
+  text-align: center;
+}
+
+.setting-disclosure-row {
+  display: flex;
+  align-items: center;
+  gap: var(--st-space-1);
+  width: 100%;
+  min-width: 0;
+}
+
+.setting-disclosure-toggle {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-left: -4px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.setting-disclosure-toggle:hover {
+  background: var(--st-hover);
+  color: var(--text-primary);
+}
+
+.setting-disclosure-toggle:focus-visible {
+  outline: 2px solid rgba(var(--accent-color-rgb), 0.6);
+  outline-offset: 1px;
+}
+
+.setting-disclosure-body {
+  width: 100%;
+  padding-left: 20px;
+  box-sizing: border-box;
+}
+
+.setting-disclosure-body > .setting-item {
+  min-height: 40px;
+  padding-block: var(--st-space-1);
+  border-bottom: none;
+}
+
+.settings-checkbox-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--st-space-2) var(--st-space-4);
+}
+
+.settings-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-primary);
+  font-size: var(--st-control-size);
+  cursor: pointer;
+}
+
+.settings-checkbox input {
+  margin: 0;
+  accent-color: var(--accent-color);
+}
+
+.settings-view textarea.search-input.settings-textarea {
+  min-height: 88px;
+  height: auto;
+  margin-left: 20px;
+  width: calc(100% - 20px);
+  padding: 8px 10px !important;
+  resize: vertical;
+  font-family: var(--font-mono);
+  line-height: 1.5;
+}
+
+.setting-range-control {
+  flex: 0 1 calc(var(--st-range-width) + 52px);
+  display: flex;
+  align-items: center;
+  gap: var(--st-space-3);
+  min-width: 0;
+}
+
+.setting-range-control input[type="range"] {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.setting-range-value {
+  flex: 0 0 40px;
+  color: var(--text-secondary);
+  font-size: var(--st-control-size);
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+}
+
 .data-panel {
   background: var(--bg-input);
-  color: var(--text-primary);
+  color: var(--text-secondary);
   font-family: var(--font-mono) !important;
-  font-weight: 600;
-  padding: 8px 12px;
+  font-weight: 400;
+  min-height: var(--st-control-height);
+  padding: 5px 10px;
   border: var(--data-panel-border);
   border-radius: var(--data-panel-radius);
   box-shadow: var(--data-panel-shadow);
@@ -378,6 +648,143 @@
 
 .data-panel:hover {
   background: var(--data-panel-hover-background);
+}
+
+.data-panel.is-static {
+  cursor: text;
+  user-select: text;
+}
+
+.data-panel.is-static:hover {
+  background: var(--bg-input);
+}
+
+.settings-path-panel {
+  font-size: var(--font-size-xs);
+}
+
+.setting-item:not(.column) > .settings-address-panel {
+  flex: 0 1 var(--st-field-width);
+  width: var(--st-field-width);
+  gap: 0;
+  cursor: default;
+  font-size: var(--font-size-xs);
+}
+
+.settings-address-select {
+  min-width: 0;
+  max-width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.settings-address-port {
+  opacity: 0.7;
+}
+
+/* Value-picker that opens a chooser: reads as a field, acts as a button. */
+.settings-picker-button {
+  display: inline-flex;
+  flex: 0 1 var(--st-field-width);
+  align-items: center;
+  gap: var(--st-space-2);
+  width: var(--st-field-width);
+  min-width: 0;
+  height: var(--st-control-height);
+  padding: 0 8px 0 10px;
+  border: var(--input-border, 1px solid var(--line-soft));
+  border-radius: var(--st-control-radius);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--st-control-size);
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.settings-picker-button:hover {
+  border-color: var(--button-hover-border-color, var(--line-strong));
+}
+
+.settings-picker-button:focus-visible {
+  outline: 2px solid rgba(var(--accent-color-rgb), 0.6);
+  outline-offset: 1px;
+}
+
+.settings-picker-button > svg {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+}
+
+.settings-picker-value {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-permission-state {
+  flex: 0 0 auto;
+  color: var(--text-secondary);
+  font-size: var(--st-control-size);
+  white-space: nowrap;
+}
+
+.settings-permission-state.is-granted {
+  color: var(--status-success);
+  font-weight: 500;
+}
+
+.settings-permission-steps {
+  color: var(--text-secondary);
+  font-size: var(--st-desc-size);
+  line-height: 18px;
+}
+
+.settings-permission-binary {
+  margin-top: var(--st-space-1);
+  word-break: break-all;
+}
+
+.settings-permission-binary code {
+  margin: 0 var(--st-space-2) 0 var(--st-space-1);
+  font-family: var(--font-mono);
+}
+
+.settings-link-button {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent-color);
+  font: inherit;
+  cursor: pointer;
+}
+
+.settings-link-button:hover {
+  text-decoration: underline;
+}
+
+.settings-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--st-space-3);
+  margin: var(--st-space-5) 0 var(--st-space-1);
+}
+
+.settings-section-header > .settings-section-title {
+  margin: 0;
+}
+
+.settings-view .setting-item .search-input.settings-field--numeric {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
 .clipboard-import-setting {
@@ -398,16 +805,10 @@
   gap: 3px;
 }
 
-.clipboard-import-entry-copy .item-label {
-  font-size: var(--font-size-base);
-  font-weight: 700;
-  line-height: 1.3;
-}
-
 .clipboard-import-entry-description {
   color: var(--text-secondary);
-  font-size: var(--font-size-xs);
-  line-height: 1.4;
+  font-size: var(--st-desc-size);
+  line-height: 18px;
 }
 
 .clipboard-import-launch {
@@ -430,7 +831,6 @@
 }
 
 .setting-item .switch {
-  margin-left: 12px;
   flex-shrink: 0;
 }
 
@@ -439,42 +839,147 @@
   .setting-item:not(.column) select,
   .setting-item:not(.column) .settings-hotkey-select,
   .setting-item:not(.column) .settings-compact-select,
-  .setting-item:not(.column) .settings-compact-number {
+  .setting-item:not(.column) .settings-compact-number,
+  .setting-item:not(.column) .setting-range-control {
     flex: 0 0 100%;
     width: 100%;
   }
 }
 
+/* Secondary button used for every in-row action on the settings pages. */
 .settings-action-button {
   flex-shrink: 0;
-  min-height: 32px;
-  padding: 0 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: var(--st-control-height, 28px);
+  padding: 0 12px;
   border: var(--button-border);
   border-radius: var(--button-radius);
   background: var(--bg-button);
-  box-shadow: var(--button-shadow);
+  box-shadow: none;
   color: var(--text-primary);
   cursor: pointer;
   font: inherit;
-  font-size: var(--font-size-sm);
-  font-weight: 700;
+  font-size: var(--st-control-size, var(--font-size-base));
+  font-weight: 500;
+  white-space: nowrap;
   transition:
-    background 0.18s ease,
-    border-color 0.18s ease,
-    box-shadow 0.18s ease,
-    transform 0.18s ease;
+    background 0.15s ease,
+    border-color 0.15s ease;
 }
 
-.settings-action-button:hover {
+.settings-action-button:hover:not(:disabled) {
   background: var(--bg-input);
   border-color: var(--button-hover-border-color);
-  box-shadow: var(--button-hover-shadow);
-  transform: var(--button-hover-transform);
 }
 
-.settings-action-button:active {
-  box-shadow: var(--button-active-shadow);
-  transform: var(--button-active-transform);
+.settings-action-button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.settings-action-button--small {
+  padding: 0 10px;
+}
+
+.settings-action-button--icon {
+  width: var(--st-control-height, 28px);
+  padding: 0;
+}
+
+.settings-action-group {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--st-space-2);
+}
+
+.settings-file-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+/* Read-only status/info surfaces inside a page. A hairline, no shadow. */
+.settings-panel {
+  margin: var(--st-space-2) 0;
+  padding: var(--st-space-3);
+  border: 1px solid var(--st-divider);
+  border-radius: var(--st-control-radius);
+  background: color-mix(in srgb, var(--bg-element) 60%, transparent);
+  font-size: var(--st-control-size);
+  line-height: 20px;
+}
+
+.settings-panel-caption {
+  margin-bottom: var(--st-space-1);
+  color: var(--text-secondary);
+  font-size: var(--st-desc-size);
+}
+
+.settings-panel-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--st-space-1) var(--st-space-3);
+  color: var(--text-primary);
+}
+
+.settings-panel-meta {
+  margin-top: var(--st-space-1);
+  color: var(--text-secondary);
+  font-size: var(--st-desc-size);
+}
+
+.settings-panel-meta.is-error {
+  color: var(--status-danger);
+}
+
+.settings-status-dot {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.settings-status-dot.is-connected {
+  background: var(--status-success);
+}
+
+.settings-status-dot.is-connecting {
+  background: var(--status-warning);
+}
+
+.settings-status-dot.is-disconnected {
+  background: var(--status-danger);
+}
+
+.group-header-title {
+  display: flex;
+  align-items: center;
+  gap: var(--st-space-2);
+  min-width: 0;
+}
+
+.settings-section-desc {
+  margin: 0 0 var(--st-space-1);
+  color: var(--text-secondary);
+  font-size: var(--st-desc-size);
+  line-height: 18px;
+}
+
+.settings-badge {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--st-hover, rgba(127, 127, 127, 0.12));
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  line-height: 16px;
 }
 
 .settings-view .file-transfer-panel {
@@ -483,10 +988,10 @@
   gap: 14px;
   margin: 2px 0 0;
   padding: 12px;
-  background: var(--bg-element);
-  border: 1px solid var(--line-soft);
-  border-radius: var(--panel-radius);
-  box-shadow: var(--shadow-xs);
+  background: color-mix(in srgb, var(--bg-element) 60%, transparent);
+  border: 1px solid var(--st-divider);
+  border-radius: var(--st-control-radius);
+  box-shadow: none;
   color: var(--text-primary);
   overflow: hidden;
 }
@@ -495,12 +1000,12 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  margin: 10px 0 4px;
+  margin: var(--st-space-3) 0 var(--st-space-1);
   padding: 10px 12px;
-  background: var(--bg-element);
-  border: 1px solid var(--line-soft);
-  border-radius: var(--panel-radius);
-  box-shadow: var(--shadow-xs);
+  background: color-mix(in srgb, var(--bg-element) 60%, transparent);
+  border: 1px solid var(--st-divider);
+  border-radius: var(--st-control-radius);
+  box-shadow: none;
   color: var(--text-primary);
 }
 
@@ -561,7 +1066,7 @@
 .settings-view .qr-label {
   font-family: var(--font-mono);
   font-size: var(--font-size-2xs);
-  font-weight: 700;
+  font-weight: 500;
   line-height: 1;
   letter-spacing: 0;
   color: var(--text-muted);
@@ -576,9 +1081,9 @@
 }
 
 .settings-view .scan-title {
-  font-size: var(--font-size-base);
-  font-weight: 700;
-  line-height: 1.25;
+  font-size: var(--st-control-size);
+  font-weight: var(--st-label-weight);
+  line-height: 18px;
   color: var(--text-primary);
 }
 
@@ -595,7 +1100,7 @@
 
 .settings-view .info-label {
   flex: 0 0 auto;
-  font-weight: 700;
+  font-weight: 400;
   color: var(--text-muted);
 }
 
@@ -604,7 +1109,7 @@
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-weight: 700;
+  font-weight: 500;
   color: var(--text-primary);
 }
 
@@ -617,28 +1122,22 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 26px;
+  min-height: 24px;
   padding: 0 10px;
   margin-top: 2px;
-  border: 1px solid rgba(var(--accent-color-rgb), 0.2);
-  border-radius: 8px;
-  background: rgba(var(--accent-color-rgb), 0.1);
+  border: none;
+  border-radius: var(--st-control-radius);
+  background: rgba(var(--accent-color-rgb), 0.12);
   color: var(--accent-color);
   font-size: var(--font-size-sm);
-  font-weight: 700;
+  font-weight: 500;
   line-height: 1;
   cursor: pointer;
-  transition: background 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
+  transition: background 0.15s ease;
 }
 
 .settings-view .open-browser-btn:hover {
-  background: rgba(var(--accent-color-rgb), 0.16);
-  border-color: rgba(var(--accent-color-rgb), 0.28);
-  transform: translateY(-1px);
-}
-
-.settings-view .open-browser-btn:active {
-  transform: translateY(0);
+  background: rgba(var(--accent-color-rgb), 0.2);
 }
 
 .data-panel:focus-visible,
@@ -668,48 +1167,71 @@
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  height: 8px;
+  height: var(--range-track-height);
   background:
     linear-gradient(var(--accent-color), var(--accent-color)) 0/ var(--range-progress, 0%) 100% no-repeat,
-    rgba(var(--accent-color-rgb), 0.1);
+    var(--range-track-background);
   border: var(--range-track-border);
   border-radius: var(--range-track-radius);
   box-shadow: var(--range-track-shadow);
   outline: none;
+  cursor: pointer;
 }
 
+.settings-view input[type="range"]:disabled {
+  cursor: default;
+  filter: grayscale(1);
+  opacity: 0.45;
+}
+
+/* Segmented control: a quiet well with the selected option raised. */
 .settings-inline-choice-row {
   display: flex;
-  gap: 8px;
+  gap: 2px;
   width: 100%;
-  background: color-mix(in srgb, var(--bg-panel) 64%, transparent);
-  padding: 4px;
-  border-radius: var(--segmented-radius);
-  border: 1px solid rgba(var(--accent-color-rgb), 0.04);
-}
-
-.settings-inline-choice-btn {
-  flex: 1;
-  min-height: 32px;
-  padding: 0 12px;
-  font-size: var(--font-size-base);
-  font-weight: 600;
-  border-radius: var(--segment-radius);
+  background: color-mix(in srgb, var(--text-primary) 5%, transparent);
+  padding: 2px;
+  border-radius: calc(var(--st-control-radius) + 2px);
   border: none;
+  box-sizing: border-box;
+}
+
+.setting-item:not(.column) > .settings-inline-choice-row {
+  flex: 0 1 auto;
+  width: auto;
+}
+
+.settings-view .settings-inline-choice-btn {
+  flex: 1;
+  white-space: nowrap;
+  min-height: 24px;
+  padding: 0 12px;
+  font-size: var(--st-control-size);
+  font-weight: 400;
+  border-radius: var(--st-control-radius);
+  border: 1px solid transparent;
   background: transparent;
+  box-shadow: none;
   color: var(--text-secondary);
-  transition: all 0.2s ease;
+  transform: none;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
-.settings-inline-choice-btn.primary {
-  background: var(--accent-color);
-  color: var(--on-accent);
-  box-shadow: 0 2px 8px rgba(var(--accent-color-rgb), 0.25);
-}
-
-.settings-inline-choice-btn:not(.primary):hover {
-  background: rgba(var(--accent-color-rgb), 0.08);
+.settings-view .settings-inline-choice-btn:hover {
+  background: var(--st-hover);
+  border-color: transparent;
+  box-shadow: none;
   color: var(--text-primary);
+  transform: none;
+}
+
+.settings-view .settings-inline-choice-btn.active,
+.settings-view .settings-inline-choice-btn.primary {
+  background: var(--segment-active-background);
+  border-color: var(--line-soft);
+  box-shadow: none;
+  color: var(--text-primary);
+  font-weight: 500;
 }
 
 .settings-subpage-note {
@@ -824,13 +1346,13 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: var(--font-size-sm);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .advanced-search-result-action {
   color: var(--text-secondary);
   font-size: var(--font-size-xs);
-  font-weight: 600;
+  font-weight: 400;
   white-space: nowrap;
 }
 
@@ -889,10 +1411,19 @@ html.platform-macos .advanced-target-list:focus-within::-webkit-scrollbar-thumb:
 }
 
 .advanced-target-item.active {
-  background: color-mix(in srgb, var(--accent-color) 12%, var(--bg-content));
-  border-color: rgba(var(--accent-color-rgb), 0.28);
-  color: var(--accent-color);
+  background: var(--st-selected, color-mix(in srgb, var(--accent-color) 12%, var(--bg-content)));
+  border-color: transparent;
+  color: var(--text-primary);
   box-shadow: none;
+}
+
+.advanced-target-item.active .advanced-target-name {
+  font-weight: 500;
+}
+
+.settings-view .advanced-search-input.search-input {
+  height: var(--st-control-height, 28px);
+  font-size: var(--st-control-size, var(--font-size-sm)) !important;
 }
 
 .advanced-target-meta {
@@ -906,7 +1437,7 @@ html.platform-macos .advanced-target-list:focus-within::-webkit-scrollbar-thumb:
 .advanced-target-name {
   color: inherit;
   font-size: var(--font-size-sm);
-  font-weight: 600;
+  font-weight: 400;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -989,7 +1520,7 @@ html.platform-macos .advanced-target-list:focus-within::-webkit-scrollbar-thumb:
 
 .advanced-editor-title {
   font-size: var(--font-size-base);
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.2;
   color: var(--text-primary);
 }
@@ -1056,7 +1587,7 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
 
 .advanced-empty-title {
   font-size: var(--font-size-base);
-  font-weight: 700;
+  font-weight: 500;
   color: var(--text-primary);
 }
 
@@ -1100,7 +1631,7 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
 
 .advanced-rule-title {
   font-size: var(--font-size-base);
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .advanced-rule-body {
@@ -1118,7 +1649,7 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
 
 .advanced-rule-field label {
   font-size: var(--font-size-xs);
-  font-weight: 700;
+  font-weight: 500;
   color: var(--text-secondary);
   opacity: 0.85;
 }
@@ -1185,7 +1716,7 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
   height: 28px;
   padding: 0 10px !important;
   font-size: var(--font-size-sm);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .advanced-workbench.is-split {
@@ -1233,8 +1764,17 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
   box-sizing: border-box;
   min-height: 32px;
   padding: 6px 8px;
-  border-radius: var(--button-radius);
+  border-radius: var(--st-control-radius, var(--button-radius));
+  background: transparent;
   align-self: stretch;
+}
+
+.advanced-workbench.is-split .advanced-target-item:hover:not(.active) {
+  background: var(--st-hover, var(--bg-input));
+}
+
+.advanced-workbench.is-split .advanced-target-item.active {
+  background: var(--st-selected, rgba(var(--accent-color-rgb), 0.14));
 }
 
 .advanced-workbench.is-split .advanced-target-sub {
@@ -1293,16 +1833,16 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
 }
 
 .settings-view input[type="range"]::-webkit-slider-runnable-track {
-  height: 8px;
+  height: var(--range-track-height);
   background: transparent;
 }
 
 .settings-view input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 16px;
-  height: 16px;
-  margin-top: -5px;
+  width: var(--range-thumb-size);
+  height: var(--range-thumb-size);
+  margin-top: calc((var(--range-track-height) - var(--range-thumb-size)) / 2);
   background: var(--accent-color);
   border: var(--range-thumb-border);
   border-radius: var(--range-thumb-radius);
@@ -1316,22 +1856,22 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
 }
 
 .settings-view input[type="range"]::-moz-range-track {
-  height: 8px;
-  background: rgba(var(--accent-color-rgb), 0.1);
+  height: var(--range-track-height);
+  background: var(--range-track-background);
   border: var(--range-track-border);
   border-radius: var(--range-track-radius);
   box-shadow: var(--range-track-shadow);
 }
 
 .settings-view input[type="range"]::-moz-range-progress {
-  height: 8px;
+  height: var(--range-track-height);
   background: var(--accent-color);
   border-radius: var(--range-track-radius);
 }
 
 .settings-view input[type="range"]::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
+  width: var(--range-thumb-size);
+  height: var(--range-thumb-size);
   background: var(--accent-color);
   border: var(--range-thumb-border);
   border-radius: var(--range-thumb-radius);
@@ -1356,25 +1896,50 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
 }
 
 .theme-choice-grid {
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  gap: var(--st-space-2);
 }
 
-.theme-choice-btn {
-  min-height: 40px;
+.settings-view .theme-choice-btn {
+  min-height: 32px;
   width: 100%;
-  padding: 8px 10px;
+  padding: 4px 10px;
   align-items: center;
   justify-content: center;
   text-align: left;
+  border: 1px solid transparent;
+  border-radius: var(--st-control-radius);
+  background: color-mix(in srgb, var(--text-primary) 5%, transparent);
+  color: var(--text-secondary);
+  box-shadow: none;
+  transform: none;
+}
+
+.settings-view .theme-choice-btn:hover {
+  background: color-mix(in srgb, var(--text-primary) 9%, transparent);
+  border-color: transparent;
+  color: var(--text-primary);
+  box-shadow: none;
+  transform: none;
+}
+
+.settings-view .theme-choice-btn.active {
+  background: var(--st-selected);
+  border-color: var(--accent-color);
+  box-shadow: none;
+  color: var(--text-primary);
 }
 
 .theme-choice-title {
-  font-size: var(--font-size-sm);
-  font-weight: 700;
-  line-height: 1.15;
+  font-size: var(--st-control-size, var(--font-size-base));
+  font-weight: 400;
+  line-height: 1.2;
   white-space: normal;
   text-align: center;
+}
+
+.theme-choice-btn.active .theme-choice-title {
+  font-weight: 500;
 }
 
 .installed-theme-label {
@@ -1409,23 +1974,43 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
 }
 
 .theme-package-import-btn {
-  width: 100%;
-  min-height: 36px;
-  margin-top: 10px;
-  justify-content: center;
-  font-size: var(--font-size-sm);
-  font-weight: 700;
+  align-self: flex-start;
+  margin-top: var(--st-space-1);
 }
 
+/* Every text field, number field and select on the settings pages. */
 .settings-view select.search-input,
-.settings-view input.search-input {
+.settings-view input.search-input,
+.settings-view textarea.search-input {
   background: var(--bg-input) !important;
   color: var(--text-primary) !important;
   border: var(--input-border) !important;
   border-radius: var(--input-radius) !important;
-  box-shadow: var(--input-shadow) !important;
-  min-height: 34px;
-  backdrop-filter: saturate(135%);
+  box-shadow: none !important;
+  height: var(--st-control-height);
+  min-height: var(--st-control-height);
+  padding: 0 10px !important;
+  font-size: var(--st-control-size) !important;
+  font-weight: 400;
+  line-height: 20px;
+}
+
+.settings-view textarea.search-input {
+  height: auto;
+  min-height: 80px;
+  padding: 6px 10px !important;
+}
+
+.settings-view input.search-input:focus,
+.settings-view select.search-input:focus,
+.settings-view textarea.search-input:focus {
+  border-color: var(--input-focus-border-color) !important;
+  box-shadow: var(--input-focus-shadow) !important;
+}
+
+.settings-view .search-input:disabled {
+  cursor: default;
+  opacity: 0.45;
 }
 
 .settings-view select.search-input {
@@ -1448,9 +2033,7 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
 }
 
 .settings-view .settings-compact-number {
-  width: 90px;
-  padding: 4px 8px;
-  font-size: var(--font-size-md);
+  width: var(--st-field-width-sm);
 }
 
 .settings-view .settings-hotkey-select {
@@ -1458,15 +2041,11 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
   min-width: 0;
   max-width: 100%;
   flex-shrink: 1;
-  padding: 4px 30px 4px 8px;
-  font-size: var(--font-size-md);
 }
 
 .settings-view .settings-compact-select {
-  width: 118px;
+  width: var(--st-field-width-sm);
   max-width: 100%;
-  padding: 6px 30px 6px 9px;
-  font-size: var(--font-size-sm);
 }
 
 .switch {
@@ -1474,10 +2053,20 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
   position: relative;
   display: flex;
   align-items: center;
-  width: 44px;
-  height: 22px;
+  width: var(--switch-width);
+  height: var(--switch-height);
   user-select: none;
   flex-shrink: 0;
+}
+
+.switch .cb:focus-visible + .toggle {
+  outline: 2px solid rgba(var(--accent-color-rgb), 0.6);
+  outline-offset: 2px;
+}
+
+.switch .cb:disabled + .toggle {
+  cursor: default;
+  opacity: 0.4;
 }
 
 .switch .cb {
@@ -1605,12 +2194,16 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
 
 .key-group {
   display: flex;
-  gap: 6px;
+  align-items: center;
+  gap: var(--st-space-1, 4px);
   cursor: pointer;
-  padding: 4px;
-  border-radius: 4px;
-  transition: background 0.2s;
-  margin-top: 4px;
+  padding: 2px;
+  border-radius: var(--st-control-radius, 6px);
+  transition: background 0.15s;
+}
+
+.key-group:hover {
+  background: var(--st-hover, transparent);
 }
 
 .key-group:focus-visible {
@@ -1629,10 +2222,10 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
 
 .key-cap {
   position: relative;
-  min-width: 4.15em;
-  height: 2.5em;
-  padding: 0 0.5em;
-  margin: 0 3px;
+  min-width: 28px;
+  height: 24px;
+  padding: 0 8px;
+  margin: 0;
   background-color: var(--bg-element);
   color: var(--text-primary);
   border: var(--keycap-border);
@@ -1644,14 +2237,15 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
   align-items: center;
   justify-content: center;
   font-family: inherit;
-  font-weight: 800;
+  font-weight: 500;
   text-transform: none;
   font-size: var(--font-size-xs);
+  box-sizing: border-box;
 }
 
 .key-cap-empty,
 .key-cap-recording {
-  width: 8em;
+  width: 96px;
 }
 
 .key-cap-empty {
@@ -1667,7 +2261,7 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
 .hotkey-warning {
   color: var(--status-warning);
   font-size: var(--font-size-xs);
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .key-cap::before,
@@ -1686,24 +2280,21 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
 /* Accent-tinted hint shown at the top of a settings group (tutorial links,
    auto-close notes). Shared so every group renders the same box. */
 .settings-notice {
-  margin: 4px 8px 12px;
-  padding: 10px 14px;
-  border: 1px solid rgba(var(--accent-color-rgb), 0.2);
-  border-radius: var(--button-radius);
+  margin: 0 0 var(--st-space-4, 16px);
+  padding: var(--st-space-2, 8px) var(--st-space-3, 12px);
+  border: none;
+  border-radius: var(--st-control-radius, 6px);
   background: rgba(var(--accent-color-rgb), 0.08);
   color: var(--text-secondary);
   font-size: var(--font-size-xs);
-  line-height: 1.5;
+  line-height: 18px;
 }
 
 .settings-notice--action {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin: 0 0 12px;
-  padding: 8px 12px;
-  background: rgba(var(--accent-color-rgb), 0.1);
+  gap: var(--st-space-3, 12px);
   color: var(--text-primary);
 }
 
@@ -1715,63 +2306,106 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
   min-height: 0;
 }
 
+/* Sidebar: grouped, icon-led list that scrolls on its own. */
 .settings-nav {
-  flex: 0 0 172px;
+  flex: 0 0 clamp(176px, 26%, 216px);
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--st-space-3);
   min-height: 0;
-  padding: 10px 8px;
+  padding: var(--st-space-3) var(--st-space-2);
   overflow-y: auto;
-  background: var(--bg-panel);
-  border-right: 1px solid var(--panel-divider-color);
+  overscroll-behavior: contain;
+  background: color-mix(in srgb, var(--bg-panel) 55%, transparent);
+  border-right: 1px solid var(--st-divider);
 }
 
-.settings-nav-item {
+.settings-nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.settings-nav-group-label {
+  padding: 0 10px var(--st-space-1);
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  line-height: 16px;
+  letter-spacing: 0.02em;
+}
+
+.settings-nav-footer {
+  margin-top: auto;
+  padding-top: var(--st-space-2);
+  border-top: 1px solid var(--st-divider);
+}
+
+.settings-view .settings-nav-item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 6px;
+  gap: 10px;
   width: 100%;
+  height: 32px;
   min-height: 32px;
-  padding: 6px 10px;
-  border: 1px solid transparent;
-  border-radius: var(--button-radius);
+  padding: 0 10px;
+  border: none;
+  border-radius: var(--st-control-radius);
   background: transparent;
   color: var(--text-primary);
   font-family: var(--font-main);
-  font-size: var(--font-size-sm);
-  font-weight: 600;
+  font-size: var(--st-nav-size);
+  font-weight: 400;
+  line-height: 18px;
   text-align: left;
   cursor: pointer;
-  transition:
-    background 0.16s ease,
-    border-color 0.16s ease,
-    color 0.16s ease;
+  transition: background 0.12s ease, color 0.12s ease;
 }
 
-.settings-nav-item:hover {
-  background: var(--bg-input);
+.settings-nav-icon {
+  flex: 0 0 16px;
+  color: var(--text-secondary);
+  transition: color 0.12s ease;
 }
 
-.settings-nav-item.active {
-  background: color-mix(in srgb, var(--accent-color) 12%, var(--bg-content));
-  border-color: rgba(var(--accent-color-rgb), 0.28);
+.settings-nav-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-nav-trailing {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+}
+
+.settings-view .settings-nav-item:hover {
+  background: var(--st-hover);
+}
+
+.settings-view .settings-nav-item.active {
+  background: var(--st-selected);
+  font-weight: 500;
+}
+
+.settings-nav-item.active .settings-nav-icon {
   color: var(--accent-color);
 }
 
-.settings-nav-divider {
-  flex: 0 0 1px;
-  margin: 6px 4px;
-  background: var(--panel-divider-color);
+.settings-view .settings-nav-item:focus-visible {
+  outline: 2px solid rgba(var(--accent-color-rgb), 0.6);
+  outline-offset: -2px;
 }
 
+/* Content pane: scrolls independently; a readable column, not a stretched form. */
 .settings-wide-content {
   flex: 1;
   min-width: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 14px;
+  padding: var(--st-space-5) clamp(16px, 4%, 40px) 40px;
   /* Container queries inside groups measure this pane, not the whole view. */
   container-type: inline-size;
   container-name: settings;
@@ -1779,36 +2413,80 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
 }
 
 .settings-wide-inner {
-  max-width: 720px;
+  max-width: 640px;
   margin: 0 auto;
 }
 
+/* In the sidebar layout the selected group is the page itself: no card,
+   its header becomes the page title. Themes style .settings-group as a card,
+   so this has to win over them. */
+.settings-wide-inner > .settings-group {
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+.settings-wide-inner > .settings-group > .group-header {
+  padding: 0 0 var(--st-space-4) !important;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  justify-content: flex-start !important;
+  gap: var(--st-space-2);
+}
+
+.settings-wide-inner > .settings-group > .group-header h3 {
+  font-size: var(--st-title-size);
+  font-weight: var(--st-title-weight);
+  line-height: 26px !important;
+}
+
+.settings-wide-inner > .settings-group > .group-content {
+  padding: 0 !important;
+  animation: none;
+}
+
+.settings-wide-inner > .settings-group > .group-content::before {
+  display: none;
+}
+
+/* About reads as one quiet page: identity, then plain rows split by hairlines. */
 .settings-about {
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  padding: 10px 6px 18px;
+  padding: var(--st-space-1, 4px) 0 var(--st-space-5, 24px);
+}
+
+.settings-about-header {
+  padding-bottom: var(--st-space-4, 16px);
+  border-bottom: 1px solid var(--st-divider, var(--line-soft));
 }
 
 .settings-about-identity {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: var(--st-space-3, 12px);
 }
 
 .settings-about-icon {
   display: block;
-  width: 56px;
-  height: 56px;
+  width: 48px;
+  height: 48px;
   flex: 0 0 auto;
+  border-radius: 10px;
   object-fit: contain;
 }
 
 .settings-about-header h2 {
-  margin: 0 0 4px;
+  margin: 0 0 2px;
   color: var(--text-primary);
-  font-size: 28px;
-  line-height: 1.2;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 28px;
 }
 
 .settings-about-slogan,
@@ -1816,12 +2494,12 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
 .settings-about-reset p {
   margin: 0;
   color: var(--text-secondary);
-  font-size: var(--font-size-sm);
-  line-height: 1.6;
+  font-size: var(--st-desc-size, var(--font-size-xs));
+  line-height: 18px;
 }
 
 .settings-about-description {
-  margin-block-start: 16px;
+  margin-block-start: var(--st-space-3, 12px);
 }
 
 .settings-about-version,
@@ -1830,54 +2508,81 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: var(--st-space-2, 8px) var(--st-space-4, 16px);
+  min-height: 56px;
   margin: 0;
-  padding: 16px;
+  padding: var(--st-space-2, 8px) 0;
+  border-bottom: 1px solid var(--st-divider, var(--line-soft));
+  box-sizing: border-box;
+}
+
+.settings-about-reset {
+  border-bottom: none;
 }
 
 .settings-about-version-info {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 2px;
 }
 
 .settings-about-caption {
   color: var(--text-secondary);
-  font-size: var(--font-size-xs);
+  font-size: var(--st-desc-size, var(--font-size-xs));
+  line-height: 18px;
 }
 
 .settings-about-version-number {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--st-space-2, 8px);
   color: var(--text-primary);
-  font-size: var(--font-size-base);
+  font-size: var(--st-label-size, var(--font-size-base));
+  line-height: 20px;
+}
+
+.settings-about-version-number strong {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
 }
 
 .settings-about h3 {
-  margin: 0 0 10px;
+  margin: 0;
   color: var(--text-primary);
-  font-size: var(--font-size-sm);
-  font-weight: 600;
+  font-size: var(--st-label-size, var(--font-size-base));
+  font-weight: var(--st-label-weight, 500);
+  line-height: 20px;
+}
+
+.settings-about-resources {
+  padding-top: var(--st-space-5, 24px);
+}
+
+.settings-about-resources > h3 {
+  margin-bottom: var(--st-space-1, 4px);
+  color: var(--text-secondary);
+  font-size: var(--st-section-size, 12px);
+  font-weight: var(--st-section-weight, 600);
+  line-height: 16px;
 }
 
 .settings-about-links {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin: 0;
-  padding: 6px;
+  margin: 0 calc(var(--st-space-2, 8px) * -1);
+  padding: 0;
 }
 
 .settings-about-link {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--st-space-3, 12px);
   width: 100%;
-  padding: 12px 10px;
+  min-height: 52px;
+  padding: var(--st-space-2, 8px);
   border: 0;
-  border-radius: var(--button-radius);
+  border-radius: var(--st-control-radius, 6px);
   background: transparent;
   color: var(--text-secondary);
   font: inherit;
@@ -1886,7 +2591,7 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
 }
 
 .settings-about-link:hover {
-  background: var(--bg-input);
+  background: var(--st-hover, var(--bg-input));
 }
 
 .settings-about-link svg {
@@ -1897,28 +2602,34 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 4px;
+  gap: 0;
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
 .settings-about-link-text strong {
   color: var(--text-primary);
-  font-size: var(--font-size-sm);
-  font-weight: 600;
+  font-size: var(--st-label-size, var(--font-size-base));
+  font-weight: var(--st-label-weight, 500);
+  line-height: 20px;
 }
 
 .settings-about-link-text > span {
-  font-size: var(--font-size-xs);
-  line-height: 1.5;
+  font-size: var(--st-desc-size, var(--font-size-xs));
+  line-height: 18px;
 }
 
 .settings-about-link-end {
   color: var(--text-muted);
 }
 
+.settings-about-reset {
+  margin-top: var(--st-space-3, 12px);
+  border-top: 1px solid var(--st-divider, var(--line-soft));
+}
+
 .settings-about-reset h3 {
-  margin-block-end: 4px;
+  margin-block-end: 2px;
 }
 
 .settings-about-reset > div {
@@ -1930,8 +2641,6 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
   align-items: center;
   justify-content: center;
   gap: 6px;
-  white-space: normal;
-  padding-block: 6px;
 }
 
 .settings-about-link:focus-visible,
@@ -1961,6 +2670,10 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
 
 .settings-wide-content .settings-group > .group-header > svg:last-child {
   display: none;
+}
+
+.settings-wide-content .settings-group > .group-header:hover {
+  background: transparent !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -72,49 +72,27 @@ const MacAccessibilityPermission = ({ t, LabelWithHint }: MacAccessibilityPermis
   };
 
   return (
-    <div className="setting-item" style={{ flexDirection: "column", alignItems: "stretch", gap: 8 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+    <div className="setting-item column">
+      <div className="setting-item-heading">
         <LabelWithHint
           label={t("accessibility_permission")}
           hint={t("accessibility_permission_hint")}
           hintKey="accessibility_permission"
         />
         {checking ? (
-          <span
-            style={{
-              fontSize: 'var(--font-size-sm)',
-              color: "var(--text-secondary)",
-              whiteSpace: "nowrap"
-            }}
-          >
+          <span className="settings-permission-state">
             {t("accessibility_permission_checking")}
           </span>
         ) : granted ? (
-          <span
-            style={{
-              fontSize: 'var(--font-size-sm)',
-              fontWeight: 600,
-              color: "var(--status-success)",
-              whiteSpace: "nowrap"
-            }}
-          >
+          <span className="settings-permission-state is-granted">
             {t("accessibility_permission_granted")}
           </span>
         ) : (
           <button
             type="button"
+            className="settings-action-button settings-action-button--small"
             onClick={() => {
               void openSettings();
-            }}
-            style={{
-              fontSize: 'var(--font-size-sm)',
-              fontWeight: 600,
-              color: "var(--status-warning)",
-              background: "none",
-              border: "none",
-              padding: 0,
-              cursor: "pointer",
-              whiteSpace: "nowrap"
             }}
           >
             {t("accessibility_go_authorize")}
@@ -123,32 +101,17 @@ const MacAccessibilityPermission = ({ t, LabelWithHint }: MacAccessibilityPermis
       </div>
 
       {!checking && !granted && (
-        <div
-          style={{
-            fontSize: 'var(--font-size-sm)',
-            lineHeight: 1.5,
-            color: "var(--text-secondary)",
-            paddingLeft: 2
-          }}
-        >
+        <div className="settings-permission-steps">
           <div>{t("accessibility_permission_steps")}</div>
           {binaryPath && (
-            <div style={{ marginTop: 6, wordBreak: "break-all" }}>
+            <div className="settings-permission-binary">
               <span>{t("accessibility_permission_binary")}</span>
-              <code style={{ marginLeft: 4 }}>{binaryPath}</code>
+              <code>{binaryPath}</code>
               <button
                 type="button"
+                className="settings-link-button"
                 onClick={() => {
                   void copyBinaryPath();
-                }}
-                style={{
-                  marginLeft: 8,
-                  fontSize: 'var(--font-size-sm)',
-                  color: "var(--accent-color, #0a84ff)",
-                  background: "none",
-                  border: "none",
-                  padding: 0,
-                  cursor: "pointer"
                 }}
               >
                 {t("accessibility_copy_binary")}

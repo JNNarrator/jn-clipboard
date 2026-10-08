@@ -182,27 +182,34 @@
   --data-panel-shadow: var(--shadow-inset);
   --data-panel-hover-background: rgba(255, 255, 255, 0.98);
 
-  --range-track-border: 1px solid var(--line-soft);
+  /* Control geometry shared by every settings page. */
+  --range-track-height: 4px;
+  --range-thumb-size: 14px;
+  --range-track-border: none;
   --range-track-radius: var(--radius-pill);
-  --range-track-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.08);
-  --range-thumb-border: 1px solid rgba(255, 255, 255, 0.95);
+  --range-track-shadow: none;
+  --range-track-background: color-mix(in srgb, var(--text-muted) 28%, transparent);
+  --range-thumb-border: 2px solid #ffffff;
   --range-thumb-radius: var(--radius-pill);
-  --range-thumb-shadow: 0 8px 18px rgba(var(--accent-color-rgb), 0.25);
-  --range-thumb-active-transform: scale(0.96);
-  --range-thumb-active-shadow: 0 4px 10px rgba(var(--accent-color-rgb), 0.2);
+  --range-thumb-shadow: 0 1px 3px rgba(0, 0, 0, 0.28);
+  --range-thumb-active-transform: scale(1.08);
+  --range-thumb-active-shadow: 0 0 0 4px rgba(var(--accent-color-rgb), 0.2);
 
-  --switch-track-background: rgba(var(--accent-color-rgb), 0.15);
-  --switch-track-border: 1px solid rgba(var(--accent-color-rgb), 0.16);
+  /* Track is border-box: thumb-offset * 2 + thumb-size + 2px border = height. */
+  --switch-width: 36px;
+  --switch-height: 20px;
+  --switch-track-background: color-mix(in srgb, var(--text-muted) 32%, transparent);
+  --switch-track-border: 1px solid transparent;
   --switch-track-radius: var(--radius-pill);
-  --switch-track-shadow: inset 0 1px 1px rgba(15, 23, 42, 0.08);
+  --switch-track-shadow: none;
   --switch-track-active-background: var(--accent-color);
   --switch-track-active-border-color: var(--accent-color);
   --switch-thumb-background: #ffffff;
-  --switch-thumb-border: 1px solid rgba(24, 34, 53, 0.08);
-  --switch-thumb-shadow: 0 3px 10px rgba(15, 23, 42, 0.16);
-  --switch-thumb-size: 13px;
-  --switch-thumb-offset: 3px;
-  --switch-thumb-translate: 22px;
+  --switch-thumb-border: none;
+  --switch-thumb-shadow: 0 1px 2px rgba(0, 0, 0, 0.22);
+  --switch-thumb-size: 14px;
+  --switch-thumb-offset: 2px;
+  --switch-thumb-translate: 16px;
 
   --keycap-border: 1px solid var(--line-soft);
   --keycap-radius: 12px;
@@ -385,7 +392,6 @@
     --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 
     --segment-active-background: rgba(255, 255, 255, 0.12);
-    --switch-thumb-border: 1px solid rgba(255, 255, 255, 0.08);
     --data-panel-hover-background: rgba(34, 40, 52, 0.98);
     --panel-divider-color: rgba(255, 255, 255, 0.08);
     --queue-count-border: 1px solid rgba(255, 255, 255, 0.12);
@@ -435,7 +441,6 @@ body.dark-mode {
   --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 
   --segment-active-background: rgba(255, 255, 255, 0.12);
-  --switch-thumb-border: 1px solid rgba(255, 255, 255, 0.08);
   --data-panel-hover-background: rgba(34, 40, 52, 0.98);
   --panel-divider-color: rgba(255, 255, 255, 0.08);
   --queue-count-border: 1px solid rgba(255, 255, 255, 0.12);

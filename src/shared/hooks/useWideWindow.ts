@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 /** Window width (CSS px) at which pages switch to their two-column layout. */
-export const WIDE_LAYOUT_MIN_WIDTH = 640;
+export const WIDE_LAYOUT_MIN_WIDTH = 550;
 
 const isWideNow = (minWidth: number) => typeof window !== "undefined" && window.innerWidth >= minWidth;
 

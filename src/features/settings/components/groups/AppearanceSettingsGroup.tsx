@@ -1,4 +1,4 @@
-import { useEffect, useState, type ComponentType, type ReactNode, type CSSProperties } from "react";
+import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { ask, open, message } from "@tauri-apps/plugin-dialog";
 import { withNativeDialog } from "../../../../shared/lib/focus";
@@ -21,6 +21,8 @@ import {
     type InstalledThemeDefinition
 } from "../../../../shared/lib/themePackages";
 import { formatError } from "../../../../shared/lib/errorMessage";
+import { SettingRange, SettingSwitch } from "../SettingControls";
+
 interface LabelWithHintProps {
     label: string;
     hint?: string | ReactNode;
@@ -63,20 +65,6 @@ interface AppearanceSettingsGroupProps {
     setSurfaceOpacity: (val: number) => void;
     saveAppSetting: (key: string, val: string) => void;
 }
-
-const clampProgress = (value: number, min: number, max: number) => {
-    if (max <= min) return "0%";
-    const pct = ((value - min) / (max - min)) * 100;
-    return `${Math.min(100, Math.max(0, pct))}%`;
-};
-
-const buildRangeStyle = (value: number, min: number, max: number) =>
-    ({
-        width: '100%',
-        cursor: 'pointer',
-        accentColor: 'var(--accent-color)',
-        "--range-progress": clampProgress(value, min, max)
-    }) as CSSProperties;
 
 const AppearanceSettingsGroup = ({
     t,
@@ -197,16 +185,53 @@ const AppearanceSettingsGroup = ({
         }
     };
 
+    const chooseBackground = async () => {
+        try {
+            const selected = await withNativeDialog(async () => {
+                const path = await open({
+                    multiple: false,
+                    title: t('choose_background'),
+                    filters: [{
+                        name: 'Image',
+                        extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif']
+                    }]
+                });
+                if (!path || typeof path !== 'string') return null;
+
+                try {
+                    const stats = await invoke<{ size: number }>('get_file_size', { path });
+                    const maxSize = 10 * 1024 * 1024;
+                    if (stats.size > maxSize) {
+                        await message(
+                            t('background_size_error'),
+                            { title: t('error'), kind: 'error' }
+                        );
+                        return null;
+                    }
+                } catch (e) { console.warn(e); }
+
+                return path;
+            }, "settings:choose-background");
+            if (selected && typeof selected === 'string') {
+                setCustomBackground(selected);
+                saveAppSetting('custom_background', selected);
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
     return (
     <div className={`settings-group ${collapsed ? 'collapsed' : ''}`}>
         <button type="button" className="group-header" aria-expanded={!collapsed} onClick={onToggle}>
-            <h3 style={{ margin: 0 }}>{t('appearance_settings')}</h3>
+            <h3>{t('appearance_settings')}</h3>
             {collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
         </button>
         {!collapsed && (
             <div className="group-content">
+                <h4 className="settings-section-title">{t('settings_section_theme')}</h4>
                 <div className="setting-item column">
-                    <div className="item-label-group" style={{ marginBottom: '8px' }}>
+                    <div className="item-label-group">
                         <span className="item-label">{t('visual_theme')}</span>
                     </div>
                     <div className="settings-choice-grid theme-choice-grid">
@@ -262,18 +287,18 @@ const AppearanceSettingsGroup = ({
                     )}
                     <button
                         type="button"
-                        className="btn-icon theme-package-import-btn"
+                        className="settings-action-button settings-action-button--small theme-package-import-btn"
                         onClick={() => void installTheme()}
                     >
                         {t('theme_package_import')}
                     </button>
                 </div>
 
-                <div className="setting-item column">
-                    <div className="item-label-group" style={{ marginBottom: '8px' }}>
+                <div className="setting-item">
+                    <div className="item-label-group">
                         <span className="item-label">{t('color_mode')}</span>
                     </div>
-                    <div className="settings-inline-choice-row">
+                    <div className="settings-inline-choice-row" role="group" aria-label={t('color_mode')}>
                         {[
                             { id: 'system', name: t('mode_system') },
                             { id: 'light', name: t('mode_light') },
@@ -281,6 +306,8 @@ const AppearanceSettingsGroup = ({
                         ].map(modeItem => (
                             <button
                                 key={modeItem.id}
+                                type="button"
+                                aria-pressed={colorMode === modeItem.id}
                                 onClick={() => {
                                     console.log('[THEME DEBUG] Saving color_mode:', modeItem.id);
                                     setColorMode(modeItem.id);
@@ -294,11 +321,11 @@ const AppearanceSettingsGroup = ({
                     </div>
                 </div>
 
-                <div className="setting-item column no-border">
-                    <div className="item-label-group" style={{ marginBottom: '8px' }}>
+                <div className="setting-item">
+                    <div className="item-label-group">
                         <span className="item-label">{t('language')}</span>
                     </div>
-                    <div className="settings-inline-choice-row">
+                    <div className="settings-inline-choice-row" role="group" aria-label={t('language')}>
                         {[
                             { id: 'zh', name: '简体' },
                             { id: 'tw', name: '繁體' },
@@ -306,6 +333,8 @@ const AppearanceSettingsGroup = ({
                         ].map(lang => (
                             <button
                                 key={lang.id}
+                                type="button"
+                                aria-pressed={language === lang.id}
                                 onClick={() => {
                                     setLanguage(lang.id as Locale);
                                     saveAppSetting('language', lang.id);
@@ -318,8 +347,7 @@ const AppearanceSettingsGroup = ({
                     </div>
                 </div>
 
-
-
+                <h4 className="settings-section-title">{t('settings_section_list')}</h4>
                 {isWindowsPlatform() && (
                     <div className="setting-item">
                         <LabelWithHint
@@ -327,19 +355,14 @@ const AppearanceSettingsGroup = ({
                             hint={t('show_app_border_hint')}
                             hintKey="show_app_border"
                         />
-                        <label className="switch">
-                            <input
-                                className="cb"
-                                type="checkbox"
-                                checked={showAppBorder}
-                                onChange={(e) => {
-                                    const val = e.target.checked;
-                                    setShowAppBorder(val);
-                                    saveAppSetting('show_app_border', String(val));
-                                }}
-                            />
-                            <div className="toggle"><div className="left" /><div className="right" /></div>
-                        </label>
+                        <SettingSwitch
+                            checked={showAppBorder}
+                            onChange={(e) => {
+                                const val = e.target.checked;
+                                setShowAppBorder(val);
+                                saveAppSetting('show_app_border', String(val));
+                            }}
+                        />
                     </div>
                 )}
 
@@ -349,19 +372,14 @@ const AppearanceSettingsGroup = ({
                         hint={t('show_source_app_icon_hint')}
                         hintKey="show_source_app_icon"
                     />
-                    <label className="switch">
-                        <input
-                            className="cb"
-                            type="checkbox"
-                            checked={showSourceAppIcon}
-                            onChange={(e) => {
-                                const val = e.target.checked;
-                                setShowSourceAppIcon(val);
-                                saveAppSetting('show_source_app_icon', String(val));
-                            }}
-                        />
-                        <div className="toggle"><div className="left" /><div className="right" /></div>
-                    </label>
+                    <SettingSwitch
+                        checked={showSourceAppIcon}
+                        onChange={(e) => {
+                            const val = e.target.checked;
+                            setShowSourceAppIcon(val);
+                            saveAppSetting('show_source_app_icon', String(val));
+                        }}
+                    />
                 </div>
 
                 <div className="setting-item">
@@ -370,19 +388,14 @@ const AppearanceSettingsGroup = ({
                         hint={t('hide_unselected_item_actions_hint')}
                         hintKey="hide_unselected_item_actions"
                     />
-                    <label className="switch">
-                        <input
-                            className="cb"
-                            type="checkbox"
-                            checked={hideUnselectedItemActions}
-                            onChange={(e) => {
-                                const val = e.target.checked;
-                                setHideUnselectedItemActions(val);
-                                saveAppSetting('hide_unselected_item_actions', String(val));
-                            }}
-                        />
-                        <div className="toggle"><div className="left" /><div className="right" /></div>
-                    </label>
+                    <SettingSwitch
+                        checked={hideUnselectedItemActions}
+                        onChange={(e) => {
+                            const val = e.target.checked;
+                            setHideUnselectedItemActions(val);
+                            saveAppSetting('hide_unselected_item_actions', String(val));
+                        }}
+                    />
                 </div>
 
                 <div className="setting-item">
@@ -391,39 +404,29 @@ const AppearanceSettingsGroup = ({
                         hint={t('compact_mode_hint')}
                         hintKey="compact_mode"
                     />
-                    <label className="switch">
-                        <input
-                            className="cb"
-                            type="checkbox"
-                            checked={compactMode}
-                            onChange={(e) => {
-                                const val = e.target.checked;
-                                setCompactMode(val);
-                                saveAppSetting('compact_mode', String(val));
-                            }}
-                        />
-                        <div className="toggle"><div className="left" /><div className="right" /></div>
-                    </label>
+                    <SettingSwitch
+                        checked={compactMode}
+                        onChange={(e) => {
+                            const val = e.target.checked;
+                            setCompactMode(val);
+                            saveAppSetting('compact_mode', String(val));
+                        }}
+                    />
                 </div>
 
                 {compactMode && (
-                    <div className="setting-item" style={{ paddingLeft: '16px' }}>
+                    <div className="setting-item is-child">
                         <div className="item-label-group">
                             <span className="item-label">{t('compact_show_time')}</span>
                         </div>
-                        <label className="switch">
-                            <input
-                                className="cb"
-                                type="checkbox"
-                                checked={compactShowTime}
-                                onChange={(e) => {
-                                    const val = e.target.checked;
-                                    setCompactShowTime(val);
-                                    saveAppSetting('compact_show_time', String(val));
-                                }}
-                            />
-                            <div className="toggle"><div className="left" /><div className="right" /></div>
-                        </label>
+                        <SettingSwitch
+                            checked={compactShowTime}
+                            onChange={(e) => {
+                                const val = e.target.checked;
+                                setCompactShowTime(val);
+                                saveAppSetting('compact_show_time', String(val));
+                            }}
+                        />
                     </div>
                 )}
 
@@ -433,185 +436,136 @@ const AppearanceSettingsGroup = ({
                         hint={t('split_view_hint')}
                         hintKey="split_view"
                     />
-                    <label className="switch">
-                        <input
-                            className="cb"
-                            type="checkbox"
-                            aria-label={t('split_view')}
-                            checked={splitViewEnabled}
-                            onChange={(e) => {
-                                const val = e.target.checked;
-                                setSplitViewEnabled(val);
-                                saveAppSetting('split_view', String(val));
-                            }}
-                        />
-                        <div className="toggle"><div className="left" /><div className="right" /></div>
-                    </label>
+                    <SettingSwitch
+                        aria-label={t('split_view')}
+                        checked={splitViewEnabled}
+                        onChange={(e) => {
+                            const val = e.target.checked;
+                            setSplitViewEnabled(val);
+                            saveAppSetting('split_view', String(val));
+                        }}
+                    />
                 </div>
 
-                <div className="setting-item column">
-                    <div className="setting-item-heading">
-                        <LabelWithHint
-                            label={t('clipboard_item_font_size')}
-                            hint={t('clipboard_item_font_size_hint')}
-                            hintKey="clipboard_item_font_size"
-                        />
-                        <span className="hint setting-value" style={{ fontSize: 'var(--font-size-2xs)', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
-                            {clipboardItemFontSize}px
-                        </span>
-                    </div>
-                    <input
-                        type="range"
-                        min="11"
-                        max="18"
-                        step="1"
+                <div className="setting-item">
+                    <LabelWithHint
+                        label={t('clipboard_item_font_size')}
+                        hint={t('clipboard_item_font_size_hint')}
+                        hintKey="clipboard_item_font_size"
+                    />
+                    <SettingRange
+                        aria-label={t('clipboard_item_font_size')}
+                        min={11}
+                        max={18}
+                        step={1}
                         value={clipboardItemFontSize}
+                        valueLabel={`${clipboardItemFontSize}px`}
                         onChange={(e) => {
                             const val = parseInt(e.target.value);
                             setClipboardItemFontSize(val);
                             saveAppSetting('clipboard_item_font_size', String(val));
                         }}
-                        style={buildRangeStyle(clipboardItemFontSize, 11, 18)}
                     />
                 </div>
 
-                <div className="setting-item column">
-                    <div className="setting-item-heading">
-                        <LabelWithHint
-                            label={t('clipboard_tag_font_size')}
-                            hint={t('clipboard_tag_font_size_hint')}
-                            hintKey="clipboard_tag_font_size"
-                        />
-                        <span className="hint setting-value" style={{ fontSize: 'var(--font-size-2xs)', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
-                            {clipboardTagFontSize}px
-                        </span>
-                    </div>
-                    <input
-                        type="range"
-                        min="8"
-                        max="14"
-                        step="1"
+                <div className="setting-item">
+                    <LabelWithHint
+                        label={t('clipboard_tag_font_size')}
+                        hint={t('clipboard_tag_font_size_hint')}
+                        hintKey="clipboard_tag_font_size"
+                    />
+                    <SettingRange
+                        aria-label={t('clipboard_tag_font_size')}
+                        min={8}
+                        max={14}
+                        step={1}
                         value={clipboardTagFontSize}
+                        valueLabel={`${clipboardTagFontSize}px`}
                         onChange={(e) => {
                             const val = parseInt(e.target.value);
                             setClipboardTagFontSize(val);
                             saveAppSetting('clipboard_tag_font_size', String(val));
                         }}
-                        style={buildRangeStyle(clipboardTagFontSize, 8, 14)}
                     />
                 </div>
 
                 {(showCustomBackgroundControls || showSurfaceOpacityControls) && (
                     <>
+                        <h4 className="settings-section-title">{t('settings_section_background')}</h4>
                         {showCustomBackgroundControls && (
-                        <div className="setting-item column no-border">
-                            <div className="item-label-group" style={{ marginBottom: '8px' }}>
-                                <span className="item-label">{t('custom_background')}</span>
-                            </div>
-                            <div style={{ display: 'flex', gap: '8px', width: '100%', alignItems: 'center' }}>
-                                <button
-                                    onClick={async () => {
-                                        try {
-                                            const selected = await withNativeDialog(async () => {
-                                                const path = await open({
-                                                    multiple: false,
-                                                    title: t('choose_background'),
-                                                    filters: [{
-                                                        name: 'Image',
-                                                        extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif']
-                                                    }]
-                                                });
-                                                if (!path || typeof path !== 'string') return null;
-
-                                                try {
-                                                    const stats = await invoke<{ size: number }>('get_file_size', { path });
-                                                    const maxSize = 10 * 1024 * 1024;
-                                                    if (stats.size > maxSize) {
-                                                        await message(
-                                                            t('background_size_error'),
-                                                            { title: t('error'), kind: 'error' }
-                                                        );
-                                                        return null;
-                                                    }
-                                                } catch (e) { console.warn(e); }
-
-                                                return path;
-                                            }, "settings:choose-background");
-                                            if (selected && typeof selected === 'string') {
-                                                setCustomBackground(selected);
-                                                saveAppSetting('custom_background', selected);
-                                            }
-                                        } catch (err) {
-                                            console.error(err);
-                                        }
-                                    }}
-                                    className="btn-icon"
-                                    style={{ flex: 1, height: '36px', fontSize: 'var(--font-size-sm)', fontWeight: 'bold' }}
-                                >
-                                    {customBackground ? t('change_background') : t('choose_background')}
-                                </button>
-                                {customBackground && (
+                            <div className="setting-item">
+                                <div className="item-label-group">
+                                    <span className="item-label">{t('custom_background')}</span>
+                                    {customBackground && (
+                                        <span className="item-desc settings-file-name">
+                                            {customBackground.split(/[/\\]/).pop()}
+                                        </span>
+                                    )}
+                                </div>
+                                <div className="settings-action-group">
                                     <button
-                                        onClick={() => {
-                                            setCustomBackground('');
-                                            saveAppSetting('custom_background', '');
-                                        }}
-                                        className="btn-icon"
-                                        style={{ height: '36px', fontSize: 'var(--font-size-sm)', fontWeight: 'bold', padding: '0 12px' }}
-                                        title={t('clear_background')}
+                                        type="button"
+                                        onClick={() => void chooseBackground()}
+                                        className="settings-action-button settings-action-button--small"
                                     >
-                                        <X size={16} />
+                                        {customBackground ? t('change_background') : t('choose_background')}
                                     </button>
-                                )}
+                                    {customBackground && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setCustomBackground('');
+                                                saveAppSetting('custom_background', '');
+                                            }}
+                                            className="settings-action-button settings-action-button--small settings-action-button--icon"
+                                            title={t('clear_background')}
+                                            aria-label={t('clear_background')}
+                                        >
+                                            <X size={14} />
+                                        </button>
+                                    )}
+                                </div>
                             </div>
-                            {customBackground && (
-                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', marginTop: '4px', wordBreak: 'break-all' }}>
-                                    {customBackground.split(/[/\\]/).pop()}
-                                </div>
-                            )}
+                        )}
 
-                            {customBackground && (
-                                <div className="setting-item column no-border" style={{ marginTop: '12px' }}>
-                                    <div className="item-label-group" style={{ marginBottom: '4px', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <span className="item-label">{t('background_opacity')}</span>
-                                        <span className="hint" style={{ fontSize: 'var(--font-size-2xs)', color: 'var(--text-secondary)' }}>{customBackgroundOpacity}%</span>
-                                    </div>
-                                    <input
-                                        type="range"
-                                        min="0"
-                                        max="100"
-                                        value={customBackgroundOpacity}
-                                        onChange={(e) => {
-                                            const val = parseInt(e.target.value);
-                                            setCustomBackgroundOpacity(val);
-                                            saveAppSetting('custom_background_opacity', String(val));
-                                        }}
-                                        style={buildRangeStyle(customBackgroundOpacity, 0, 100)}
-                                    />
+                        {showCustomBackgroundControls && customBackground && (
+                            <div className="setting-item is-child">
+                                <div className="item-label-group">
+                                    <span className="item-label">{t('background_opacity')}</span>
                                 </div>
-                            )}
-                        </div>
+                                <SettingRange
+                                    aria-label={t('background_opacity')}
+                                    min={0}
+                                    max={100}
+                                    value={customBackgroundOpacity}
+                                    valueLabel={`${customBackgroundOpacity}%`}
+                                    onChange={(e) => {
+                                        const val = parseInt(e.target.value);
+                                        setCustomBackgroundOpacity(val);
+                                        saveAppSetting('custom_background_opacity', String(val));
+                                    }}
+                                />
+                            </div>
                         )}
 
                         {showSurfaceOpacityControls && (
-                        <div className="setting-item column">
-                            <div className="item-label-group" style={{ marginBottom: '4px', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span className="item-label">{t('surface_opacity')}</span>
-                                <span className="hint" style={{ fontSize: 'var(--font-size-2xs)', color: 'var(--text-secondary)' }}>{surfaceOpacity}%</span>
+                            <div className="setting-item">
+                                <div className="item-label-group">
+                                    <span className="item-label">{t('surface_opacity')}</span>
+                                </div>
+                                <SettingRange
+                                    aria-label={t('surface_opacity')}
+                                    min={0}
+                                    max={100}
+                                    value={surfaceOpacity}
+                                    valueLabel={`${surfaceOpacity}%`}
+                                    onChange={(e) => {
+                                        const val = parseInt(e.target.value);
+                                        setSurfaceOpacity(val);
+                                        saveAppSetting('surface_opacity', String(val));
+                                    }}
+                                />
                             </div>
-                            <input
-                                type="range"
-                                min="0"
-                                max="100"
-                                value={surfaceOpacity}
-                                onChange={(e) => {
-                                    const val = parseInt(e.target.value);
-                                    setSurfaceOpacity(val);
-                                    saveAppSetting('surface_opacity', String(val));
-                                }}
-                                style={buildRangeStyle(surfaceOpacity, 0, 100)}
-                            />
-                        </div>
                         )}
                     </>
                 )}

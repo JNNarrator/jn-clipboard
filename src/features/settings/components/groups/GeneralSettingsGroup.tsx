@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { isMacPlatform, isWindowsPlatform } from "../../../../shared/lib/platform";
 import MacAccessibilityPermission from "./MacAccessibilityPermission";
+import { SettingRange, SettingSwitch } from "../SettingControls";
 
 interface LabelWithHintProps {
     label: string;
@@ -69,6 +70,10 @@ const applyToggle = (
         });
 };
 
+const playPreview = (kind: "copy" | "paste") => {
+    invoke("play_preview_sound", { kind }).catch(console.error);
+};
+
 const GeneralSettingsGroup = ({
     t,
     collapsed,
@@ -113,217 +118,43 @@ const GeneralSettingsGroup = ({
 }: GeneralSettingsGroupProps) => (
     <div className={`settings-group ${collapsed ? 'collapsed' : ''}`}>
         <button type="button" className="group-header" aria-expanded={!collapsed} onClick={onToggle}>
-            <h3 style={{ margin: 0 }}>{t('general_settings')}</h3>
+            <h3>{t('general_settings')}</h3>
             {collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
         </button>
         {!collapsed && (
             <div className="group-content">
+                <h4 className="settings-section-title">{t('settings_section_startup')}</h4>
                 <div className="setting-item">
-                    <div className="item-label-group">
-                        <span className="item-label">{t('autostart')}</span>
-                    </div>
-                    <label className="switch">
-                        <input
-                            className="cb"
-                            type="checkbox"
-                            checked={autoStart}
-                            onChange={(e) => {
-                                const enabled = e.target.checked;
-                                if (!enabled) {
-                                    setElevatedAutostart(false);
-                                }
-                                applyToggle(enabled, setAutoStart, "toggle_autostart", { enabled });
-                            }}
-                        />
-                        <div className="toggle"><div className="left" /><div className="right" /></div>
-                    </label>
+                    <LabelWithHint label={t('autostart')} hint={t('autostart_hint')} hintKey="autostart" />
+                    <SettingSwitch
+                        checked={autoStart}
+                        onChange={(e) => {
+                            const enabled = e.target.checked;
+                            if (!enabled) {
+                                setElevatedAutostart(false);
+                            }
+                            applyToggle(enabled, setAutoStart, "toggle_autostart", { enabled });
+                        }}
+                    />
                 </div>
 
-                {isWindowsPlatform() && autoStart && (
-                    <div className="setting-item" style={{ marginLeft: '18px' }}>
+                {isWindowsPlatform() && (
+                    <div className={`setting-item is-child${autoStart ? '' : ' is-disabled'}`}>
                         <LabelWithHint
                             label={t('elevated_autostart')}
                             hint={t('elevated_autostart_hint')}
                             hintKey="elevated_autostart"
                         />
-                        <label className="switch">
-                            <input
-                                className="cb"
-                                type="checkbox"
-                                checked={elevatedAutostart}
-                                onChange={(e) => {
-                                    const enabled = e.target.checked;
-                                    applyToggle(
-                                        enabled,
-                                        setElevatedAutostart,
-                                        "toggle_elevated_autostart",
-                                        { enabled }
-                                    );
-                                }}
-                            />
-                            <div className="toggle"><div className="left" /><div className="right" /></div>
-                        </label>
-                    </div>
-                )}
-
-                <div className="setting-item">
-                    <div className="item-label-group">
-                        <span className="item-label">{t('hide_tray_icon')}</span>
-                    </div>
-                    <label className="switch">
-                        <input
-                            className="cb"
-                            type="checkbox"
-                            checked={hideTrayIcon}
-                            onChange={(e) => {
-                                const val = e.target.checked;
-                                applyToggle(val, setHideTrayIcon, "set_tray_visible", { visible: !val });
-                            }}
-                        />
-                        <div className="toggle"><div className="left" /><div className="right" /></div>
-                    </label>
-                </div>
-
-                {isMacPlatform() && (
-                    <div className="setting-item">
-                        <LabelWithHint
-                            label={t('hide_dock_icon')}
-                            hint={t('hide_dock_icon_hint')}
-                            hintKey="hide_dock_icon"
-                        />
-                        <label className="switch">
-                            <input
-                                className="cb"
-                                type="checkbox"
-                                checked={hideDockIcon}
-                                onChange={(e) => {
-                                    const val = e.target.checked;
-                                    applyToggle(val, setHideDockIcon, "set_dock_visible", { visible: !val });
-                                }}
-                            />
-                            <div className="toggle"><div className="left" /><div className="right" /></div>
-                        </label>
-                    </div>
-                )}
-
-                <div className="setting-item">
-                    <LabelWithHint
-                        label={t('edge_docking')}
-                        hint={t('edge_docking_hint')}
-                        hintKey="edge_docking"
-                    />
-                    <label className="switch">
-                        <input
-                            className="cb"
-                            type="checkbox"
-                            checked={edgeDocking}
-                            onChange={(e) => {
-                                const val = e.target.checked;
-                                applyToggle(val, setEdgeDocking, "set_edge_docking", { enabled: val });
-                            }}
-                        />
-                        <div className="toggle"><div className="left" /><div className="right" /></div>
-                    </label>
-                </div>
-
-                <div className="setting-item">
-                    <LabelWithHint
-                        label={t('follow_mouse')}
-                        hint={t('follow_mouse_hint')}
-                        hintKey="follow_mouse"
-                    />
-                    <label className="switch">
-                        <input
-                            className="cb"
-                            type="checkbox"
-                            checked={followMouse}
-                            onChange={(e) => {
-                                const val = e.target.checked;
-                                applyToggle(val, setFollowMouse, "set_follow_mouse", { enabled: val });
-                            }}
-                        />
-                        <div className="toggle"><div className="left" /><div className="right" /></div>
-                    </label>
-                </div>
-
-                {isMacPlatform() && (
-                    <MacAccessibilityPermission t={t} LabelWithHint={LabelWithHint} />
-                )}
-
-                <div className="setting-item">
-                    <div className="item-label-group">
-                        <span className="item-label">{t('sound_effects')}</span>
-                    </div>
-                    <label className="switch">
-                        <input
-                            className="cb"
-                            type="checkbox"
-                            checked={soundEnabled}
+                        <SettingSwitch
+                            checked={elevatedAutostart}
+                            disabled={!autoStart}
                             onChange={(e) => {
                                 const enabled = e.target.checked;
-                                applyToggle(enabled, setSoundEnabled, "set_sound_enabled", { enabled }, () => {
-                                    if (enabled) {
-                                        invoke("play_preview_sound", { kind: "copy" }).catch(console.error);
-                                    }
-                                });
+                                applyToggle(enabled, setElevatedAutostart, "toggle_elevated_autostart", { enabled });
                             }}
                         />
-                        <div className="toggle"><div className="left" /><div className="right" /></div>
-                    </label>
-                </div>
-                {soundEnabled && (
-                    <div className="setting-item" style={{ marginLeft: '18px' }}>
-                        <div className="item-label-group">
-                            <span className="item-label">{t('paste_sound')}</span>
-                        </div>
-                        <label className="switch">
-                            <input
-                                className="cb"
-                                type="checkbox"
-                                checked={pasteSoundEnabled}
-                                onChange={(e) => {
-                                    const enabled = e.target.checked;
-                                    applyToggle(enabled, setPasteSoundEnabled, "set_paste_sound_enabled", { enabled }, () => {
-                                        if (enabled && soundEnabled) {
-                                            invoke("play_preview_sound", { kind: "paste" }).catch(console.error);
-                                        }
-                                    });
-                                }}
-                            />
-                            <div className="toggle"><div className="left" /><div className="right" /></div>
-                        </label>
                     </div>
                 )}
-                {soundEnabled && (
-                    <div className="setting-item column" style={{ marginLeft: '18px', borderBottom: 'none' }}>
-                        <div className="item-label-group">
-                            <span className="item-label">{t('sound_volume')} ({Math.round(soundVolume * 100)}%)</span>
-                        </div>
-                        <div style={{ padding: '0 4px', width: '100%' }}>
-                            <input
-                                type="range"
-                                min="0"
-                                max="1"
-                                step="0.01"
-                                value={soundVolume}
-                                onChange={(e) => {
-                                    const val = parseFloat(e.target.value);
-                                    setSoundVolume(val);
-                                }}
-                                onMouseUp={() => {
-                                    invoke("play_preview_sound", { kind: "copy" }).catch(console.error);
-                                }}
-                                onTouchEnd={() => {
-                                    invoke("play_preview_sound", { kind: "copy" }).catch(console.error);
-                                }}
-                                style={{
-                                    ['--range-progress' as any]: `${soundVolume * 100}%`
-                                }}
-                            />
-                        </div>
-                    </div>
-                )}
-
 
                 <div className="setting-item">
                     <LabelWithHint
@@ -331,165 +162,14 @@ const GeneralSettingsGroup = ({
                         hint={t('silent_start_hint')}
                         hintKey="silent_start"
                     />
-                    <label className="switch">
-                        <input
-                            className="cb"
-                            type="checkbox"
-                            checked={silentStart}
-                            onChange={(e) => {
-                                const enabled = e.target.checked;
-                                applyToggle(enabled, setSilentStart, "set_silent_start", { enabled });
-                            }}
-                        />
-                        <div className="toggle"><div className="left" /><div className="right" /></div>
-                    </label>
-                </div>
-                <div className="setting-item">
-                    <LabelWithHint
-                        label={t('show_search_box')}
-                        hint={t('show_search_box_hint')}
-                        hintKey="show_search_box"
+                    <SettingSwitch
+                        checked={silentStart}
+                        onChange={(e) => {
+                            const enabled = e.target.checked;
+                            applyToggle(enabled, setSilentStart, "set_silent_start", { enabled });
+                        }}
                     />
-                    <label className="switch">
-                        <input
-                            className="cb"
-                            type="checkbox"
-                            checked={searchBoxPinned}
-                            onChange={(e) => {
-                                const enabled = e.target.checked;
-                                setSearchBoxPinned(enabled);
-                                setShowSearchBox(enabled);
-                                saveAppSetting('show_search_box', String(enabled));
-                            }}
-                        />
-                        <div className="toggle"><div className="left" /><div className="right" /></div>
-                    </label>
                 </div>
-                <div className="setting-item">
-                    <LabelWithHint
-                        label={t('scroll_top_button')}
-                        hint={t('scroll_top_button_hint')}
-                        hintKey="scroll_top_button"
-                    />
-                    <label className="switch">
-                        <input
-                            className="cb"
-                            type="checkbox"
-                            checked={scrollTopButtonEnabled}
-                            onChange={(e) => {
-                                const enabled = e.target.checked;
-                                setScrollTopButtonEnabled(enabled);
-                                saveAppSetting('show_scroll_top_button', String(enabled));
-                            }}
-                        />
-                        <div className="toggle"><div className="left" /><div className="right" /></div>
-                    </label>
-                </div>
-                <div className="setting-item">
-                    <LabelWithHint
-                        label={t('emoji_panel_enabled')}
-                        hint={t('emoji_panel_enabled_hint')}
-                        hintKey="emoji_panel_enabled"
-                    />
-                    <label className="switch">
-                        <input
-                            className="cb"
-                            type="checkbox"
-                            checked={emojiPanelEnabled}
-                            onChange={(e) => {
-                                const enabled = e.target.checked;
-                                setEmojiPanelEnabled(enabled);
-                                saveAppSetting('emoji_panel_enabled', String(enabled));
-                            }}
-                        />
-                        <div className="toggle"><div className="left" /><div className="right" /></div>
-                    </label>
-                </div>
-                <div className="setting-item">
-                    <LabelWithHint
-                        label={t('tag_manager_enabled')}
-                        hint={t('tag_manager_enabled_hint')}
-                        hintKey="tag_manager_enabled"
-                    />
-                    <label className="switch">
-                        <input
-                            className="cb"
-                            type="checkbox"
-                            checked={tagManagerEnabled}
-                            onChange={(e) => {
-                                const enabled = e.target.checked;
-                                setTagManagerEnabled(enabled);
-                                saveAppSetting('tag_manager_enabled', String(enabled));
-                            }}
-                        />
-                        <div className="toggle"><div className="left" /><div className="right" /></div>
-                    </label>
-                </div>
-                <div className="setting-item">
-                    <LabelWithHint
-                        label={t('arrow_key_selection')}
-                        hint={t('arrow_key_selection_hint')}
-                        hintKey="arrow_key_selection"
-                    />
-                    <label className="switch">
-                        <input
-                            className="cb"
-                            type="checkbox"
-                            checked={arrowKeySelection}
-                            onChange={(e) => {
-                                const enabled = e.target.checked;
-                                setArrowKeySelection(enabled);
-                                saveAppSetting('arrow_key_selection', String(enabled));
-                            }}
-                        />
-                        <div className="toggle"><div className="left" /><div className="right" /></div>
-                    </label>
-                </div>
-                <div className="setting-item">
-                    <LabelWithHint
-                        label={t('light_mode_enabled')}
-                        hint={t('light_mode_enabled_hint')}
-                        hintKey="light_mode_enabled"
-                    />
-                    <label className="switch">
-                        <input
-                            className="cb"
-                            type="checkbox"
-                            checked={lightModeEnabled}
-                            onChange={(e) => {
-                                const enabled = e.target.checked;
-                                setLightModeEnabled(enabled);
-                                saveAppSetting('light_mode_enabled', String(enabled));
-                            }}
-                        />
-                        <div className="toggle"><div className="left" /><div className="right" /></div>
-                    </label>
-                </div>
-                {lightModeEnabled && (
-                    <div className="setting-item">
-                        <LabelWithHint
-                            label={t('light_mode_idle_minutes')}
-                            hint={t('light_mode_idle_minutes_hint')}
-                            hintKey="light_mode_idle_minutes"
-                        />
-                        <select
-                            className="search-input settings-hotkey-select"
-                            value={lightModeIdleMinutes}
-                            onChange={(e) => {
-                                const mins = Number.parseInt(e.target.value, 10);
-                                const next = Number.isFinite(mins) ? mins : 15;
-                                setLightModeIdleMinutes(next);
-                                saveAppSetting('light_mode_idle_minutes', String(next));
-                            }}
-                        >
-                            {[5, 15, 30, 60].map((mins) => (
-                                <option key={mins} value={mins}>
-                                    {mins} {t('light_mode_minutes_unit')}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                )}
 
                 {isWindowsPlatform() && (
                     <div className="setting-item">
@@ -511,6 +191,236 @@ const GeneralSettingsGroup = ({
                         </button>
                     </div>
                 )}
+
+                <h4 className="settings-section-title">{t('settings_section_window')}</h4>
+                <div className="setting-item">
+                    <LabelWithHint
+                        label={t('hide_tray_icon')}
+                        hint={t('hide_tray_icon_hint')}
+                        hintKey="hide_tray_icon"
+                    />
+                    <SettingSwitch
+                        checked={hideTrayIcon}
+                        onChange={(e) => {
+                            const val = e.target.checked;
+                            applyToggle(val, setHideTrayIcon, "set_tray_visible", { visible: !val });
+                        }}
+                    />
+                </div>
+
+                {isMacPlatform() && (
+                    <div className="setting-item">
+                        <LabelWithHint
+                            label={t('hide_dock_icon')}
+                            hint={t('hide_dock_icon_hint')}
+                            hintKey="hide_dock_icon"
+                        />
+                        <SettingSwitch
+                            checked={hideDockIcon}
+                            onChange={(e) => {
+                                const val = e.target.checked;
+                                applyToggle(val, setHideDockIcon, "set_dock_visible", { visible: !val });
+                            }}
+                        />
+                    </div>
+                )}
+
+                <div className="setting-item">
+                    <LabelWithHint
+                        label={t('edge_docking')}
+                        hint={t('edge_docking_hint')}
+                        hintKey="edge_docking"
+                    />
+                    <SettingSwitch
+                        checked={edgeDocking}
+                        onChange={(e) => {
+                            const val = e.target.checked;
+                            applyToggle(val, setEdgeDocking, "set_edge_docking", { enabled: val });
+                        }}
+                    />
+                </div>
+
+                <div className="setting-item">
+                    <LabelWithHint
+                        label={t('follow_mouse')}
+                        hint={t('follow_mouse_hint')}
+                        hintKey="follow_mouse"
+                    />
+                    <SettingSwitch
+                        checked={followMouse}
+                        onChange={(e) => {
+                            const val = e.target.checked;
+                            applyToggle(val, setFollowMouse, "set_follow_mouse", { enabled: val });
+                        }}
+                    />
+                </div>
+
+                {isMacPlatform() && (
+                    <MacAccessibilityPermission t={t} LabelWithHint={LabelWithHint} />
+                )}
+
+                <h4 className="settings-section-title">{t('settings_section_sound')}</h4>
+                <div className="setting-item">
+                    <LabelWithHint label={t('sound_effects')} hint={t('sound_effects_hint')} hintKey="sound_effects" />
+                    <SettingSwitch
+                        checked={soundEnabled}
+                        onChange={(e) => {
+                            const enabled = e.target.checked;
+                            applyToggle(enabled, setSoundEnabled, "set_sound_enabled", { enabled }, () => {
+                                if (enabled) playPreview("copy");
+                            });
+                        }}
+                    />
+                </div>
+                <div className={`setting-item is-child${soundEnabled ? '' : ' is-disabled'}`}>
+                    <LabelWithHint label={t('paste_sound')} hint={t('paste_sound_hint')} hintKey="paste_sound" />
+                    <SettingSwitch
+                        checked={pasteSoundEnabled}
+                        disabled={!soundEnabled}
+                        onChange={(e) => {
+                            const enabled = e.target.checked;
+                            applyToggle(enabled, setPasteSoundEnabled, "set_paste_sound_enabled", { enabled }, () => {
+                                if (enabled && soundEnabled) playPreview("paste");
+                            });
+                        }}
+                    />
+                </div>
+                <div className={`setting-item is-child${soundEnabled ? '' : ' is-disabled'}`}>
+                    <div className="item-label-group">
+                        <span className="item-label">{t('sound_volume')}</span>
+                    </div>
+                    <SettingRange
+                        min={0}
+                        max={1}
+                        step={0.01}
+                        value={soundVolume}
+                        valueLabel={`${Math.round(soundVolume * 100)}%`}
+                        aria-label={t('sound_volume')}
+                        disabled={!soundEnabled}
+                        onChange={(e) => setSoundVolume(parseFloat(e.target.value))}
+                        onMouseUp={() => playPreview("copy")}
+                        onTouchEnd={() => playPreview("copy")}
+                    />
+                </div>
+
+                <h4 className="settings-section-title">{t('settings_section_interface')}</h4>
+                <div className="setting-item">
+                    <LabelWithHint
+                        label={t('show_search_box')}
+                        hint={t('show_search_box_hint')}
+                        hintKey="show_search_box"
+                    />
+                    <SettingSwitch
+                        checked={searchBoxPinned}
+                        onChange={(e) => {
+                            const enabled = e.target.checked;
+                            setSearchBoxPinned(enabled);
+                            setShowSearchBox(enabled);
+                            saveAppSetting('show_search_box', String(enabled));
+                        }}
+                    />
+                </div>
+                <div className="setting-item">
+                    <LabelWithHint
+                        label={t('scroll_top_button')}
+                        hint={t('scroll_top_button_hint')}
+                        hintKey="scroll_top_button"
+                    />
+                    <SettingSwitch
+                        checked={scrollTopButtonEnabled}
+                        onChange={(e) => {
+                            const enabled = e.target.checked;
+                            setScrollTopButtonEnabled(enabled);
+                            saveAppSetting('show_scroll_top_button', String(enabled));
+                        }}
+                    />
+                </div>
+                <div className="setting-item">
+                    <LabelWithHint
+                        label={t('emoji_panel_enabled')}
+                        hint={t('emoji_panel_enabled_hint')}
+                        hintKey="emoji_panel_enabled"
+                    />
+                    <SettingSwitch
+                        checked={emojiPanelEnabled}
+                        onChange={(e) => {
+                            const enabled = e.target.checked;
+                            setEmojiPanelEnabled(enabled);
+                            saveAppSetting('emoji_panel_enabled', String(enabled));
+                        }}
+                    />
+                </div>
+                <div className="setting-item">
+                    <LabelWithHint
+                        label={t('tag_manager_enabled')}
+                        hint={t('tag_manager_enabled_hint')}
+                        hintKey="tag_manager_enabled"
+                    />
+                    <SettingSwitch
+                        checked={tagManagerEnabled}
+                        onChange={(e) => {
+                            const enabled = e.target.checked;
+                            setTagManagerEnabled(enabled);
+                            saveAppSetting('tag_manager_enabled', String(enabled));
+                        }}
+                    />
+                </div>
+                <div className="setting-item">
+                    <LabelWithHint
+                        label={t('arrow_key_selection')}
+                        hint={t('arrow_key_selection_hint')}
+                        hintKey="arrow_key_selection"
+                    />
+                    <SettingSwitch
+                        checked={arrowKeySelection}
+                        onChange={(e) => {
+                            const enabled = e.target.checked;
+                            setArrowKeySelection(enabled);
+                            saveAppSetting('arrow_key_selection', String(enabled));
+                        }}
+                    />
+                </div>
+
+                <h4 className="settings-section-title">{t('settings_section_performance')}</h4>
+                <div className="setting-item">
+                    <LabelWithHint
+                        label={t('light_mode_enabled')}
+                        hint={t('light_mode_enabled_hint')}
+                        hintKey="light_mode_enabled"
+                    />
+                    <SettingSwitch
+                        checked={lightModeEnabled}
+                        onChange={(e) => {
+                            const enabled = e.target.checked;
+                            setLightModeEnabled(enabled);
+                            saveAppSetting('light_mode_enabled', String(enabled));
+                        }}
+                    />
+                </div>
+                <div className={`setting-item is-child${lightModeEnabled ? '' : ' is-disabled'}`}>
+                    <LabelWithHint
+                        label={t('light_mode_idle_minutes')}
+                        hint={t('light_mode_idle_minutes_hint')}
+                        hintKey="light_mode_idle_minutes"
+                    />
+                    <select
+                        className="search-input settings-field settings-field--sm"
+                        value={lightModeIdleMinutes}
+                        disabled={!lightModeEnabled}
+                        onChange={(e) => {
+                            const mins = Number.parseInt(e.target.value, 10);
+                            const next = Number.isFinite(mins) ? mins : 15;
+                            setLightModeIdleMinutes(next);
+                            saveAppSetting('light_mode_idle_minutes', String(next));
+                        }}
+                    >
+                        {[5, 15, 30, 60].map((mins) => (
+                            <option key={mins} value={mins}>
+                                {mins} {t('light_mode_minutes_unit')}
+                            </option>
+                        ))}
+                    </select>
+                </div>
             </div>
         )}
     </div>

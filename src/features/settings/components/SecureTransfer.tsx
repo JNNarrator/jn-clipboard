@@ -66,13 +66,13 @@ export default function SecureTransfer({ t, collapsed, onToggle }: SecureTransfe
         aria-expanded={!collapsed}
         onClick={onToggle}
       >
-        <h3 style={{ margin: 0 }}>{t("secure_transfer")}</h3>
+        <h3>{t("secure_transfer")}</h3>
         {collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
       </button>
       {!collapsed && (
-        <div className="group-content">
-          <p className="secure-transfer-description">{t("secure_transfer_desc")}</p>
-          <div className="setting-item column">
+        <div className="group-content secure-transfer">
+          <p className="secure-transfer-description">{t("secure_transfer_desc").replace(/\n/g, "")}</p>
+          <label className="secure-transfer-field">
             <span className="item-label">{t("secure_transfer_password")}</span>
             <input
               className="search-input"
@@ -82,8 +82,8 @@ export default function SecureTransfer({ t, collapsed, onToggle }: SecureTransfe
               disabled={busy}
               onChange={(event) => setPassword(event.target.value)}
             />
-          </div>
-          <div className="setting-item column">
+          </label>
+          <label className="secure-transfer-field">
             <span className="item-label">{t("secure_transfer_password_confirm")}</span>
             <input
               className="search-input"
@@ -93,17 +93,17 @@ export default function SecureTransfer({ t, collapsed, onToggle }: SecureTransfe
               disabled={busy}
               onChange={(event) => setConfirmation(event.target.value)}
             />
-          </div>
-          <label className="setting-item" style={{ gap: 8, cursor: busy ? "default" : "pointer" }}>
+          </label>
+          <label className="secure-transfer-ack">
             <input
               type="checkbox"
               checked={acknowledged}
               disabled={busy}
               onChange={(event) => setAcknowledged(event.target.checked)}
             />
-            <span className="hint">{t("secure_transfer_ack")}</span>
+            <span>{t("secure_transfer_ack").replace(/\n/g, "")}</span>
           </label>
-          <div className="setting-item no-border" style={{ gap: 8, justifyContent: "flex-start" }}>
+          <div className="secure-transfer-actions">
             <button type="button" className="settings-action-button" disabled={busy} onClick={() => void run(false)}>
               {t("secure_transfer_export")}
             </button>

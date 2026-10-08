@@ -413,17 +413,20 @@ const DataSettingsGroup = ({
         <>
             <div className={`settings-group ${collapsed ? "collapsed" : ""}`}>
                 <button type="button" className="group-header" aria-expanded={!collapsed} onClick={onToggle}>
-                    <h3 style={{ margin: 0 }}>{t("data_management")}</h3>
+                    <h3>{t("data_management")}</h3>
                     {collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
                 </button>
                 {!collapsed && (
                     <div className="group-content">
-                        <div className="setting-item column no-border">
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                                <span className="item-label" style={{ textTransform: "uppercase", fontSize: 'var(--font-size-xs)', opacity: 0.8 }}>{t("data_path")}</span>
-                                <div style={{ display: "flex", gap: "8px" }}>
+                        <div className="setting-item column">
+                            <div className="setting-item-heading">
+                                <div className="item-label-group">
+                                    <span className="item-label">{t("data_path")}</span>
+                                </div>
+                                <div className="settings-action-group">
                                     <button
-                                        className="btn-icon"
+                                        type="button"
+                                        className="settings-action-button settings-action-button--small"
                                         onClick={async () => {
                                             await withNativeDialog(async () => {
                                                 const selected = await open({
@@ -456,12 +459,12 @@ const DataSettingsGroup = ({
                                                 }
                                             }, "settings:change-data-path");
                                         }}
-                                        style={{ width: "auto", padding: "4px 12px", fontSize: 'var(--font-size-2xs)', textTransform: "uppercase", height: "24px" }}
                                     >
                                         {t("change_app")}
                                     </button>
                                     <button
-                                        className="btn-icon"
+                                        type="button"
+                                        className="settings-action-button settings-action-button--small"
                                         onClick={async () => {
                                             try {
                                                 if (!dataPath) throw new Error(t("not_set"));
@@ -475,20 +478,19 @@ const DataSettingsGroup = ({
                                             }
                                         }}
                                         title={t("open_folder")}
-                                        style={{ width: "auto", padding: "4px 12px", fontSize: 'var(--font-size-2xs)', textTransform: "uppercase", height: "24px" }}
                                     >
                                         {t("open_folder")}
                                     </button>
                                 </div>
                             </div>
-                            <div className="data-panel" style={{ fontSize: 'var(--font-size-xs)', color: "var(--text-secondary)", wordBreak: "break-all" }}>
+                            <div className="data-panel settings-path-panel is-static">
                                 {dataPath}
                             </div>
                         </div>
-                        <div className="setting-item no-border clipboard-import-entry">
-                            <div className="clipboard-import-entry-copy">
+                        <div className="setting-item clipboard-import-entry">
+                            <div className="item-label-group">
                                 <span className="item-label">{t("third_party_import_entry_title")}</span>
-                                <span className="clipboard-import-entry-description">
+                                <span className="item-desc">
                                     {t("third_party_import_entry_desc")}
                                 </span>
                             </div>

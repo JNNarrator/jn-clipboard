@@ -3,7 +3,23 @@ import { memo, useState, useEffect, useCallback, useRef, type ReactNode } from "
 import { invoke } from "@tauri-apps/api/core";
 import { emit, listen } from "@tauri-apps/api/event";
 import { getVersion } from "@tauri-apps/api/app";
-import { ChevronRight, HelpCircle } from "lucide-react";
+import {
+    AppWindow,
+    ChevronRight,
+    Clipboard,
+    Cloud,
+    Database,
+    HelpCircle,
+    Info,
+    ListFilter,
+    MessageSquareText,
+    Palette,
+    Settings2,
+    ShieldCheck,
+    Sparkles,
+    Wifi,
+    type LucideIcon
+} from "lucide-react";
 import type { Locale } from "../../../shared/types";
 import type { DefaultAppsMap, InstalledAppOption, SettingsSubpage, CloudSyncContentPrefs } from "../../app/types";
 import type { AiProfile, AiProfileStatusMap, AppCleanupPolicy, EditableAiProfile } from "../types";
@@ -267,7 +283,35 @@ interface SettingsPanelProps {
 }
 
 const ABOUT_SECTION = "about";
+const ADVANCED_ENTRY = "advanced";
 const noop = () => {};
+
+const SECTION_ICONS: Record<string, LucideIcon> = {
+    general: Settings2,
+    appearance: Palette,
+    clipboard: Clipboard,
+    [ADVANCED_ENTRY]: ListFilter,
+    default_apps: AppWindow,
+    ai: Sparkles,
+    sync: MessageSquareText,
+    cloud_sync: Cloud,
+    file_transfer: Wifi,
+    secure_transfer: ShieldCheck,
+    data: Database
+};
+
+const NAV_GROUPS: { labelKey: string; ids: string[] }[] = [
+    { labelKey: "settings_nav_group_basic", ids: ["general", "appearance"] },
+    { labelKey: "settings_nav_group_clipboard", ids: ["clipboard", ADVANCED_ENTRY, "default_apps", "ai"] },
+    { labelKey: "settings_nav_group_sync", ids: ["sync", "cloud_sync", "file_transfer"] },
+    { labelKey: "settings_nav_group_data", ids: ["secure_transfer", "data"] }
+];
+
+/** The first line of a hint reads as a short description; the rest stays behind the help icon. */
+const splitHint = (hint: string): [string, string | undefined] => {
+    const [summary, ...rest] = hint.split("\n");
+    return [summary, rest.length > 0 ? rest.join("\n") : undefined];
+};
 
 const SettingsPanel = (props: SettingsPanelProps) => {
     const {
@@ -357,29 +401,36 @@ const SettingsPanel = (props: SettingsPanelProps) => {
         });
     };
 
-    const LabelWithHint = ({ label, hint, hintKey }: { label: string; hint?: string | React.ReactNode; hintKey: string }) => (
-        <div className="item-label-group">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span className="item-label">{label}</span>
-                {hint && (
-                    <button
-                        type="button"
-                        className="hint-icon-btn"
-                        title={typeof hint === 'string' ? hint : undefined}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            toggleHint(hintKey);
-                        }}
-                    >
-                        <HelpCircle size={12} />
-                    </button>
+    const LabelWithHint = ({ label, hint, hintKey }: { label: string; hint?: string | ReactNode; hintKey: string }) => {
+        const [summary, details] = typeof hint === "string" ? splitHint(hint) : [undefined, hint];
+        const open = openHints.has(hintKey);
+        return (
+            <div className="item-label-group">
+                <div className="item-label-row">
+                    <span className="item-label">{label}</span>
+                    {details && (
+                        <button
+                            type="button"
+                            className="hint-icon-btn"
+                            aria-expanded={open}
+                            aria-label={label}
+                            title={typeof details === "string" ? details : undefined}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                toggleHint(hintKey);
+                            }}
+                        >
+                            <HelpCircle size={13} />
+                        </button>
+                    )}
+                </div>
+                {summary && <span className="item-desc">{summary}</span>}
+                {details && open && (
+                    typeof details === "string" ? <span className="hint">{details}</span> : details
                 )}
             </div>
-            {hint && openHints.has(hintKey) && (
-                typeof hint === 'string' ? <span className="hint">{hint}</span> : hint
-            )}
-        </div>
-    );
+        );
+    };
 
     const checkModelStatus = async (profile: AiProfile) => {
         setProfileStatuses(prev => ({ ...prev, [profile.id]: 'loading' }));
@@ -883,35 +934,54 @@ const SettingsPanel = (props: SettingsPanelProps) => {
         </>
     );
 
+    const renderNavItem = (id: string, label: string, onClick: () => void, trailing?: ReactNode) => {
+        const Icon = SECTION_ICONS[id] ?? Info;
+        const active = activeSection === id;
+        return (
+            <button
+                key={id}
+                type="button"
+                className={`settings-nav-item${active ? " active" : ""}`}
+                data-section={id}
+                aria-current={active ? "page" : undefined}
+                onClick={onClick}
+            >
+                <Icon className="settings-nav-icon" size={16} strokeWidth={1.75} aria-hidden="true" />
+                <span className="settings-nav-label">{label}</span>
+                {trailing}
+            </button>
+        );
+    };
+
     const renderWide = () => {
         const current = sections.find((section) => section.id === activeSection);
         return (
             <div className="settings-wide">
                 <nav className="settings-nav" aria-label={t("settings")}>
-                    {sections.map((section) => (
-                        <button
-                            key={section.id}
-                            type="button"
-                            className={`settings-nav-item${activeSection === section.id ? " active" : ""}`}
-                            aria-current={activeSection === section.id ? "page" : undefined}
-                            onClick={() => setActiveSection(section.id)}
-                        >
-                            {section.label}
-                        </button>
-                    ))}
-                    <div className="settings-nav-divider" role="separator" />
-                    <button type="button" className="settings-nav-item" onClick={openAdvancedSettingsWindow}>
-                        <span>{t("advanced_settings")}</span>
-                        <ChevronRight size={14} />
-                    </button>
-                    <button
-                        type="button"
-                        className={`settings-nav-item${activeSection === ABOUT_SECTION ? " active" : ""}`}
-                        aria-current={activeSection === ABOUT_SECTION ? "page" : undefined}
-                        onClick={() => setActiveSection(ABOUT_SECTION)}
-                    >
-                        {t("settings_about")}
-                    </button>
+                    {NAV_GROUPS.map((group) => {
+                        const items = group.ids.flatMap((id) => {
+                            if (id === ADVANCED_ENTRY) {
+                                return [renderNavItem(
+                                    id,
+                                    t("advanced_settings"),
+                                    openAdvancedSettingsWindow,
+                                    <ChevronRight className="settings-nav-trailing" size={14} aria-hidden="true" />
+                                )];
+                            }
+                            const section = sections.find((item) => item.id === id);
+                            return section ? [renderNavItem(section.id, section.label, () => setActiveSection(section.id))] : [];
+                        });
+                        if (items.length === 0) return null;
+                        return (
+                            <div key={group.labelKey} className="settings-nav-group" role="group" aria-label={t(group.labelKey)}>
+                                <div className="settings-nav-group-label" aria-hidden="true">{t(group.labelKey)}</div>
+                                {items}
+                            </div>
+                        );
+                    })}
+                    <div className="settings-nav-footer">
+                        {renderNavItem(ABOUT_SECTION, t("settings_about"), () => setActiveSection(ABOUT_SECTION))}
+                    </div>
                 </nav>
                 {/* Keyed so switching sections starts at the top. */}
                 <div className="settings-wide-content" key={activeSection}>

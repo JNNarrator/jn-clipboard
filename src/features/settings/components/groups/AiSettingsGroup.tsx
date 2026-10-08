@@ -1,5 +1,6 @@
 import { ChevronDown, ChevronRight, Edit2, RotateCcw, Trash2 } from "lucide-react";
 import type { AiProfile, AiProfileStatusMap, EditableAiProfile } from "../../types";
+import { SettingSwitch } from "../SettingControls";
 
 interface AiSettingsGroupProps {
     t: (key: string) => string;
@@ -51,9 +52,7 @@ const AiSettingsGroup = ({
 }: AiSettingsGroupProps) => (
     <div className={`settings-group ${collapsed ? 'collapsed' : ''}`}>
         <button type="button" className="group-header" aria-expanded={!collapsed} onClick={onToggle}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <h3 style={{ margin: 0 }}>{t('ai_settings')}</h3>
-            </div>
+            <h3>{t('ai_settings')}</h3>
             {collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
         </button>
         {!collapsed && (
@@ -62,80 +61,57 @@ const AiSettingsGroup = ({
                     <div className="item-label-group">
                         <span className="item-label">{t('enable_ai')}</span>
                     </div>
-                    <label className="switch">
-                        <input
-                            className="cb"
-                            type="checkbox"
-                            checked={aiEnabled}
-                            onChange={(e) => {
-                                const val = e.target.checked;
-                                setAiEnabled(val);
-                                saveSetting('ai_enabled', String(val));
-                            }}
-                        />
-                        <div className="toggle"><div className="left" /><div className="right" /></div>
-                    </label>
+                    <SettingSwitch
+                        checked={aiEnabled}
+                        onChange={(e) => {
+                            const val = e.target.checked;
+                            setAiEnabled(val);
+                            saveSetting('ai_enabled', String(val));
+                        }}
+                    />
                 </div>
-
 
                 {aiEnabled && (
                     <>
-                        <span className="ai-sub-label">{t('ai_model_library')}</span>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', padding: '0 4px' }}>
+                        <div className="settings-section-header">
+                            <h4 className="settings-section-title">{t('ai_model_library')}</h4>
                             <button
-                                className="btn-icon"
-                                style={{ padding: '4px 12px', fontSize: 'var(--font-size-xs)', marginLeft: 'auto', height: '24px' }}
+                                type="button"
+                                className="settings-action-button settings-action-button--small"
                                 onClick={() => setEditingProfile({ isNew: true, baseUrl: 'https://api.deepseek.com/v1', apiKey: '', model: '', enableThinking: false })}
                             >
                                 {t('ai_add_model')}
                             </button>
                         </div>
 
-                        <div style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            padding: '0',
-                            marginBottom: '16px',
-                            background: 'var(--advanced-card-background)',
-                            borderRadius: 'var(--advanced-card-radius)',
-                            border: 'var(--advanced-card-border)',
-                            overflow: 'hidden'
-                        }}>
-                            {aiProfiles.map(profile => (
-                                <div key={profile.id} className="ai-profile-card" style={{ display: 'flex', alignItems: 'center', padding: '10px' }}>
-                                    <div
-                                        style={{
-                                            width: '8px',
-                                            height: '8px',
-                                            borderRadius: '50%',
-                                            backgroundColor:
-                                                profileStatuses[profile.id] === 'success' ? 'var(--status-success)' :
-                                                    profileStatuses[profile.id] === 'error' ? 'var(--status-danger)' :
-                                                        profileStatuses[profile.id] === 'loading' ? 'var(--status-warning)' : 'var(--text-muted)',
-                                            marginRight: '12px',
-                                            flexShrink: 0,
-                                            boxShadow: profileStatuses[profile.id] === 'none' ? 'none' : '0 0 4px rgba(0,0,0,0.2)'
-                                        }}
-                                        title={profileStatuses[profile.id] || 'Unknown'}
-                                    />
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div className="ai-profile-name" style={{ fontWeight: '800', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{profile.model}</div>
-                                        {profile.enableThinking && <div className="ai-profile-sub" style={{ fontSize: 'var(--font-size-2xs)', opacity: 0.7 }}>{t('ai_thinking_enabled')}</div>}
+                        <div className="ai-profile-list">
+                            {aiProfiles.map(profile => {
+                                const profileStatus = profileStatuses[profile.id];
+                                const statusTone = profileStatus === 'success' ? 'is-connected'
+                                    : profileStatus === 'error' ? 'is-disconnected'
+                                        : profileStatus === 'loading' ? 'is-connecting' : '';
+                                return (
+                                    <div key={profile.id} className="ai-profile-card">
+                                        <span className={`settings-status-dot ${statusTone}`} title={profileStatus || 'Unknown'} />
+                                        <div className="ai-profile-text">
+                                            <div className="ai-profile-name">{profile.model}</div>
+                                            {profile.enableThinking && <div className="ai-profile-sub">{t('ai_thinking_enabled')}</div>}
+                                        </div>
+                                        <div className="ai-profile-actions">
+                                            <button type="button" className="btn-icon" onClick={() => checkModelStatus(profile)} title={t('ai_check_connection')}>
+                                                <RotateCcw size={13} className={profileStatus === 'loading' ? 'animate-spin' : ''} />
+                                            </button>
+                                            <button type="button" className="btn-icon" onClick={() => setEditingProfile(profile)}><Edit2 size={13} /></button>
+                                            {!['ds_v4_pro_v1', 'ds_flash_v1'].includes(profile.id) && (
+                                                <button type="button" className="btn-icon is-danger" onClick={() => handleDeleteProfile(profile.id)}><Trash2 size={13} /></button>
+                                            )}
+                                        </div>
                                     </div>
-                                    <div style={{ display: 'flex', gap: '4px', marginLeft: '8px' }}>
-                                        <button className="btn-icon" onClick={() => checkModelStatus(profile)} title={t('ai_check_connection')}>
-                                            <RotateCcw size={12} className={profileStatuses[profile.id] === 'loading' ? 'animate-spin' : ''} />
-                                        </button>
-                                        <button className="btn-icon" onClick={() => setEditingProfile(profile)}><Edit2 size={12} /></button>
-                                        {!['ds_v4_pro_v1', 'ds_flash_v1'].includes(profile.id) && (
-                                            <button className="btn-icon" onClick={() => handleDeleteProfile(profile.id)} style={{ color: 'var(--status-danger)' }}><Trash2 size={12} /></button>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
 
-                        <span className="ai-sub-label">{t('ai_strategy_settings')}</span>
+                        <h4 className="settings-section-title">{t('ai_strategy_settings')}</h4>
 
                         {[
                             { label: t('ai_strategy_task'), value: aiAssignedProfileTask, setter: setAiAssignedProfileTask, key: 'ai_assigned_profile_task' },
@@ -146,8 +122,7 @@ const AiSettingsGroup = ({
                                     <span className="item-label">{strategy.label}</span>
                                 </div>
                                 <select
-                                    className="search-input"
-                                    style={{ borderRadius: '4px', padding: '4px 8px', width: '160px', background: 'var(--bg-input)', border: '1px solid var(--border-dark)', color: 'var(--text-primary)', fontSize: 'var(--font-size-sm)', height: '28px' }}
+                                    className="search-input settings-field"
                                     value={strategy.value}
                                     onChange={e => {
                                         strategy.setter(e.target.value);
@@ -167,8 +142,7 @@ const AiSettingsGroup = ({
                                 <span className="item-label">{t('ai_strategy_translate')}</span>
                             </div>
                             <select
-                                className="search-input"
-                                style={{ borderRadius: '4px', padding: '4px 8px', width: '160px', background: 'var(--bg-input)', border: '1px solid var(--border-dark)', color: 'var(--text-primary)', fontSize: 'var(--font-size-sm)', height: '28px' }}
+                                className="search-input settings-field"
                                 value={aiAssignedProfileTranslate}
                                 onChange={e => {
                                     setAiAssignedProfileTranslate(e.target.value);
@@ -187,8 +161,7 @@ const AiSettingsGroup = ({
                                 <span className="item-label">{t('ai_target_lang')}</span>
                             </div>
                             <select
-                                className="search-input"
-                                style={{ borderRadius: '4px', padding: '4px 8px', width: '160px', background: 'var(--bg-input)', border: '1px solid var(--border-dark)', color: 'var(--text-primary)', fontSize: 'var(--font-size-sm)', height: '28px' }}
+                                className="search-input settings-field"
                                 value={aiTargetLang}
                                 onChange={e => {
                                     setAiTargetLang(e.target.value);
@@ -204,13 +177,12 @@ const AiSettingsGroup = ({
                             </select>
                         </div>
 
-                        <div className="setting-item no-border">
+                        <div className="setting-item">
                             <div className="item-label-group">
                                 <span className="item-label">{t('ai_thinking_budget')}</span>
                             </div>
                             <input
-                                className="search-input"
-                                style={{ borderRadius: '4px', padding: '4px 8px', width: '160px', background: 'var(--bg-input)', border: '1px solid var(--border-dark)', color: 'var(--text-primary)', fontSize: 'var(--font-size-sm)', height: '28px' }}
+                                className="search-input settings-field"
                                 type="number"
                                 min="1024"
                                 max="10000"
