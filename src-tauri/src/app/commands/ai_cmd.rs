@@ -1,5 +1,7 @@
 use crate::database::DbState;
+use crate::error;
 use crate::error::{AppError, AppResult};
+use crate::infrastructure::http_error::{body_for_log, summarize_http_error};
 use crate::infrastructure::repository::clipboard_repo::ClipboardRepository;
 use crate::infrastructure::repository::settings_repo::SettingsRepository;
 use serde::{Deserialize, Serialize};
@@ -147,17 +149,23 @@ pub async fn check_ai_connectivity(
         .json(&request_body)
         .send()
         .await
-        .map_err(|e| format!("Network Error: {}", e))?;
+        .map_err(|e| {
+            error!("[AI] connectivity request to {} failed: {}", api_url, e);
+            AppError::Network(e.without_url().to_string())
+        })?;
 
     let status = response.status();
     if status.is_success() {
         Ok("success".to_string())
     } else {
-        let err_text = response
-            .text()
-            .await
-            .unwrap_or_else(|_| "Unknown error".to_string());
-        Err(format!("HTTP {} - {}", status, err_text).into())
+        let err_text = response.text().await.unwrap_or_default();
+        error!(
+            "[AI] connectivity check {} returned {}: {}",
+            api_url,
+            status,
+            body_for_log(&err_text)
+        );
+        Err(AppError::Network(summarize_http_error(status, &err_text)))
     }
 }
 
@@ -377,23 +385,38 @@ pub async fn call_ai(
         .json(&request_body)
         .send()
         .await
-        .map_err(|e| format!("Request failed: {}", e))?;
+        .map_err(|e| {
+            error!("[AI] request to {} failed: {}", api_url, e);
+            AppError::Network(e.without_url().to_string())
+        })?;
 
-    if !response.status().is_success() {
-        let err_text = response
-            .text()
-            .await
-            .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(format!("AI API error: {} - {}", api_url, err_text).into());
+    let status = response.status();
+    if !status.is_success() {
+        let err_text = response.text().await.unwrap_or_default();
+        error!(
+            "[AI] API {} returned {}: {}",
+            api_url,
+            status,
+            body_for_log(&err_text)
+        );
+        return Err(AppError::Network(summarize_http_error(status, &err_text)));
     }
 
-    let response_text = response
-        .text()
-        .await
-        .map_err(|e| format!("Failed to read response body: {}", e))?;
+    let response_text = response.text().await.map_err(|e| {
+        error!("[AI] failed to read response body from {}: {}", api_url, e);
+        AppError::Network(e.without_url().to_string())
+    })?;
 
-    let completion: ChatCompletionResponse = serde_json::from_str(&response_text)
-        .map_err(|e| format!("Failed to parse response: {} | Body: {}", e, response_text))?;
+    let completion: ChatCompletionResponse = serde_json::from_str(&response_text).map_err(|e| {
+        // A 2xx body carries the user's own text; log its size, not its content.
+        error!(
+            "[AI] failed to parse response from {}: {} ({} bytes)",
+            api_url,
+            e,
+            response_text.len()
+        );
+        AppError::Network("unexpected response from AI provider".to_string())
+    })?;
 
     let choice = completion.choices.first();
 
@@ -415,7 +438,14 @@ pub async fn call_ai(
 
     // Safety check for empty results early
     if ai_response.is_empty() {
-        return Err(format!("AI returned an empty response. Raw Body: {}", response_text).into());
+        error!(
+            "[AI] empty content from {} ({} bytes)",
+            api_url,
+            response_text.len()
+        );
+        return Err(AppError::Internal(
+            "AI returned an empty response".to_string(),
+        ));
     }
 
     // UTF-8 Safe Quote Stripping - ONLY for Mouthpiece
@@ -489,10 +519,12 @@ pub async fn call_ai(
         // Return response directly. Frontend will update local state to avoid race conditions.
         Ok(ai_response)
     } else {
-        Err(format!(
-            "AI response became empty after cleaning. Original: {}",
-            raw_response
-        )
-        .into())
+        error!(
+            "[AI] response became empty after cleaning; original: {}",
+            body_for_log(&raw_response)
+        );
+        Err(AppError::Internal(
+            "AI response became empty after cleaning".to_string(),
+        ))
     }
 }

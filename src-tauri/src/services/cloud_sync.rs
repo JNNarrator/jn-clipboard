@@ -1,7 +1,9 @@
 use crate::app::commands::file_cmd::{image_ext_from_mime, save_emoji_favorite_bytes_to_dir};
 use crate::database::DbState;
 use crate::domain::models::ClipboardEntry;
+use crate::error;
 use crate::error::{AppError, AppResult};
+use crate::infrastructure::http_error::{body_for_log, summarize_http_error};
 use crate::infrastructure::repository::clipboard_repo::ClipboardRepository;
 use crate::infrastructure::repository::settings_repo::SettingsRepository;
 use base64::Engine;
@@ -1926,6 +1928,31 @@ fn webdav_url_for(cfg: &CloudSyncConfig, relative_path: &str) -> String {
     webdav_resource_url_for(cfg, relative_path)
 }
 
+/// Builds a user-facing error from a failed response without leaking its body;
+/// the full (capped) body and URL go to tiez.log instead.
+async fn http_failure_error(resp: Response, context: &str, url: &str) -> AppError {
+    let status = resp.status();
+    let text = resp.text().await.unwrap_or_default();
+    error!(
+        "[CloudSync] {} ({}) -> {} | body: {}",
+        context,
+        url,
+        status,
+        body_for_log(&text)
+    );
+    AppError::Network(format!(
+        "{}: {}",
+        context,
+        summarize_http_error(status, &text)
+    ))
+}
+
+/// Parse failures of sync-server payloads: log serde detail, return neutral text.
+fn invalid_sync_response(context: &str, detail: &dyn std::fmt::Display) -> AppError {
+    error!("[CloudSync] {}: {}", context, detail);
+    AppError::Network("invalid response from sync server".to_string())
+}
+
 async fn webdav_collection_exists(
     client: &Client,
     cfg: &CloudSyncConfig,
@@ -1988,11 +2015,8 @@ async fn mkcol_if_needed(
         return Ok(());
     }
 
-    let text = resp.text().await.unwrap_or_default();
-    Err(AppError::Network(format!(
-        "webdav MKCOL failed for {}: {} {}",
-        url, code, text
-    )))
+    let context = format!("webdav MKCOL failed for {}", relative_path);
+    Err(http_failure_error(resp, &context, &url).await)
 }
 
 async fn delete_webdav_resource_if_exists(
@@ -2007,12 +2031,8 @@ async fn delete_webdav_resource_if_exists(
         return Ok(());
     }
 
-    let status = resp.status();
-    let text = resp.text().await.unwrap_or_default();
-    Err(AppError::Network(format!(
-        "webdav DELETE cleanup failed for {}: {} {}",
-        url, status, text
-    )))
+    let context = format!("webdav DELETE cleanup failed for {}", relative_path);
+    Err(http_failure_error(resp, &context, &url).await)
 }
 
 async fn move_webdav_resource(
@@ -2043,12 +2063,12 @@ async fn move_webdav_resource(
         return Ok(false);
     }
 
-    let status = resp.status();
-    let text = resp.text().await.unwrap_or_default();
-    Err(AppError::Network(format!(
-        "webdav MOVE publish failed for {} -> {}: {} {}",
-        from_url, destination, status, text
-    )))
+    let context = format!(
+        "webdav MOVE publish failed for {} -> {}",
+        from_relative, to_relative
+    );
+    let urls = format!("{} -> {}", from_url, destination);
+    Err(http_failure_error(resp, &context, &urls).await)
 }
 
 async fn upload_webdav_bytes_resource(
@@ -2086,12 +2106,8 @@ async fn upload_webdav_bytes_resource(
             return Ok(());
         }
 
-        let status = resp.status();
-        let text = resp.text().await.unwrap_or_default();
-        Err(AppError::Network(format!(
-            "webdav PUT {} failed: {} {}",
-            label, status, text
-        )))
+        let context = format!("webdav PUT {} failed", label);
+        Err(http_failure_error(resp, &context, url).await)
     }
 
     let final_url = webdav_url_for(cfg, relative_path);
@@ -2152,12 +2168,8 @@ where
             return Ok(None);
         }
         if !resp.status().is_success() {
-            let status = resp.status();
-            let text = resp.text().await.unwrap_or_default();
-            return Err(AppError::Network(format!(
-                "{}: {} {}",
-                fetch_error_label, status, text
-            )));
+            let url = resp.url().to_string();
+            return Err(http_failure_error(resp, fetch_error_label, &url).await);
         }
 
         let bytes = resp
@@ -2172,14 +2184,18 @@ where
             {
                 sleep(webdav_retry_delay(attempt)).await;
             }
-            Err(err) => return Err(AppError::Network(format!("{}: {}", parse_error_label, err))),
+            Err(err) => {
+                // Sync payloads are clipboard history; never copy them into the log.
+                let detail = format!("{} ({} bytes)", err, bytes.len());
+                return Err(invalid_sync_response(parse_error_label, &detail));
+            }
         }
     }
 
-    Err(AppError::Network(format!(
-        "{}: exhausted retries",
-        parse_error_label
-    )))
+    Err(invalid_sync_response(
+        parse_error_label,
+        &"exhausted retries",
+    ))
 }
 
 async fn ensure_webdav_directories(
@@ -2382,11 +2398,7 @@ async fn list_webdav_snapshot_ids(
 
     let status = resp.status();
     if !status.is_success() && status.as_u16() != 207 {
-        let text = resp.text().await.unwrap_or_default();
-        return Err(AppError::Network(format!(
-            "webdav PROPFIND failed: {} {}",
-            status, text
-        )));
+        return Err(http_failure_error(resp, "webdav PROPFIND failed", &url).await);
     }
 
     let text = resp
@@ -2519,11 +2531,7 @@ async fn list_webdav_op_refs(
 
     let status = resp.status();
     if !status.is_success() && status.as_u16() != 207 {
-        let text = resp.text().await.unwrap_or_default();
-        return Err(AppError::Network(format!(
-            "webdav PROPFIND ops failed: {} {}",
-            status, text
-        )));
+        return Err(http_failure_error(resp, "webdav PROPFIND ops failed", &url).await);
     }
 
     let text = resp
@@ -3161,18 +3169,13 @@ async fn sync_once_http(app: &AppHandle, cfg: &CloudSyncConfig) -> AppResult<Clo
         .await
         .map_err(|e| AppError::Network(e.to_string()))?;
     if !resp.status().is_success() {
-        let status_code = resp.status();
-        let text = resp.text().await.unwrap_or_default();
-        return Err(AppError::Network(format!(
-            "sync endpoint failed: {} {}",
-            status_code, text
-        )));
+        return Err(http_failure_error(resp, "sync endpoint failed", &endpoint).await);
     }
 
     let body = resp
         .json::<CloudSyncResponse>()
         .await
-        .map_err(|e| AppError::Network(e.to_string()))?;
+        .map_err(|e| invalid_sync_response("parse sync endpoint response failed", &e))?;
 
     let received = apply_remote_changes(app, &body.entries, &cfg.content_prefs)?;
     if received > 0 {
@@ -3536,10 +3539,9 @@ pub fn start_cloud_sync_client(app: AppHandle) {
                             state: "idle".to_string(),
                             running: true,
                             last_sync_at: None,
-                            last_error: Some(format!(
-                                "WebDAV Cooldown (JianGuoYun Rate Limit): {}s remaining",
-                                remaining_secs
-                            )),
+                            last_error: Some(
+                                "rate limited by WebDAV server, retrying later".to_string(),
+                            ),
                             uploaded_items: 0,
                             received_items: 0,
                         },
