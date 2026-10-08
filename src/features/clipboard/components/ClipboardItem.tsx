@@ -49,6 +49,17 @@ import {
 import HtmlContent from "../../../shared/components/HtmlContent";
 import { toTauriLocalImageSrc } from "../../../shared/lib/localImageSrc";
 import { useImageThumbnail } from "../../../shared/hooks/useImageThumbnail";
+
+// Snapshots that failed or timed out once go straight to HTML rendering on later
+// mounts; otherwise each remount retried, waited 700ms and flipped again.
+const failedSnapshotSrcs = new Set<string>();
+const rememberFailedSnapshot = (src: string) => {
+    if (failedSnapshotSrcs.size >= 200) {
+        const oldest = failedSnapshotSrcs.values().next().value;
+        if (oldest !== undefined) failedSnapshotSrcs.delete(oldest);
+    }
+    failedSnapshotSrcs.add(src);
+};
 import { getRichTextSnapshotDataUrl } from "../../../shared/lib/richTextSnapshot";
 import { getFileIcon as getSystemFileIcon, peekFileIcon } from "../../../shared/lib/fileIcon";
 import { getSourceAppIcon, peekSourceAppIcon } from "../../../shared/lib/sourceAppIcon";
@@ -1033,7 +1044,9 @@ const ClipboardItem = ({
         compactMode,
         richTextSnapshotRenderMaxHeight
     ]);
-    const effectiveRichTextSnapshotSrc = !snapshotFailed ? richTextSnapshotSrc : null;
+    const effectiveRichTextSnapshotSrc = !snapshotFailed && !(richTextSnapshotSrc && failedSnapshotSrcs.has(richTextSnapshotSrc))
+        ? richTextSnapshotSrc
+        : null;
     const effectiveRichImageFallbackSrc = !richImageFallbackFailed
         ? (richTextFallback?.imageSrc || null)
         : null;
@@ -1364,6 +1377,7 @@ const ClipboardItem = ({
                     naturalWidth: img?.naturalWidth ?? 0,
                     naturalHeight: img?.naturalHeight ?? 0
                 });
+                if (effectiveRichTextSnapshotSrc) rememberFailedSnapshot(effectiveRichTextSnapshotSrc);
                 setSnapshotFailed(true);
             }
         }, 700);
@@ -2583,6 +2597,7 @@ const ClipboardItem = ({
                                             srcLength: (richTextPreviewSrc || "").length,
                                             srcSample: (richTextPreviewSrc || "").slice(0, 140)
                                         });
+                                        rememberFailedSnapshot(effectiveRichTextSnapshotSrc);
                                         setSnapshotFailed(true);
                                     }
                                 }}

@@ -334,9 +334,34 @@ const getThemeSnapshotStyles = () => {
   }
 };
 
+// Failed snapshots (non-data images, oversized output, …) fall back to HTML
+// rendering. Remember them so a card that remounts does not re-parse the
+// whole document just to fail again.
+const failedSnapshots = new Map<string, Set<string>>();
+const FAILED_SNAPSHOT_LIMIT = 200;
+
 export const getRichTextSnapshotDataUrl = (
   html: string,
   options: SnapshotOptions = {}
+): string | null => {
+  const size = `${options.width ?? ""}x${options.maxHeight ?? ""}`;
+  if (failedSnapshots.get(html)?.has(size)) return null;
+  const result = buildRichTextSnapshotDataUrl(html, options);
+  if (result === null) {
+    if (!failedSnapshots.has(html) && failedSnapshots.size >= FAILED_SNAPSHOT_LIMIT) {
+      const oldest = failedSnapshots.keys().next().value;
+      if (oldest !== undefined) failedSnapshots.delete(oldest);
+    }
+    const sizes = failedSnapshots.get(html) ?? new Set<string>();
+    sizes.add(size);
+    failedSnapshots.set(html, sizes);
+  }
+  return result;
+};
+
+const buildRichTextSnapshotDataUrl = (
+  html: string,
+  options: SnapshotOptions
 ): string | null => {
   const sourceHtml = html || "";
   const width = Math.max(280, Math.min(1800, Math.round(options.width ?? 960)));
@@ -549,7 +574,9 @@ export const getRichTextSnapshotDataUrl = (
     ].join("");
 
     const safeSvg = stripInvalidXmlChars(svg);
-    const parseError = getSvgParseError(safeSvg);
+    // Diagnostics only (the snapshot renders either way): re-parsing the whole
+    // SVG costs a full DOMParser pass, so skip it in production builds.
+    const parseError = import.meta.env.DEV ? getSvgParseError(safeSvg) : null;
     if (parseError) {
       // Non-blocking diagnostics: some engines report parser warnings but still render.
       logSnapshotFailure("svg_xml_invalid", {
