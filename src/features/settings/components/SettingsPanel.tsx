@@ -206,6 +206,8 @@ interface SettingsPanelProps {
     setCompactMode: (val: boolean) => void;
     compactShowTime: boolean;
     setCompactShowTime: (val: boolean) => void;
+    splitViewEnabled: boolean;
+    setSplitViewEnabled: (val: boolean) => void;
     checkHotkeyConflict: (newHotkey: string, mode: 'main' | 'sequential' | 'rich' | 'search') => boolean;
 
 
@@ -290,7 +292,7 @@ const SettingsPanel = (props: SettingsPanelProps) => {
         setIsRecordingSearch, updateSearchHotkey,
         setPrivacyProtection,
         setIsRecording, isRecording, hotkey, hotkeyParts, updateHotkey,
-        setTheme, setColorMode, setLanguage, compactMode, setCompactMode, compactShowTime, setCompactShowTime, checkHotkeyConflict,
+        setTheme, setColorMode, setLanguage, compactMode, setCompactMode, compactShowTime, setCompactShowTime, splitViewEnabled, setSplitViewEnabled, checkHotkeyConflict,
         clipboardItemFontSize, setClipboardItemFontSize, clipboardTagFontSize, setClipboardTagFontSize,
         emojiPanelEnabled, setEmojiPanelEnabled, tagManagerEnabled, setTagManagerEnabled,
         setMqttEnabled, saveMqtt, setMqttServer, setMqttPort, setMqttUser, setMqttPass, setMqttTopic, setMqttProtocol, setMqttWsPath, setMqttNotificationEnabled,
@@ -657,6 +659,8 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                 setCompactMode={setCompactMode}
                 compactShowTime={compactShowTime}
                 setCompactShowTime={setCompactShowTime}
+                splitViewEnabled={splitViewEnabled}
+                setSplitViewEnabled={setSplitViewEnabled}
                 clipboardItemFontSize={clipboardItemFontSize}
                 setClipboardItemFontSize={setClipboardItemFontSize}
                 clipboardTagFontSize={clipboardTagFontSize}

@@ -50,6 +50,10 @@ import HtmlContent from "../../../shared/components/HtmlContent";
 import { toTauriLocalImageSrc } from "../../../shared/lib/localImageSrc";
 import { useImageThumbnail } from "../../../shared/hooks/useImageThumbnail";
 
+// The wide two-column layout shows the entry in its detail pane, so the
+// floating compact hover preview would only duplicate it.
+const isSplitViewActive = () => document.body.classList.contains("split-view-active");
+
 // Snapshots that failed or timed out once go straight to HTML rendering on later
 // mounts; otherwise each remount retried, waited 700ms and flipped again.
 const failedSnapshotSrcs = new Set<string>();
@@ -1174,7 +1178,7 @@ const ClipboardItem = ({
     };
 
     const showCompactPreview = async (anchor: CompactPreviewAnchor, requestId: number) => {
-        if (!compactPreviewEnabled) return;
+        if (!compactPreviewEnabled || isSplitViewActive()) return;
         if (compactPreviewBlockedRef.current) {
             compactPreviewLog("show preview aborted: blocked by menu/editor", {
                 itemId: item.id,
@@ -2038,7 +2042,7 @@ const ClipboardItem = ({
                 onSelect();
             }}
             onMouseEnter={(e) => {
-                if (!compactPreviewEnabled) return;
+                if (!compactPreviewEnabled || isSplitViewActive()) return;
                 // Don't show preview if AI options, more menu, note editor, or tag editor are open to avoid interference
                 if (compactPreviewBlockedRef.current) return;
 

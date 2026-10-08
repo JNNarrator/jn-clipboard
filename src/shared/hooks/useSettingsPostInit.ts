@@ -77,6 +77,7 @@ interface UseSettingsPostInitOptions {
   setShowSourceAppIcon: (val: boolean) => void;
   setHideUnselectedItemActions: (val: boolean) => void;
   setCompactShowTime: (val: boolean) => void;
+  setSplitViewEnabled: (val: boolean) => void;
 
   setDeleteAfterPaste: (val: boolean) => void;
   setMoveToTopAfterPaste: (val: boolean) => void;
@@ -169,6 +170,7 @@ export const useSettingsPostInit = ({
   setShowSourceAppIcon,
   setHideUnselectedItemActions,
   setCompactShowTime,
+  setSplitViewEnabled,
 
   setDeleteAfterPaste,
   setMoveToTopAfterPaste,
@@ -350,6 +352,8 @@ export const useSettingsPostInit = ({
     setShowSourceAppIcon(settings["app.show_source_app_icon"] !== "false");
     setHideUnselectedItemActions(settings["app.hide_unselected_item_actions"] === "true");
     setCompactShowTime(settings["app.compact_show_time"] === "true");
+    // On by default: only an explicit "false" turns the wide two-column layout off.
+    setSplitViewEnabled(settings["app.split_view"] !== "false");
 
 
     // These have false as default, so check for 'true'
@@ -567,6 +571,7 @@ export const useSettingsPostInit = ({
     setShowSourceAppIcon,
     setHideUnselectedItemActions,
     setCompactShowTime,
+    setSplitViewEnabled,
 
     setDeleteAfterPaste,
     setMoveToTopAfterPaste,

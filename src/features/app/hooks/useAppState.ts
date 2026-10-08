@@ -98,6 +98,7 @@ export const useAppState = (): AppState => {
 
   const [compactMode, setCompactMode] = useState(false);
   const [compactShowTime, setCompactShowTime] = useState(false);
+  const [splitViewEnabled, setSplitViewEnabled] = useState(true);
   const [clipboardItemFontSize, setClipboardItemFontSize] = useState(13);
   const [clipboardTagFontSize, setClipboardTagFontSize] = useState(10);
   const [emojiPanelEnabled, setEmojiPanelEnabled] = useState(false);
@@ -319,6 +320,8 @@ export const useAppState = (): AppState => {
     setCompactMode,
     compactShowTime,
     setCompactShowTime,
+    splitViewEnabled,
+    setSplitViewEnabled,
     clipboardItemFontSize,
     setClipboardItemFontSize,
     clipboardTagFontSize,

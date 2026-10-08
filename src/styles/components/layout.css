@@ -557,11 +557,21 @@ select.search-input option {
   flex: 1;
   overflow: hidden;
   padding: var(--layout-main-padding-y) 0 var(--layout-main-padding-bottom) 0;
+  /* Two columns that are always present: the list and a detail pane that is
+     0fr wide until the window is wide enough (see split-view.css). */
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0fr);
+  grid-template-rows: minmax(0, 1fr);
+  background: var(--bg-content);
+  width: 100%;
+  min-height: 0;
+}
+
+.main-split-list {
   display: flex;
   flex-direction: column;
-  background: var(--bg-content);
   gap: var(--layout-main-gap);
-  width: 100%;
+  min-width: 0;
   min-height: 0;
 }
 
@@ -588,6 +598,9 @@ select.search-input option {
 
 .main-content.file-transfer-mode {
   padding-bottom: 0;
+}
+
+.main-content.file-transfer-mode .main-split-list {
   gap: 0;
 }
 

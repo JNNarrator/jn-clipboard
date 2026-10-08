@@ -64,6 +64,10 @@ import {
 import { isMacPlatform } from "./shared/lib/platform";
 import { isTauriRuntime } from "./shared/lib/tauriRuntime";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import ClipboardDetailPane from "./features/clipboard/components/ClipboardDetailPane";
+import { useSplitView } from "./features/app/hooks/useSplitView";
+
+const SENSITIVE_TAGS = ["sensitive", "密码", "password"];
 
 const insertHistoryItem = (list: ClipboardEntry[], item: ClipboardEntry) => {
   const next = list.slice();
@@ -249,6 +253,8 @@ const App = () => {
     setCompactMode,
     compactShowTime,
     setCompactShowTime,
+    splitViewEnabled,
+    setSplitViewEnabled,
     clipboardItemFontSize,
     setClipboardItemFontSize,
     clipboardTagFontSize,
@@ -643,6 +649,7 @@ const App = () => {
     setShowSourceAppIcon,
     setHideUnselectedItemActions,
     setCompactShowTime,
+    setSplitViewEnabled,
 
     setDeleteAfterPaste,
     setMoveToTopAfterPaste,
@@ -1031,6 +1038,18 @@ const App = () => {
 
   const effectiveHasMore = hasMore && filteredHistory.length >= PAGE_SIZE;
 
+  const { splitActive, detailItem, handleListMouseOver } = useSplitView({
+    enabled: splitViewEnabled,
+    listVisible: !showSettings && !effectiveShowTagManager && !showEmojiPanel && !chatMode,
+    items: filteredHistory,
+    selectedItemId,
+    isKeyboardMode
+  });
+  const detailSensitiveHidden = !!detailItem
+    && privacyProtection
+    && SENSITIVE_TAGS.some((tag) => detailItem.tags?.includes(tag))
+    && !revealedIds.has(detailItem.id);
+
   const {
     pinnedItems,
     unpinnedItems,
@@ -1198,49 +1217,63 @@ const App = () => {
       />
 
       <main
-        className={`main-content${chatMode ? " file-transfer-mode" : ""}${effectiveShowTagManager ? " tag-manager-mode" : ""}${showSettings ? " settings-mode" : ""}`}
+        className={`main-content${chatMode ? " file-transfer-mode" : ""}${effectiveShowTagManager ? " tag-manager-mode" : ""}${showSettings ? " settings-mode" : ""}${splitActive ? " is-split" : ""}`}
         style={{
           padding: effectiveShowTagManager ? "0" : undefined
         }}
       >
-        <AppMainContent
-          t={t}
-          theme={theme}
-          showSettings={showSettings}
-          showTagManager={effectiveShowTagManager}
-          tagManagerEnabled={tagManagerEnabled}
-          showEmojiPanel={effectiveShowEmojiPanel}
-          chatMode={chatMode}
-          localIp={localIp}
-          actualPort={actualPort}
-          fileTransferAccessToken={fileTransferAccessToken}
-          settingsPanelProps={settingsPanelProps}
-          emojiFavorites={emojiFavorites}
-          setEmojiFavorites={setEmojiFavorites}
-          emojiPanelTab={emojiPanelTab}
-          setEmojiPanelTab={setEmojiPanelTab}
-          saveSetting={saveSetting}
-          filteredHistory={filteredHistory}
-          search={search}
-          pinnedItems={pinnedItems}
-          unpinnedItems={unpinnedItems}
-          compactMode={compactMode}
-          selectedIndex={selectedIndex}
-          isKeyboardMode={isKeyboardMode}
-          virtualListRef={virtualListRef}
-          pinnedOrderIds={pinnedOrderIds}
-          isDraggingPinned={isDraggingPinned}
-          handlePinnedIdsReorder={handlePinnedIdsReorder}
-          handlePinnedDragStart={handlePinnedDragStart}
-          handlePinnedDragEnd={handlePinnedDragEnd}
-          renderItemContent={renderItemContent}
-          loadMoreHistory={loadMoreHistory}
-          handleListScroll={handleListScroll}
-          hasMore={effectiveHasMore}
-          isLoadingMore={isLoadingMore}
-          showScrollTop={showScrollTopVisible}
-          onScrollTop={handleScrollTop}
-        />
+        <div className="main-split-list" onMouseOver={splitActive ? handleListMouseOver : undefined}>
+          <AppMainContent
+            t={t}
+            theme={theme}
+            showSettings={showSettings}
+            showTagManager={effectiveShowTagManager}
+            tagManagerEnabled={tagManagerEnabled}
+            showEmojiPanel={effectiveShowEmojiPanel}
+            chatMode={chatMode}
+            localIp={localIp}
+            actualPort={actualPort}
+            fileTransferAccessToken={fileTransferAccessToken}
+            settingsPanelProps={settingsPanelProps}
+            emojiFavorites={emojiFavorites}
+            setEmojiFavorites={setEmojiFavorites}
+            emojiPanelTab={emojiPanelTab}
+            setEmojiPanelTab={setEmojiPanelTab}
+            saveSetting={saveSetting}
+            filteredHistory={filteredHistory}
+            search={search}
+            pinnedItems={pinnedItems}
+            unpinnedItems={unpinnedItems}
+            compactMode={compactMode}
+            selectedIndex={selectedIndex}
+            isKeyboardMode={isKeyboardMode}
+            virtualListRef={virtualListRef}
+            pinnedOrderIds={pinnedOrderIds}
+            isDraggingPinned={isDraggingPinned}
+            handlePinnedIdsReorder={handlePinnedIdsReorder}
+            handlePinnedDragStart={handlePinnedDragStart}
+            handlePinnedDragEnd={handlePinnedDragEnd}
+            renderItemContent={renderItemContent}
+            loadMoreHistory={loadMoreHistory}
+            handleListScroll={handleListScroll}
+            hasMore={effectiveHasMore}
+            isLoadingMore={isLoadingMore}
+            showScrollTop={showScrollTopVisible}
+            onScrollTop={handleScrollTop}
+          />
+        </div>
+        {/* Always mounted so the column can animate open/closed; content only when wide. */}
+        <aside className="main-split-detail" aria-hidden={!splitActive}>
+          {splitActive && (
+            <ClipboardDetailPane
+              item={detailItem}
+              t={t}
+              language={language}
+              isSensitiveHidden={detailSensitiveHidden}
+              showSourceAppIcon={showSourceAppIcon}
+            />
+          )}
+        </aside>
       </main>
 
       <ToastContainer toasts={toasts} />

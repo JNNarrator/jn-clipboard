@@ -49,6 +49,8 @@ interface AppearanceSettingsGroupProps {
     setCompactMode: (val: boolean) => void;
     compactShowTime: boolean;
     setCompactShowTime: (val: boolean) => void;
+    splitViewEnabled: boolean;
+    setSplitViewEnabled: (val: boolean) => void;
     clipboardItemFontSize: number;
     setClipboardItemFontSize: (val: number) => void;
     clipboardTagFontSize: number;
@@ -98,6 +100,8 @@ const AppearanceSettingsGroup = ({
     setCompactMode,
     compactShowTime,
     setCompactShowTime,
+    splitViewEnabled,
+    setSplitViewEnabled,
     clipboardItemFontSize,
     setClipboardItemFontSize,
     clipboardTagFontSize,
@@ -422,6 +426,28 @@ const AppearanceSettingsGroup = ({
                         </label>
                     </div>
                 )}
+
+                <div className="setting-item">
+                    <LabelWithHint
+                        label={t('split_view')}
+                        hint={t('split_view_hint')}
+                        hintKey="split_view"
+                    />
+                    <label className="switch">
+                        <input
+                            className="cb"
+                            type="checkbox"
+                            aria-label={t('split_view')}
+                            checked={splitViewEnabled}
+                            onChange={(e) => {
+                                const val = e.target.checked;
+                                setSplitViewEnabled(val);
+                                saveAppSetting('split_view', String(val));
+                            }}
+                        />
+                        <div className="toggle"><div className="left" /><div className="right" /></div>
+                    </label>
+                </div>
 
                 <div className="setting-item column">
                     <div className="setting-item-heading">

@@ -1,0 +1,180 @@
+/* Wide two-column layout: history list on the left, detail of the hovered or
+   keyboard-selected entry on the right. The grid tracks interpolate, so
+   crossing the width threshold slides the pane open instead of snapping. */
+
+.main-content {
+  transition: grid-template-columns 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.main-content.is-split {
+  grid-template-columns: minmax(240px, 2fr) minmax(0, 3fr);
+}
+
+.main-split-detail {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+/* Divider as an inset shadow so the collapsed column takes no width at all. */
+.main-content.is-split .main-split-detail {
+  opacity: 1;
+  box-shadow: inset 1px 0 0 var(--line-soft);
+}
+
+.detail-preview {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px 16px;
+  animation: detail-fade-in 0.16s ease;
+}
+
+@keyframes detail-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.detail-text {
+  margin: 0;
+  color: var(--text-primary);
+  font-family: var(--font-main);
+  font-size: var(--clipboard-item-font-size, var(--font-size-base));
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.detail-text.is-code {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+}
+
+.detail-truncated {
+  display: block;
+  margin-top: 8px;
+  color: var(--text-muted);
+  font-family: var(--font-main);
+  font-size: var(--font-size-xs);
+}
+
+.detail-image {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  margin: 0 auto;
+  object-fit: contain;
+  border-radius: var(--card-radius);
+}
+
+.detail-files {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.detail-files li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.detail-files strong {
+  color: var(--text-primary);
+  font-size: var(--font-size-base);
+  overflow-wrap: anywhere;
+}
+
+.detail-files span {
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  overflow-wrap: anywhere;
+}
+
+.detail-sensitive,
+.detail-empty {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  text-align: center;
+}
+
+.detail-info {
+  flex: 0 0 auto;
+  max-height: 45%;
+  overflow: auto;
+  padding: 10px 16px 12px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.detail-info h3 {
+  margin: 0 0 6px;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.detail-info dl {
+  margin: 0;
+}
+
+.detail-info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: var(--font-size-sm);
+}
+
+.detail-info-row:last-child {
+  border-bottom: 0;
+}
+
+.detail-info-row dt {
+  flex: 0 0 auto;
+  color: var(--text-secondary);
+}
+
+.detail-info-row dd {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  color: var(--text-primary);
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.detail-app-icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .main-content,
+  .main-split-detail,
+  .detail-preview {
+    transition: none;
+    animation: none;
+  }
+}
