@@ -48,3 +48,26 @@ html.platform-windows .virtual-list-wrapper .virtuoso-scroller {
   width: 100%;
   margin-right: 0;
 }
+
+/*
+ * Theme faces that render hairline-thin on Windows: Courier New, and
+ * Songti/STSong, which fall back to SimSun there. Keep each theme's character
+ * (monospace, serif Latin) but use faces that hold up under Windows text
+ * rendering, with YaHei UI for Chinese.
+ */
+:root.platform-windows.theme-retro,
+body.platform-windows.theme-retro,
+:root.platform-windows.theme-receipt,
+body.platform-windows.theme-receipt {
+  --font-main: "Cascadia Mono", Consolas, "Microsoft YaHei UI", "Microsoft YaHei", monospace;
+}
+
+:root.platform-windows.theme-paper,
+body.platform-windows.theme-paper {
+  --font-main: Georgia, "Microsoft YaHei UI", "Microsoft YaHei", serif;
+}
+
+:root.platform-windows.theme-ink,
+body.platform-windows.theme-ink {
+  --font-main: "Noto Serif SC", "Source Han Serif SC", Georgia, "Microsoft YaHei UI", "Microsoft YaHei", serif;
+}

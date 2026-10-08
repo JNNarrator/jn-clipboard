@@ -147,24 +147,34 @@ pub fn apply_windows_window_material(window: &WebviewWindow, theme: &str, is_dar
     // Clear the actual Windows materials, including when leaving glass themes.
     if build >= 17763 {
         let _ = window_vibrancy::clear_acrylic(window);
+        let _ = window_vibrancy::clear_blur(window);
     }
     if build >= 22000 {
         let _ = window_vibrancy::clear_mica(window);
     }
 
     let glass = matches!(theme, "acrylic" | "mica");
+    // A neutral tint softens the backdrop without obscuring its colours.
+    let tint = if is_dark { (28, 28, 30, 96) } else { (246, 246, 248, 80) };
     let applied = match theme {
         "mica" if build >= 22000 => window_vibrancy::apply_mica(window, Some(is_dark)),
-        "acrylic" | "mica" if build >= 17763 => {
-            // A neutral tint softens the backdrop without obscuring its colours.
-            window_vibrancy::apply_acrylic(window, Some(if is_dark {
-                (28, 28, 30, 96)
-            } else {
-                (246, 246, 248, 80)
-            }))
-        }
+        // From 22H2 apply_acrylic switches to the DWM "transient" system
+        // backdrop: DWM draws it only while the window is focused (a flat
+        // colour otherwise), ignores the tint, and often skips frameless
+        // windows entirely. The clipboard mostly sits unfocused over other
+        // apps, so use the composition blur, which keeps blurring and tints.
+        "acrylic" if build >= 22523 => window_vibrancy::apply_blur(window, Some(tint)),
+        "acrylic" | "mica" if build >= 17763 => window_vibrancy::apply_acrylic(window, Some(tint)),
         _ => {
-            if glass {
+            // Built-in themes below paint an opaque shell, so an opaque window
+            // costs nothing visually. A transparent WebView2 background makes
+            // Chromium drop ClearType for grayscale text, which reads thin on
+            // Windows. Sakura's shell and installed themes may be translucent.
+            let opaque_shell = matches!(
+                theme,
+                "macos" | "retro" | "sticky-note" | "paper" | "terminal" | "receipt" | "ink"
+            );
+            if glass || opaque_shell {
                 let _ = window.set_background_color(Some(if is_dark {
                     tauri::window::Color(28, 28, 30, 255)
                 } else {
