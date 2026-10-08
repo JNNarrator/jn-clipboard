@@ -796,6 +796,8 @@ const ClipboardItem = ({
     isRevealed,
     isEditingTags,
     isEditingNote,
+    noteDraft,
+    onNoteDraftChange,
     tagInput,
     tagSuggestions = [],
     theme,
@@ -841,6 +843,7 @@ const ClipboardItem = ({
     const ignoreNoteBlurRef = useRef(false);
     const [localTagInput, setLocalTagInput] = useState(tagInput);
     const [localNoteInput, setLocalNoteInput] = useState(item.note || "");
+    const noteInput = noteDraft ?? localNoteInput;
     const [localAiOptionsOpen, setLocalAiOptionsOpen] = useState(!!aiOptionsOpen);
     const [snapshotFailed, setSnapshotFailed] = useState(false);
     const [richImageFallbackFailed, setRichImageFallbackFailed] = useState(false);
@@ -848,6 +851,10 @@ const ClipboardItem = ({
     const imageSrc = useImageThumbnail(item.content_type === "image" ? item.content : null, item.is_external);
     const [isDragging, setIsDragging] = useState(false);
     const isDraggingRef = useRef(false);
+    const [isReordering, setIsReordering] = useState(false);
+    const isReorderingRef = useRef(false);
+    const canExportDragRef = useRef(false);
+    const dragReleaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const pointerDownPosRef = useRef<{ x: number; y: number; time: number } | null>(null);
     const lastPasteTriggeredRef = useRef(0);
     const [sourceAppIcon, setSourceAppIcon] = useState<string | null>(() => peekSourceAppIcon(item.source_app_path) ?? null);
@@ -884,6 +891,28 @@ const ClipboardItem = ({
             .filter((tag) => !q || tag.toLowerCase().includes(q))
             .slice(0, 14);
     }, [isEditingTags, item.tags, localTagInput, tagSuggestions]);
+
+    useEffect(() => {
+        const finishReorder = () => {
+            if (!isReorderingRef.current) return;
+            isReorderingRef.current = false;
+            setIsReordering(false);
+            // A release over the row can produce a click after the sort ends.
+            // Keep it suppressed until that gesture's mouse events finish.
+            dragReleaseTimerRef.current = setTimeout(() => {
+                isDraggingRef.current = false;
+                pointerDownPosRef.current = null;
+                dragReleaseTimerRef.current = null;
+            }, 80);
+        };
+        window.addEventListener("pointerup", finishReorder, true);
+        window.addEventListener("pointercancel", finishReorder, true);
+        return () => {
+            window.removeEventListener("pointerup", finishReorder, true);
+            window.removeEventListener("pointercancel", finishReorder, true);
+            if (dragReleaseTimerRef.current) clearTimeout(dragReleaseTimerRef.current);
+        };
+    }, []);
 
     const [tagSuggestIndex, setTagSuggestIndex] = useState(-1);
     const tagSuggestListRef = useRef<HTMLDivElement | null>(null);
@@ -1758,11 +1787,14 @@ const ClipboardItem = ({
                     <textarea
                         ref={noteInputRef}
                         className="item-note-input"
-                        value={localNoteInput}
+                        value={noteInput}
                         placeholder={compactMode ? `${t('add_note')}…` : getNotePlaceholder(t)}
                         rows={2}
                         onMouseDown={(e) => e.stopPropagation()}
-                        onChange={(e) => setLocalNoteInput(e.target.value)}
+                        onChange={(e) => {
+                            setLocalNoteInput(e.target.value);
+                            onNoteDraftChange?.(e.target.value);
+                        }}
                         onKeyDown={(e) => {
                             if (e.key === 'Escape') {
                                 e.preventDefault();
@@ -1773,7 +1805,7 @@ const ClipboardItem = ({
                             if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                onNoteSave(localNoteInput);
+                                onNoteSave(noteInput);
                             }
                         }}
                         onBlur={() => {
@@ -1785,7 +1817,7 @@ const ClipboardItem = ({
                                 if (active && noteInputRef.current?.closest(".item-note")?.contains(active)) {
                                     return;
                                 }
-                                onNoteSave(noteInputRef.current?.value ?? localNoteInput);
+                                onNoteSave(noteInputRef.current?.value ?? noteInput);
                             }, 0);
                         }}
                     />
@@ -1819,7 +1851,7 @@ const ClipboardItem = ({
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     ignoreNoteBlurRef.current = false;
-                                    onNoteSave(localNoteInput);
+                                    onNoteSave(noteInput);
                                 }}
                             >
                                 {t('save')}
@@ -1870,8 +1902,19 @@ const ClipboardItem = ({
             animate={{ marginBottom: 0 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.1 }}
-            draggable={!isEditingTags && !isEditingNote}
+            draggable={!isEditingTags && !isEditingNote && !isReordering}
             className={`history-item ${isInteractionActive ? "selected" : ""} ${isDetailFocused ? "detail-focused" : ""} ${compactMode ? "compact" : ""} ${item.is_pinned ? "pinned" : ""} ${isDragging ? "is-dragging" : ""} ${isEditingTags ? "editing-tags" : ""} ${isEditingNote ? "editing-note" : ""} ${className || ''}`}
+            onPointerDownCapture={(e) => {
+                if (dragReleaseTimerRef.current) {
+                    clearTimeout(dragReleaseTimerRef.current);
+                    dragReleaseTimerRef.current = null;
+                    isDraggingRef.current = false;
+                }
+                // Native dragstart targets the draggable row, rather than the
+                // handle/button where the pointer went down. Remember origin.
+                const target = e.target as HTMLElement;
+                canExportDragRef.current = e.button === 0 && !target.closest('button, input, textarea, [role="button"], .drag-handle');
+            }}
             onMouseDownCapture={(e) => {
                 const target = e.target as HTMLElement;
                 if (e.button !== 0) return;
@@ -1902,7 +1945,7 @@ const ClipboardItem = ({
                     }
                     e.preventDefault();
                     e.stopPropagation();
-                    onNoteSave(localNoteInput);
+                    onNoteSave(noteInput);
                     return;
                 }
 
@@ -1917,10 +1960,10 @@ const ClipboardItem = ({
                 isDraggingRef.current = false;
                 pointerDownPosRef.current = { x: e.clientX, y: e.clientY, time: Date.now() };
             }}
-            onDragStart={(event) => {
-                const e = event as unknown as React.DragEvent<HTMLDivElement>;
-                if (isEditingTags || isEditingNote) {
+            onDragStartCapture={(e) => {
+                if (!canExportDragRef.current || isReorderingRef.current || isEditingTags || isEditingNote) {
                     e.preventDefault();
+                    e.stopPropagation();
                     return;
                 }
                 const target = e.target as HTMLElement;
@@ -1929,6 +1972,7 @@ const ClipboardItem = ({
                     return;
                 }
                 if (!e.dataTransfer) return;
+                e.stopPropagation();
 
                 isDraggingRef.current = true;
                 setIsDragging(true);
@@ -1943,6 +1987,8 @@ const ClipboardItem = ({
                 // Set custom drag preview badge
                 try {
                     const badge = createDragGhostBadge(item, filePaths, theme, t);
+                    badge.style.left = `${Math.max(0, e.clientX - 24)}px`;
+                    badge.style.top = `${Math.max(0, e.clientY - 20)}px`;
                     document.body.appendChild(badge);
                     e.dataTransfer.setDragImage(badge, 24, 20);
                     setTimeout(() => {
@@ -1959,12 +2005,16 @@ const ClipboardItem = ({
                     source: "drag"
                 }).catch(() => {});
             }}
-            onDragEnd={() => {
+            onDragEndCapture={(e) => {
+                if (!canExportDragRef.current) return;
+                e.stopPropagation();
+                canExportDragRef.current = false;
                 setIsDragging(false);
                 invoke("release_blur_guard", { owner: "drag" }).catch(() => {});
-                setTimeout(() => {
+                dragReleaseTimerRef.current = setTimeout(() => {
                     isDraggingRef.current = false;
                     pointerDownPosRef.current = null;
+                    dragReleaseTimerRef.current = null;
                 }, 80);
             }}
             onMouseUpCapture={(e) => {
@@ -2132,7 +2182,22 @@ const ClipboardItem = ({
                     {dragControls && (
                         <div
                             className="drag-handle"
-                            onPointerDown={(e) => dragControls.start(e)}
+                            title={t("reorder_pinned")}
+                            draggable={false}
+                            onPointerDown={(e) => {
+                                if (e.button !== 0 || isEditingTags || isEditingNote) return;
+                                // Suppress the browser's ancestor drag and start
+                                // only the pointer gesture used for reordering.
+                                e.preventDefault();
+                                e.stopPropagation();
+                                canExportDragRef.current = false;
+                                isReorderingRef.current = true;
+                                isDraggingRef.current = true;
+                                pointerDownPosRef.current = null;
+                                setIsReordering(true);
+                                void hideCompactPreview();
+                                dragControls.start(e);
+                            }}
                             onClick={(e) => e.stopPropagation()}
                             style={{
                                 cursor: 'grab',
@@ -2427,7 +2492,7 @@ const ClipboardItem = ({
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         if (isEditingNote) {
-                                            onNoteSave(localNoteInput);
+                                            onNoteSave(noteInput);
                                         } else {
                                             onToggleNoteEditor(e);
                                         }
@@ -2734,6 +2799,7 @@ export default memo(ClipboardItem, (prevProps, nextProps) => {
         prevProps.isRevealed === nextProps.isRevealed &&
         prevProps.isEditingTags === nextProps.isEditingTags &&
         prevProps.isEditingNote === nextProps.isEditingNote &&
+        prevProps.noteDraft === nextProps.noteDraft &&
         prevProps.isAIProcessing === nextProps.isAIProcessing &&
         prevProps.aiOptionsOpen === nextProps.aiOptionsOpen &&
         prevProps.aiEnabled === nextProps.aiEnabled &&

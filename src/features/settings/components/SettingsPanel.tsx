@@ -848,6 +848,7 @@ const SettingsPanel = (props: SettingsPanelProps) => {
 
     const footer = (
         <SettingsFooter
+            expanded={wideLayout}
             t={t}
             appVersion={appVersion}
             releaseChannel={releaseBuildInfo.channel}

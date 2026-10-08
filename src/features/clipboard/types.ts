@@ -19,6 +19,8 @@ export interface ClipboardItemProps {
   isRevealed: boolean;
   isEditingTags: boolean;
   isEditingNote: boolean;
+  noteDraft?: string;
+  onNoteDraftChange?: (note: string) => void;
   tagInput: string;
   /** Tags used elsewhere in history; shown as quick-pick when editing tags */
   tagSuggestions?: string[];

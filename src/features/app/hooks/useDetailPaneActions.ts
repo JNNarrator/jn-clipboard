@@ -1,6 +1,5 @@
-import { useMemo, type Dispatch, type MouseEvent, type RefObject, type SetStateAction } from "react";
+import { useMemo, type Dispatch, type MouseEvent, type SetStateAction } from "react";
 import type { ClipboardEntry } from "../../../shared/types";
-import type { VirtualClipboardListHandle } from "../../clipboard/types";
 import type { DetailPaneActions } from "../../clipboard/components/ClipboardDetailPane";
 
 interface UseDetailPaneActionsOptions {
@@ -23,7 +22,8 @@ interface UseDetailPaneActionsOptions {
   setEditingNoteId: Dispatch<SetStateAction<number | null>>;
   setTagInput: Dispatch<SetStateAction<string>>;
   setRevealedIds: Dispatch<SetStateAction<Set<number>>>;
-  virtualListRef: RefObject<VirtualClipboardListHandle | null>;
+  handleUpdateTags: (id: number, tags: string[]) => void;
+  handleUpdateNote: (id: number, note: string) => void;
 }
 
 /** The detail pane's action bar runs the same operations a list card offers. */
@@ -39,40 +39,39 @@ export const useDetailPaneActions = ({
   setEditingNoteId,
   setTagInput,
   setRevealedIds,
-  virtualListRef
+  handleUpdateTags,
+  handleUpdateNote
 }: UseDetailPaneActionsOptions): DetailPaneActions =>
   useMemo(() => {
-    // Tag and note editors open inside the list card, so bring that card into
-    // view; it may have scrolled away or moved (e.g. just pinned).
-    const revealRow = (item: ClipboardEntry) => {
-      const row = document.getElementById(`clipboard-item-${item.id}`);
-      if (row) {
-        row.scrollIntoView({ block: "nearest" });
-        return;
-      }
-      // Off-screen unpinned rows are virtualized; pinned ones sit in the header.
-      const unpinned = items.filter((entry) => !entry.is_pinned);
-      const index = unpinned.findIndex((entry) => entry.id === item.id);
-      if (index >= 0) virtualListRef.current?.scrollToItem(index);
-    };
-
     return {
       paste: (item) =>
         void copyToClipboard(item.id, item.content, item.content_type, false, item.is_pinned, item.tags || []),
       togglePin: (event, item) => togglePin(event, item.id, item.is_pinned),
-      // The editors stay in the list card; the pane only opens and closes them.
       setTagEditor: (item, open) => {
         setEditingNoteId(null);
         setTagInput("");
         setEditingTagsId(open ? item.id : null);
-        if (open) revealRow(item);
+        if (open) focusDetailItem(item.id);
       },
       setNoteEditor: (item, open) => {
         setEditingTagsId(null);
         setTagInput("");
         setEditingNoteId(open ? item.id : null);
-        if (open) revealRow(item);
+        if (open) focusDetailItem(item.id);
       },
+      saveNote: (item, note) => {
+        handleUpdateNote(item.id, note);
+        setEditingNoteId(null);
+      },
+      addTag: (item, tag) => {
+        const value = tag.trim();
+        if (value && !item.tags?.includes(value)) {
+          handleUpdateTags(item.id, [...(item.tags || []), value]);
+        }
+        setTagInput("");
+        setEditingTagsId(null);
+      },
+      deleteTag: (item, tag) => handleUpdateTags(item.id, (item.tags || []).filter((value) => value !== tag)),
       runAI: (item, actionType) => handleAIAction(item.id, item.content, actionType),
       open: (item) => openContent(item),
       toggleReveal: (item) =>
@@ -103,5 +102,6 @@ export const useDetailPaneActions = ({
     setEditingNoteId,
     setTagInput,
     setRevealedIds,
-    virtualListRef
+    handleUpdateTags,
+    handleUpdateNote
   ]);

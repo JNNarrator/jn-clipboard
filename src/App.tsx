@@ -1062,6 +1062,14 @@ const App = () => {
     isKeyboardMode,
     lockedId: editingTagsId ?? editingNoteId
   });
+  const [noteDraftState, setNoteDraftState] = useState<{ id: number; text: string } | null>(null);
+  const editingNoteDraft = noteDraftState?.id === editingNoteId ? noteDraftState.text : undefined;
+  const setEditingNoteDraft = useCallback((text: string) => {
+    if (editingNoteId !== null) setNoteDraftState({ id: editingNoteId, text });
+  }, [editingNoteId]);
+  useEffect(() => {
+    if (editingNoteId === null) setNoteDraftState(null);
+  }, [editingNoteId]);
   const detailIsSensitive = !!detailItem && SENSITIVE_TAGS.some((tag) => detailItem.tags?.includes(tag));
   const detailIsRevealed = !!detailItem && revealedIds.has(detailItem.id);
   const detailActions = useDetailPaneActions({
@@ -1076,7 +1084,8 @@ const App = () => {
     setEditingNoteId,
     setTagInput,
     setRevealedIds,
-    virtualListRef
+    handleUpdateTags,
+    handleUpdateNote
   });
 
   useListSelectionReset({
@@ -1123,6 +1132,9 @@ const App = () => {
     isKeyboardMode,
     selectedItemId,
     detailFocusedId: detailItem?.id ?? null,
+    splitActive,
+    noteDraft: editingNoteDraft,
+    setNoteDraft: setEditingNoteDraft,
     isWindowPinned,
     editingTagsId,
     editingNoteId,
@@ -1297,6 +1309,11 @@ const App = () => {
               aiEnabled={aiEnabled}
               isAIProcessing={!!detailItem && processingAiId === detailItem.id}
               showSourceAppIcon={showSourceAppIcon}
+              tagInput={tagInput}
+              tagSuggestions={allTags}
+              onTagInput={setTagInput}
+              noteDraft={editingNoteDraft}
+              onNoteDraftChange={setEditingNoteDraft}
             />
           )}
         </aside>

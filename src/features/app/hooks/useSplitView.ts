@@ -3,6 +3,8 @@ import type { ClipboardEntry } from "../../../shared/types";
 import { useWideWindow } from "../../../shared/hooks/useWideWindow";
 
 const ITEM_ID_PREFIX = "clipboard-item-";
+// The list and detail pane both need room for their primary controls.
+const SPLIT_VIEW_MIN_WIDTH = 600;
 /** How long the pointer must rest on a row before the pane switches to it. */
 const HOVER_DWELL_MS = 100;
 
@@ -19,7 +21,7 @@ interface UseSplitViewOptions {
 }
 
 export const useSplitView = ({ enabled, listVisible, items, selectedItemId, isKeyboardMode, lockedId }: UseSplitViewOptions) => {
-  const isWide = useWideWindow();
+  const isWide = useWideWindow(SPLIT_VIEW_MIN_WIDTH);
   const [focusedId, setFocusedId] = useState<number | null>(null);
   const dwellRef = useRef<{ id: number | null; timer: number }>({ id: null, timer: 0 });
 
@@ -28,7 +30,7 @@ export const useSplitView = ({ enabled, listVisible, items, selectedItemId, isKe
     return () => window.clearTimeout(dwell.timer);
   }, []);
 
-  const active = enabled && isWide && listVisible;
+  const active = enabled && isWide && listVisible && items.length > 0;
 
   // Lets CSS and the compact hover preview know the detail pane is showing.
   useEffect(() => {

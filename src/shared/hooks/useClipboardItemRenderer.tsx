@@ -16,6 +16,9 @@ interface UseClipboardItemRendererOptions {
   selectedItemId: number | null;
   /** Entry shown in the wide layout's detail pane, if any. */
   detailFocusedId: number | null;
+  splitActive: boolean;
+  noteDraft: string | undefined;
+  setNoteDraft: (note: string) => void;
   isWindowPinned: boolean;
   editingTagsId: number | null;
   editingNoteId: number | null;
@@ -70,6 +73,9 @@ export const useClipboardItemRenderer = ({
   isKeyboardMode,
   selectedItemId,
   detailFocusedId,
+  splitActive,
+  noteDraft,
+  setNoteDraft,
   isWindowPinned,
   editingTagsId,
   editingNoteId,
@@ -111,8 +117,8 @@ export const useClipboardItemRenderer = ({
           item.tags?.includes("密码") ||
           item.tags?.includes("password")) &&
         !revealedIds.has(item.id);
-      const isEditingTags = editingTagsId === item.id;
-      const isEditingNote = editingNoteId === item.id;
+      const isEditingTags = !splitActive && editingTagsId === item.id;
+      const isEditingNote = !splitActive && editingNoteId === item.id;
 
       return (
         <ClipboardItem
@@ -127,6 +133,8 @@ export const useClipboardItemRenderer = ({
           isRevealed={revealedIds.has(item.id)}
           isEditingTags={isEditingTags}
           isEditingNote={isEditingNote}
+          noteDraft={isEditingNote ? noteDraft : undefined}
+          onNoteDraftChange={setNoteDraft}
           tagInput={isEditingTags ? tagInput : ""}
           tagSuggestions={isEditingTags ? allTags : EMPTY_TAG_SUGGESTIONS}
           tagColors={tagColors}
@@ -231,6 +239,9 @@ export const useClipboardItemRenderer = ({
       revealedIds,
       selectedItemId,
       detailFocusedId,
+      splitActive,
+      noteDraft,
+      setNoteDraft,
       isKeyboardMode,
       isWindowPinned,
       editingTagsId,

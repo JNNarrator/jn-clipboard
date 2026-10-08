@@ -1783,6 +1783,176 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
   margin: 0 auto;
 }
 
+.settings-about {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 10px 6px 18px;
+}
+
+.settings-about-identity {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.settings-about-icon {
+  display: block;
+  width: 56px;
+  height: 56px;
+  flex: 0 0 auto;
+  object-fit: contain;
+}
+
+.settings-about-header h2 {
+  margin: 0 0 4px;
+  color: var(--text-primary);
+  font-size: 28px;
+  line-height: 1.2;
+}
+
+.settings-about-slogan,
+.settings-about-description,
+.settings-about-reset p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+}
+
+.settings-about-description {
+  margin-block-start: 16px;
+}
+
+.settings-about-version,
+.settings-about-reset {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 0;
+  padding: 16px;
+}
+
+.settings-about-version-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settings-about-caption {
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.settings-about-version-number {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: var(--text-primary);
+  font-size: var(--font-size-base);
+}
+
+.settings-about h3 {
+  margin: 0 0 10px;
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.settings-about-links {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 6px;
+}
+
+.settings-about-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 10px;
+  border: 0;
+  border-radius: var(--button-radius);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.settings-about-link:hover {
+  background: var(--bg-input);
+}
+
+.settings-about-link svg {
+  flex: 0 0 auto;
+}
+
+.settings-about-link-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.settings-about-link-text strong {
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.settings-about-link-text > span {
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+}
+
+.settings-about-link-end {
+  color: var(--text-muted);
+}
+
+.settings-about-reset h3 {
+  margin-block-end: 4px;
+}
+
+.settings-about-reset > div {
+  flex: 1 1 200px;
+}
+
+.settings-about .settings-action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: normal;
+  padding-block: 6px;
+}
+
+.settings-about-link:focus-visible,
+.settings-about .settings-action-button:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}
+
+.settings-about-update.is-error {
+  color: var(--status-danger);
+}
+
+.settings-about-update.is-success {
+  color: var(--status-success);
+}
+
+.settings-about-update:disabled {
+  cursor: default;
+  opacity: 0.65;
+}
+
 /* The selected group is always open here; its header is just the title. */
 .settings-wide-content .settings-group > .group-header {
   cursor: default;
