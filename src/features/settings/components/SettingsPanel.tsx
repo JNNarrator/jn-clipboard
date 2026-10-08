@@ -1,7 +1,7 @@
 
 import { memo, useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { emit, listen } from "@tauri-apps/api/event";
 import { getVersion } from "@tauri-apps/api/app";
 import { ChevronRight, HelpCircle } from "lucide-react";
 import type { Locale } from "../../../shared/types";
@@ -396,6 +396,7 @@ const SettingsPanel = (props: SettingsPanelProps) => {
             setCloudSyncStatus(status);
         } catch (err) {
             console.error("Cloud sync now failed:", err);
+            void emit("toast", `${t("sync_now_failed")}${String(err)}`);
         } finally {
             setCloudSyncNowRunning(false);
         }

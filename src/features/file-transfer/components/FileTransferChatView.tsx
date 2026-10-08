@@ -46,6 +46,7 @@ import { TransferMessageItem } from "./TransferMessageItem";
 import { TransferComposer } from "./TransferComposer";
 import { TransferContextMenu } from "./TransferContextMenu";
 import ConfirmDialog from "../../../shared/components/ConfirmDialog";
+import { formatError } from "../../../shared/lib/errorMessage";
 
 const FileTransferChatView = ({
     t,
@@ -315,7 +316,7 @@ const FileTransferChatView = ({
             );
             setTimeout(fetchMessages, 300);
         } catch (err) {
-            const reason = err instanceof Error ? err.message : t("ft_upload_failed");
+            const reason = err instanceof Error ? formatError(err, t) : t("ft_upload_failed");
             setMessages((prev) =>
                 prev.map((m) => {
                     if (m.id === message.id) {

@@ -150,9 +150,10 @@ export const useClipboardActions = ({
         }, 0);
       } catch (err) {
         console.error("更新标签失败", err);
+        pushToast(t("save_tags_failed") + String(err), 4000);
       }
     },
-    [setHistory, virtualListRef]
+    [pushToast, setHistory, t, virtualListRef]
   );
 
   const handleUpdateNote = useCallback(
@@ -170,9 +171,10 @@ export const useClipboardActions = ({
         }, 0);
       } catch (err) {
         console.error("更新备注失败", err);
+        pushToast(t("save_note_failed") + String(err), 4000);
       }
     },
-    [setHistory, virtualListRef]
+    [pushToast, setHistory, t, virtualListRef]
   );
 
   return {

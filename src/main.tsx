@@ -7,6 +7,7 @@ import "./styles/platform-windows.css";
 import "./styles/platform-macos.css";
 import "./styles/components/pin-sticker.css";
 import { installBrowserAcceleratorBlocker } from "./shared/lib/blockBrowserAccelerators";
+import ErrorBoundary from "./shared/components/ErrorBoundary";
 
 // Suppress Chromium/WebView browser accelerators in every window (main, preview, settings…).
 installBrowserAcceleratorBlocker();
@@ -37,8 +38,10 @@ if (isMacPlatform) {
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    <Suspense fallback={null}>
-      <RootComponent />
-    </Suspense>
+    <ErrorBoundary>
+      <Suspense fallback={null}>
+        <RootComponent />
+      </Suspense>
+    </ErrorBoundary>
   </React.StrictMode>,
 );

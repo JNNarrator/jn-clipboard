@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { withNativeDialog } from "../../../shared/lib/focus";
+import { formatError } from "../../../shared/lib/errorMessage";
 
 interface SecureTransferProps {
   t: (key: string) => string;
@@ -48,7 +49,7 @@ export default function SecureTransfer({ t }: SecureTransferProps) {
           .replace("{x}", String(result.excluded))
       );
     } catch (error) {
-      setStatus(String(error));
+      setStatus(formatError(error, t));
     } finally {
       setBusy(false);
       setPassword("");

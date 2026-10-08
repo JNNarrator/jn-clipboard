@@ -584,7 +584,7 @@ const App = () => {
   }, [hotkey, isRecording, isRecordingSequential, isRecordingRich, isRecordingSearch, t]);
 
 
-  const { toasts, pushToast, confirmDialog, openConfirm, closeConfirm } = useOverlays();
+  const { toasts, pushToast, confirmDialog, openConfirm, closeConfirm } = useOverlays(t);
 
   useSoundEffects({ soundEnabled, pasteSoundEnabled, soundVolume });
 

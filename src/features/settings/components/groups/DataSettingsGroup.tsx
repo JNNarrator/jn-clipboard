@@ -19,6 +19,7 @@ import {
 import AppModal from "../../../../shared/components/AppModal";
 import { withNativeDialog } from "../../../../shared/lib/focus";
 import { isMacPlatform, isWindowsPlatform } from "../../../../shared/lib/platform";
+import { formatError } from "../../../../shared/lib/errorMessage";
 
 interface DataSettingsGroupProps {
     t: (key: string) => string;
@@ -225,8 +226,7 @@ const DataSettingsGroup = ({
             setStep("result");
         } catch (error) {
             console.error(error);
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            setImportError(errorMessage);
+            setImportError(formatError(error, t));
             setStep("error");
         } finally {
             unlisten?.();
@@ -451,9 +451,8 @@ const DataSettingsGroup = ({
                                                     await invoke("relaunch");
                                                 } catch (error: unknown) {
                                                     console.error(error);
-                                                    const errorMessage = error instanceof Error ? error.message : String(error);
                                                     await message(
-                                                        t("data_move_failed").replace("{e}", errorMessage),
+                                                        t("data_move_failed").replace("{e}", formatError(error, t)),
                                                         { title: t("error"), kind: "error" }
                                                     );
                                                 }
@@ -471,9 +470,8 @@ const DataSettingsGroup = ({
                                                 await invoke("open_folder", { path: dataPath });
                                             } catch (error: unknown) {
                                                 console.error(error);
-                                                const errorMessage = error instanceof Error ? error.message : String(error);
                                                 await withNativeDialog(() => message(
-                                                    `${t("open_failed")}${errorMessage}`,
+                                                    `${t("open_failed")}${formatError(error, t)}`,
                                                     { title: t("error"), kind: "error" }
                                                 ), "settings:data-path-error");
                                             }

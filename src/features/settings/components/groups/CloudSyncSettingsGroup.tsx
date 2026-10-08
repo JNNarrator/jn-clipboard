@@ -7,6 +7,7 @@ import {
     buildWebdavConfigQrPayload,
     isWebdavConfigQrReady,
 } from "../../utils/configQr";
+import { formatError } from "../../../../shared/lib/errorMessage";
 
 export interface CloudSyncStatusPayload {
     state: string;
@@ -423,7 +424,7 @@ const CloudSyncSettingsGroup = ({
                         </div>
                         {status.last_error && (
                             <div style={{ marginTop: "4px", fontSize: 'var(--font-size-xs)', color: "var(--status-danger)" }}>
-                                {t("cloud_sync_last_error")}: {status.last_error}
+                                {t("cloud_sync_last_error")}: {formatError(status.last_error, t)}
                             </div>
                         )}
                     </div>

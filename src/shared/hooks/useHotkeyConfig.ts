@@ -145,7 +145,10 @@ export const useHotkeyConfig = ({
 
       setSequentialHotkey(newHotkey);
       saveAppSetting("sequential_hotkey", newHotkey);
-      await invoke("set_sequential_hotkey", { hotkey: newHotkey }).catch(console.error);
+      await invoke("set_sequential_hotkey", { hotkey: newHotkey }).catch((err) => {
+        console.error(err);
+        if (newHotkey) pushToast(t("hotkey_register_failed") + String(err), 3000);
+      });
       setIsRecordingSequential(false);
     },
     [
@@ -187,7 +190,10 @@ export const useHotkeyConfig = ({
 
       setRichPasteHotkey(newHotkey);
       saveAppSetting("rich_paste_hotkey", newHotkey);
-      await invoke("set_rich_paste_hotkey", { hotkey: newHotkey }).catch(console.error);
+      await invoke("set_rich_paste_hotkey", { hotkey: newHotkey }).catch((err) => {
+        console.error(err);
+        if (newHotkey) pushToast(t("hotkey_register_failed") + String(err), 3000);
+      });
       setIsRecordingRich(false);
     },
     [
@@ -229,7 +235,10 @@ export const useHotkeyConfig = ({
 
       setSearchHotkey(newHotkey);
       saveAppSetting("search_hotkey", newHotkey);
-      await invoke("set_search_hotkey", { hotkey: newHotkey }).catch(console.error);
+      await invoke("set_search_hotkey", { hotkey: newHotkey }).catch((err) => {
+        console.error(err);
+        if (newHotkey) pushToast(t("hotkey_register_failed") + String(err), 3000);
+      });
       setIsRecordingSearch(false);
     },
     [

@@ -25,5 +25,18 @@
   box-shadow: var(--toast-shadow);
   pointer-events: auto;
   min-width: 200px;
+  max-width: calc(100vw - 32px);
   text-align: center;
+}
+
+/* Long messages (paths, URLs, server errors) wrap and stop at three lines
+   instead of covering the small window. The clamp sits on the text, not the
+   padded box, so no partial fourth line shows through the padding. */
+.toast-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+  overflow-wrap: anywhere;
 }

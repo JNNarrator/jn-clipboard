@@ -5,6 +5,7 @@ import { message } from "@tauri-apps/plugin-dialog";
 import { DEFAULT_THEME, normalizeThemeId } from "../config/themes";
 import type { Locale } from "../types";
 import { isTauriRuntime } from "../lib/tauriRuntime";
+import { formatError } from "../lib/errorMessage";
 
 interface UseSettingsInitOptions {
   setAppSettings: (settings: Record<string, string>) => void;
@@ -77,7 +78,7 @@ export const useSettingsInit = ({
         .catch((error) => {
           if (disposed) return;
           console.error("Settings initialization failed", error);
-          void message("无法读取设置。原始数据已保留，请检查原设备密钥或系统钥匙串权限，再重新启动。\n" + String(error), { title: "TieZ：设置读取失败", kind: "error" });
+          void message("无法读取设置。原始数据已保留，请检查原设备密钥或系统钥匙串权限，再重新启动。\n" + formatError(error), { title: "TieZ：设置读取失败", kind: "error" });
         });
     };
 

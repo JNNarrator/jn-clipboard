@@ -60,11 +60,12 @@ export const useAppActions = ({
           fetchHistory(true);
         } catch (err) {
           console.error("清空失败", err);
+          pushToast(t("clear_history_failed") + String(err), 4000);
         }
         closeConfirm();
       }
     });
-  }, [closeConfirm, fetchHistory, openConfirm, t]);
+  }, [closeConfirm, fetchHistory, openConfirm, pushToast, t]);
 
   const handleResetSettings = useCallback(() => {
     openConfirm({

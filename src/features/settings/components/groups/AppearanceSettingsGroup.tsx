@@ -20,6 +20,7 @@ import {
     removeInstalledThemeStyle,
     type InstalledThemeDefinition
 } from "../../../../shared/lib/themePackages";
+import { formatError } from "../../../../shared/lib/errorMessage";
 interface LabelWithHintProps {
     label: string;
     hint?: string | ReactNode;
@@ -160,7 +161,7 @@ const AppearanceSettingsGroup = ({
             });
         } catch (error) {
             console.error("Failed to install theme package:", error);
-            await message(`${t('theme_package_install_failed')}\n${String(error)}`, {
+            await message(`${t('theme_package_install_failed')}\n${formatError(error, t)}`, {
                 title: t('error'),
                 kind: 'error'
             });
@@ -185,7 +186,7 @@ const AppearanceSettingsGroup = ({
             }
         } catch (error) {
             console.error("Failed to uninstall theme package:", error);
-            await message(`${t('theme_package_uninstall_failed')}\n${String(error)}`, {
+            await message(`${t('theme_package_uninstall_failed')}\n${formatError(error, t)}`, {
                 title: t('error'),
                 kind: 'error'
             });
