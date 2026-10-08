@@ -35,6 +35,10 @@
 /* Pinned Indicator - just the corner triangle is enough */
 
 /* Image Preview */
+.history-item.compact .image-preview-frame {
+    min-height: 38px;
+}
+
 .history-item.compact .image-preview {
     max-height: 38px !important;
     height: 38px;

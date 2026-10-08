@@ -15,7 +15,8 @@ const decodeUriComponentSafely = (value: string, rounds = 2): string => {
   return out;
 };
 
-export const toTauriLocalImageSrc = (rawSrc: string): string | null => {
+/** Absolute filesystem path for a local image reference, or null for data:, http:, etc. */
+export const toLocalFilePath = (rawSrc: string): string | null => {
   let value = (rawSrc || "").trim();
   if (!value) return null;
 
@@ -37,7 +38,12 @@ export const toTauriLocalImageSrc = (rawSrc: string): string | null => {
     return null;
   }
 
-  return convertFileSrc(value);
+  return value;
+};
+
+export const toTauriLocalImageSrc = (rawSrc: string): string | null => {
+  const path = toLocalFilePath(rawSrc);
+  return path ? convertFileSrc(path) : null;
 };
 
 export const withImageCacheBust = (

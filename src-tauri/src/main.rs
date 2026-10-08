@@ -227,6 +227,7 @@ fn main() -> AppResult<()> {
             app::commands::save_emoji_favorite_url,
             app::commands::list_emoji_favorites,
             app::commands::get_file_size,
+            app::commands::get_image_thumbnail,
             app::commands::save_file_copy,
             app::commands::save_file_batch,
             services::file_transfer::send_chat_message,

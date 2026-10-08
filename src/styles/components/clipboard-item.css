@@ -355,6 +355,15 @@
   text-overflow: ellipsis;
 }
 
+/* Reserve the thumbnail's height before the file has loaded, so the card does
+   not grow by ~80px (and shift the list) when the image arrives. */
+.image-preview-frame {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 100px;
+}
+
 .image-preview {
   max-width: 100%;
   max-height: 100px;

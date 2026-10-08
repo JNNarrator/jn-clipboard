@@ -1,7 +1,7 @@
 import { useRef, useEffect, useLayoutEffect, useState, useMemo, memo } from "react";
 import { createPortal } from "react-dom";
 import type { CSSProperties } from "react";
-import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { invoke } from "@tauri-apps/api/core";
 import type { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { currentMonitor, getCurrentWindow, LogicalSize, PhysicalPosition, PhysicalSize } from "@tauri-apps/api/window";
 import { emit, listen } from "@tauri-apps/api/event";
@@ -48,6 +48,7 @@ import {
 } from "../../../shared/lib/utils";
 import HtmlContent from "../../../shared/components/HtmlContent";
 import { toTauriLocalImageSrc } from "../../../shared/lib/localImageSrc";
+import { useImageThumbnail } from "../../../shared/hooks/useImageThumbnail";
 import { getRichTextSnapshotDataUrl } from "../../../shared/lib/richTextSnapshot";
 import { getFileIcon as getSystemFileIcon, peekFileIcon } from "../../../shared/lib/fileIcon";
 import { getSourceAppIcon, peekSourceAppIcon } from "../../../shared/lib/sourceAppIcon";
@@ -828,6 +829,7 @@ const ClipboardItem = ({
     const [snapshotFailed, setSnapshotFailed] = useState(false);
     const [richImageFallbackFailed, setRichImageFallbackFailed] = useState(false);
     const [imageLoadFailed, setImageLoadFailed] = useState(false);
+    const imageSrc = useImageThumbnail(item.content_type === "image" ? item.content : null, item.is_external);
     const [isDragging, setIsDragging] = useState(false);
     const isDraggingRef = useRef(false);
     const pointerDownPosRef = useRef<{ x: number; y: number; time: number } | null>(null);
@@ -2467,26 +2469,21 @@ const ClipboardItem = ({
             <div className={`content-preview-shell${overlayMetaInPreview ? ' has-overlay-meta' : ''}`}>
                 <div data-content-type={item.content_type} className={`content-preview ${item.content_type === 'rich_text' ? 'rich-text' : ''} ${item.content_type === 'file' ? 'file-preview' : ''} ${isSensitiveHidden ? 'sensitive-blur' : ''}`}>
                 {item.content_type === "image" ? (
-                    <div style={{ position: 'relative' }}>
+                    <div className="image-preview-frame">
                         {(item.is_external && item.file_preview_exists === false) || imageLoadFailed ? (
                             <div className="image-preview error-placeholder" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-element)', color: 'var(--text-secondary)', height: '100px', fontSize: 'var(--font-size-sm)' }}>
                                 <ImageOff size={24} style={{ marginBottom: '8px', opacity: 0.5 }} />
                                 <span>{t('image_deleted')}</span>
                             </div>
-                        ) : (
+                        ) : imageSrc && (
+                            // Not loading="lazy": rows are already virtualized, and lazy
+                            // loading only delays images that are about to be visible.
                             <img
-                                src={
-                                    item.content.startsWith("data:")
-                                        ? item.content
-                                        : (
-                                            toTauriLocalImageSrc(item.content) ||
-                                            (item.is_external ? convertFileSrc(item.content) : item.content)
-                                        )
-                                }
+                                src={imageSrc}
                                 alt={t('image_preview')}
                                 className="image-preview"
                                 draggable={false}
-                                loading="lazy"
+                                decoding="async"
                                 style={isSensitiveHidden ? { filter: 'blur(8px)' } : {}}
                                 onError={() => {
                                     setImageLoadFailed(true);
@@ -2709,7 +2706,8 @@ export default memo(ClipboardItem, (prevProps, nextProps) => {
         prevProps.item.is_pinned === nextProps.item.is_pinned &&
         prevProps.item.is_external === nextProps.item.is_external &&
         prevProps.item.file_preview_exists === nextProps.item.file_preview_exists &&
-        prevProps.item.tags === nextProps.item.tags &&
+        // History refetches create new tag arrays; compare contents, not references.
+        (prevProps.item.tags ?? []).join('\u0000') === (nextProps.item.tags ?? []).join('\u0000') &&
         prevProps.item.note === nextProps.item.note &&
         prevProps.isSensitiveHidden === nextProps.isSensitiveHidden &&
         prevProps.isRevealed === nextProps.isRevealed &&
