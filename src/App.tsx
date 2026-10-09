@@ -245,7 +245,9 @@ const App = () => {
     setWinClipboardDisabled,
     theme,
     setTheme,
+    setNativePalette,
     colorMode,
+    nativePalette,
     setColorMode,
     showSourceAppIcon,
     setShowSourceAppIcon,
@@ -611,6 +613,7 @@ const App = () => {
     setAppSettings,
     setHotkey,
     setTheme,
+    setNativePalette,
     setColorMode,
     setCompactMode,
     setLanguage
@@ -828,6 +831,7 @@ const App = () => {
 
   useSettingsApply({
     theme,
+    nativePalette,
     colorMode,
 
     compactMode,
@@ -907,6 +911,7 @@ const App = () => {
 
     // Sync theme-related settings to localStorage for instant startup (prevents flash)
     try {
+      if (type === 'native_palette') localStorage.setItem('tiez_native_palette', path);
       if (type === 'theme') localStorage.setItem('tiez_theme', path);
       if (type === 'color_mode') localStorage.setItem('tiez_color_mode', path);
       if (type === 'compact_mode') localStorage.setItem('tiez_compact_mode', path);

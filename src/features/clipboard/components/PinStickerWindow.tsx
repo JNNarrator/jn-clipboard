@@ -15,7 +15,7 @@ import {
   Check,
 } from "lucide-react";
 import { translations } from "../../../locales";
-import { applyThemeClasses, DEFAULT_THEME, normalizeThemeId } from "../../../shared/config/themes";
+import { applyNativePalette, applyThemeClasses, DEFAULT_THEME, normalizeThemeId } from "../../../shared/config/themes";
 import type { Locale } from "../../../shared/types";
 
 const STICKER_PADDING = 10; // 10px macOS-grade ambient shadow breathing space
@@ -26,15 +26,20 @@ export const PinStickerWindow: React.FC = () => {
       const theme = localStorage.getItem("tiez_theme") || DEFAULT_THEME;
       const colorMode = localStorage.getItem("tiez_color_mode") || "system";
       applyThemeClasses(normalizeThemeId(theme), document.documentElement, document.body);
+      applyNativePalette(theme, localStorage.getItem("tiez_native_palette") || "default", document.documentElement, document.body);
 
       if (
         colorMode === "dark" ||
         (colorMode === "system" &&
           window.matchMedia("(prefers-color-scheme: dark)").matches)
       ) {
+        document.body.classList.add("dark-mode");
+        document.body.classList.remove("light-mode");
         document.documentElement.classList.add("dark-mode");
         document.documentElement.classList.remove("light-mode");
       } else {
+        document.body.classList.add("light-mode");
+        document.body.classList.remove("dark-mode");
         document.documentElement.classList.add("light-mode");
         document.documentElement.classList.remove("dark-mode");
       }

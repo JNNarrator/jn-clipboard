@@ -1834,9 +1834,122 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
     )
 }
 
+fn native_web_palette(palette: Option<&str>) -> Option<[u8; 3]> {
+    let value = match palette? {
+        "mint" => "238368",
+        "lavender" => "8655bb",
+        "amber" => "b66f16",
+        custom => custom.strip_prefix("custom:#")?,
+    };
+    if value.len() != 6 || !value.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return None;
+    }
+    Some([
+        u8::from_str_radix(&value[0..2], 16).ok()?,
+        u8::from_str_radix(&value[2..4], 16).ok()?,
+        u8::from_str_radix(&value[4..6], 16).ok()?,
+    ])
+}
+
+fn native_web_palette_css(color: [u8; 3], dark: bool) -> String {
+    let mix = |base: [u8; 3], target: [u8; 3], amount: f64| -> [u8; 3] {
+        std::array::from_fn(|i| {
+            (base[i] as f64 * (1.0 - amount) + target[i] as f64 * amount).round() as u8
+        })
+    };
+    let luminance = |value: [u8; 3]| -> f64 {
+        value
+            .iter()
+            .zip([0.2126, 0.7152, 0.0722])
+            .map(|(v, weight)| {
+                let n = *v as f64 / 255.0;
+                (if n <= 0.04045 {
+                    n / 12.92
+                } else {
+                    ((n + 0.055) / 1.055).powf(2.4)
+                }) * weight
+            })
+            .sum()
+    };
+    let window = mix(
+        if dark { [24, 24, 26] } else { [250, 250, 252] },
+        color,
+        if dark { 0.08 } else { 0.04 },
+    );
+    let panel = mix(
+        if dark { [35, 35, 38] } else { [255, 255, 255] },
+        color,
+        if dark { 0.1 } else { 0.03 },
+    );
+    let background = if dark { panel } else { window };
+    let endpoint = if dark { [255; 3] } else { [0; 3] };
+    let accent = (0..=50)
+        .map(|step| mix(color, endpoint, step as f64 / 50.0))
+        .find(|candidate| {
+            let a = luminance(*candidate);
+            let b = luminance(background);
+            (a.max(b) + 0.05) / (a.min(b) + 0.05) >= 4.5
+        })
+        .unwrap_or(endpoint);
+    let [r, g, b] = accent;
+    let [wr, wg, wb] = window;
+    let [pr, pg, pb] = panel;
+    let text = if dark { "#f2f2f7" } else { "#1d1d1f" };
+    let filled_text = if luminance(accent) > 0.179 {
+        "#000000"
+    } else {
+        "#ffffff"
+    };
+    format!("--bg-body:rgb({wr},{wg},{wb});--bg-panel:rgb({pr},{pg},{pb});--accent-color:rgb({r},{g},{b});--text-primary:{text};--send-button-background:rgb({r},{g},{b});--send-button-color:{filled_text};--send-button-border:1px solid rgba({r},{g},{b},0.3);")
+}
+
+pub fn render_index_with_palette(
+    theme: &str,
+    color_mode: &str,
+    logo: &str,
+    palette: Option<&str>,
+) -> String {
+    let page = render_index(
+        resolve_file_transfer_theme(theme, palette),
+        color_mode,
+        logo,
+    );
+    if !matches!(theme, "macos" | "mica") {
+        return page;
+    }
+    let Some(color) = native_web_palette(palette) else {
+        return page;
+    };
+    let light = native_web_palette_css(color, false);
+    let dark = native_web_palette_css(color, true);
+    let css = match color_mode {
+        "dark" => format!(":root {{{dark}}}"),
+        "system" => {
+            format!(":root {{{light}}} @media (prefers-color-scheme:dark) {{ :root {{{dark}}} }}")
+        }
+        _ => format!(":root {{{light}}}"),
+    };
+    page.replacen(
+        "</head>",
+        &format!("<style id=\"native-palette\">{css}</style></head>"),
+        1,
+    )
+}
+
+// Reuse the web page's Sakura colors for the native theme's pink palette.
+pub fn resolve_file_transfer_theme<'a>(theme: &'a str, palette: Option<&str>) -> &'a str {
+    if matches!(theme, "macos" | "mica") && palette == Some("sakura") {
+        "sakura"
+    } else {
+        theme
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{file_transfer_theme_css, render_index};
+    use super::{
+        file_transfer_theme_css, render_index, render_index_with_palette, resolve_file_transfer_theme,
+    };
 
     const BUILT_IN_THEMES: &[&str] = &[
         "retro",
@@ -1845,11 +1958,41 @@ mod tests {
         "macos",
         "acrylic",
         "paper",
-        "sakura",
         "terminal",
         "receipt",
         "ink",
     ];
+
+    #[test]
+    fn native_palette_follows_the_desktop_without_affecting_other_themes() {
+        for theme in ["macos", "mica"] {
+            assert_eq!(resolve_file_transfer_theme(theme, Some("sakura")), "sakura");
+            assert_eq!(resolve_file_transfer_theme(theme, Some("default")), theme);
+            assert_eq!(resolve_file_transfer_theme(theme, None), theme);
+        }
+        assert_eq!(resolve_file_transfer_theme("paper", Some("sakura")), "paper");
+        assert_eq!(resolve_file_transfer_theme("sakura", None), "sakura");
+    }
+
+    #[test]
+    fn custom_web_palette_is_validated_and_other_themes_are_unchanged() {
+        for palette in ["mint", "lavender", "amber", "custom:#12abef", "custom:#ffffff"] {
+            assert!(
+                render_index_with_palette("macos", "system", "", Some(palette))
+                    .contains("id=\"native-palette\"")
+            );
+        }
+        for palette in ["custom:#ééé", "custom:#ffffff;", "custom:red", "default"] {
+            assert_eq!(
+                render_index_with_palette("macos", "dark", "", Some(palette)),
+                render_index("macos", "dark", "")
+            );
+        }
+        assert_eq!(
+            render_index_with_palette("paper", "dark", "", Some("mint")),
+            render_index("paper", "dark", "")
+        );
+    }
 
     #[test]
     fn every_desktop_theme_has_a_mobile_file_transfer_variant() {

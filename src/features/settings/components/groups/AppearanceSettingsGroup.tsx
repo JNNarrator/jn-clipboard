@@ -1,3 +1,5 @@
+import ColorSwatchSelector from "../ColorSwatchSelector";
+import { NATIVE_PALETTES, getCustomPaletteColor, normalizeCustomColor } from "../../../../shared/config/nativePalettes";
 import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { ask, open, message } from "@tauri-apps/plugin-dialog";
@@ -9,6 +11,7 @@ import {
     getThemeLabel,
     normalizeThemeId,
     supportsCustomBackground,
+    supportsNativePalette,
     supportsSurfaceOpacity
 } from "../../../../shared/config/themes";
 import { isWindowsPlatform } from "../../../../shared/lib/platform";
@@ -36,6 +39,9 @@ interface AppearanceSettingsGroupProps {
     LabelWithHint: ComponentType<LabelWithHintProps>;
     theme: string;
     setTheme: (val: string) => void;
+    nativePalette: string;
+    nativeCustomColor?: string;
+    setNativePalette: (val: string) => void;
     colorMode: string;
     setColorMode: (val: string) => void;
     language: Locale;
@@ -73,6 +79,9 @@ const AppearanceSettingsGroup = ({
     LabelWithHint,
     theme,
     setTheme,
+    nativePalette,
+    nativeCustomColor,
+    setNativePalette,
     colorMode,
     setColorMode,
     language,
@@ -102,6 +111,15 @@ const AppearanceSettingsGroup = ({
     setSurfaceOpacity,
     saveAppSetting
 }: AppearanceSettingsGroupProps) => {
+    const [customColor, setCustomColor] = useState(() => getCustomPaletteColor(nativePalette)
+        || normalizeCustomColor(nativeCustomColor) || "#8655bb");
+    useEffect(() => {
+        setCustomColor(getCustomPaletteColor(nativePalette) || normalizeCustomColor(nativeCustomColor) || "#8655bb");
+    }, [nativePalette, nativeCustomColor]);
+    const choosePalette = (value: string) => {
+        setNativePalette(value);
+        saveAppSetting('native_palette', value);
+    };
     const [installedThemes, setInstalledThemes] = useState<InstalledThemeDefinition[]>([]);
     const selectedInstalledTheme = installedThemes.find(item => item.id === theme);
     const showCustomBackgroundControls = selectedInstalledTheme
@@ -293,6 +311,28 @@ const AppearanceSettingsGroup = ({
                         {t('theme_package_import')}
                     </button>
                 </div>
+
+                {supportsNativePalette(theme) && (
+                    <div className="setting-item">
+                        <div className="item-label-group">
+                            <span className="item-label">{t('native_palette')}</span>
+                        </div>
+                        <ColorSwatchSelector
+                            label={t('native_palette')}
+                            value={nativePalette}
+                            options={NATIVE_PALETTES.map(palette => ({ ...palette, label: t(palette.labelKey) }))}
+                            customLabel={t('native_palette_custom')}
+                            t={t}
+                            customColor={customColor}
+                            onChange={choosePalette}
+                            onCustomColorChange={color => {
+                                setCustomColor(color);
+                                saveAppSetting('native_custom_color', color);
+                                choosePalette(`custom:${color}`);
+                            }}
+                        />
+                    </div>
+                )}
 
                 <div className="setting-item">
                     <div className="item-label-group">

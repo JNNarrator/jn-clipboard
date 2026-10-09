@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import HtmlContent from "../../../shared/components/HtmlContent";
 import {
+    applyNativePalette,
     applyThemeClasses,
     DEFAULT_THEME,
     normalizeThemeId
@@ -43,6 +44,7 @@ type PreviewPayload = {
     language?: Locale;
     theme?: string;
     colorMode?: "light" | "dark";
+    nativePalette?: string;
     richTextSnapshotPreview?: boolean;
     clipboardItemFontSize?: number;
     clipboardTagFontSize?: number;
@@ -136,7 +138,9 @@ const applyTheme = async (payload: PreviewPayload) => {
     const body = document.body;
 
     const installedThemeReady = await ensureInstalledThemeStyle(theme);
-    applyThemeClasses(installedThemeReady ? theme : DEFAULT_THEME, root, body);
+    const effectiveTheme = installedThemeReady ? theme : DEFAULT_THEME;
+    applyThemeClasses(effectiveTheme, root, body);
+    applyNativePalette(payload.theme || effectiveTheme, payload.nativePalette, root, body);
 
     root.classList.remove("light-mode", "dark-mode");
     body.classList.remove("light-mode", "dark-mode");

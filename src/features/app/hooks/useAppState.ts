@@ -82,6 +82,7 @@ export const useAppState = (): AppState => {
   const [registryWinVEnabled, setRegistryWinVEnabled] = useState(false);
   const [pasteMethod, setPasteMethod] = useState("shift_insert");
   const [theme, setTheme] = useState(DEFAULT_THEME);
+  const [nativePalette, setNativePalette] = useState("default");
   const [colorMode, setColorMode] = useState("system");
   const [showSourceAppIcon, setShowSourceAppIcon] = useState(true);
   const [hideUnselectedItemActions, setHideUnselectedItemActions] = useState(false);
@@ -299,6 +300,8 @@ export const useAppState = (): AppState => {
     setPasteMethod,
     theme,
     setTheme,
+    nativePalette,
+    setNativePalette,
     colorMode,
     setColorMode,
     showSourceAppIcon,

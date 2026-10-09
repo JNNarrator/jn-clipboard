@@ -1,3 +1,5 @@
+import { getNativePaletteStyle, normalizeNativePalette } from "./nativePalettes";
+export { normalizeNativePalette } from "./nativePalettes";
 import { isMacPlatform } from "../lib/platform";
 
 export interface ThemeDefinition {
@@ -56,12 +58,6 @@ export const THEMES: ThemeDefinition[] = [
     labelKey: "theme_name_paper"
   },
   {
-    id: "sakura",
-    labelKey: "theme_name_sakura",
-    supportsCustomBackground: true,
-    supportsSurfaceOpacity: true
-  },
-  {
     id: "terminal",
     labelKey: "theme_name_terminal"
   },
@@ -77,7 +73,8 @@ export const THEMES: ThemeDefinition[] = [
 
 const THEME_BY_ID = new Map(THEMES.map((theme) => [theme.id, theme]));
 
-export const THEME_CLASS_NAMES = THEMES.map((theme) => `theme-${theme.id}`);
+// Clear the retired theme class too, including on windows opened before migration.
+export const THEME_CLASS_NAMES = [...THEMES.map((theme) => `theme-${theme.id}`), "theme-sakura"];
 
 export const getThemeDefinition = (themeId: string): ThemeDefinition =>
   THEME_BY_ID.get(themeId) ?? THEME_BY_ID.get(getDefaultTheme())!;
@@ -88,6 +85,46 @@ export const normalizeThemeId = (themeId: string): string => {
   if (themeId === WINDOWS_THEME_ID && isMacPlatform()) return MACOS_THEME_ID;
   return getThemeDefinition(themeId).id;
 };
+
+export const supportsNativePalette = (themeId: string): boolean =>
+  [MACOS_THEME_ID, WINDOWS_THEME_ID].includes(normalizeThemeId(themeId));
+
+export const resolveThemeAppearance = (themeId: string, palette?: string) => ({
+  theme: normalizeThemeId(themeId),
+  nativePalette: themeId === "sakura" ? "sakura" : normalizeNativePalette(palette)
+});
+
+export const migrateThemeSettings = (settings: Record<string, string>) => {
+  if (settings["app.theme"] !== "sakura") return settings;
+  return { ...settings, "app.theme": getDefaultTheme(), "app.native_palette": "sakura" };
+};
+
+export const applyNativePalette = (
+  themeId: string,
+  palette: string | undefined,
+  ...targets: Array<Element | null | undefined>
+) => {
+  const appearance = resolveThemeAppearance(themeId, palette);
+  const active = supportsNativePalette(appearance.theme);
+  const styles = active ? getNativePaletteStyle(appearance.nativePalette) : {};
+  for (const target of targets) {
+    if (!target) continue;
+    target.classList.toggle("native-palette-sakura", active && appearance.nativePalette === "sakura");
+    target.classList.toggle("native-palette-color", active && Object.keys(styles).length > 0);
+    target.setAttribute("data-native-palette", active ? appearance.nativePalette : "default");
+    const style = (target as HTMLElement).style;
+    if (!style) continue;
+    for (let index = style.length - 1; index >= 0; index--) {
+      const name = style.item(index);
+      if (name.startsWith("--native-palette-")) style.removeProperty(name);
+    }
+    for (const [name, value] of Object.entries(styles)) style.setProperty(name, value);
+  }
+};
+
+export const getAppliedNativePalette = (target: Element): string =>
+  normalizeNativePalette(target.getAttribute("data-native-palette") ||
+    (target.classList.contains("native-palette-sakura") ? "sakura" : "default"));
 
 export const getThemeLabel = (themeId: string, t: (key: string) => string): string =>
   t(getThemeDefinition(themeId).labelKey);

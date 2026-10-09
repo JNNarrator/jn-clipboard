@@ -1,13 +1,15 @@
+import { getNativePaletteStyle, normalizeNativePalette } from "../config/nativePalettes";
 import { useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { applyThemeClasses, normalizeThemeId } from "../config/themes";
+import { applyNativePalette, applyThemeClasses, normalizeThemeId } from "../config/themes";
 import { DEFAULT_THEME } from "../config/themes";
 import { ensureInstalledThemeStyle } from "../lib/themePackages";
 
 interface UseSettingsApplyOptions {
   theme: string;
   colorMode: string;
+  nativePalette: string;
 
   compactMode: boolean;
   compactShowTime: boolean;
@@ -22,6 +24,7 @@ interface UseSettingsApplyOptions {
 export const useSettingsApply = ({
   theme,
   colorMode,
+  nativePalette,
 
   compactMode,
   compactShowTime,
@@ -137,6 +140,16 @@ export const useSettingsApply = ({
       if (cleanupMedia) cleanupMedia();
     };
   }, [theme, colorMode, showAppBorder, settingsLoaded, compactMode, compactShowTime, hideUnselectedItemActions]);
+
+  useEffect(() => {
+    if (!settingsLoaded) return;
+    applyNativePalette(theme, nativePalette, document.documentElement, document.body);
+    try {
+      localStorage.setItem("tiez_native_palette_tokens", JSON.stringify({
+        palette: normalizeNativePalette(nativePalette), styles: getNativePaletteStyle(nativePalette)
+      }));
+    } catch { /* The database remains authoritative if the startup cache is unavailable. */ }
+  }, [theme, nativePalette, settingsLoaded]);
 
   useEffect(() => {
     if (!settingsLoaded) return;

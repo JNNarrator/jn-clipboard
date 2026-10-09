@@ -9,7 +9,6 @@ import {
     Clipboard,
     Cloud,
     Database,
-    HelpCircle,
     Info,
     ListFilter,
     MessageSquareText,
@@ -37,6 +36,7 @@ import DataSettingsGroup from "./groups/DataSettingsGroup";
 import FileTransferSettingsGroup from "./groups/FileTransferSettingsGroup";
 import AiSettingsGroup from "./groups/AiSettingsGroup";
 import SettingsFooter from "./SettingsFooter";
+import { LabelWithHint, SettingsHintProvider } from "./SettingsHint";
 import SecureTransfer from "./SecureTransfer";
 import { useWideWindow } from "../../../shared/hooks/useWideWindow";
 import { usePaneWidth } from "../../../shared/hooks/usePaneWidth";
@@ -48,6 +48,9 @@ interface SettingsPanelProps {
     t: (key: string) => string;
     theme: string;
     language: Locale;
+    nativePalette: string;
+    nativeCustomColor?: string;
+    setNativePalette: (val: string) => void;
     colorMode: string;
     showAppBorder: boolean;
     setShowAppBorder: (val: boolean) => void;
@@ -309,15 +312,9 @@ const NAV_GROUPS: { labelKey: string; ids: string[] }[] = [
     { labelKey: "settings_nav_group_data", ids: ["secure_transfer", "data"] }
 ];
 
-/** The first line of a hint reads as a short description; the rest stays behind the help icon. */
-const splitHint = (hint: string): [string, string | undefined] => {
-    const [summary, ...rest] = hint.split("\n");
-    return [summary, rest.length > 0 ? rest.join("\n") : undefined];
-};
-
 const SettingsPanel = (props: SettingsPanelProps) => {
     const {
-        t, theme, language, colorMode, showAppBorder, setShowAppBorder, showSourceAppIcon, setShowSourceAppIcon, hideUnselectedItemActions, setHideUnselectedItemActions,
+        t, theme, nativePalette, nativeCustomColor, setNativePalette, language, colorMode, showAppBorder, setShowAppBorder, showSourceAppIcon, setShowSourceAppIcon, hideUnselectedItemActions, setHideUnselectedItemActions,
         collapsedGroups, settingsSubpage, autoStart, elevatedAutostart, silentStart, persistent, persistentLimitEnabled, persistentLimit, deduplicate, captureFiles, captureRichText, richTextSnapshotPreview, deleteAfterPaste, moveToTopAfterPaste, pasteMethod, setPasteMethod, registryWinVEnabled, setRegistryWinVEnabled,
         sequentialMode, sequentialHotkey, isRecordingSequential,
         richPasteHotkey, isRecordingRich, searchHotkey, isRecordingSearch, quickPasteModifier, setQuickPasteModifier,
@@ -375,7 +372,6 @@ const SettingsPanel = (props: SettingsPanelProps) => {
     const [profileStatuses, setProfileStatuses] = useState<AiProfileStatusMap>({});
     const [updateStatus, setUpdateStatus] = useState<string>("");
     // Removed updateModalData
-    const [openHints, setOpenHints] = useState<Set<string>>(new Set());
     const [privacyKindsOpen, setPrivacyKindsOpen] = useState(false);
     const [privacyRulesOpen, setPrivacyRulesOpen] = useState(false);
     const isWide = useWideWindow();
@@ -402,46 +398,6 @@ const SettingsPanel = (props: SettingsPanelProps) => {
         } catch (e) {
             console.error(e);
         }
-    };
-
-    const toggleHint = (key: string) => {
-        setOpenHints(prev => {
-            const next = new Set(prev);
-            if (next.has(key)) next.delete(key);
-            else next.add(key);
-            return next;
-        });
-    };
-
-    const LabelWithHint = ({ label, hint, hintKey }: { label: string; hint?: string | ReactNode; hintKey: string }) => {
-        const [summary, details] = typeof hint === "string" ? splitHint(hint) : [undefined, hint];
-        const open = openHints.has(hintKey);
-        return (
-            <div className="item-label-group">
-                <div className="item-label-row">
-                    <span className="item-label">{label}</span>
-                    {details && (
-                        <button
-                            type="button"
-                            className="hint-icon-btn"
-                            aria-expanded={open}
-                            aria-label={label}
-                            title={typeof details === "string" ? details : undefined}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                toggleHint(hintKey);
-                            }}
-                        >
-                            <HelpCircle size={13} />
-                        </button>
-                    )}
-                </div>
-                {summary && <span className="item-desc">{summary}</span>}
-                {details && open && (
-                    typeof details === "string" ? <span className="hint">{details}</span> : details
-                )}
-            </div>
-        );
     };
 
     const checkModelStatus = async (profile: AiProfile) => {
@@ -696,6 +652,9 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                     LabelWithHint={LabelWithHint}
                     theme={theme}
                     setTheme={setTheme}
+                    nativePalette={nativePalette}
+                    nativeCustomColor={nativeCustomColor}
+                    setNativePalette={setNativePalette}
                     colorMode={colorMode}
                     setColorMode={setColorMode}
                     language={language}
@@ -1011,45 +970,47 @@ const SettingsPanel = (props: SettingsPanelProps) => {
     };
 
     return (
-        <div className="settings-panel-root">
-            {settingsSubpage === "advanced" ? (
-                <AdvancedSettingsGroup
-                    t={t}
-                    cleanupRules={cleanupRules}
-                    setCleanupRules={setCleanupRules}
-                    appCleanupPolicies={appCleanupPolicies}
-                    setAppCleanupPolicies={setAppCleanupPolicies}
-                    installedApps={installedApps}
-                />
-            ) : wideLayout ? (
-                renderWide()
-            ) : (
-                <>
-                    {sections.map((section) => (
-                        <div key={section.id} className="settings-section" data-settings-section={section.id}>
-                            {section.node}
-                        </div>
-                    ))}
-
-                    <div className="settings-group">
-                        <button
-                            type="button"
-                            className="group-header settings-nav-card"
-                            onClick={openAdvancedSettingsWindow}
-                        >
-                            <div style={{ minWidth: 0, textAlign: "left" }}>
-                                <h3 style={{ margin: 0 }}>{t("advanced_settings")}</h3>
-                                <div className="settings-subpage-note">{t("advanced_settings_entry_desc")}</div>
+        <SettingsHintProvider>
+            <div className="settings-panel-root">
+                {settingsSubpage === "advanced" ? (
+                    <AdvancedSettingsGroup
+                        t={t}
+                        cleanupRules={cleanupRules}
+                        setCleanupRules={setCleanupRules}
+                        appCleanupPolicies={appCleanupPolicies}
+                        setAppCleanupPolicies={setAppCleanupPolicies}
+                        installedApps={installedApps}
+                    />
+                ) : wideLayout ? (
+                    renderWide()
+                ) : (
+                    <>
+                        {sections.map((section) => (
+                            <div key={section.id} className="settings-section" data-settings-section={section.id}>
+                                {section.node}
                             </div>
-                            <ChevronRight size={16} />
-                        </button>
-                    </div>
+                        ))}
 
-                    {footer}
-                </>
-            )}
-            {modals}
-        </div>
+                        <div className="settings-group">
+                            <button
+                                type="button"
+                                className="group-header settings-nav-card"
+                                onClick={openAdvancedSettingsWindow}
+                            >
+                                <div style={{ minWidth: 0, textAlign: "left" }}>
+                                    <h3 style={{ margin: 0 }}>{t("advanced_settings")}</h3>
+                                    <div className="settings-subpage-note">{t("advanced_settings_entry_desc")}</div>
+                                </div>
+                                <ChevronRight size={16} />
+                            </button>
+                        </div>
+
+                        {footer}
+                    </>
+                )}
+                {modals}
+            </div>
+        </SettingsHintProvider>
     );
 };
 

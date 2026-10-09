@@ -27,7 +27,7 @@ use crate::infrastructure::repository::settings_repo::SettingsRepository;
 
 use super::models::*;
 use super::utils::*;
-use super::web_ui::render_index;
+use super::web_ui::render_index_with_palette;
 use super::{
     append_message, append_message_with_batch, register_received_file, register_shared_file,
 };
@@ -318,7 +318,17 @@ pub async fn index(State(state): State<Arc<AppState>>) -> Html<String> {
         .flatten()
         .unwrap_or_else(|| "system".to_string());
 
-    Html(render_index(&theme, &color_mode, &logo_base64))
+    let native_palette = db_state
+        .settings_repo
+        .get("app.native_palette")
+        .ok()
+        .flatten();
+    Html(render_index_with_palette(
+        &theme,
+        &color_mode,
+        &logo_base64,
+        native_palette.as_deref(),
+    ))
 }
 
 pub async fn poll_messages(

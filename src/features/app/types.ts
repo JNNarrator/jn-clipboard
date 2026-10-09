@@ -145,6 +145,8 @@ export interface AppState {
   setPasteMethod: StateSetter<string>;
   theme: string;
   setTheme: StateSetter<string>;
+  nativePalette: string;
+  setNativePalette: StateSetter<string>;
   colorMode: string;
   setColorMode: StateSetter<string>;
   showSourceAppIcon: boolean;

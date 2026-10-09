@@ -1,3 +1,4 @@
+import { getAppliedNativePalette } from "../../../shared/config/themes";
 import { useRef, useEffect, useLayoutEffect, useState, useMemo, memo } from "react";
 import { createPortal } from "react-dom";
 import type { CSSProperties } from "react";
@@ -1297,6 +1298,7 @@ const ClipboardItem = ({
                 language,
                 theme,
                 colorMode,
+                nativePalette: getAppliedNativePalette(document.documentElement),
                 richTextSnapshotPreview,
                 clipboardItemFontSize,
                 clipboardTagFontSize,
