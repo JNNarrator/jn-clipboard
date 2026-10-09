@@ -7,10 +7,9 @@
 //!
 //! Master key is stored in macOS Keychain or Windows DPAPI-protected file.
 
-use aes_gcm::aead::{Aead, KeyInit};
-use aes_gcm::{Aes256Gcm, Nonce};
 use base64::Engine;
-use rand::RngCore;
+use ring::aead::{Aad, LessSafeKey, Nonce, UnboundKey, AES_256_GCM};
+use ring::rand::{SecureRandom, SystemRandom};
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
@@ -40,6 +39,28 @@ const KEY_LEN: usize = 32;
 // never re-prompt within the same session.
 static MASTER_KEY: OnceLock<Option<[u8; KEY_LEN]>> = OnceLock::new();
 static DATA_DIR: OnceLock<PathBuf> = OnceLock::new();
+
+pub(crate) fn fill_random(buf: &mut [u8]) -> Option<()> {
+    SystemRandom::new().fill(buf).ok()
+}
+
+/// AES-256-GCM; output is `ciphertext || 16-byte tag`.
+pub(crate) fn aes_gcm_seal(key: &[u8], nonce: &[u8], aad: &[u8], plain: &[u8]) -> Option<Vec<u8>> {
+    let key = LessSafeKey::new(UnboundKey::new(&AES_256_GCM, key).ok()?);
+    let nonce = Nonce::try_assume_unique_for_key(nonce).ok()?;
+    let mut buf = plain.to_vec();
+    key.seal_in_place_append_tag(nonce, Aad::from(aad), &mut buf).ok()?;
+    Some(buf)
+}
+
+pub(crate) fn aes_gcm_open(key: &[u8], nonce: &[u8], aad: &[u8], sealed: &[u8]) -> Option<Vec<u8>> {
+    let key = LessSafeKey::new(UnboundKey::new(&AES_256_GCM, key).ok()?);
+    let nonce = Nonce::try_assume_unique_for_key(nonce).ok()?;
+    let mut buf = sealed.to_vec();
+    let len = key.open_in_place(nonce, Aad::from(aad), &mut buf).ok()?.len();
+    buf.truncate(len);
+    Some(buf)
+}
 
 /// True if value is protected (modern or legacy wrapper).
 pub fn is_encrypted_value(value: &str) -> bool {
@@ -203,7 +224,7 @@ fn load_or_create_file_key(filename: &str) -> Result<[u8; KEY_LEN], String> {
 
 fn generate_key() -> [u8; KEY_LEN] {
     let mut key = [0u8; KEY_LEN];
-    rand::thread_rng().fill_bytes(&mut key);
+    fill_random(&mut key).expect("system random generator unavailable");
     key
 }
 
@@ -342,11 +363,9 @@ pub fn encrypt_value(plain: &str) -> Option<String> {
     #[cfg(not(feature = "portable"))]
     {
         let key = get_master_key()?;
-        let cipher = Aes256Gcm::new_from_slice(key).ok()?;
         let mut nonce_bytes = [0u8; NONCE_LEN];
-        rand::thread_rng().fill_bytes(&mut nonce_bytes);
-        let nonce = Nonce::from_slice(&nonce_bytes);
-        let ciphertext = cipher.encrypt(nonce, plain.as_bytes()).ok()?;
+        fill_random(&mut nonce_bytes)?;
+        let ciphertext = aes_gcm_seal(key, &nonce_bytes, &[], plain.as_bytes())?;
         let mut packed = Vec::with_capacity(NONCE_LEN + ciphertext.len());
         packed.extend_from_slice(&nonce_bytes);
         packed.extend_from_slice(&ciphertext);
@@ -418,9 +437,7 @@ fn decrypt_modern_value_once(cipher: &str) -> Option<String> {
     }
     let key = get_master_key()?;
     let (nonce_bytes, ciphertext) = packed.split_at(NONCE_LEN);
-    let aes = Aes256Gcm::new_from_slice(key).ok()?;
-    let nonce = Nonce::from_slice(nonce_bytes);
-    let plain = aes.decrypt(nonce, ciphertext).ok()?;
+    let plain = aes_gcm_open(key, nonce_bytes, &[], ciphertext)?;
     String::from_utf8(plain).ok()
 }
 

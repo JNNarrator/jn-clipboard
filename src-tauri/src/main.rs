@@ -95,7 +95,6 @@ fn main() -> AppResult<()> {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec!["--minimized"]),
         ))
-        .plugin(tauri_plugin_http::init())
         .setup(|app| {
             setup::init(app)?;
             Ok(())

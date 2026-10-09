@@ -16,7 +16,7 @@ pub fn update_activity(app_handle: &AppHandle) {
 
 pub fn get_app_logo_base64(_app: &AppHandle) -> String {
     // Embed the icon directly to ensure it works in Dev and Prod without path issues
-    const ICON_BYTES: &[u8] = include_bytes!("../../../icons/icon.png");
+    const ICON_BYTES: &[u8] = include_bytes!("../../../icons/128x128.png");
     format!(
         "data:image/png;base64,{}",
         general_purpose::STANDARD.encode(ICON_BYTES)

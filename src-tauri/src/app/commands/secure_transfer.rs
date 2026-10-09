@@ -1,7 +1,6 @@
 //! Password-protected text-history transfer. No settings or attachment extraction.
 use crate::{database::DbState, domain::models::ClipboardEntry, infrastructure::{encryption, repository::clipboard_repo::SqliteClipboardRepository}};
-use aes_gcm::{aead::{Aead, KeyInit, Payload}, Aes256Gcm, Nonce};
-use ring::{pbkdf2, rand::{SecureRandom, SystemRandom}};
+use ring::pbkdf2;
 use serde::{Deserialize, Serialize};
 use std::{io::{Read, Write}, num::NonZeroU32, fs::OpenOptions};
 
@@ -26,20 +25,20 @@ fn seal(plain: &[u8], password: &str) -> Result<Vec<u8>, String> {
     if plain.len() > MAX { return Err("Archive exceeds 64 MiB".into()); }
     let mut header = [0; HEADER];
     header[..8].copy_from_slice(MAGIC);
-    SystemRandom::new().fill(&mut header[8..]).map_err(|_| "Random generator unavailable")?;
+    encryption::fill_random(&mut header[8..]).ok_or("Random generator unavailable")?;
     let mut key = password_key(password, &header[8..24])?;
-    let cipher = Aes256Gcm::new_from_slice(&key).map_err(|_| "Invalid key")?;
+    let body = encryption::aes_gcm_seal(&key, &header[24..], &header, plain);
     key.fill(0);
-    let body = cipher.encrypt(Nonce::from_slice(&header[24..]), Payload { msg: plain, aad: &header }).map_err(|_| "Encryption failed")?;
+    let body = body.ok_or("Encryption failed")?;
     let mut result = header.to_vec(); result.extend(body); Ok(result)
 }
 fn unseal(bytes: &[u8], password: &str) -> Result<Vec<u8>, String> {
     if bytes.len() < HEADER + 16 || bytes.len() > MAX + HEADER + 16 { return Err("Invalid archive size".into()); }
     if &bytes[..8] != MAGIC { return Err("Unsupported archive format or version".into()); }
     let mut key = password_key(password, &bytes[8..24])?;
-    let cipher = Aes256Gcm::new_from_slice(&key).map_err(|_| "Invalid key")?;
+    let plain = encryption::aes_gcm_open(&key, &bytes[24..HEADER], &bytes[..HEADER], &bytes[HEADER..]);
     key.fill(0);
-    cipher.decrypt(Nonce::from_slice(&bytes[24..HEADER]), Payload { msg: &bytes[HEADER..], aad: &bytes[..HEADER] }).map_err(|_| "Wrong password or damaged archive".into())
+    plain.ok_or_else(|| "Wrong password or damaged archive".into())
 }
 fn supported(entry: &ClipboardEntry) -> bool {
     !entry.is_external && matches!(entry.content_type.as_str(), "text" | "code" | "url" | "rich_text")
