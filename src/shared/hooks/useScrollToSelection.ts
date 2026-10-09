@@ -24,17 +24,20 @@ export const useScrollToSelection = ({
     if (isKeyboardMode && selectedIndex >= 0 && selectedIndex < filteredHistory.length) {
       const item = filteredHistory[selectedIndex];
       const isPinned = selectedIndex < pinnedCount;
-      if (isPinned && virtualListRef?.current?.scrollToTop) {
-        virtualListRef.current.scrollToTop();
+      if (isPinned) {
+        // Pinned records live in the list header, outside the virtual item indices.
+        const el = document.getElementById(`${idPrefix}${item.id}`);
+        if (el) {
+          el.scrollIntoView({ behavior: "auto", block: "nearest" });
+        } else {
+          virtualListRef?.current?.scrollToTop();
+        }
         return;
       }
 
       const targetIndex = selectedIndex - pinnedCount;
       if (virtualListRef?.current && targetIndex >= 0) {
         virtualListRef.current.scrollToItem(targetIndex);
-        return;
-      } else if (virtualListRef?.current && pinnedCount > 0) {
-        virtualListRef.current.scrollToItem(0);
         return;
       }
 
@@ -45,5 +48,4 @@ export const useScrollToSelection = ({
     }
   }, [filteredHistory, selectedIndex, isKeyboardMode, idPrefix, pinnedCount, virtualListRef]);
 };
-
 

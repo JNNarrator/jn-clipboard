@@ -1228,10 +1228,12 @@ impl ClipboardRepository for SqliteClipboardRepository {
         {
             // Portable version: Data is NOT encrypted, use conventional SQL LIKE search (fastest)
             let sql = if tag_only {
-                "SELECT DISTINCT ch.id, ch.content_type, ch.content, ch.html_content, ch.source_app, ch.sort_at, ch.preview, ch.is_pinned, ch.tags, ch.use_count, ch.is_external, ch.pinned_order, ch.source_app_path, ch.note, ch.created_at, ch.last_used_at, ch.sort_at
+                "SELECT ch.id, ch.content_type, ch.content, ch.html_content, ch.source_app, ch.sort_at, ch.preview, ch.is_pinned, ch.tags, ch.use_count, ch.is_external, ch.pinned_order, ch.source_app_path, ch.note, ch.created_at, ch.last_used_at, ch.sort_at
                  FROM clipboard_history ch
-                 INNER JOIN entry_tags et ON ch.id = et.entry_id
-                 WHERE et.tag COLLATE NOCASE = ?1
+                 WHERE EXISTS (
+                    SELECT 1 FROM entry_tags et
+                    WHERE et.entry_id = ch.id AND et.tag COLLATE NOCASE = ?1
+                 )
                  ORDER BY ch.sort_at DESC
                  LIMIT ?2"
             } else if note_only {
@@ -1249,15 +1251,17 @@ impl ClipboardRepository for SqliteClipboardRepository {
                      LIMIT ?2"
                 }
             } else {
-                "SELECT DISTINCT ch.id, ch.content_type, ch.content, ch.html_content, ch.source_app, ch.sort_at, ch.preview, ch.is_pinned, ch.tags, ch.use_count, ch.is_external, ch.pinned_order, ch.source_app_path, ch.note, ch.created_at, ch.last_used_at, ch.sort_at
+                "SELECT ch.id, ch.content_type, ch.content, ch.html_content, ch.source_app, ch.sort_at, ch.preview, ch.is_pinned, ch.tags, ch.use_count, ch.is_external, ch.pinned_order, ch.source_app_path, ch.note, ch.created_at, ch.last_used_at, ch.sort_at
                  FROM clipboard_history ch
-                 LEFT JOIN entry_tags et ON ch.id = et.entry_id
                  WHERE (
                     (ch.content_type IN ('text','code','url','rich_text')
                      AND (ch.content LIKE '%' || ?1 || '%' OR ch.preview LIKE '%' || ?1 || '%'))
                     OR ch.source_app LIKE '%' || ?1 || '%'
                     OR ch.note LIKE '%' || ?1 || '%'
-                    OR et.tag LIKE '%' || ?1 || '%'
+                    OR EXISTS (
+                        SELECT 1 FROM entry_tags et
+                        WHERE et.entry_id = ch.id AND et.tag LIKE '%' || ?1 || '%'
+                    )
                  )
                  ORDER BY ch.sort_at DESC
                  LIMIT ?2"
@@ -1300,15 +1304,17 @@ impl ClipboardRepository for SqliteClipboardRepository {
             // 1) SQL search for non-sensitive (plaintext) entries
             let sql_non_sensitive = if tag_only {
                 format!(
-                    "SELECT DISTINCT ch.id, ch.content_type, ch.content, ch.html_content, ch.source_app, ch.sort_at, ch.preview, ch.is_pinned, ch.tags, ch.use_count, ch.is_external, ch.pinned_order, ch.source_app_path, ch.note, ch.created_at, ch.last_used_at, ch.sort_at
+                    "SELECT ch.id, ch.content_type, ch.content, ch.html_content, ch.source_app, ch.sort_at, ch.preview, ch.is_pinned, ch.tags, ch.use_count, ch.is_external, ch.pinned_order, ch.source_app_path, ch.note, ch.created_at, ch.last_used_at, ch.sort_at
                      FROM clipboard_history ch
-                     INNER JOIN entry_tags et ON ch.id = et.entry_id
                      WHERE NOT EXISTS (
                          SELECT 1 FROM entry_tags se
                          WHERE se.entry_id = ch.id
                            AND se.tag COLLATE NOCASE IN {}
                      )
-                       AND et.tag COLLATE NOCASE = ?1
+                       AND EXISTS (
+                           SELECT 1 FROM entry_tags et
+                           WHERE et.entry_id = ch.id AND et.tag COLLATE NOCASE = ?1
+                       )
                      ORDER BY ch.sort_at DESC, ch.id DESC
                      LIMIT ?2",
                     sensitive_tags_sql
@@ -1345,9 +1351,8 @@ impl ClipboardRepository for SqliteClipboardRepository {
                 }
             } else {
                 format!(
-                    "SELECT DISTINCT ch.id, ch.content_type, ch.content, ch.html_content, ch.source_app, ch.sort_at, ch.preview, ch.is_pinned, ch.tags, ch.use_count, ch.is_external, ch.pinned_order, ch.source_app_path, ch.note, ch.created_at, ch.last_used_at, ch.sort_at
+                    "SELECT ch.id, ch.content_type, ch.content, ch.html_content, ch.source_app, ch.sort_at, ch.preview, ch.is_pinned, ch.tags, ch.use_count, ch.is_external, ch.pinned_order, ch.source_app_path, ch.note, ch.created_at, ch.last_used_at, ch.sort_at
                      FROM clipboard_history ch
-                     LEFT JOIN entry_tags et ON ch.id = et.entry_id
                      WHERE NOT EXISTS (
                          SELECT 1 FROM entry_tags se
                          WHERE se.entry_id = ch.id
@@ -1358,7 +1363,10 @@ impl ClipboardRepository for SqliteClipboardRepository {
                           AND (ch.content LIKE '%' || ?1 || '%' OR ch.preview LIKE '%' || ?1 || '%'))
                          OR ch.source_app LIKE '%' || ?1 || '%'
                          OR ch.note LIKE '%' || ?1 || '%'
-                         OR et.tag LIKE '%' || ?1 || '%'
+                         OR EXISTS (
+                             SELECT 1 FROM entry_tags et
+                             WHERE et.entry_id = ch.id AND et.tag LIKE '%' || ?1 || '%'
+                         )
                        )
                      ORDER BY ch.sort_at DESC, ch.id DESC
                      LIMIT ?2",
@@ -1646,5 +1654,138 @@ impl ClipboardRepository for SqliteClipboardRepository {
     ) -> Result<Option<(String, String, Option<String>)>, String> {
         let conn = self.conn.lock().map_err(|e| e.to_string())?;
         self.get_entry_content_with_html_with_conn(&conn, id)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::infrastructure::repository::migrations::run_migrations;
+
+    fn search_repository(fixture: &str) -> SqliteClipboardRepository {
+        let conn = Connection::open_in_memory().expect("open database");
+        run_migrations(&conn).expect("migrate database");
+        conn.execute_batch(fixture).expect("insert search fixture");
+        let repo = SqliteClipboardRepository::new(Arc::new(Mutex::new(conn)));
+        {
+            let conn = repo.conn.lock().unwrap();
+            let tags = conn
+                .prepare("SELECT id, tags FROM clipboard_history")
+                .unwrap()
+                .query_map([], |row| {
+                    Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+                })
+                .unwrap()
+                .collect::<Result<Vec<_>, _>>()
+                .unwrap();
+            for (id, json) in tags {
+                repo.sync_entry_tags_with_conn(
+                    &conn,
+                    id,
+                    &serde_json::from_str::<Vec<String>>(&json).unwrap(),
+                )
+                .unwrap();
+            }
+        }
+        repo
+    }
+
+    fn search_ids(
+        repo: &SqliteClipboardRepository,
+        query: &str,
+        limit: i32,
+        tag_only: bool,
+        note_only: bool,
+    ) -> Vec<i64> {
+        repo.search(query, limit, tag_only, note_only)
+            .expect("search history")
+            .into_iter()
+            .map(|entry| entry.id)
+            .collect()
+    }
+
+    const GENERAL_FIXTURE: &str = r#"
+        INSERT INTO clipboard_history
+            (id, content_type, content, source_app, timestamp, sort_at, preview, tags, note)
+        VALUES
+            (1, 'text', 'needle content', 'App', 100, 100, '', '["needle-a","needle-b","other"]', ''),
+            (2, 'text', 'other', 'App', 90, 90, '', '["needle-a","needle-b"]', ''),
+            (3, 'text', 'untagged needle', 'App', 80, 80, '', '[]', ''),
+            (4, 'image', 'needle', 'App', 75, 75, 'needle', '[]', ''),
+            (5, 'image', 'other', 'Needle App', 70, 70, '', '[]', ''),
+            (6, 'text', 'other', 'App', 60, 60, '', '[]', 'needle note'),
+            (7, 'rich_text', 'other', 'App', 50, 50, 'needle preview', '[]', '');
+    "#;
+
+    #[test]
+    fn search_preserves_matching_fields_order_and_limit_without_duplicate_tag_rows() {
+        let repo = search_repository(GENERAL_FIXTURE);
+        assert_eq!(
+            search_ids(&repo, " NeEdLe ", 20, false, false),
+            vec![1, 2, 3, 5, 6, 7]
+        );
+        assert_eq!(search_ids(&repo, "needle", 2, false, false), vec![1, 2]);
+        assert_eq!(
+            search_ids(&repo, "needle", 0, false, false),
+            Vec::<i64>::new()
+        );
+    }
+
+    #[test]
+    fn tag_search_keeps_case_insensitive_exact_matching_including_literal_wildcards() {
+        let repo = search_repository(
+            r#"
+            INSERT INTO clipboard_history
+                (id, content_type, content, source_app, timestamp, sort_at, preview, tags)
+            VALUES
+                (1, 'text', 'other', 'App', 100, 100, '', '["Work","WORK","work-extra"]'),
+                (2, 'text', 'other', 'App', 90, 90, '', '["work"]'),
+                (3, 'text', 'work', 'App', 80, 80, '', '["work-extra"]'),
+                (4, 'text', 'other', 'App', 70, 70, '', '["work%"]');
+        "#,
+        );
+        assert_eq!(search_ids(&repo, " WoRk ", 20, true, false), vec![1, 2]);
+        assert_eq!(search_ids(&repo, "work", 1, true, false), vec![1]);
+        assert_eq!(search_ids(&repo, "work%", 20, true, false), vec![4]);
+        assert_eq!(search_ids(&repo, "wor", 20, true, false), Vec::<i64>::new());
+    }
+
+    #[test]
+    fn note_search_and_empty_query_behavior_are_preserved() {
+        let repo = search_repository(GENERAL_FIXTURE);
+        assert_eq!(search_ids(&repo, "needle", 20, false, true), vec![6]);
+        assert_eq!(search_ids(&repo, " ", 20, false, true), vec![6]);
+        assert!(search_ids(&repo, " ", 20, false, false).is_empty());
+        assert!(search_ids(&repo, " ", 20, true, false).is_empty());
+    }
+
+    #[cfg(not(feature = "portable"))]
+    #[test]
+    fn search_still_scans_sensitive_records_and_decodes_legacy_storage() {
+        // Legacy storage exercises decryption without accessing the system keychain.
+        let repo = search_repository(
+            r#"
+            INSERT INTO clipboard_history
+                (id, content_type, content, source_app, timestamp, sort_at, preview, tags, note)
+            VALUES
+                (1, 'text', 'plain:hidden needle', 'App', 100, 100, 'plain:hidden preview', '["password","project"]', 'needle note'),
+                (2, 'text', 'needle', 'App', 90, 90, '', '["project"]', '');
+        "#,
+        );
+        let results = repo.search("needle", 20, false, false).unwrap();
+        assert_eq!(
+            results.iter().map(|entry| entry.id).collect::<Vec<_>>(),
+            vec![1, 2]
+        );
+        assert_eq!(results[0].content, "hidden needle");
+        assert_eq!(results[0].preview, "hidden preview");
+        assert_eq!(search_ids(&repo, "project", 20, true, false), vec![1, 2]);
+        assert_eq!(search_ids(&repo, "password", 20, true, false), vec![1]);
+        assert_eq!(
+            search_ids(&repo, "proj", 20, true, false),
+            Vec::<i64>::new()
+        );
+        assert_eq!(search_ids(&repo, "needle", 20, false, true), vec![1]);
+        assert_eq!(search_ids(&repo, "", 20, false, true), vec![1]);
     }
 }
