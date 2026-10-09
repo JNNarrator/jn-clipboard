@@ -48,6 +48,7 @@ fn register_macos_wake_hotkey_refresh(app_handle: AppHandle) {
 
     let center = NSWorkspace::sharedWorkspace().notificationCenter();
     let wake_handler = RcBlock::new(move |_notification: NonNull<NSNotification>| {
+        crate::services::network_recovery::request_wake_recovery();
         let app_handle = app_handle.clone();
         std::thread::spawn(move || {
             // macOS may need a short moment to restore Carbon event hotkeys after wake.
@@ -946,6 +947,7 @@ fn start_services(app: &App, s: &StartupSettings, app_handle: AppHandle) {
     }
     crate::services::mqtt_sub::start_mqtt_client(app_handle.clone());
     crate::services::cloud_sync::start_cloud_sync_client(app_handle.clone());
+    crate::services::network_recovery::start_network_recovery(app_handle.clone());
     start_edge_docking_monitor(app_handle.clone());
     crate::app::light_mode::start_idle_watcher(app_handle.clone());
     crate::app::light_mode::seed_hidden_if_needed(&app_handle);

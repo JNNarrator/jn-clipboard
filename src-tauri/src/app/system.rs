@@ -100,6 +100,15 @@ pub unsafe extern "system" fn tray_subclass_proc(
     _id: usize,
     _data: usize,
 ) -> LRESULT {
+    use windows::Win32::UI::WindowsAndMessaging::{
+        PBT_APMRESUMEAUTOMATIC, PBT_APMRESUMECRITICAL, PBT_APMRESUMESUSPEND,
+        WM_POWERBROADCAST,
+    };
+    if msg == WM_POWERBROADCAST
+        && matches!(wparam.0 as u32, PBT_APMRESUMEAUTOMATIC | PBT_APMRESUMECRITICAL | PBT_APMRESUMESUSPEND)
+    {
+        crate::services::network_recovery::request_wake_recovery();
+    }
     let taskbar_msg = TASKBAR_CREATED_MSG.load(Ordering::Relaxed);
     if msg != 0 && msg == taskbar_msg {
         if let Some(app_handle) = crate::GLOBAL_APP_HANDLE.get() {

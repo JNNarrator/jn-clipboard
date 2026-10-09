@@ -283,6 +283,34 @@ fn sync_run_lock() -> &'static tokio::sync::Mutex<()> {
     LOCK.get_or_init(|| tokio::sync::Mutex::new(()))
 }
 
+fn sync_wake_signal() -> &'static tokio::sync::Notify {
+    static SIGNAL: OnceLock<tokio::sync::Notify> = OnceLock::new();
+    SIGNAL.get_or_init(tokio::sync::Notify::new)
+}
+
+async fn wait_for_sync_trigger(
+    requested: &AtomicBool,
+    cancelled: &AtomicBool,
+    signal: &tokio::sync::Notify,
+    interval: Option<Duration>,
+) {
+    let deadline = interval.map(|delay| tokio::time::Instant::now() + delay);
+    loop {
+        if requested.load(Ordering::Relaxed) || cancelled.load(Ordering::Relaxed) {
+            return;
+        }
+        tokio::select! {
+            _ = signal.notified() => {},
+            _ = async {
+                match deadline {
+                    Some(deadline) => tokio::time::sleep_until(deadline).await,
+                    None => std::future::pending::<()>().await,
+                }
+            } => return,
+        }
+    }
+}
+
 fn disabled_status() -> CloudSyncStatus {
     CloudSyncStatus {
         state: "disabled".to_string(),
@@ -3366,6 +3394,13 @@ async fn sync_once_webdav(
     if sync_head_dirty {
         sync_head.updated_at = now_ms();
         upload_webdav_sync_head(&client, cfg, &paths.head_path, &sync_head).await?;
+        // Announce only after peers can read the committed head and its resources.
+        // MQTT is best effort; a failure must not turn a successful upload into an error.
+        if let Some(scope) = crate::services::sync_notifications::webdav_scope(
+            &cfg.webdav_url, &cfg.webdav_username, &cfg.webdav_base_path,
+        ) {
+            crate::services::mqtt_sub::publish_webdav_changed(&scope, &cfg.device_id);
+        }
     }
 
     if received_items > 0 {
@@ -3505,7 +3540,7 @@ pub fn start_cloud_sync_client(app: AppHandle) {
                 break;
             }
 
-            let mut requested = CLOUD_SYNC_REQUESTED.swap(false, Ordering::Relaxed);
+            let requested = CLOUD_SYNC_REQUESTED.swap(false, Ordering::Relaxed);
             let cfg = match get_config(&app) {
                 Some(c) => c,
                 None => {
@@ -3614,34 +3649,12 @@ pub fn start_cloud_sync_client(app: AppHandle) {
                 break;
             }
 
-            if cfg.auto_sync {
-                let interval = cfg
-                    .interval_secs
-                    .clamp(MIN_INTERVAL_SECS, MAX_INTERVAL_SECS);
-                let mut elapsed = 0u64;
-                while elapsed < interval {
-                    if cloud_sync_cancel_requested() {
-                        break;
-                    }
-                    requested = CLOUD_SYNC_REQUESTED.swap(false, Ordering::Relaxed);
-                    if requested {
-                        break;
-                    }
-                    sleep(Duration::from_secs(1)).await;
-                    elapsed += 1;
-                }
-            } else {
-                loop {
-                    if cloud_sync_cancel_requested() {
-                        break;
-                    }
-                    requested = CLOUD_SYNC_REQUESTED.swap(false, Ordering::Relaxed);
-                    if requested {
-                        break;
-                    }
-                    sleep(Duration::from_secs(1)).await;
-                }
-            }
+            let interval = cfg.auto_sync.then(|| Duration::from_secs(
+                cfg.interval_secs.clamp(MIN_INTERVAL_SECS, MAX_INTERVAL_SECS),
+            ));
+            wait_for_sync_trigger(
+                &CLOUD_SYNC_REQUESTED, &CLOUD_SYNC_CANCEL_REQUESTED, sync_wake_signal(), interval,
+            ).await;
 
             if cloud_sync_cancel_requested() {
                 emit_status(Some(&app), disabled_status());
@@ -3658,6 +3671,7 @@ pub fn restart_cloud_sync_client(app: AppHandle) {
     // Request current loop exit, then start a fresh task and sync once.
     CLOUD_SYNC_CANCEL_REQUESTED.store(true, Ordering::Relaxed);
     CLOUD_SYNC_REQUESTED.store(false, Ordering::Relaxed);
+    sync_wake_signal().notify_one();
 
     tauri::async_runtime::spawn(async move {
         // Wait briefly for the active loop to observe cancel and drop.
@@ -3668,8 +3682,9 @@ pub fn restart_cloud_sync_client(app: AppHandle) {
             sleep(Duration::from_millis(100)).await;
         }
         CLOUD_SYNC_CANCEL_REQUESTED.store(false, Ordering::Relaxed);
-        start_cloud_sync_client(app.clone());
         CLOUD_SYNC_REQUESTED.store(true, Ordering::Relaxed);
+        start_cloud_sync_client(app.clone());
+        sync_wake_signal().notify_one();
     });
 }
 
@@ -3677,16 +3692,38 @@ pub fn request_cloud_sync(app: AppHandle) {
     let Some(cfg) = get_config(&app) else {
         return;
     };
-    if !cfg.enabled || !cfg.auto_sync || !cloud_sync_target_ready(&cfg) {
+    if !cfg.enabled
+        || !cfg.auto_sync
+        || !cloud_sync_target_ready(&cfg)
+        || cloud_sync_cancel_requested()
+    {
         return;
     }
-    CLOUD_SYNC_CANCEL_REQUESTED.store(false, Ordering::Relaxed);
-    start_cloud_sync_client(app);
     CLOUD_SYNC_REQUESTED.store(true, Ordering::Relaxed);
+    start_cloud_sync_client(app);
+    sync_wake_signal().notify_one();
+}
+
+pub fn notification_identity(app: &AppHandle) -> Option<(String, String)> {
+    let cfg = get_config(app)?;
+    if !cfg.enabled
+        || !cfg.auto_sync
+        || cfg.provider != CloudSyncProvider::WebDav
+        || !cloud_sync_target_ready(&cfg)
+    {
+        return None;
+    }
+    let scope = crate::services::sync_notifications::webdav_scope(
+        &cfg.webdav_url,
+        &cfg.webdav_username,
+        &cfg.webdav_base_path,
+    )?;
+    Some((scope, cfg.device_id))
 }
 
 pub fn stop_cloud_sync_client(app: AppHandle) {
     CLOUD_SYNC_CANCEL_REQUESTED.store(true, Ordering::Relaxed);
+    sync_wake_signal().notify_one();
     emit_status(Some(&app), disabled_status());
 }
 
@@ -3818,6 +3855,84 @@ fn merge_remote_emojis(app: &AppHandle, remote_json: &str) -> AppResult<()> {
 
 #[cfg(test)]
 mod tests {
+    #[tokio::test]
+    async fn requests_wake_a_waiter_without_consuming_the_pending_request() {
+        use super::*;
+        let requested = AtomicBool::new(false);
+        let cancelled = AtomicBool::new(false);
+        let signal = tokio::sync::Notify::new();
+        let wait = wait_for_sync_trigger(
+            &requested,
+            &cancelled,
+            &signal,
+            Some(Duration::from_secs(120)),
+        );
+        let trigger = async {
+            tokio::task::yield_now().await;
+            requested.store(true, Ordering::Relaxed);
+            signal.notify_one();
+        };
+        tokio::time::timeout(Duration::from_secs(1), async {
+            tokio::join!(wait, trigger);
+        })
+        .await
+        .unwrap();
+        assert!(requested.load(Ordering::Relaxed));
+    }
+
+    #[tokio::test]
+    async fn stale_wake_permits_do_not_start_extra_syncs_and_polling_still_runs() {
+        use super::*;
+        let requested = AtomicBool::new(false);
+        let cancelled = AtomicBool::new(false);
+        let signal = tokio::sync::Notify::new();
+        signal.notify_one(); // A request already consumed by the running sync.
+        assert!(tokio::time::timeout(
+            Duration::from_millis(30),
+            wait_for_sync_trigger(&requested, &cancelled, &signal, None),
+        )
+        .await
+        .is_err());
+        tokio::time::timeout(
+            Duration::from_secs(1),
+            wait_for_sync_trigger(
+                &requested,
+                &cancelled,
+                &signal,
+                Some(Duration::from_millis(10)),
+            ),
+        )
+        .await
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn stop_wakes_manual_mode_and_already_pending_requests_return_immediately() {
+        use super::*;
+        let requested = AtomicBool::new(true);
+        let cancelled = AtomicBool::new(false);
+        let signal = tokio::sync::Notify::new();
+        tokio::time::timeout(
+            Duration::from_secs(1),
+            wait_for_sync_trigger(&requested, &cancelled, &signal, None),
+        )
+        .await
+        .unwrap();
+        requested.store(false, Ordering::Relaxed);
+        let stop = async {
+            tokio::task::yield_now().await;
+            cancelled.store(true, Ordering::Relaxed);
+            signal.notify_one();
+        };
+        tokio::time::timeout(Duration::from_secs(1), async {
+            tokio::join!(
+                wait_for_sync_trigger(&requested, &cancelled, &signal, None),
+                stop
+            );
+        })
+        .await
+        .unwrap();
+    }
     #[test]
     fn sensitive_settings_and_tags_stay_local() {
         for key in ["mqtt_password", "mqtt_username", "ai_profiles", "cloud_sync_api_key", "cloud_sync_webdav_password"] {

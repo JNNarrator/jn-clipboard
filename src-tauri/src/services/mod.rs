@@ -7,6 +7,8 @@ pub mod encryption_queue;
 pub mod file_transfer;
 pub mod importers;
 pub mod mqtt_sub;
+pub mod network_recovery;
 pub mod paste_queue;
 pub mod sensitive_align;
+pub mod sync_notifications;
 pub mod ui_sound;

@@ -1,11 +1,13 @@
 use crate::database::DbState;
 use crate::global_state::{LAST_APP_SET_HASH, LAST_APP_SET_TIMESTAMP};
 use crate::infrastructure::repository::settings_repo::SettingsRepository;
+use crate::services::sync_notifications::{self, NoticeReceiver, PublishRoute};
 use crate::{error, info};
 use rumqttc::{AsyncClient, Event, Incoming, MqttOptions, QoS, Transport};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
+use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::time::sleep;
@@ -30,11 +32,83 @@ static MQTT_RUNNING: AtomicBool = AtomicBool::new(false);
 static MQTT_CONNECTED: AtomicBool = AtomicBool::new(false);
 static MQTT_RECONNECT_ATTEMPTS: AtomicU32 = AtomicU32::new(0);
 static MQTT_TASK_ACTIVE: AtomicBool = AtomicBool::new(false);
+static MQTT_GENERATION: AtomicU64 = AtomicU64::new(0);
+
+struct NoticePublisher {
+    client: AsyncClient,
+    topic: String,
+    generation: u64,
+}
+
+fn notice_publisher() -> &'static Mutex<Option<NoticePublisher>> {
+    static PUBLISHER: OnceLock<Mutex<Option<NoticePublisher>>> = OnceLock::new();
+    PUBLISHER.get_or_init(|| Mutex::new(None))
+}
+
+fn restart_signal() -> &'static tokio::sync::Notify {
+    static SIGNAL: OnceLock<tokio::sync::Notify> = OnceLock::new();
+    SIGNAL.get_or_init(tokio::sync::Notify::new)
+}
+
+fn clear_notice_publisher() {
+    if let Ok(mut publisher) = notice_publisher().lock() {
+        *publisher = None;
+    }
+}
+
+fn default_client_id(device_id: &str) -> String {
+    use sha2::{Digest, Sha256};
+    let digest = format!("{:x}", Sha256::digest(device_id.as_bytes()));
+    format!("tiez_{}", &digest[..16])
+}
+
+fn reconnect_delay(attempt: u32) -> Duration {
+    // Clamp before exponentiation so a long offline period cannot overflow.
+    Duration::from_secs((5u64 << attempt.saturating_sub(1).min(4)).min(60))
+}
+
+async fn wait_or_restart(delay: Duration, generation: u64) {
+    if MQTT_GENERATION.load(Ordering::Relaxed) != generation {
+        return;
+    }
+    tokio::select! {
+        _ = restart_signal().notified() => {},
+        _ = sleep(delay) => {},
+    }
+}
+
+pub fn publish_webdav_changed(scope: &str, device_id: &str) {
+    let Ok(payload) = sync_notifications::encode_notice(scope, device_id) else {
+        return;
+    };
+    let Ok(publisher) = notice_publisher().lock() else {
+        return;
+    };
+    if let Some(publisher) = publisher.as_ref() {
+        if MQTT_CONNECTED.load(Ordering::Relaxed)
+            && publisher.generation == MQTT_GENERATION.load(Ordering::Relaxed)
+            && publisher
+                .client
+                .try_publish(&publisher.topic, QoS::AtLeastOnce, false, payload)
+                .is_err()
+        {
+            info!(">>> [SYNC] MQTT update hint not queued; WebDAV polling will retry");
+        }
+    }
+}
+
+pub fn recover_mqtt_connection(app: AppHandle) {
+    if get_mqtt_config(&app).is_some() {
+        restart_mqtt_client(app);
+    }
+}
 
 struct MqttTaskGuard;
 
 impl Drop for MqttTaskGuard {
     fn drop(&mut self) {
+        clear_notice_publisher();
+        MQTT_CONNECTED.store(false, Ordering::Relaxed);
         MQTT_TASK_ACTIVE.store(false, Ordering::Relaxed);
     }
 }
@@ -53,6 +127,9 @@ pub fn restart_mqtt_client(app: AppHandle) {
     MQTT_RUNNING.store(false, Ordering::Relaxed);
     MQTT_CONNECTED.store(false, Ordering::Relaxed);
     MQTT_RECONNECT_ATTEMPTS.store(0, Ordering::Relaxed);
+    MQTT_GENERATION.fetch_add(1, Ordering::Relaxed);
+    clear_notice_publisher();
+    restart_signal().notify_one();
 
     // 如果之前达到最大重连次数导致任务退出，重新启动任务
     if !MQTT_TASK_ACTIVE.load(Ordering::Relaxed) {
@@ -134,13 +211,8 @@ fn get_mqtt_config(app: &AppHandle) -> Option<MqttConfig> {
         .ok()
         .flatten()
         .filter(|s| !s.is_empty());
-    let client_id = custom_client_id.unwrap_or_else(|| {
-        topic
-            .split('/')
-            .nth(1)
-            .unwrap_or(&format!("tiez_{}", short_id))
-            .to_string()
-    });
+    // Shared topics must not give different computers the same broker session ID.
+    let client_id = custom_client_id.unwrap_or_else(|| default_client_id(&anon_id));
 
     let username = db_state
         .settings_repo
@@ -216,9 +288,13 @@ pub fn start_mqtt_client(app: AppHandle) {
 
     tauri::async_runtime::spawn(async move {
         let _guard = MqttTaskGuard;
+        let mut notice_receiver = NoticeReceiver::default();
         // Loop forever if enabled, using exponential backoff inside.
 
         loop {
+            clear_notice_publisher();
+            MQTT_CONNECTED.store(false, Ordering::Relaxed);
+            let generation = MQTT_GENERATION.load(Ordering::Relaxed);
             let config = get_mqtt_config(&app);
 
             if let Some(cfg) = config {
@@ -383,7 +459,7 @@ pub fn start_mqtt_client(app: AppHandle) {
                 let (client, mut eventloop) = AsyncClient::new(mqttoptions, 10);
 
                 let mut connected = false;
-                let connect_result = tokio::time::timeout(Duration::from_secs(30), async {
+                let connecting = tokio::time::timeout(Duration::from_secs(30), async {
                     loop {
                         match eventloop.poll().await {
                             Ok(Event::Incoming(Incoming::ConnAck(_))) => {
@@ -397,8 +473,15 @@ pub fn start_mqtt_client(app: AppHandle) {
                             Err(e) => return Err(e),
                         }
                     }
-                })
-                .await;
+                });
+                let connect_result = tokio::select! {
+                    biased;
+                    _ = restart_signal().notified() => continue,
+                    result = connecting => result,
+                };
+                if MQTT_GENERATION.load(Ordering::Relaxed) != generation {
+                    continue;
+                }
 
                 match connect_result {
                     Ok(Ok(())) => connected = true,
@@ -418,34 +501,64 @@ pub fn start_mqtt_client(app: AppHandle) {
                     let _ = app.emit("mqtt-status", "disconnected");
 
                     // Cap backoff at 60 seconds
-                    let wait_secs = (5 * u64::pow(2, (current_attempts as u32).saturating_sub(1))).min(60);
-                    info!(">>> [MQTT] Retrying in {}s (Attempt {})...", wait_secs, current_attempts);
-                    sleep(Duration::from_secs(wait_secs)).await;
+                    let delay = reconnect_delay(current_attempts);
+                    info!(">>> [MQTT] Retrying in {}s (Attempt {})...", delay.as_secs(), current_attempts);
+                    wait_or_restart(delay, generation).await;
                     continue;
                 }
 
                 let sub_topic = format!("{}/#", cfg.topic);
                 if let Err(e) = client.subscribe(sub_topic.clone(), QoS::AtLeastOnce).await {
                     error!(">>> [MQTT] Subscribe failed: {:?}", e);
-                    sleep(Duration::from_secs(2)).await;
+                    wait_or_restart(Duration::from_secs(2), generation).await;
                     continue;
                 }
                 info!(">>> [MQTT] Subscribed to {}", sub_topic);
 
+                let notice_topic = sync_notifications::notification_topic(&cfg.topic);
+                if client.try_subscribe(&notice_topic, QoS::AtLeastOnce).is_err() {
+                    info!(">>> [SYNC] Update hint subscription not queued; using WebDAV polling");
+                }
+                if let Ok(mut publisher) = notice_publisher().lock() {
+                    *publisher = Some(NoticePublisher {
+                        client: client.clone(), topic: notice_topic.clone(), generation,
+                    });
+                }
+                // Catch changes published while this computer was disconnected.
+                crate::services::cloud_sync::request_cloud_sync(app.clone());
+
                 loop {
                     // Restart/stop requested: drop this connection and let outer loop reconnect.
-                    if !MQTT_RUNNING.load(Ordering::Relaxed) {
+                    if !MQTT_RUNNING.load(Ordering::Relaxed)
+                        || MQTT_GENERATION.load(Ordering::Relaxed) != generation {
                         info!(">>> [MQTT] Stop/restart requested. Leaving event loop.");
                         MQTT_CONNECTED.store(false, Ordering::Relaxed);
                         let _ = app.emit("mqtt-status", "disconnected");
-                        let _ = client.disconnect().await;
+                        let _ = client.try_disconnect();
                         break;
                     }
 
-                    match tokio::time::timeout(Duration::from_secs(5), eventloop.poll()).await {
+                    let poll_result = tokio::select! {
+                        biased;
+                        _ = restart_signal().notified() => break,
+                        result = tokio::time::timeout(Duration::from_secs(5), eventloop.poll()) => result,
+                    };
+                    match poll_result {
                         Ok(event_result) => match event_result {
                             Ok(Event::Incoming(notification)) => match notification {
                                 Incoming::Publish(publish) => {
+                                    match sync_notifications::route_publish(&publish.topic, &notice_topic) {
+                                        PublishRoute::Ignore => continue,
+                                        PublishRoute::SyncNotice => {
+                                            if let Some((scope, device_id)) = crate::services::cloud_sync::notification_identity(&app) {
+                                                if notice_receiver.accept(&publish.payload, publish.retain, &scope, &device_id) {
+                                                    crate::services::cloud_sync::request_cloud_sync(app.clone());
+                                                }
+                                            }
+                                            continue;
+                                        }
+                                        PublishRoute::Clipboard => {},
+                                    }
                                     if let Ok(payload_str) = std::str::from_utf8(&publish.payload) {
                                         let payload_trimmed = payload_str.trim();
                                         let final_content = if let Ok(json_val) =
@@ -521,6 +634,11 @@ pub fn start_mqtt_client(app: AppHandle) {
                                         let _ = app.emit("mqtt-message", &final_content);
                                     }
                                 }
+                                Incoming::SubAck(ack) => {
+                                    if ack.return_codes.iter().any(|code| matches!(code, rumqttc::SubscribeReasonCode::Failure)) {
+                                        info!(">>> [MQTT] A subscription was refused; WebDAV polling remains available");
+                                    }
+                                }
                                 Incoming::ConnAck(_) => {
                                     let _ = app.emit("mqtt-status", "connected");
                                 }
@@ -541,7 +659,7 @@ pub fn start_mqtt_client(app: AppHandle) {
                                 info!(">>> [MQTT] Stop/restart requested during idle poll.");
                                 MQTT_CONNECTED.store(false, Ordering::Relaxed);
                                 let _ = app.emit("mqtt-status", "disconnected");
-                                let _ = client.disconnect().await;
+                                let _ = client.try_disconnect();
                                 break;
                             }
                             if get_mqtt_config(&app).is_none() {
@@ -565,7 +683,142 @@ pub fn start_mqtt_client(app: AppHandle) {
                 continue;
             }
 
-            sleep(Duration::from_secs(5)).await;
+            wait_or_restart(Duration::from_secs(5), generation).await;
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    #[test]
+    fn shared_topics_do_not_share_default_broker_session_ids() {
+        assert_ne!(default_client_id("device-a"), default_client_id("device-b"));
+        assert_eq!(default_client_id("device-a"), default_client_id("device-a"));
+        assert!(default_client_id("device-a").len() <= 23);
+    }
+
+    #[test]
+    fn reconnect_backoff_is_bounded_even_after_a_long_outage() {
+        assert_eq!(reconnect_delay(1), Duration::from_secs(5));
+        assert_eq!(reconnect_delay(2), Duration::from_secs(10));
+        assert_eq!(reconnect_delay(4), Duration::from_secs(40));
+        assert_eq!(reconnect_delay(5), Duration::from_secs(60));
+        assert_eq!(reconnect_delay(u32::MAX), Duration::from_secs(60));
+    }
+
+    #[tokio::test]
+    async fn restart_interrupts_the_backoff_and_stale_connections_do_not_wait() {
+        let generation = MQTT_GENERATION.load(Ordering::Relaxed);
+        let restart = async {
+            tokio::task::yield_now().await;
+            restart_signal().notify_one();
+        };
+        tokio::time::timeout(Duration::from_secs(1), async {
+            tokio::join!(
+                wait_or_restart(Duration::from_secs(60), generation),
+                restart
+            );
+        })
+        .await
+        .unwrap();
+        tokio::time::timeout(
+            Duration::from_secs(1),
+            wait_or_restart(Duration::from_secs(60), generation.wrapping_sub(1)),
+        )
+        .await
+        .unwrap();
+    }
+
+    async fn read_packet(stream: &mut tokio::net::TcpStream) -> (u8, Vec<u8>) {
+        let header = stream.read_u8().await.unwrap();
+        let mut length = 0usize;
+        let mut multiplier = 1;
+        loop {
+            let byte = stream.read_u8().await.unwrap();
+            length += (byte as usize & 127) * multiplier;
+            if byte & 128 == 0 {
+                break;
+            }
+            multiplier *= 128;
+            assert!(multiplier <= 128usize.pow(3));
+        }
+        assert!(length < 4096);
+        let mut body = vec![0; length];
+        stream.read_exact(&mut body).await.unwrap();
+        (header, body)
+    }
+
+    #[tokio::test]
+    async fn webdav_hint_is_published_as_non_retained_metadata_on_a_real_mqtt_connection() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let (release_broker, wait_for_ack) = tokio::sync::oneshot::channel();
+        let broker = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            assert_eq!(read_packet(&mut stream).await.0 >> 4, 1); // CONNECT
+            stream.write_all(&[0x20, 2, 0, 0]).await.unwrap(); // CONNACK
+            let (header, body) = read_packet(&mut stream).await;
+            assert_eq!(header, 0x32); // QoS 1, not retained, not a duplicate
+            let topic_len = u16::from_be_bytes([body[0], body[1]]) as usize;
+            let topic = String::from_utf8(body[2..2 + topic_len].to_vec()).unwrap();
+            let id_offset = 2 + topic_len;
+            let payload = body[id_offset + 2..].to_vec();
+            stream
+                .write_all(&[0x40, 2, body[id_offset], body[id_offset + 1]])
+                .await
+                .unwrap();
+            // Keep the socket open until the client consumes PUBACK. Closing it
+            // here would test an abrupt disconnect instead of successful delivery.
+            wait_for_ack.await.unwrap();
+            (topic, payload)
+        });
+
+        let options = MqttOptions::new(default_client_id("device-a"), "127.0.0.1", port);
+        let (client, mut eventloop) = AsyncClient::new(options, 10);
+        let topic = sync_notifications::notification_topic("tiez/shared");
+        let scope =
+            sync_notifications::webdav_scope("https://example.test/dav", "user", "tiez-sync")
+                .unwrap();
+        let result = tokio::time::timeout(Duration::from_secs(5), async {
+            assert!(matches!(
+                eventloop.poll().await.unwrap(),
+                Event::Incoming(Incoming::ConnAck(_))
+            ));
+            let _cleanup = MqttTaskGuard;
+            MQTT_CONNECTED.store(true, Ordering::Relaxed);
+            *notice_publisher().lock().unwrap() = Some(NoticePublisher {
+                client,
+                topic: topic.clone(),
+                generation: MQTT_GENERATION.load(Ordering::Relaxed),
+            });
+            publish_webdav_changed(&scope, "device-a");
+            loop {
+                if matches!(
+                    eventloop.poll().await.unwrap(),
+                    Event::Incoming(Incoming::PubAck(_))
+                ) {
+                    break;
+                }
+            }
+            release_broker.send(()).unwrap();
+            broker.await.unwrap()
+        })
+        .await
+        .unwrap();
+        assert_eq!(result.0, topic);
+        assert_eq!(
+            sync_notifications::route_publish(&result.0, &topic),
+            PublishRoute::SyncNotice
+        );
+        let notice: serde_json::Value = serde_json::from_slice(&result.1).unwrap();
+        assert_eq!(notice["scope"], scope);
+        assert_eq!(notice["device_id"], "device-a");
+        assert_eq!(notice.as_object().unwrap().len(), 5);
+        let mut receiver = NoticeReceiver::default();
+        assert!(receiver.accept(&result.1, false, &scope, "device-b"));
+        assert!(!receiver.accept(&result.1, false, &scope, "device-b"));
+    }
 }
