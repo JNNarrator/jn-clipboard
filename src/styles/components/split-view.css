@@ -1,18 +1,10 @@
 /* Wide two-column layout: history list on the left, detail of the hovered or
-   keyboard-selected entry on the right. The grid tracks interpolate, so
-   crossing the width threshold slides the pane open instead of snapping. */
-
-.main-content {
-  transition: grid-template-columns 0.28s cubic-bezier(0.22, 1, 0.36, 1);
-}
+   keyboard-selected entry on the right. The columns snap rather than ease:
+   settings, tags and transfer render in the left column, so an eased grid
+   swept every page open from the left each time one was switched to. */
 
 .main-content.is-split {
   grid-template-columns: var(--split-columns, minmax(240px, 2fr) minmax(0, 3fr));
-}
-
-/* Follow the pointer while dragging the divider instead of easing behind it. */
-.main-content.is-pane-resizing {
-  transition: none;
 }
 
 .main-split-detail {
@@ -23,13 +15,10 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  opacity: 0;
-  transition: opacity 0.2s ease;
 }
 
 /* Divider as an inset shadow so the collapsed column takes no width at all. */
 .main-content.is-split .main-split-detail {
-  opacity: 1;
   box-shadow: inset 1px 0 0 var(--line-soft);
 }
 
@@ -83,12 +72,6 @@
   min-height: 0;
   overflow: auto;
   padding: 20px;
-  animation: detail-fade-in 0.16s ease;
-}
-
-@keyframes detail-fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
 }
 
 .detail-text {
@@ -481,15 +464,6 @@
   height: 16px;
   flex: 0 0 auto;
   border-radius: 4px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .main-content,
-  .main-split-detail,
-  .detail-preview {
-    transition: none;
-    animation: none;
-  }
 }
 
 /* ---- Actions: per-row buttons move into the pane's action bar ---- */

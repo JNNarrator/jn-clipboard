@@ -501,7 +501,7 @@ const ClipboardDetailPane = ({
       </ul>
     );
   } else if (originalItem?.content_type === "rich_text" && originalItem.html_content) {
-    preview = <HtmlContent htmlContent={originalItem.html_content} fallbackText={text} className="detail-rich" />;
+    preview = <HtmlContent htmlContent={originalItem.html_content} fallbackText={text} className="detail-rich" eager />;
   } else {
     preview = (
       <pre className={`detail-text${originalItem?.content_type === "code" ? " is-code" : ""}`}>
@@ -541,7 +541,7 @@ const ClipboardDetailPane = ({
           </time>
         )}
       </div>
-      {/* Keyed by id so switching entries resets scroll and replays the fade. */}
+      {/* Keyed by id so switching entries resets scroll. */}
       <div className="detail-preview" key={`preview-${item.id}`}>
         {aiDetail && !isSensitiveHidden && (
           <div className="detail-ai-heading">

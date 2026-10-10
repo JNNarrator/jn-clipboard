@@ -1102,8 +1102,7 @@ const App = () => {
   }, [editingNoteId]);
   const mainRef = useRef<HTMLElement | null>(null);
   const splitListRef = useRef<HTMLDivElement | null>(null);
-  // Stored as the list's share of the width: grid fr tracks keep the open/close
-  // animation, and the split survives window resizes.
+  // Stored as the list's share of the width so the split survives window resizes.
   const { value: splitRatio, resizing: splitResizing, dividerProps: splitDividerProps } = usePaneWidth({
     storageKey: "app.pane.clipboard_split",
     containerRef: mainRef,
@@ -1296,7 +1295,7 @@ const App = () => {
 
       <main
         ref={mainRef}
-        className={`main-content${chatMode ? " file-transfer-mode" : ""}${effectiveShowTagManager ? " tag-manager-mode" : ""}${showSettings ? " settings-mode" : ""}${splitActive ? " is-split" : ""}${splitResizing ? " is-pane-resizing" : ""}`}
+        className={`main-content${chatMode ? " file-transfer-mode" : ""}${effectiveShowTagManager ? " tag-manager-mode" : ""}${showSettings ? " settings-mode" : ""}${splitActive ? " is-split" : ""}`}
         style={{
           padding: effectiveShowTagManager ? "0" : undefined,
           ...(splitRatio != null
@@ -1349,7 +1348,7 @@ const App = () => {
             onScrollTop={handleScrollTop}
           />
         </div>
-        {/* Always mounted so the column can animate open/closed; content only when wide. */}
+        {/* Always mounted as the grid's second column; content only when wide. */}
         <aside className="main-split-detail" aria-hidden={!splitActive}>
           {splitActive && (
             <PaneDivider overlay active={splitResizing} label={t("pane_divider_hint")} {...splitDividerProps} />

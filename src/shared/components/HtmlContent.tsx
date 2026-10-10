@@ -315,6 +315,12 @@ type HtmlContentProps = {
    * (list rows). Headings and gaps are tightened so the lines carry text.
    */
   clampLines?: number;
+  /**
+   * Render on mount instead of waiting for the element to scroll into view.
+   * For a single always-visible view such as the detail pane: if the
+   * observer's first report is missed it would otherwise stay blank.
+   */
+  eager?: boolean;
 };
 
 const SHADOW_BASE_STYLE = `
@@ -711,10 +717,10 @@ const watchThemeChanges = () => {
   }
 };
 
-const HtmlContent = ({ htmlContent, fallbackText, className, style, preview, clampLines }: HtmlContentProps) => {
+const HtmlContent = ({ htmlContent, fallbackText, className, style, preview, clampLines, eager }: HtmlContentProps) => {
   const contentRef = useRef<HTMLDivElement | null>(null);
   const processedRef = useRef<{ htmlContent: string; preview?: boolean; fallbackText?: string } | null>(null);
-  const [isVisible, setIsVisible] = useState(!!preview);
+  const [isVisible, setIsVisible] = useState(!!preview || !!eager);
   const previewPlaceholderMinHeight = (() => {
     const maxH = style?.maxHeight;
     if (typeof maxH === "number" && Number.isFinite(maxH)) return `${maxH}px`;
@@ -723,7 +729,7 @@ const HtmlContent = ({ htmlContent, fallbackText, className, style, preview, cla
   })();
 
   useEffect(() => {
-    if (preview) return;
+    if (preview || eager) return;
     if (!contentRef.current) return;
 
     const observer = new IntersectionObserver(
@@ -738,7 +744,7 @@ const HtmlContent = ({ htmlContent, fallbackText, className, style, preview, cla
 
     observer.observe(contentRef.current);
     return () => observer.disconnect();
-  }, [preview]);
+  }, [preview, eager]);
 
   useLayoutEffect(() => {
     if (!isVisible || !contentRef.current) return;
