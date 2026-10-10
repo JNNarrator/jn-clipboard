@@ -549,6 +549,13 @@ const SHADOW_PREVIEW_STYLE = `
 type Rgba = { r: number; g: number; b: number; a: number };
 
 const parseCssColor = (value: string): Rgba | null => {
+  // Theme tokens such as --text-primary are read raw, often as hex.
+  const hex = value.trim().match(/^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i);
+  if (hex) {
+    const digits = hex[1].length <= 4 ? [...hex[1]].map((d) => d + d).join("") : hex[1];
+    const channel = (index: number) => parseInt(digits.slice(index * 2, index * 2 + 2), 16);
+    return { r: channel(0), g: channel(1), b: channel(2), a: digits.length === 8 ? channel(3) / 255 : 1 };
+  }
   const match = value.match(
     /^rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:\s*[,/]\s*([\d.]+))?\s*\)$/i
   );
@@ -627,6 +634,15 @@ const repairUnreadableSourceColors = (root: ShadowRoot, host: HTMLElement) => {
     return fallback ?? { r: 255, g: 255, b: 255, a: 1 };
   };
 
+  // Start from the source colours again: a fix made for the light theme (say,
+  // black) stays black on a dark card unless it is undone first.
+  root.querySelectorAll<HTMLElement>(`[${COLOR_FIX_ATTR}]`).forEach((element) => {
+    const original = element.getAttribute(COLOR_FIX_ATTR) || "";
+    element.style.removeProperty("color");
+    if (original) element.style.setProperty("color", original);
+    element.removeAttribute(COLOR_FIX_ATTR);
+  });
+
   // Read everything first, then write: interleaving setProperty with
   // getComputedStyle forced a style recalculation per element.
   const fixes: Array<[HTMLElement, string]> = [];
@@ -638,20 +654,48 @@ const repairUnreadableSourceColors = (root: ShadowRoot, host: HTMLElement) => {
     const opaqueForeground = compositeColor(foreground, background);
     if (contrastRatio(opaqueForeground, background) >= READABLE_PREVIEW_CONTRAST) return;
 
-    const candidates = [
-      ...(themedForeground ? [themedForeground] : []),
-      DARK_READABLE_TEXT,
-      LIGHT_READABLE_TEXT
-    ];
-    const readable = candidates.reduce((best, candidate) =>
-      contrastRatio(candidate, background) > contrastRatio(best, background)
-        ? candidate
-        : best
-    );
+    // The theme's own text colour when it reads well here; else black/white.
+    const readable = themedForeground
+      && contrastRatio(themedForeground, background) >= READABLE_PREVIEW_CONTRAST
+      ? themedForeground
+      : [DARK_READABLE_TEXT, LIGHT_READABLE_TEXT].reduce((best, candidate) =>
+        contrastRatio(candidate, background) > contrastRatio(best, background)
+          ? candidate
+          : best
+      );
     fixes.push([element, colorToCss(readable)]);
   });
   for (const [element, color] of fixes) {
+    element.setAttribute(COLOR_FIX_ATTR, element.style.getPropertyValue("color"));
     element.style.setProperty("color", color, "important");
+  }
+};
+
+/** Holds an element's own inline colour while a readability fix replaces it. */
+const COLOR_FIX_ATTR = "data-tiez-color-fix";
+
+/**
+ * Rendered rich text, re-checked for readability when the theme or light/dark
+ * mode changes (both switch classes on <html>); the fixes depend on the card
+ * colour behind the text.
+ */
+const mountedRichRoots = new Map<ShadowRoot, HTMLElement>();
+let themeObserver: MutationObserver | null = null;
+let themeRepairFrame = 0;
+
+const watchThemeChanges = () => {
+  if (themeObserver || typeof MutationObserver === "undefined") return;
+  themeObserver = new MutationObserver(() => {
+    cancelAnimationFrame(themeRepairFrame);
+    themeRepairFrame = requestAnimationFrame(() => {
+      mountedRichRoots.forEach((host, root) => {
+        if (host.isConnected) repairUnreadableSourceColors(root, host);
+        else mountedRichRoots.delete(root);
+      });
+    });
+  });
+  for (const target of [document.documentElement, document.body]) {
+    themeObserver.observe(target, { attributes: true, attributeFilter: ["class", "data-theme", "style"] });
   }
 };
 
@@ -687,12 +731,22 @@ const HtmlContent = ({ htmlContent, fallbackText, className, style, preview, cla
   useLayoutEffect(() => {
     if (!isVisible || !contentRef.current) return;
     const prev = processedRef.current;
+    const host = contentRef.current;
+    const scheduleRepair = () => {
+      const root = host.shadowRoot;
+      if (!root || !root.querySelector(".tiez-rich-root *")) return;
+      mountedRichRoots.set(root, host);
+      watchThemeChanges();
+      const frame = requestAnimationFrame(() => repairUnreadableSourceColors(root, host));
+      return () => cancelAnimationFrame(frame);
+    };
     if (prev && prev.htmlContent === htmlContent && prev.preview === preview && prev.fallbackText === fallbackText) {
-      return;
+      // A re-run (React's StrictMode does one on mount) cancelled the frame
+      // the first run scheduled; schedule it again or the fix never happens.
+      return scheduleRepair();
     }
     processedRef.current = { htmlContent, preview, fallbackText };
     const { html: cleanHTML, hasRenderable } = sanitizeHTML(htmlContent, preview);
-    const host = contentRef.current;
     let shadowRoot = host.shadowRoot;
     if (!shadowRoot) {
       shadowRoot = host.attachShadow({ mode: "open" });
@@ -707,11 +761,18 @@ const HtmlContent = ({ htmlContent, fallbackText, className, style, preview, cla
     if (!hasRenderable && fallbackText) {
       const fallbackRoot = shadowRoot.querySelector(".tiez-rich-root");
       if (fallbackRoot) fallbackRoot.textContent = fallbackText;
-    } else {
-      const repairFrame = requestAnimationFrame(() => repairUnreadableSourceColors(shadowRoot, host));
-      return () => cancelAnimationFrame(repairFrame);
+      mountedRichRoots.delete(shadowRoot);
+      return;
     }
+    return scheduleRepair();
   }, [htmlContent, fallbackText, isVisible, preview]);
+
+  useEffect(() => {
+    const root = contentRef.current?.shadowRoot;
+    return () => {
+      if (root) mountedRichRoots.delete(root);
+    };
+  }, []);
 
   return (
     <div
