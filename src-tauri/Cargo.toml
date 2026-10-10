@@ -66,7 +66,9 @@ reqwest = { version = "0.13", default-features = false, features = ["json", "rus
 windows-version = "0.1.1"
 dotenvy = "0.15"
 ring = "0.17"
-zip = { version = "2", default-features = false, features = ["deflate-flate2", "flate2"] }
+# Same major version as tauri-plugin-updater's (Windows), so one copy is built.
+# `time` stamps archive entries; without it they read 1980-01-01.
+zip = { version = "4", default-features = false, features = ["deflate-flate2", "time"] }
 flate2 = "1"
 encoding_rs = "0.8"
 
@@ -98,3 +100,20 @@ opt-level = "z"
 strip = true
 # 启用 panic = abort 减少 unwinding 代码
 panic = "abort"
+
+# 图片编解码和缩略图用 opt-level 3：z 会关掉循环向量化，实测（macOS arm64，4K 截图）
+# 缩略图缩放 87ms → 5ms，PNG 编码 138ms → 63ms；压缩后体积只多约 100 KB，仍比 s 小。
+[profile.release.package.image]
+opt-level = 3
+[profile.release.package.png]
+opt-level = 3
+[profile.release.package.fdeflate]
+opt-level = 3
+[profile.release.package.miniz_oxide]
+opt-level = 3
+[profile.release.package.crc32fast]
+opt-level = 3
+[profile.release.package.simd-adler32]
+opt-level = 3
+[profile.release.package.adler2]
+opt-level = 3

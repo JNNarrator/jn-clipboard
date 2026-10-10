@@ -1277,6 +1277,24 @@ pub async fn prepare_batch_download(
     .into_response()
 }
 
+/// A file's own modification time for its zip entry, so extracted files keep
+/// their dates. Zip stores local time without a zone. None outside zip's
+/// 1980-2107 range; the entry then gets the time of packing.
+fn zip_modified_time(path: &std::path::Path) -> Option<zip::DateTime> {
+    use chrono::{Datelike, Timelike};
+    let modified = std::fs::metadata(path).ok()?.modified().ok()?;
+    let local: chrono::DateTime<chrono::Local> = modified.into();
+    zip::DateTime::from_date_and_time(
+        u16::try_from(local.year()).ok()?,
+        local.month() as u8,
+        local.day() as u8,
+        local.hour() as u8,
+        local.minute() as u8,
+        local.second() as u8,
+    )
+    .ok()
+}
+
 fn create_batch_archive(
     archive_path: &std::path::Path,
     files: &[std::path::PathBuf],
@@ -1310,7 +1328,10 @@ fn create_batch_archive(
         } else {
             zip::CompressionMethod::Deflated
         };
-        let options = SimpleFileOptions::default().compression_method(method);
+        let mut options = SimpleFileOptions::default().compression_method(method);
+        if let Some(modified) = zip_modified_time(path) {
+            options = options.last_modified_time(modified);
+        }
         writer
             .start_file(safe_name, options)
             .map_err(|e| e.to_string())?;
@@ -1585,6 +1606,10 @@ mod tests {
         assert_eq!(zip.len(), 2);
         assert_eq!(zip.by_index(0).unwrap().name(), "same.txt");
         assert_eq!(zip.by_index(1).unwrap().name(), "same (2).txt");
+        // Entries carry the files' own dates, not zip's 1980-01-01 default.
+        let current_year = chrono::Datelike::year(&chrono::Local::now()) as u16;
+        let stamped = zip.by_index(0).unwrap().last_modified().expect("entry time");
+        assert_eq!(stamped.year(), current_year);
         let _ = std::fs::remove_dir_all(root);
     }
 
