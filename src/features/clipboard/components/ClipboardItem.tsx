@@ -49,7 +49,7 @@ import {
 } from "../../../shared/lib/utils";
 import HtmlContent from "../../../shared/components/HtmlContent";
 import { toTauriLocalImageSrc } from "../../../shared/lib/localImageSrc";
-import { originalImageSrc, useImageThumbnail } from "../../../shared/hooks/useImageThumbnail";
+import { originalImageSrc, useImageThumbnail, useVideoThumbnail } from "../../../shared/hooks/useImageThumbnail";
 
 // The wide two-column layout shows the entry in its detail pane, so the
 // floating compact hover preview would only duplicate it.
@@ -838,6 +838,11 @@ const ClipboardItem = ({
         item.is_external,
         item.timestamp
     );
+    const videoCoverSrc = useVideoThumbnail(
+        item.content_type === "video" ? item.content : null,
+        item.timestamp
+    );
+    const [videoCoverFailed, setVideoCoverFailed] = useState(false);
     // Large GIF/WebP rows show a still first frame (see get_image_thumbnail)
     // and play only while hovered; the detail pane always plays them.
     const [playAnimation, setPlayAnimation] = useState(false);
@@ -2582,17 +2587,30 @@ const ClipboardItem = ({
                 ) : item.content_type === "video" ? (
                     <div className="video-thumbnail-card">
                         <div className="video-thumbnail-wrapper">
-                            <video
-                                src={item.content.startsWith("data:")
-                                    ? item.content
-                                    : (toTauriLocalImageSrc(item.content) || item.content)}
-                                preload="metadata"
-                                muted
-                                playsInline
-                                draggable={false}
-                                className="video-thumbnail-element"
-                                onLoadedMetadata={(e) => seekVideoPreviewFrame(e.currentTarget)}
-                            />
+                            {/* The system's cover still when it made one; the video
+                                element only as a fallback (it decodes few codecs). */}
+                            {videoCoverSrc && !videoCoverFailed ? (
+                                <img
+                                    src={videoCoverSrc}
+                                    alt=""
+                                    className="video-thumbnail-element"
+                                    draggable={false}
+                                    decoding="async"
+                                    onError={() => setVideoCoverFailed(true)}
+                                />
+                            ) : videoCoverSrc === null && !videoCoverFailed ? null : (
+                                <video
+                                    src={item.content.startsWith("data:")
+                                        ? item.content
+                                        : (toTauriLocalImageSrc(item.content) || item.content)}
+                                    preload="metadata"
+                                    muted
+                                    playsInline
+                                    draggable={false}
+                                    className="video-thumbnail-element"
+                                    onLoadedMetadata={(e) => seekVideoPreviewFrame(e.currentTarget)}
+                                />
+                            )}
                             <div className="video-play-overlay">
                                 <Video size={16} />
                             </div>

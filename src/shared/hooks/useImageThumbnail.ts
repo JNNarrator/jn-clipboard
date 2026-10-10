@@ -74,3 +74,60 @@ export const useImageThumbnail = (
 
   return src;
 };
+
+// Video covers come from the system thumbnailer (get_video_thumbnail). "" marks
+// a video the system couldn't preview, so the card falls back to <video>.
+const videoResolved = new Map<string, string>();
+const videoInflight = new Map<string, Promise<string>>();
+
+const loadVideoThumbnail = (path: string, key: string): Promise<string> => {
+  let pending = videoInflight.get(key);
+  if (!pending) {
+    pending = invoke<string>("get_video_thumbnail", { path })
+      .then((thumbPath) => convertFileSrc(thumbPath))
+      .catch(() => "")
+      .then((src) => {
+        if (videoResolved.size >= MAX_RESOLVED) {
+          const oldest = videoResolved.keys().next().value;
+          if (oldest !== undefined) videoResolved.delete(oldest);
+        }
+        videoResolved.set(key, src);
+        videoInflight.delete(key);
+        return src;
+      });
+    videoInflight.set(key, pending);
+  }
+  return pending;
+};
+
+/**
+ * Cover image for a video card: a src once the system made one, `""` when it
+ * couldn't (show the video element instead), `null` while still looking.
+ */
+export const useVideoThumbnail = (content: string | null, version?: number): string | null => {
+  const path = content && isTauriRuntime() && !content.startsWith("data:") ? toLocalFilePath(content) : null;
+  const key = path ? `${path}|${version ?? 0}` : null;
+  const [src, setSrc] = useState<string | null>(() => (key ? videoResolved.get(key) ?? null : ""));
+
+  useEffect(() => {
+    if (!path || !key) {
+      setSrc("");
+      return;
+    }
+    const cached = videoResolved.get(key);
+    if (cached !== undefined) {
+      setSrc(cached);
+      return;
+    }
+    let alive = true;
+    setSrc(null);
+    void loadVideoThumbnail(path, key).then((next) => {
+      if (alive) setSrc(next);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [path, key]);
+
+  return src;
+};

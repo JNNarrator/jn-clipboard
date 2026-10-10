@@ -110,6 +110,196 @@ pub async fn get_image_thumbnail(app: AppHandle, path: String) -> Result<String,
         .map_err(|e| AppError::Internal(format!("thumbnail task failed: {}", e)))?
 }
 
+/// Returns an absolute path to a still of a video (longest side <= 320 px),
+/// made by the system's own thumbnailer: QuickLook on macOS, the shell's
+/// thumbnail providers on Windows. Those cover what Finder and Explorer can
+/// preview; the WebView decodes only a few codecs (no MKV, AVI, often HEVC).
+#[tauri::command]
+pub async fn get_video_thumbnail(app: AppHandle, path: String) -> Result<String, AppError> {
+    let cache_dir = thumbnail_dir(&app)?;
+    tauri::async_runtime::spawn_blocking(move || build_video_thumbnail(&path, &cache_dir))
+        .await
+        .map_err(|e| AppError::Internal(format!("video thumbnail task failed: {}", e)))?
+}
+
+fn build_video_thumbnail(path: &str, cache_dir: &Path) -> Result<String, AppError> {
+    let canonical =
+        fs::canonicalize(path).map_err(|e| AppError::IO(format!("video not accessible: {}", e)))?;
+    let meta = fs::metadata(&canonical)
+        .map_err(|e| AppError::IO(format!("video not accessible: {}", e)))?;
+    if !meta.is_file() {
+        return Err(AppError::IO("video path is not a file".to_string()));
+    }
+    let mtime_nanos = meta
+        .modified()
+        .ok()
+        .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let key = format!("video-{}", thumbnail_cache_key(&canonical, meta.len(), mtime_nanos));
+    let final_path = cache_dir.join(format!("{}.jpg", key));
+    if final_path.is_file() {
+        return Ok(final_path.to_string_lossy().into_owned());
+    }
+    // A video the system couldn't preview (QuickLook stalls on MKV until the
+    // timeout) isn't retried on every mount or launch.
+    let failed_marker = cache_dir.join(format!("{}.none", key));
+    if failed_marker.is_file() {
+        return Err(AppError::Internal("system has no thumbnail for this video".to_string()));
+    }
+
+    fs::create_dir_all(cache_dir)?;
+    let frame = match system_video_frame(&canonical, cache_dir, &key) {
+        Ok(frame) => frame,
+        Err(err) => {
+            let _ = fs::write(&failed_marker, b"");
+            return Err(err);
+        }
+    };
+    let frame = match fit_within(frame.width(), frame.height(), THUMBNAIL_MAX_SIDE) {
+        Some((w, h)) => frame.thumbnail_exact(w, h),
+        None => frame,
+    };
+    let mut bytes = Vec::new();
+    JpegEncoder::new_with_quality(&mut bytes, THUMBNAIL_JPEG_QUALITY)
+        .encode_image(&frame.to_rgb8())
+        .map_err(|e| AppError::Internal(format!("video thumbnail encode failed: {}", e)))?;
+    write_atomically(&final_path, &bytes)?;
+    Ok(final_path.to_string_lossy().into_owned())
+}
+
+/// QuickLook via `qlmanage`, which ships with every macOS. It writes
+/// `<file name>.png` into the output folder.
+#[cfg(target_os = "macos")]
+fn system_video_frame(path: &Path, cache_dir: &Path, key: &str) -> Result<DynamicImage, AppError> {
+    use std::process::{Command, Stdio};
+    use std::time::{Duration, Instant};
+
+    let out_dir = cache_dir.join(format!(".ql-{}", key));
+    let _ = fs::remove_dir_all(&out_dir);
+    fs::create_dir_all(&out_dir)?;
+    let result = (|| {
+        let mut child = Command::new("/usr/bin/qlmanage")
+            .arg("-t")
+            .args(["-s", &(THUMBNAIL_MAX_SIDE * 2).to_string()])
+            .arg("-o")
+            .arg(&out_dir)
+            .arg(path)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .map_err(|e| AppError::Internal(format!("qlmanage failed to start: {}", e)))?;
+        // QuickLook can stall on odd files; don't hold a worker thread forever.
+        let deadline = Instant::now() + Duration::from_secs(6);
+        loop {
+            if child.try_wait()?.is_some() {
+                break;
+            }
+            if Instant::now() >= deadline {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(AppError::Internal("qlmanage timed out".to_string()));
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        let png = fs::read_dir(&out_dir)?
+            .flatten()
+            .map(|entry| entry.path())
+            .find(|p| p.extension().is_some_and(|ext| ext.eq_ignore_ascii_case("png")))
+            .ok_or_else(|| AppError::Internal("QuickLook made no thumbnail".to_string()))?;
+        image::open(&png).map_err(|_| decode_error())
+    })();
+    let _ = fs::remove_dir_all(&out_dir);
+    result
+}
+
+/// The shell's IShellItemImageFactory: the same thumbnails Explorer shows,
+/// including codecs installed system-wide.
+#[cfg(target_os = "windows")]
+fn system_video_frame(path: &Path, _cache_dir: &Path, _key: &str) -> Result<DynamicImage, AppError> {
+    use windows::core::HSTRING;
+    use windows::Win32::Foundation::SIZE;
+    use windows::Win32::Graphics::Gdi::{
+        CreateCompatibleDC, DeleteDC, DeleteObject, GetDIBits, GetObjectW, BITMAP, BITMAPINFO,
+        BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, HGDIOBJ,
+    };
+    use windows::Win32::System::Com::{CoInitializeEx, CoUninitialize, COINIT_APARTMENTTHREADED};
+    use windows::Win32::UI::Shell::{
+        IShellItemImageFactory, SHCreateItemFromParsingName, SIIGBF_BIGGERSIZEOK,
+        SIIGBF_THUMBNAILONLY,
+    };
+
+    unsafe {
+        let com_ready = CoInitializeEx(None, COINIT_APARTMENTTHREADED).is_ok();
+        let result = (|| -> Result<DynamicImage, AppError> {
+            let wide_path = HSTRING::from(path.as_os_str());
+            let factory: IShellItemImageFactory = SHCreateItemFromParsingName(&wide_path, None)
+                .map_err(|e| AppError::Internal(format!("shell item failed: {}", e)))?;
+            let side = (THUMBNAIL_MAX_SIDE * 2) as i32;
+            let bitmap = factory
+                .GetImage(SIZE { cx: side, cy: side }, SIIGBF_THUMBNAILONLY | SIIGBF_BIGGERSIZEOK)
+                .map_err(|e| AppError::Internal(format!("no shell thumbnail: {}", e)))?;
+
+            let read = (|| -> Result<DynamicImage, AppError> {
+                let mut info = BITMAP::default();
+                let size = std::mem::size_of::<BITMAP>() as i32;
+                if GetObjectW(HGDIOBJ(bitmap.0), size, Some(&mut info as *mut BITMAP as *mut _)) == 0 {
+                    return Err(AppError::Internal("unreadable shell thumbnail".to_string()));
+                }
+                let (width, height) = (info.bmWidth, info.bmHeight.abs());
+                if width <= 0 || height <= 0 {
+                    return Err(AppError::Internal("empty shell thumbnail".to_string()));
+                }
+                let mut header = BITMAPINFO {
+                    bmiHeader: BITMAPINFOHEADER {
+                        biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
+                        biWidth: width,
+                        biHeight: -height, // top-down rows
+                        biPlanes: 1,
+                        biBitCount: 32,
+                        biCompression: BI_RGB.0,
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                };
+                let mut bgra = vec![0u8; width as usize * height as usize * 4];
+                let dc = CreateCompatibleDC(None);
+                let lines = GetDIBits(
+                    dc,
+                    bitmap,
+                    0,
+                    height as u32,
+                    Some(bgra.as_mut_ptr() as *mut _),
+                    &mut header,
+                    DIB_RGB_COLORS,
+                );
+                let _ = DeleteDC(dc);
+                if lines == 0 {
+                    return Err(AppError::Internal("unreadable shell thumbnail".to_string()));
+                }
+                for pixel in bgra.chunks_exact_mut(4) {
+                    pixel.swap(0, 2);
+                    pixel[3] = 255; // video stills are opaque; the alpha byte isn't reliable
+                }
+                image::RgbaImage::from_raw(width as u32, height as u32, bgra)
+                    .map(DynamicImage::ImageRgba8)
+                    .ok_or_else(decode_error)
+            })();
+            let _ = DeleteObject(HGDIOBJ(bitmap.0));
+            read
+        })();
+        if com_ready {
+            CoUninitialize();
+        }
+        result
+    }
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+fn system_video_frame(_path: &Path, _cache_dir: &Path, _key: &str) -> Result<DynamicImage, AppError> {
+    Err(AppError::Internal("no system video thumbnailer".to_string()))
+}
+
 /// Target size that keeps the aspect ratio with the longest side <= `max_side`.
 /// `None` means the image already fits and should be used as-is.
 pub fn fit_within(width: u32, height: u32, max_side: u32) -> Option<(u32, u32)> {
