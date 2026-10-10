@@ -366,6 +366,7 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
                                         className="hint-icon-btn"
                                         title={`${props.t('main_hotkey_hint')} ${props.t('hotkey_click_hint')}`}
                                         aria-label={props.t('main_hotkey_hint')}
+                                        aria-expanded={mainHotkeyHintOpen}
                                         onClick={(event) => {
                                             event.stopPropagation();
                                             setMainHotkeyHintOpen((open) => !open);
@@ -379,12 +380,13 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
                                 <span className="hint hotkey-hint">{props.t('main_hotkey_managed_by_win_v')}</span>
                             ) : props.isRecording ? (
                                 <span className="hint hotkey-hint">{renderHotkeyHint(true)}</span>
-                            ) : mainHotkeyHintOpen ? (
-                                <span className="hint hotkey-hint">
-                                    {props.t('main_hotkey_hint')} {props.t('hotkey_click_hint')}
-                                </span>
                             ) : null}
                         </div>
+                        {!isWinVManaged && !props.isRecording && mainHotkeyHintOpen && (
+                            <div className="setting-hint-panel">
+                                <span className="hint">{props.t('main_hotkey_hint')} {props.t('hotkey_click_hint')}</span>
+                            </div>
+                        )}
 
                         <div
                             className={`key-group ${props.isRecording ? 'recording' : ''} ${isWinVManaged ? 'is-disabled' : ''}`}

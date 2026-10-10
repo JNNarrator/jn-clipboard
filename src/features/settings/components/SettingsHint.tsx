@@ -23,6 +23,12 @@ export const SettingsHintProvider = ({ children }: { children: ReactNode }) => {
     return <SettingsHintContext.Provider value={value}>{children}</SettingsHintContext.Provider>;
 };
 
+// The copy puts each short sentence on its own line. In a full-width panel that
+// left a column of half-empty lines, so sentences flow into one paragraph; a
+// line without closing punctuation (a list such as ports) keeps its break.
+const flowSentences = (text: string) =>
+    text.replace(/([。！？；.!?;])\n(?=\S)/g, (_, end: string) => (/[.!?;]/.test(end) ? `${end} ` : end));
+
 // Keep this component type stable during live slider updates. Remounting labels
 // briefly shrinks the scroll pane, making WebKit clamp its scroll position.
 export const LabelWithHint = memo(({ label, hint, hintKey }: {
@@ -36,31 +42,37 @@ export const LabelWithHint = memo(({ label, hint, hintKey }: {
     const open = state?.openHints.has(hintKey);
 
     return (
-        <div className="item-label-group">
-            <div className="item-label-row">
-                <span className="item-label">{label}</span>
-                {details && (
-                    <button
-                        type="button"
-                        className="hint-icon-btn"
-                        aria-expanded={open}
-                        aria-label={label}
-                        title={typeof details === "string" ? details : undefined}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            state?.toggleHint(hintKey);
-                        }}
-                    >
-                        <HelpCircle size={13} />
-                    </button>
-                )}
+        <>
+            <div className="item-label-group">
+                <div className="item-label-row">
+                    <span className="item-label">{label}</span>
+                    {details && (
+                        <button
+                            type="button"
+                            className="hint-icon-btn"
+                            aria-expanded={open}
+                            aria-label={label}
+                            title={typeof details === "string" ? details : undefined}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                state?.toggleHint(hintKey);
+                            }}
+                        >
+                            <HelpCircle size={13} />
+                        </button>
+                    )}
+                </div>
+                {/* A one-line hint stays visible; a longer one waits behind the ? button,
+                    summary included, so clicking it doesn't add a second line under a first. */}
+                {summary && !details && <span className="item-desc">{summary}</span>}
             </div>
-            {/* A one-line hint stays visible; a longer one waits behind the ? button,
-                summary included, so clicking it doesn't add a second line under a first. */}
-            {summary && (!details || open) && <span className="item-desc">{summary}</span>}
+            {/* A sibling of the label column, not inside it: the row wraps it onto
+                its own full-width line instead of squeezing it beside the control. */}
             {details && open && (
-                typeof details === "string" ? <span className="hint">{details}</span> : details
+                <div className="setting-hint-panel">
+                    {typeof hint === "string" ? <span className="hint">{flowSentences(hint)}</span> : details}
+                </div>
             )}
-        </div>
+        </>
     );
 });

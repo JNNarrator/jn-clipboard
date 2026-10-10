@@ -392,6 +392,30 @@
   margin-top: var(--st-space-1);
 }
 
+/* An opened hint gets a line of its own under the label and the control;
+   inside the label column it wrapped every few characters beside a select. */
+.setting-hint-panel {
+  min-width: 0;
+}
+
+.setting-hint-panel > :first-child {
+  margin-top: 0;
+}
+
+.setting-item:not(.column) > .setting-hint-panel,
+.setting-item-heading > .setting-hint-panel {
+  flex: 0 0 100%;
+  order: 1;
+}
+
+.setting-item-heading:has(> .setting-hint-panel) {
+  flex-wrap: wrap;
+}
+
+.setting-item .setting-item-heading:has(> .setting-hint-panel) > .item-label-group {
+  flex-basis: 0;
+}
+
 .item-label-row {
   display: flex;
   align-items: center;

@@ -165,8 +165,12 @@ const FileTransferSettingsGroup = ({
                                         <HelpCircle size={13} />
                                     </button>
                                 </div>
-                                {showAutoCloseHint && <span className="hint">{t('auto_close_hint')}</span>}
                             </div>
+                            {showAutoCloseHint && (
+                                <div className="setting-hint-panel">
+                                    <span className="hint">{t('auto_close_hint')}</span>
+                                </div>
+                            )}
                             <label className="switch">
                                 <input
                                     className="cb"
