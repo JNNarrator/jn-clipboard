@@ -104,14 +104,23 @@ const resolveImgSource = (el: Element): string | null => {
   const srcsetPrimary = pickFirstSrcFromSrcset(el.getAttribute("srcset"));
   const lazySrcsetPrimary = pickFirstSrcFromSrcset(el.getAttribute("data-srcset"));
 
+  const lowerSrc = src.toLowerCase();
   const isMissingOrPlaceholder =
     !src ||
     src === "about:blank" ||
     src === "#" ||
-    src.toLowerCase().startsWith("blob:");
+    lowerSrc.startsWith("blob:");
+  // Lazy-loading pages (WeChat articles, most CMSs) put a transparent data:
+  // URL or a "loading" image in src and the real picture in data-src.
+  const looksLikeLazyPlaceholder =
+    lowerSrc.startsWith("data:") ||
+    /(?:^|[/_.-])(?:placeholder|lazy|loading|blank|spacer|grey|gray|pixel)(?:[._-]|$)/.test(lowerSrc);
 
   if (isMissingOrPlaceholder) {
     return lazySrc || srcsetPrimary || lazySrcsetPrimary || null;
+  }
+  if (looksLikeLazyPlaceholder && (lazySrc || lazySrcsetPrimary)) {
+    return lazySrc || lazySrcsetPrimary;
   }
   return src;
 };
@@ -258,6 +267,9 @@ const sanitizeHTML = (html: string, preview?: boolean) => {
 
     // Handle local file images (including encoded file:// paths)
     if (el.tagName.toLowerCase() === 'img') {
+      // Sites that block hotlinking (WeChat, Zhihu, CSDN…) reject TieZ's own
+      // origin as referrer but allow none.
+      el.setAttribute("referrerpolicy", "no-referrer");
       const resolvedSrc = resolveImgSource(el);
       if (resolvedSrc) {
         if (el.getAttribute("src") !== resolvedSrc) {
