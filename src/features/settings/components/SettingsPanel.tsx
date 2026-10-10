@@ -1017,25 +1017,47 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                     renderWide()
                 ) : (
                     <>
-                        {sections.map((section) => (
-                            <div key={section.id} className="settings-section" data-settings-section={section.id}>
-                                {section.node}
-                            </div>
-                        ))}
-
-                        <div className="settings-group">
-                            <button
-                                type="button"
-                                className="group-header settings-nav-card"
-                                onClick={openAdvancedSettingsWindow}
-                            >
-                                <div style={{ minWidth: 0, textAlign: "left" }}>
-                                    <h3 style={{ margin: 0 }}>{t("advanced_settings")}</h3>
-                                    <div className="settings-subpage-note">{t("advanced_settings_entry_desc")}</div>
-                                </div>
-                                <ChevronRight size={16} />
-                            </button>
-                        </div>
+                        {/* The wide layout's sidebar groups, as an inset list:
+                            a flat run of a dozen equal cards was hard to scan. */}
+                        {NAV_GROUPS.map((group) => {
+                            const items = group.ids.flatMap((id) => {
+                                const Icon = SECTION_ICONS[id] ?? Info;
+                                const icon = <Icon className="settings-section-icon" size={16} strokeWidth={1.75} aria-hidden="true" />;
+                                if (id === ADVANCED_ENTRY) {
+                                    return [
+                                        <div key={id} className="settings-section">
+                                            {icon}
+                                            <div className="settings-group collapsed">
+                                                <button
+                                                    type="button"
+                                                    className="group-header settings-nav-card"
+                                                    onClick={openAdvancedSettingsWindow}
+                                                >
+                                                    <h3>{t("advanced_settings")}</h3>
+                                                    <ChevronRight size={16} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ];
+                                }
+                                const section = sections.find((item) => item.id === id);
+                                return section
+                                    ? [
+                                        <div key={section.id} className="settings-section" data-settings-section={section.id}>
+                                            {icon}
+                                            {section.node}
+                                        </div>
+                                    ]
+                                    : [];
+                            });
+                            if (items.length === 0) return null;
+                            return (
+                                <section key={group.labelKey} className="settings-narrow-group" aria-label={t(group.labelKey)}>
+                                    <div className="settings-narrow-group-label" aria-hidden="true">{t(group.labelKey)}</div>
+                                    <div className="settings-narrow-group-items">{items}</div>
+                                </section>
+                            );
+                        })}
 
                         {footer}
                     </>
