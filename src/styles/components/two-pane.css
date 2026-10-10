@@ -150,6 +150,7 @@
 body.is-pane-resizing,
 body.is-pane-resizing * {
   cursor: col-resize !important;
+  -webkit-user-select: none !important;
   user-select: none !important;
 }
 

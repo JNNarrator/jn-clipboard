@@ -6,6 +6,7 @@ use crate::error::{AppError, AppResult};
 use crate::infrastructure::http_error::{body_for_log, summarize_http_error};
 use crate::infrastructure::repository::clipboard_repo::ClipboardRepository;
 use crate::infrastructure::repository::settings_repo::SettingsRepository;
+use crate::services::e2e::Kind as E2eKind;
 use base64::Engine;
 use regex::Regex;
 use rusqlite::OptionalExtension;
@@ -13,7 +14,7 @@ use reqwest::{Client, Method, RequestBuilder, Response, StatusCode};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::Path;
-use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU32, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
@@ -31,6 +32,8 @@ const SYNC_FETCH_PAGE_SIZE: i32 = 1000;
 const DEFAULT_WEBDAV_BASE_PATH: &str = "tiez-sync";
 const MAX_REMOTE_SNAPSHOTS: usize = 24;
 const MAX_INLINE_IMAGE_BYTES: usize = 8 * 1024 * 1024;
+/// WebDAV uploads images one at a time as blobs, so they may be bigger.
+const MAX_SYNC_IMAGE_BYTES: usize = 20 * 1024 * 1024;
 const RICH_IMAGE_FALLBACK_PREFIX: &str = "<!--TIEZ_RICH_IMAGE:";
 const RICH_IMAGE_FALLBACK_SUFFIX: &str = "-->";
 const WEBDAV_OP_BATCH_SIZE: usize = 400;
@@ -41,6 +44,11 @@ const CLOUD_SYNC_WEBDAV_BLOB_CACHE_KEY: &str = "cloud_sync_webdav_blob_cache";
 const CLOUD_SYNC_WEBDAV_LAST_SNAPSHOT_PUSH_AT_KEY: &str = "cloud_sync_webdav_last_snapshot_push_at";
 const CLOUD_SYNC_WEBDAV_LAST_HEAD_REBUILD_AT_KEY: &str = "cloud_sync_webdav_last_head_rebuild_at";
 const CLOUD_SYNC_WEBDAV_SNAPSHOT_CURSOR_MAP_KEY: &str = "cloud_sync_webdav_snapshot_cursor_map";
+const CLOUD_SYNC_WEBDAV_SNAPSHOT_DIGESTS_KEY: &str = "cloud_sync_webdav_snapshot_digests";
+const CLOUD_SYNC_SETTINGS_MTIMES_KEY: &str = "cloud_sync_settings_mtimes";
+/// Fingerprint of the end-to-end key this device's server files were last
+/// written with ("" = unencrypted).
+const CLOUD_SYNC_E2E_FINGERPRINT_KEY: &str = "cloud_sync_e2e_fingerprint";
 const BLOB_KIND_IMAGE: &str = "image";
 const BLOB_KIND_CONTENT: &str = "content";
 const BLOB_KIND_HTML: &str = "html";
@@ -148,6 +156,8 @@ struct CloudSyncConfig {
     webdav_password: String,
     webdav_base_path: String,
     content_prefs: CloudSyncContentPrefs,
+    /// End-to-end keys; with them, sync files are sealed (docs/E2E-ENCRYPTION.md).
+    e2e: Option<crate::services::e2e::E2eKeys>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -181,6 +191,9 @@ struct CloudSyncItem {
     pub use_count: i32,
     #[serde(default)]
     pub pinned_order: i64,
+    /// When the tags were last edited (0: unknown / older client).
+    #[serde(default)]
+    pub tags_updated_at: i64,
 }
 
 #[derive(Debug, Serialize)]
@@ -198,7 +211,7 @@ struct CloudSyncResponse {
     entries: Vec<CloudSyncItem>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct WebDavDeviceSnapshot {
     device_id: String,
     updated_at: i64,
@@ -212,6 +225,10 @@ struct WebDavSettingsSnapshot {
     device_id: String,
     updated_at: i64,
     settings: HashMap<String, String>,
+    /// When each setting was last changed (any device). Missing in snapshots
+    /// from older clients; then `updated_at` stands in for every key.
+    #[serde(default)]
+    key_updated_at: HashMap<String, i64>,
 }
 
 #[derive(Debug, Clone)]
@@ -531,6 +548,7 @@ fn get_config(app: &AppHandle) -> Option<CloudSyncConfig> {
         },
         webdav_base_path,
         content_prefs,
+        e2e: crate::services::e2e::load_keys(app),
     })
 }
 
@@ -543,6 +561,11 @@ fn is_cloud_clipboard_content_type(content_type: &str) -> bool {
 
 fn is_setting_sync_eligible(key: &str) -> bool {
     if crate::database::is_sensitive_key(key) { return false; }
+    // Sync state and connection settings are per device. A prefix rule, so new
+    // state keys can't leak out by being missing from the list below (the
+    // snapshot cursor map did: a peer applying it skipped snapshots it never
+    // pulled).
+    if key.starts_with("cloud_sync_") { return false; }
     !matches!(
         key,
         "app.anon_id"
@@ -571,24 +594,49 @@ fn is_setting_sync_eligible(key: &str) -> bool {
             | "cloud_sync_webdav_last_snapshot_pull_at"
             | "cloud_sync_webdav_last_head_rebuild_at"
             | "cloud_sync_settings_applied_at"
+            // Bound to this machine: its own MQTT session, local paths/ports.
+            | "mqtt_client_id"
+            | "mqtt_last_retained_sha256"
+            | "file_server_enabled"
+            | "file_server_port"
+            | "file_transfer_path"
+            | "app.last_edge_dock"
     )
 }
 
 fn to_data_url_from_path(path: &str) -> Option<String> {
+    to_data_url_from_path_limited(path, MAX_INLINE_IMAGE_BYTES)
+}
+
+/// `max_bytes`: inline payloads (HTTP sync, rich-text images) stay small;
+/// WebDAV images travel one by one as blobs and may be larger.
+fn to_data_url_from_path_limited(path: &str, max_bytes: usize) -> Option<String> {
     let file_path = Path::new(path);
     if !file_path.exists() || !file_path.is_file() {
         return None;
     }
 
     let bytes = std::fs::read(file_path).ok()?;
-    if bytes.is_empty() || bytes.len() > MAX_INLINE_IMAGE_BYTES {
+    if bytes.is_empty() || bytes.len() > max_bytes {
+        if bytes.len() > max_bytes {
+            error!(
+                ">>> [CloudSync] Image not synced: {} MB is over the {} MB limit",
+                bytes.len() / (1024 * 1024),
+                max_bytes / (1024 * 1024)
+            );
+        }
         return None;
     }
 
-    let mime = mime_guess::from_path(file_path)
-        .first_or_octet_stream()
-        .essence_str()
-        .to_string();
+    // From the bytes, not the extension: older GIFs were saved as .png.
+    let mime = crate::database::image_extension_from_magic(&bytes)
+        .map(|ext| if ext == "jpg" { "image/jpeg".to_string() } else { format!("image/{ext}") })
+        .unwrap_or_else(|| {
+            mime_guess::from_path(file_path)
+                .first_or_octet_stream()
+                .essence_str()
+                .to_string()
+        });
     let payload = base64::engine::general_purpose::STANDARD.encode(bytes);
     Some(format!("data:{};base64,{}", mime, payload))
 }
@@ -810,8 +858,21 @@ fn normalize_item_for_sync(mut item: CloudSyncItem) -> Option<CloudSyncItem> {
         return Some(item);
     }
 
+    // Images stay file paths until they are uploaded (as blobs, one at a
+    // time) or sent inline (HTTP provider, see inline_local_images). Turning
+    // every image into base64 here held the whole image history in memory.
     if item.content_type == "image" && !item.content.starts_with("data:image/") {
-        item.content = to_data_url_from_path(&item.content)?;
+        let size = std::fs::metadata(&item.content).ok().filter(|m| m.is_file())?.len();
+        if size == 0 || size > MAX_SYNC_IMAGE_BYTES as u64 {
+            if size > MAX_SYNC_IMAGE_BYTES as u64 {
+                error!(
+                    ">>> [CloudSync] Image not synced: {} MB is over the {} MB limit",
+                    size / (1024 * 1024),
+                    MAX_SYNC_IMAGE_BYTES / (1024 * 1024)
+                );
+            }
+            return None;
+        }
     }
 
     if item.content_type == "rich_text" {
@@ -834,7 +895,16 @@ fn compute_sync_content_hash(content_type: &str, content: &str) -> i64 {
     }
 }
 
+/// An image whose content is still a local file path (not yet inlined).
+fn is_local_image_path(item: &CloudSyncItem) -> bool {
+    item.content_type == "image" && !item.content.is_empty() && !item.content.starts_with("data:")
+}
+
 fn resolved_content_hash(item: &CloudSyncItem) -> i64 {
+    // Hashing a path reads the whole file; use the hash taken at export.
+    if is_local_image_path(item) && item.content_hash != 0 {
+        return item.content_hash;
+    }
     if item.deleted_at == 0 && !item.content.is_empty() {
         compute_sync_content_hash(&item.content_type, &item.content)
     } else if item.content_hash != 0 {
@@ -894,12 +964,12 @@ async fn process_items_blobs_before_push(
 
         if item.content_type == "image" {
             if !item.content.starts_with("data:image/") {
-                item.content = to_data_url_from_path(&item.content).ok_or_else(|| {
+                item.content = to_data_url_from_path_limited(&item.content, MAX_SYNC_IMAGE_BYTES).ok_or_else(|| {
                     AppError::Internal("convert image path to data url failed".to_string())
                 })?;
             }
             if !item.content.is_empty() {
-                let relative_hash = sha256_hex(item.content.as_bytes());
+                let relative_hash = blob_name_for(cfg, item.content.as_bytes());
                 let relative = get_blob_path(blobs_path, BLOB_KIND_IMAGE, &relative_hash);
                 let cache_key = blob_cache_storage_key(cfg, &relative);
                 if !blob_cache.contains_key(&cache_key) {
@@ -920,7 +990,7 @@ async fn process_items_blobs_before_push(
         } else {
             let bytes = item.content.as_bytes();
             if bytes.len() > BLOB_THRESHOLD_CONTENT {
-                let relative_hash = sha256_hex(bytes);
+                let relative_hash = blob_name_for(cfg, bytes);
                 let relative = get_blob_path(blobs_path, BLOB_KIND_CONTENT, &relative_hash);
                 let cache_key = blob_cache_storage_key(cfg, &relative);
                 if !blob_cache.contains_key(&cache_key) {
@@ -934,7 +1004,7 @@ async fn process_items_blobs_before_push(
             if let Some(html) = item.html_content.as_ref() {
                 let hbytes = html.as_bytes();
                 if hbytes.len() > BLOB_THRESHOLD_HTML {
-                    let relative_hash = sha256_hex(hbytes);
+                    let relative_hash = blob_name_for(cfg, hbytes);
                     let relative = get_blob_path(blobs_path, BLOB_KIND_HTML, &relative_hash);
                     let cache_key = blob_cache_storage_key(cfg, &relative);
                     if !blob_cache.contains_key(&cache_key) {
@@ -951,43 +1021,61 @@ async fn process_items_blobs_before_push(
     Ok(())
 }
 
+/// Download blob payloads into the items. An item whose blob can't be fetched
+/// is dropped instead of failing the whole sync (one lost blob used to block
+/// every later change); its digest is returned so snapshot pulls retry it.
 async fn enrich_item_blobs_after_pull(
     app: &tauri::AppHandle,
     client: &reqwest::Client,
     cfg: &CloudSyncConfig,
     blobs_path: &str,
-    items: &mut [CloudSyncItem],
-) -> AppResult<()> {
-    for item in items {
-        if let Some(hash) = item.content_blob_hash.as_ref() {
-            let kind = if item.content_type == "image" {
-                BLOB_KIND_IMAGE
-            } else {
-                BLOB_KIND_CONTENT
-            };
-            let bytes = download_webdav_blob(client, cfg, blobs_path, kind, hash).await?;
-            if item.content_type == "image" {
-                let data_url = image_data_url_from_blob_bytes(&bytes).ok_or_else(|| {
-                    AppError::Validation(format!("unsupported image blob payload: {}", hash))
-                })?;
-                if let Some(data_dir) = get_app_data_dir(app) {
-                    if let Some(path) = crate::database::save_image_to_file(&data_url, &data_dir) {
-                        item.content = path;
-                    } else {
-                        item.content = data_url;
-                    }
-                } else {
-                    item.content = data_url;
-                }
-            } else {
-                item.content = String::from_utf8(bytes).unwrap_or_default();
+    items: &mut Vec<CloudSyncItem>,
+) -> Vec<String> {
+    let mut failed = Vec::new();
+    let mut kept = Vec::with_capacity(items.len());
+    for mut item in std::mem::take(items) {
+        let digest = sync_digest_for_item(&item);
+        match hydrate_item_blobs(app, client, cfg, blobs_path, &mut item).await {
+            Ok(()) => kept.push(item),
+            Err(err) => {
+                error!(">>> [CloudSync] Skipping an item whose blob failed to download: {}", err);
+                failed.push(digest);
             }
         }
+    }
+    *items = kept;
+    failed
+}
 
-        if let Some(hash) = item.html_blob_hash.as_ref() {
-            let bytes = download_webdav_blob(client, cfg, blobs_path, BLOB_KIND_HTML, hash).await?;
-            item.html_content = Some(String::from_utf8(bytes).unwrap_or_default());
+async fn hydrate_item_blobs(
+    app: &tauri::AppHandle,
+    client: &reqwest::Client,
+    cfg: &CloudSyncConfig,
+    blobs_path: &str,
+    item: &mut CloudSyncItem,
+) -> AppResult<()> {
+    if let Some(hash) = item.content_blob_hash.as_ref() {
+        let kind = if item.content_type == "image" {
+            BLOB_KIND_IMAGE
+        } else {
+            BLOB_KIND_CONTENT
+        };
+        let bytes = download_webdav_blob(client, cfg, blobs_path, kind, hash).await?;
+        if item.content_type == "image" {
+            let data_url = image_data_url_from_blob_bytes(&bytes).ok_or_else(|| {
+                AppError::Validation(format!("unsupported image blob payload: {}", hash))
+            })?;
+            item.content = get_app_data_dir(app)
+                .and_then(|data_dir| crate::database::save_image_to_file(&data_url, &data_dir))
+                .unwrap_or(data_url);
+        } else {
+            item.content = String::from_utf8(bytes).unwrap_or_default();
         }
+    }
+
+    if let Some(hash) = item.html_blob_hash.as_ref() {
+        let bytes = download_webdav_blob(client, cfg, blobs_path, BLOB_KIND_HTML, hash).await?;
+        item.html_content = Some(String::from_utf8(bytes).unwrap_or_default());
     }
     Ok(())
 }
@@ -1095,6 +1183,7 @@ fn upsert_local_sync_index(app: &AppHandle, changed_items: &[CloudSyncItem]) -> 
 fn entries_to_sync_items(
     entries: Vec<ClipboardEntry>,
     prefs: &CloudSyncContentPrefs,
+    tag_times: &HashMap<i64, i64>,
 ) -> Vec<CloudSyncItem> {
     entries
         .into_iter()
@@ -1122,6 +1211,7 @@ fn entries_to_sync_items(
                 tags: e.tags,
                 use_count: e.use_count,
                 pinned_order: e.pinned_order,
+                tags_updated_at: tag_times.get(&e.id).copied().unwrap_or(0),
             })?;
             let mut item = normalized;
             item.content_hash = compute_sync_content_hash(&item.content_type, &item.content);
@@ -1166,7 +1256,36 @@ fn fetch_syncable_entries(
         }
     }
 
+    // Editing tags doesn't move an entry, so it isn't "since" the cursor by
+    // sort time; pick those edits up too or they'd wait for a full snapshot.
+    if let Some(since) = since_timestamp {
+        let known: HashSet<i64> = entries.iter().map(|entry| entry.id).collect();
+        for id in load_tag_edit_times(app, Some(since))?.into_keys() {
+            if known.contains(&id) {
+                continue;
+            }
+            if let Some(entry) = db_state.repo.get_entry_by_id(id).map_err(AppError::Internal)? {
+                entries.push(entry);
+            }
+        }
+    }
+
     Ok(entries)
+}
+
+/// Entry id -> when its tags were last edited, for entries edited after `since`.
+fn load_tag_edit_times(app: &AppHandle, since: Option<i64>) -> AppResult<HashMap<i64, i64>> {
+    let db_state = app
+        .try_state::<DbState>()
+        .ok_or_else(|| AppError::Internal("DB state unavailable".to_string()))?;
+    let conn = db_state.conn.lock().map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut stmt = conn
+        .prepare("SELECT id, tags_updated_at FROM clipboard_history WHERE tags_updated_at > ?1")
+        .map_err(AppError::from)?;
+    let rows = stmt
+        .query_map([since.unwrap_or(0)], |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?)))
+        .map_err(AppError::from)?;
+    rows.collect::<Result<HashMap<_, _>, _>>().map_err(AppError::from)
 }
 
 fn collect_local_incremental_items(
@@ -1202,6 +1321,17 @@ fn get_setting_i64(app: &AppHandle, key: &str, default: i64) -> i64 {
 fn set_setting_i64(app: &AppHandle, key: &str, value: i64) -> AppResult<()> {
     let db_state = app.try_state::<DbState>().ok_or_else(|| AppError::Internal("DB state unavailable".into()))?;
     db_state.settings_repo.set(key, &value.to_string()).map_err(AppError::from)
+}
+
+fn get_setting_string(app: &AppHandle, key: &str) -> String {
+    app.try_state::<DbState>()
+        .and_then(|db| db.settings_repo.get(key).ok().flatten())
+        .unwrap_or_default()
+}
+
+fn set_setting_string(app: &AppHandle, key: &str, value: &str) -> AppResult<()> {
+    let db_state = app.try_state::<DbState>().ok_or_else(|| AppError::Internal("DB state unavailable".into()))?;
+    db_state.settings_repo.set(key, value).map_err(AppError::from)
 }
 
 fn get_local_webdav_op_seq(app: &AppHandle) -> i64 {
@@ -1248,6 +1378,20 @@ fn load_webdav_snapshot_cursor_map(app: &AppHandle) -> HashMap<String, i64> {
         return HashMap::new();
     }
     serde_json::from_str::<HashMap<String, i64>>(&raw).unwrap_or_default()
+}
+
+/// Per peer device, digests of the entries in the last snapshot applied from it.
+fn load_webdav_snapshot_digests(app: &AppHandle) -> HashMap<String, HashSet<String>> {
+    app.try_state::<DbState>()
+        .and_then(|db| db.settings_repo.get(CLOUD_SYNC_WEBDAV_SNAPSHOT_DIGESTS_KEY).ok().flatten())
+        .and_then(|raw| serde_json::from_str(&raw).ok())
+        .unwrap_or_default()
+}
+
+fn save_webdav_snapshot_digests(app: &AppHandle, map: &HashMap<String, HashSet<String>>) -> AppResult<()> {
+    let db_state = app.try_state::<DbState>().ok_or_else(|| AppError::Internal("DB state unavailable".into()))?;
+    let payload = serde_json::to_string(map).map_err(|e| AppError::Internal(e.to_string()))?;
+    db_state.settings_repo.set(CLOUD_SYNC_WEBDAV_SNAPSHOT_DIGESTS_KEY, &payload).map_err(AppError::from)
 }
 
 fn save_webdav_snapshot_cursor_map(app: &AppHandle, map: &HashMap<String, i64>) -> AppResult<()> {
@@ -1322,7 +1466,7 @@ fn collect_local_syncable_items(
     prefs: &CloudSyncContentPrefs,
 ) -> AppResult<Vec<CloudSyncItem>> {
     let entries = fetch_syncable_entries(app, None)?;
-    let mut items = entries_to_sync_items(entries, prefs);
+    let mut items = entries_to_sync_items(entries, prefs, &load_tag_edit_times(app, None)?);
     let mut tombstones = collect_local_tombstones(app, prefs, None)?;
     items.append(&mut tombstones);
     items.sort_by_key(|e| e.timestamp);
@@ -1335,7 +1479,7 @@ fn collect_local_changes(
     prefs: &CloudSyncContentPrefs,
 ) -> AppResult<Vec<CloudSyncItem>> {
     let entries = fetch_syncable_entries(app, Some(cursor))?;
-    let mut items = entries_to_sync_items(entries, prefs);
+    let mut items = entries_to_sync_items(entries, prefs, &load_tag_edit_times(app, None)?);
     let mut tombstones = collect_local_tombstones(app, prefs, Some(cursor))?;
     items.append(&mut tombstones);
     items.sort_by_key(|e| e.timestamp);
@@ -1361,6 +1505,7 @@ fn map_tombstone_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<CloudSyncItem>
         tags: Vec::new(),
         use_count: 0,
         pinned_order: 0,
+        tags_updated_at: 0,
     })
 }
 
@@ -1440,6 +1585,23 @@ fn validate_sync_items(items: &[CloudSyncItem]) -> AppResult<()> {
     Ok(())
 }
 
+/// The items that pass validate_sync_items. One bad item (a leaked local
+/// envelope, or text that merely starts with `plain:`) used to fail the whole
+/// batch, and so every sync after it, until the folder was changed.
+fn drop_invalid_sync_items(items: &[CloudSyncItem]) -> Vec<CloudSyncItem> {
+    items
+        .iter()
+        .filter(|item| {
+            let valid = validate_sync_items(std::slice::from_ref(*item)).is_ok();
+            if !valid {
+                error!(">>> [CloudSync] Skipping an item that holds a local encryption envelope");
+            }
+            valid
+        })
+        .cloned()
+        .collect()
+}
+
 fn with_sync_savepoint<T>(conn: &rusqlite::Connection, apply: impl FnOnce() -> AppResult<T>) -> AppResult<T> {
     conn.execute_batch("SAVEPOINT cloud_sync_write").map_err(AppError::from)?;
     match apply().and_then(|value| {
@@ -1515,11 +1677,16 @@ fn update_existing_entry_from_sync_inner(
         timestamp = effective_timestamp;
         changed = true;
     }
-    if item.is_pinned != local_is_pinned {
+    // Pinning and reordering bump sort_at, so the remote pin state is only
+    // taken when it is at least as recent as ours. An older copy (a stale
+    // snapshot, or this device's own pre-pull delta coming back) used to unpin
+    // or reorder an item that was just changed here.
+    let remote_state_is_current = effective_timestamp >= local_timestamp;
+    if remote_state_is_current && item.is_pinned != local_is_pinned {
         is_pinned = item.is_pinned;
         changed = true;
     }
-    if item.pinned_order != local_pinned_order {
+    if remote_state_is_current && item.pinned_order != local_pinned_order {
         pinned_order = item.pinned_order;
         changed = true;
     }
@@ -1544,9 +1711,21 @@ fn update_existing_entry_from_sync_inner(
         last_used_at = item.last_used_at;
         changed = true;
     }
+    // Tags: the more recent edit wins. Older clients send no edit time; their
+    // copy's sort time stands in, which a local edit made later beats.
+    let local_tags_updated_at: i64 = conn
+        .query_row(
+            "SELECT tags_updated_at FROM clipboard_history WHERE id = ?",
+            [id],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+    let mut tags_updated_at = local_tags_updated_at;
+    let remote_tags_at = if item.tags_updated_at > 0 { item.tags_updated_at } else { effective_timestamp };
     let remote_tags_json = serde_json::to_string(&item.tags).unwrap_or_else(|_| "[]".to_string());
-    if remote_tags_json != tags_json {
+    if remote_tags_json != tags_json && remote_tags_at > local_tags_updated_at {
         tags_json = remote_tags_json;
+        tags_updated_at = remote_tags_at;
         changed = true;
     }
     let remote_is_external =
@@ -1556,8 +1735,10 @@ fn update_existing_entry_from_sync_inner(
     }
 
     if changed {
+        // Encrypt by the tags the row ends up with: they may be the local ones.
+        let final_tags: Vec<String> = serde_json::from_str(&tags_json).unwrap_or_default();
         let protect = |value: &str| -> AppResult<String> {
-            if crate::database::has_sensitive_tag(&item.tags) {
+            if crate::database::has_sensitive_tag(&final_tags) {
                 encrypt_for_storage(value).map_err(AppError::Internal)
             } else {
                 Ok(value.to_string())
@@ -1578,6 +1759,7 @@ fn update_existing_entry_from_sync_inner(
                 source_app = ?, 
                 use_count = ?, 
                 tags = ?,
+                tags_updated_at = ?,
                 source_app_path = ?,
                 is_external = ?,
                 content = ?,
@@ -1594,6 +1776,7 @@ fn update_existing_entry_from_sync_inner(
                 source_app,
                 use_count,
                 tags_json,
+                tags_updated_at,
                 source_app_path,
                 if remote_is_external { 1 } else { 0 },
                 content,
@@ -1626,7 +1809,7 @@ fn apply_remote_changes(
     remote_items: &[CloudSyncItem],
     prefs: &CloudSyncContentPrefs,
 ) -> AppResult<usize> {
-    validate_sync_items(remote_items)?;
+    let remote_items = &drop_invalid_sync_items(remote_items);
     if remote_items.is_empty() {
         return Ok(0);
     }
@@ -1636,6 +1819,8 @@ fn apply_remote_changes(
         .ok_or_else(|| AppError::Internal("DB state unavailable".to_string()))?;
     let mut applied = 0usize;
     let app_data_dir = get_app_data_dir(app);
+    // Row id -> cross-platform content hash (None: sensitive or gone).
+    let mut canonical_hashes: HashMap<i64, Option<i64>> = HashMap::new();
     for item in remote_items {
         if crate::database::has_sensitive_tag(&item.tags) { continue; }
         if item.content_type == "emoji_sync" {
@@ -1690,34 +1875,51 @@ fn apply_remote_changes(
             let candidates = {
                 let mut stmt = conn
                     .prepare(
-                        "SELECT id, content_hash FROM clipboard_history
+                        "SELECT id, content_hash, COALESCE(NULLIF(sort_at, 0), timestamp), tags FROM clipboard_history
                          WHERE content_type = ?1",
                     )
                     .map_err(|e| AppError::Internal(e.to_string()))?;
                 let rows = stmt
                     .query_map(rusqlite::params![item.content_type], |row| {
-                        Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?))
+                        Ok((
+                            row.get::<_, i64>(0)?,
+                            row.get::<_, i64>(1)?,
+                            row.get::<_, i64>(2)?,
+                            row.get::<_, String>(3)?,
+                        ))
                     })
                     .map_err(|e| AppError::Internal(e.to_string()))?;
                 rows.collect::<Result<Vec<_>, _>>().map_err(AppError::from)?
             };
-            for (id, stored_hash) in candidates {
-                let tags: String = conn.query_row("SELECT tags FROM clipboard_history WHERE id=?1", [id], |r| r.get(0)).map_err(AppError::from)?;
+            for (id, stored_hash, local_timestamp, tags) in candidates {
+                // Copied (again) after the deletion: the newer local copy wins,
+                // just as a newer remote copy beats an older tombstone below.
+                if local_timestamp > tombstone_ts {
+                    continue;
+                }
                 let tags: Vec<String> = serde_json::from_str(&tags).map_err(|e| AppError::Internal(e.to_string()))?;
                 if crate::database::has_sensitive_tag(&tags) { continue; }
-                let canonical_match = db_state
-                    .repo
-                    .get_entry_by_id_with_conn(&conn, id)
-                    .map_err(AppError::Internal)?
-                    .map(|entry| {
-                        if crate::database::has_sensitive_tag(&entry.tags) { return false; }
-                        compute_sync_content_hash(&entry.content_type, &entry.content)
-                            == remote_hash
-                    })
-                    .unwrap_or(false);
                 // Accept the legacy desktop fingerprint while all clients migrate
-                // to the stable cross-platform hash.
-                if stored_hash != remote_hash && !canonical_match {
+                // to the stable cross-platform hash. The canonical hash needs the
+                // decrypted content, so it is computed once per row per sync
+                // instead of once per row per tombstone.
+                let matches = stored_hash == remote_hash || {
+                    let canonical = match canonical_hashes.get(&id) {
+                        Some(hash) => *hash,
+                        None => {
+                            let hash = db_state
+                                .repo
+                                .get_entry_by_id_with_conn(&conn, id)
+                                .map_err(AppError::Internal)?
+                                .filter(|entry| !crate::database::has_sensitive_tag(&entry.tags))
+                                .map(|entry| compute_sync_content_hash(&entry.content_type, &entry.content));
+                            canonical_hashes.insert(id, hash);
+                            hash
+                        }
+                    };
+                    canonical == Some(remote_hash)
+                };
+                if !matches {
                     continue;
                 }
                 db_state
@@ -1806,10 +2008,17 @@ fn apply_remote_changes(
             file_preview_exists: true,
         };
 
-        db_state
+        let saved_id = db_state
             .repo
             .save_with_conn(&conn, &entry, app_data_dir.as_deref(), None)
             .map_err(AppError::Internal)?;
+        if item.tags_updated_at > 0 {
+            conn.execute(
+                "UPDATE clipboard_history SET tags_updated_at = ?1 WHERE id = ?2",
+                rusqlite::params![item.tags_updated_at, saved_id],
+            )
+            .map_err(AppError::from)?;
+        }
         if remote_hash != 0 {
             conn.execute(
                 "DELETE FROM cloud_sync_tombstones
@@ -1859,6 +2068,27 @@ fn is_retryable_webdav_status(status: StatusCode) -> bool {
             | StatusCode::BAD_GATEWAY
             | StatusCode::GATEWAY_TIMEOUT
     )
+}
+
+/// Run blocking DB / file work (decrypting rows, reading images of up to
+/// 8 MB) from the async sync task without stalling the runtime worker, and
+/// every other task queued on it, while it runs.
+fn blocking<T>(work: impl FnOnce() -> T) -> T {
+    tokio::task::block_in_place(work)
+}
+
+/// Failed auto-syncs in a row (wrong password, server down, offline).
+static CLOUD_SYNC_CONSECUTIVE_FAILURES: AtomicU32 = AtomicU32::new(0);
+
+/// Only 429/503 used to slow down; any other failure retried every interval
+/// (5 s at minimum), each with its own retries. Back off 30 s, 1 min, 2 min …
+/// up to 30 min. A manual sync or a change still triggers one immediately.
+fn failure_backoff(failures: u32) -> Duration {
+    if failures == 0 {
+        return Duration::ZERO;
+    }
+    let secs = 30u64.saturating_mul(1 << failures.saturating_sub(1).min(6));
+    Duration::from_secs(secs.min(30 * 60))
 }
 
 fn check_webdav_status_for_backoff(status: StatusCode) {
@@ -2063,6 +2293,15 @@ async fn delete_webdav_resource_if_exists(
     Err(http_failure_error(resp, &context, &url).await)
 }
 
+/// The WebDAV server (by URL) whose MOVE failed during this run. Uploads to
+/// it skip the temp file and PUT straight to the final path, instead of
+/// paying for a failed MOVE and a second PUT on every file.
+static WEBDAV_MOVE_UNSUPPORTED: Mutex<Option<String>> = Mutex::new(None);
+
+fn move_unsupported(cfg: &CloudSyncConfig) -> bool {
+    WEBDAV_MOVE_UNSUPPORTED.lock().unwrap().as_deref() == Some(cfg.webdav_url.as_str())
+}
+
 async fn move_webdav_resource(
     client: &Client,
     cfg: &CloudSyncConfig,
@@ -2071,23 +2310,28 @@ async fn move_webdav_resource(
 ) -> AppResult<bool> {
     let from_url = webdav_url_for(cfg, from_relative);
     let destination = webdav_url_for(cfg, to_relative);
-    let resp = webdav_send_with_retry(|| {
-        let method = Method::from_bytes(b"MOVE").expect("MOVE is a valid HTTP method");
-        webdav_with_auth(
-            client
-                .request(method, &from_url)
-                .header("Destination", destination.clone())
-                .header("Overwrite", "T"),
-            cfg,
-        )
-    })
-    .await?;
+    // One attempt: some servers (123pan) answer every MOVE with 500, and
+    // retrying only delays the fallback to a direct PUT (#164).
+    let method = Method::from_bytes(b"MOVE").expect("MOVE is a valid HTTP method");
+    let resp = webdav_with_auth(
+        client
+            .request(method, &from_url)
+            .header("Destination", destination.clone())
+            .header("Overwrite", "T"),
+        cfg,
+    )
+    .send()
+    .await
+    .map_err(|err| AppError::Network(err.to_string()))?;
+    check_webdav_status_for_backoff(resp.status());
 
     if resp.status().is_success() {
         return Ok(true);
     }
 
-    if matches!(resp.status().as_u16(), 405 | 409 | 412 | 501) {
+    // Auth failures, rate limits, outages and a full disk would fail the PUT
+    // too; report those. Anything else means MOVE itself doesn't work here.
+    if !matches!(resp.status().as_u16(), 401 | 403 | 429 | 503 | 507) {
         return Ok(false);
     }
 
@@ -2139,6 +2383,9 @@ async fn upload_webdav_bytes_resource(
     }
 
     let final_url = webdav_url_for(cfg, relative_path);
+    if move_unsupported(cfg) {
+        return upload_target(client, cfg, &final_url, &body, content_type, label).await;
+    }
     let temp_relative = format!(
         "{}.uploading.{}.{}.tmp",
         relative_path.trim_end_matches('/'),
@@ -2152,6 +2399,7 @@ async fn upload_webdav_bytes_resource(
     match move_webdav_resource(client, cfg, &temp_relative, relative_path).await {
         Ok(true) => Ok(()),
         Ok(false) => {
+            *WEBDAV_MOVE_UNSUPPORTED.lock().unwrap() = Some(cfg.webdav_url.clone());
             let fallback = upload_target(client, cfg, &final_url, &body, content_type, label).await;
             let _ = delete_webdav_resource_if_exists(client, cfg, &temp_relative).await;
             fallback
@@ -2163,21 +2411,68 @@ async fn upload_webdav_bytes_resource(
     }
 }
 
+/// Set when a sync file had to be skipped because this device and the one
+/// that wrote it disagree about end-to-end encryption (see open_downloaded).
+static E2E_MISMATCH_SEEN: AtomicBool = AtomicBool::new(false);
+
+fn seal_for_upload(cfg: &CloudSyncConfig, kind: E2eKind, body: Vec<u8>) -> Vec<u8> {
+    match &cfg.e2e {
+        Some(keys) => keys.seal(kind, &body),
+        None => body,
+    }
+}
+
+/// A downloaded sync file's bytes, opened if sealed. None when this device
+/// can't use it: plaintext while a key is set (a device without the key, or
+/// someone else writing to the folder), sealed without a key here, or sealed
+/// with another key. Those files are skipped rather than failing the sync.
+fn open_downloaded(cfg: &CloudSyncConfig, kind: E2eKind, bytes: &[u8]) -> Option<Vec<u8>> {
+    let opened = match (&cfg.e2e, crate::services::e2e::is_sealed(bytes)) {
+        (None, false) => return Some(bytes.to_vec()),
+        (Some(keys), true) => keys.open(kind, bytes),
+        (Some(_), false) | (None, true) => None,
+    };
+    if opened.is_none() {
+        E2E_MISMATCH_SEEN.store(true, Ordering::Relaxed);
+    }
+    opened
+}
+
+/// Blob file name: a keyed hash with end-to-end encryption, so names don't
+/// give away content hashes; the plain SHA-256 otherwise.
+fn blob_name_for(cfg: &CloudSyncConfig, data: &[u8]) -> String {
+    match &cfg.e2e {
+        Some(keys) => keys.blob_name(data),
+        None => sha256_hex(data),
+    }
+}
+
+/// Upload JSON; `kind` seals it when end-to-end encryption is on (None for
+/// the sync head, which stays readable to every device).
 async fn upload_webdav_json_resource(
     client: &Client,
     cfg: &CloudSyncConfig,
     relative_path: &str,
     body: Vec<u8>,
     label: &str,
+    kind: Option<E2eKind>,
 ) -> AppResult<()> {
+    let body = match kind {
+        Some(kind) => seal_for_upload(cfg, kind, body),
+        None => body,
+    };
     upload_webdav_bytes_resource(client, cfg, relative_path, body, "application/json", label).await
 }
 
+/// GET and parse a JSON sync file. With `sealed = Some((cfg, kind))` the body
+/// goes through open_downloaded first; a file this device can't open counts
+/// as missing.
 async fn fetch_webdav_json_resource<T, F>(
     mut make_request: F,
     missing_status: u16,
     fetch_error_label: &str,
     parse_error_label: &str,
+    sealed: Option<(&CloudSyncConfig, E2eKind)>,
 ) -> AppResult<Option<T>>
 where
     T: for<'de> Deserialize<'de>,
@@ -2200,10 +2495,22 @@ where
             return Err(http_failure_error(resp, fetch_error_label, &url).await);
         }
 
-        let bytes = resp
+        let raw = resp
             .bytes()
             .await
             .map_err(|e| AppError::Network(e.to_string()))?;
+        let bytes = match sealed {
+            None => raw.to_vec(),
+            Some((cfg, kind)) => match open_downloaded(cfg, kind, &raw) {
+                Some(opened) => opened,
+                // A truncated read fails authentication too: retry first.
+                None if crate::services::e2e::is_sealed(&raw) && attempt < WEBDAV_JSON_READ_RETRIES => {
+                    sleep(webdav_retry_delay(attempt)).await;
+                    continue;
+                }
+                None => return Ok(None),
+            },
+        };
         match serde_json::from_slice::<T>(&bytes) {
             Ok(parsed) => return Ok(Some(parsed)),
             Err(err)
@@ -2289,7 +2596,7 @@ async fn upload_webdav_blob(
     kind: &str,
     data: &[u8],
 ) -> AppResult<String> {
-    let hash = sha256_hex(data);
+    let hash = blob_name_for(cfg, data);
     let prefix = if hash.len() >= 2 { &hash[0..2] } else { "xx" };
     let prefix_path = format!("{}/{}", base_blobs, prefix);
     mkcol_if_needed(client, cfg, &prefix_path).await?;
@@ -2299,7 +2606,7 @@ async fn upload_webdav_blob(
         client,
         cfg,
         &blob_file_path,
-        data.to_vec(),
+        seal_for_upload(cfg, E2eKind::Blob, data.to_vec()),
         "application/octet-stream",
         "blob",
     )
@@ -2332,7 +2639,9 @@ async fn download_webdav_blob(
         .bytes()
         .await
         .map_err(|e| AppError::Network(e.to_string()))?;
-    Ok(bytes.to_vec())
+    open_downloaded(cfg, E2eKind::Blob, &bytes).ok_or_else(|| {
+        AppError::Validation(format!("blob not readable with this device's end-to-end key ({})", blob_file_path))
+    })
 }
 
 fn parse_webdav_snapshot_ids(xml: &str) -> Vec<String> {
@@ -2394,10 +2703,60 @@ async fn upload_webdav_snapshot(
         devices_path.trim_end_matches('/'),
         cfg.device_id
     );
-    upload_webdav_json_resource(client, cfg, &relative, body, "snapshot").await
+    upload_webdav_json_resource(client, cfg, &relative, body, "snapshot", Some(E2eKind::Snapshot)).await
+}
+
+/// Listings and snapshots already fetched in the current WebDAV sync. One
+/// sync used to list devices/ up to three times and download some peers'
+/// snapshots twice (head check, candidate pick, then apply). Snapshots are
+/// small now that images travel as blobs, so holding them for one cycle is
+/// cheap; the cache is dropped when the cycle ends.
+#[derive(Default)]
+struct WebDavCycleCache {
+    listings: HashMap<String, Vec<String>>,
+    snapshots: HashMap<String, Option<WebDavDeviceSnapshot>>,
+}
+
+static WEBDAV_CYCLE_CACHE: Mutex<Option<WebDavCycleCache>> = Mutex::new(None);
+
+/// Caches WebDAV reads until dropped (the end of one sync cycle).
+struct WebDavCycle;
+
+impl WebDavCycle {
+    fn begin() -> Self {
+        *WEBDAV_CYCLE_CACHE.lock().unwrap_or_else(|p| p.into_inner()) = Some(WebDavCycleCache::default());
+        WebDavCycle
+    }
+}
+
+impl Drop for WebDavCycle {
+    fn drop(&mut self) {
+        *WEBDAV_CYCLE_CACHE.lock().unwrap_or_else(|p| p.into_inner()) = None;
+    }
+}
+
+fn with_cycle_cache<T>(f: impl FnOnce(&mut WebDavCycleCache) -> T) -> Option<T> {
+    WEBDAV_CYCLE_CACHE
+        .lock()
+        .unwrap_or_else(|p| p.into_inner())
+        .as_mut()
+        .map(f)
 }
 
 async fn list_webdav_snapshot_ids(
+    client: &Client,
+    cfg: &CloudSyncConfig,
+    devices_path: &str,
+) -> AppResult<Vec<String>> {
+    if let Some(Some(ids)) = with_cycle_cache(|c| c.listings.get(devices_path).cloned()) {
+        return Ok(ids);
+    }
+    let ids = list_webdav_snapshot_ids_uncached(client, cfg, devices_path).await?;
+    with_cycle_cache(|c| c.listings.insert(devices_path.to_string(), ids.clone()));
+    Ok(ids)
+}
+
+async fn list_webdav_snapshot_ids_uncached(
     client: &Client,
     cfg: &CloudSyncConfig,
     devices_path: &str,
@@ -2442,6 +2801,21 @@ async fn fetch_webdav_snapshot(
     devices_path: &str,
     device_id: &str,
 ) -> AppResult<Option<WebDavDeviceSnapshot>> {
+    let key = format!("{}/{}", devices_path.trim_end_matches('/'), device_id);
+    if let Some(Some(snapshot)) = with_cycle_cache(|c| c.snapshots.get(&key).cloned()) {
+        return Ok(snapshot);
+    }
+    let snapshot = fetch_webdav_snapshot_uncached(client, cfg, devices_path, device_id).await?;
+    with_cycle_cache(|c| c.snapshots.insert(key, snapshot.clone()));
+    Ok(snapshot)
+}
+
+async fn fetch_webdav_snapshot_uncached(
+    client: &Client,
+    cfg: &CloudSyncConfig,
+    devices_path: &str,
+    device_id: &str,
+) -> AppResult<Option<WebDavDeviceSnapshot>> {
     let relative = format!("{}/{}.json", devices_path.trim_end_matches('/'), device_id);
     let url = webdav_url_for(cfg, &relative);
     fetch_webdav_json_resource(
@@ -2449,6 +2823,7 @@ async fn fetch_webdav_snapshot(
         404,
         "webdav GET snapshot failed",
         "parse snapshot json failed",
+        Some((cfg, E2eKind::Snapshot)),
     )
     .await
 }
@@ -2477,7 +2852,7 @@ async fn upload_webdav_ops_batch(
         ops_path.trim_end_matches('/'),
         webdav_ops_filename(&cfg.device_id, seq)
     );
-    upload_webdav_json_resource(client, cfg, &relative, body, "ops batch").await
+    upload_webdav_json_resource(client, cfg, &relative, body, "ops batch", Some(E2eKind::Ops)).await
 }
 
 fn parse_webdav_op_refs(xml: &str) -> Vec<WebDavOpRef> {
@@ -2588,6 +2963,7 @@ async fn fetch_webdav_ops_batch(
         404,
         "webdav GET ops batch failed",
         "parse ops batch json failed",
+        Some((cfg, E2eKind::Ops)),
     )
     .await
 }
@@ -2609,9 +2985,19 @@ fn collect_syncable_settings(app: &AppHandle) -> AppResult<HashMap<String, Strin
 }
 
 fn apply_synced_settings(app: &AppHandle, incoming: &HashMap<String, String>) -> AppResult<usize> {
-    for value in incoming.values() {
-        validate_sync_plaintext(value)?;
-    }
+    // Skip a bad value rather than fail every setting (and every sync) on it.
+    let incoming: HashMap<String, String> = incoming
+        .iter()
+        .filter(|(key, value)| {
+            let valid = validate_sync_plaintext(value).is_ok();
+            if !valid {
+                error!(">>> [CloudSync] Skipping synced setting {key}: it holds a local encryption envelope");
+            }
+            valid
+        })
+        .map(|(key, value)| (key.clone(), value.clone()))
+        .collect();
+    let incoming = &incoming;
     if incoming.is_empty() {
         return Ok(0);
     }
@@ -2627,6 +3013,10 @@ fn apply_synced_settings(app: &AppHandle, incoming: &HashMap<String, String>) ->
 
         let normalized_value = if key == EMOJI_FAVORITES_SETTING_KEY {
             decode_emoji_favorites_setting(app, value)?
+        } else if key == "app.sound_volume" {
+            // A 0.3.x device still syncs its 0-100 volume.
+            crate::database::sound_volume_from_setting(value)
+                .map_or_else(|| value.clone(), |volume| volume.to_string())
         } else {
             value.clone()
         };
@@ -2654,6 +3044,60 @@ fn apply_synced_settings(app: &AppHandle, incoming: &HashMap<String, String>) ->
     })
 }
 
+/// Per synced setting: (value fingerprint, when it changed). Settings used to
+/// sync as one block where the newest upload won, so a peer's routine upload
+/// reverted a change made here a moment earlier. With a time per key, each
+/// setting takes the most recent change from whichever device made it.
+type SettingMtimes = HashMap<String, (String, i64)>;
+
+fn setting_fingerprint(value: &str) -> String {
+    sha256_hex(value.as_bytes())[..16].to_string()
+}
+
+fn local_syncable_raw_settings(app: &AppHandle) -> AppResult<HashMap<String, String>> {
+    let db_state = app
+        .try_state::<DbState>()
+        .ok_or_else(|| AppError::Internal("DB state unavailable".to_string()))?;
+    let mut map = db_state.settings_repo.get_all().map_err(AppError::from)?;
+    map.retain(|k, _| is_setting_sync_eligible(k));
+    Ok(map)
+}
+
+fn save_setting_mtimes(app: &AppHandle, mtimes: &SettingMtimes) -> AppResult<()> {
+    let db_state = app
+        .try_state::<DbState>()
+        .ok_or_else(|| AppError::Internal("DB state unavailable".to_string()))?;
+    let payload = serde_json::to_string(mtimes).map_err(|e| AppError::Internal(e.to_string()))?;
+    db_state.settings_repo.set(CLOUD_SYNC_SETTINGS_MTIMES_KEY, &payload).map_err(AppError::from)
+}
+
+/// Stamp settings whose value changed here since the last look. The first
+/// run has no history: existing values count as old (0), so any timed change
+/// from a peer wins over them.
+fn refresh_setting_mtimes(app: &AppHandle) -> AppResult<SettingMtimes> {
+    let stored: Option<SettingMtimes> = app
+        .try_state::<DbState>()
+        .and_then(|db| db.settings_repo.get(CLOUD_SYNC_SETTINGS_MTIMES_KEY).ok().flatten())
+        .and_then(|raw| serde_json::from_str(&raw).ok());
+    let first_run = stored.is_none();
+    let mut mtimes = stored.unwrap_or_default();
+    let now = now_ms();
+    let mut dirty = first_run;
+    for (key, value) in local_syncable_raw_settings(app)? {
+        let fingerprint = setting_fingerprint(&value);
+        if mtimes.get(&key).is_some_and(|(stored, _)| *stored == fingerprint) {
+            continue;
+        }
+        let changed_at = if first_run { 0 } else { now };
+        mtimes.insert(key, (fingerprint, changed_at));
+        dirty = true;
+    }
+    if dirty {
+        save_setting_mtimes(app, &mtimes)?;
+    }
+    Ok(mtimes)
+}
+
 async fn upload_webdav_settings_snapshot(
     app: &AppHandle,
     client: &Client,
@@ -2661,10 +3105,15 @@ async fn upload_webdav_settings_snapshot(
     settings_path: &str,
 ) -> AppResult<HashMap<String, String>> {
     let local_settings = collect_syncable_settings(app)?;
+    let mtimes = refresh_setting_mtimes(app)?;
 
     let snapshot = WebDavSettingsSnapshot {
         device_id: cfg.device_id.clone(),
         updated_at: now_ms(),
+        key_updated_at: local_settings
+            .keys()
+            .map(|key| (key.clone(), mtimes.get(key).map_or(0, |(_, at)| *at)))
+            .collect(),
         settings: local_settings.clone(),
     };
     let body = serde_json::to_vec(&snapshot)
@@ -2674,7 +3123,7 @@ async fn upload_webdav_settings_snapshot(
         settings_path.trim_end_matches('/'),
         cfg.device_id
     );
-    upload_webdav_json_resource(client, cfg, &relative, body, "settings snapshot").await?;
+    upload_webdav_json_resource(client, cfg, &relative, body, "settings snapshot", Some(E2eKind::Settings)).await?;
     Ok(local_settings)
 }
 
@@ -2691,6 +3140,7 @@ async fn fetch_webdav_settings_snapshot(
         404,
         "webdav GET settings snapshot failed",
         "parse settings snapshot json failed",
+        Some((cfg, E2eKind::Settings)),
     )
     .await
 }
@@ -2777,6 +3227,7 @@ async fn fetch_webdav_sync_head(
         404,
         "webdav GET head failed",
         "parse head json failed",
+        None,
     )
     .await
 }
@@ -2797,7 +3248,7 @@ async fn upload_webdav_sync_head(
 
         let body = serde_json::to_vec(&candidate)
             .map_err(|e| AppError::Internal(format!("serialize head failed: {}", e)))?;
-        upload_webdav_json_resource(client, cfg, head_path, body, "sync head").await?;
+        upload_webdav_json_resource(client, cfg, head_path, body, "sync head", None).await?;
 
         if let Some(verified) = fetch_webdav_sync_head(client, cfg, head_path).await? {
             if webdav_sync_head_covers(&verified, &candidate) {
@@ -2885,6 +3336,12 @@ async fn resolve_webdav_sync_head(
     now: i64,
 ) -> AppResult<WebDavSyncHead> {
     let fetched = fetch_webdav_sync_head(client, cfg, &paths.head_path).await?;
+    if fetched.is_none() {
+        // No head: a new or wiped sync folder. Blobs remembered as uploaded
+        // may be gone, and trusting the cache would leave peers failing on
+        // them forever, so upload them again.
+        save_webdav_blob_cache(app, &HashMap::new());
+    }
     let needs_rebuild = fetched.is_none() || should_rebuild_webdav_head(app, now);
 
     if !needs_rebuild {
@@ -2957,11 +3414,15 @@ async fn pull_remote_webdav_ops_from_head(
             match fetch_webdav_ops_batch(client, cfg, ops_path, &op_ref).await? {
                 Some(mut batch) if batch.device_id == op_ref.device_id => {
                     batch.entries.retain(|entry| !crate::database::has_sensitive_tag(&entry.tags));
+                    // A blob that fails here is retried via the owner's next snapshot.
                     enrich_item_blobs_after_pull(app, client, cfg, blobs_path, &mut batch.entries)
-                        .await?;
-                    received += apply_remote_changes(app, &batch.entries, &cfg.content_prefs)?;
+                        .await;
+                    received += blocking(|| apply_remote_changes(app, &batch.entries, &cfg.content_prefs))?;
                     last_seq = last_seq.max(batch.seq).max(seq);
                     cursor_map.insert(device_id.clone(), last_seq);
+                    // Save as we go: if a later batch fails, the next cycle
+                    // resumes here instead of downloading these again.
+                    save_webdav_op_cursor_map(app, &cursor_map)?;
                 }
                 Some(_) | None => {
                     // Ops are ephemeral; missing batches are expected after snapshot compaction.
@@ -3023,6 +3484,7 @@ async fn pull_remote_device_snapshots(
     candidates.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
 
     let mut applied_snapshot_ops: Vec<(String, i64)> = Vec::new();
+    let mut snapshot_digests = load_webdav_snapshot_digests(app);
 
     for (device_id, _) in candidates.into_iter().take(MAX_REMOTE_SNAPSHOTS) {
         if cloud_sync_cancel_requested() {
@@ -3039,7 +3501,16 @@ async fn pull_remote_device_snapshots(
         }
 
         snapshot.entries.retain(|entry| !crate::database::has_sensitive_tag(&entry.tags));
-        enrich_item_blobs_after_pull(app, client, cfg, blobs_path, &mut snapshot.entries).await?;
+        // A changed snapshot is mostly the same entries as last time, and those
+        // were applied then: skip them, and with them their blob downloads.
+        let previous = snapshot_digests.remove(&device_id).unwrap_or_default();
+        let mut current: HashSet<String> =
+            snapshot.entries.iter().map(sync_digest_for_item).collect();
+        snapshot.entries.retain(|entry| !previous.contains(&sync_digest_for_item(entry)));
+        for failed in enrich_item_blobs_after_pull(app, client, cfg, blobs_path, &mut snapshot.entries).await {
+            current.remove(&failed);
+        }
+        snapshot_digests.insert(device_id.clone(), current);
         remote_items.extend(snapshot.entries);
         snapshot_cursor.insert(device_id.clone(), snapshot.updated_at);
         if snapshot.latest_op_seq > 0 {
@@ -3049,8 +3520,9 @@ async fn pull_remote_device_snapshots(
 
     // Persist progress only after all downloaded entries have been applied.
     remote_items.sort_by_key(|item| item.timestamp);
-    let applied = apply_remote_changes(app, &remote_items, &cfg.content_prefs)?;
+    let applied = blocking(|| apply_remote_changes(app, &remote_items, &cfg.content_prefs))?;
     save_webdav_snapshot_cursor_map(app, &snapshot_cursor)?;
+    save_webdav_snapshot_digests(app, &snapshot_digests)?;
 
     if !applied_snapshot_ops.is_empty() {
         let mut op_cursor_map = load_webdav_op_cursor_map(app);
@@ -3110,7 +3582,32 @@ async fn pull_remote_settings_snapshot_from_head(
         return Ok(0);
     }
 
-    let changed = apply_synced_settings(app, &snapshot.settings)?;
+    // Take a peer's value only where it changed more recently than ours (a
+    // local change not uploaded yet is stamped by the refresh first).
+    let mut mtimes = refresh_setting_mtimes(app)?;
+    let changed_at = |key: &str| {
+        snapshot
+            .key_updated_at
+            .get(key)
+            .copied()
+            .unwrap_or(snapshot.updated_at)
+    };
+    let newer: HashMap<String, String> = snapshot
+        .settings
+        .iter()
+        .filter(|(key, _)| changed_at(key) > mtimes.get(*key).map_or(0, |(_, at)| *at))
+        .map(|(key, value)| (key.clone(), value.clone()))
+        .collect();
+    let changed = apply_synced_settings(app, &newer)?;
+    // Adopt the peer's change times, so these values don't count as local
+    // changes (and get re-stamped as new) at the next refresh.
+    let raw = local_syncable_raw_settings(app)?;
+    for key in newer.keys() {
+        if let Some(value) = raw.get(key) {
+            mtimes.insert(key.clone(), (setting_fingerprint(value), changed_at(key)));
+        }
+    }
+    save_setting_mtimes(app, &mtimes)?;
     db_state
         .settings_repo
         .set(
@@ -3174,20 +3671,40 @@ fn should_push_webdav_snapshot(
         && now.saturating_sub(last) >= SNAPSHOT_PUSH_MIN_INTERVAL_SECS.saturating_mul(1000)
 }
 
+/// The HTTP provider takes images inline; WebDAV uploads them as blobs.
+fn inline_local_images(items: Vec<CloudSyncItem>) -> Vec<CloudSyncItem> {
+    items
+        .into_iter()
+        .filter_map(|mut item| {
+            if is_local_image_path(&item) {
+                item.content = to_data_url_from_path(&item.content)?;
+            }
+            Some(item)
+        })
+        .collect()
+}
+
 async fn sync_once_http(app: &AppHandle, cfg: &CloudSyncConfig) -> AppResult<CloudSyncStatus> {
-    let local_items = collect_local_changes(app, cfg.cursor, &cfg.content_prefs)?;
+    let local_items = blocking(|| {
+        collect_local_changes(app, cfg.cursor, &cfg.content_prefs).map(inline_local_images)
+    })?;
     let endpoint = format!(
         "{}/api/v1/clipboard/sync",
         cfg.base_url.trim_end_matches('/')
     );
+    // Only the newest timestamp is needed afterwards; moving the entries into
+    // the request avoids a second copy of every inlined image.
+    let local_max = local_items.iter().map(|x| x.timestamp).max().unwrap_or(cfg.cursor);
+    let uploaded_items = local_items.len();
     let request = CloudSyncRequest {
         device_id: cfg.device_id.clone(),
         cursor: cfg.cursor,
-        entries: local_items.clone(),
+        entries: local_items,
     };
 
     let client = build_http_client()?;
     let mut http_req = client.post(&endpoint).json(&request);
+    drop(request);
     if !cfg.api_key.trim().is_empty() {
         http_req = http_req.bearer_auth(cfg.api_key.trim());
     }
@@ -3205,15 +3722,10 @@ async fn sync_once_http(app: &AppHandle, cfg: &CloudSyncConfig) -> AppResult<Clo
         .await
         .map_err(|e| invalid_sync_response("parse sync endpoint response failed", &e))?;
 
-    let received = apply_remote_changes(app, &body.entries, &cfg.content_prefs)?;
+    let received = blocking(|| apply_remote_changes(app, &body.entries, &cfg.content_prefs))?;
     if received > 0 {
         let _ = app.emit("clipboard-changed", ());
     }
-    let local_max = local_items
-        .iter()
-        .map(|x| x.timestamp)
-        .max()
-        .unwrap_or(cfg.cursor);
     let remote_max = body
         .entries
         .iter()
@@ -3235,7 +3747,7 @@ async fn sync_once_http(app: &AppHandle, cfg: &CloudSyncConfig) -> AppResult<Clo
         running: true,
         last_sync_at: Some(now),
         last_error: None,
-        uploaded_items: local_items.len(),
+        uploaded_items,
         received_items: received,
     })
 }
@@ -3248,14 +3760,30 @@ async fn sync_once_webdav(
     if cloud_sync_cancel_requested() {
         return Ok(disabled_status());
     }
+    let _cycle = WebDavCycle::begin();
     let now = now_ms();
     let sync_cursor = get_setting_i64(app, "cloud_sync_cursor", 0);
 
-    let candidate_entries = fetch_syncable_entries(app, Some(sync_cursor))?;
-    let candidate_items = entries_to_sync_items(candidate_entries, &cfg.content_prefs);
+    let candidate_entries = blocking(|| fetch_syncable_entries(app, Some(sync_cursor)))?;
+    let candidate_items = entries_to_sync_items(
+        candidate_entries,
+        &cfg.content_prefs,
+        &load_tag_edit_times(app, None)?,
+    );
     let (delta_items, _) = collect_local_incremental_items(app, &candidate_items)?;
 
+    // Turning end-to-end encryption on or off, or changing the key, makes this
+    // device's files on the server unreadable to its peers (and its blob
+    // names differ): upload a full snapshot and all blobs again right away.
+    let e2e_fingerprint = cfg.e2e.as_ref().map(|keys| keys.fingerprint().to_string()).unwrap_or_default();
+    let e2e_changed = get_setting_string(app, CLOUD_SYNC_E2E_FINGERPRINT_KEY) != e2e_fingerprint;
+    if e2e_changed {
+        save_webdav_blob_cache(app, &HashMap::new());
+    }
+    E2E_MISMATCH_SEEN.store(false, Ordering::Relaxed);
+
     let should_push_snapshot = force_snapshot
+        || e2e_changed
         || should_push_webdav_snapshot(
             app,
             now,
@@ -3264,7 +3792,7 @@ async fn sync_once_webdav(
         );
 
     let local_items = if should_push_snapshot {
-        collect_local_syncable_items(app, &cfg.content_prefs)?
+        blocking(|| collect_local_syncable_items(app, &cfg.content_prefs))?
     } else {
         Vec::new()
     };
@@ -3365,12 +3893,25 @@ async fn sync_once_webdav(
             return Ok(disabled_status());
         }
         let latest_op_seq = get_local_webdav_op_seq(app);
+        // Images and large bodies go to blobs/ (uploaded once, reused via the
+        // blob cache) like delta ops do; inline they made every snapshot carry
+        // the whole image history as base64.
+        let mut snapshot_items = local_items.clone();
+        process_items_blobs_before_push(
+            &client,
+            cfg,
+            &paths.blobs_path,
+            &mut webdav_blob_cache,
+            &mut snapshot_items,
+        )
+        .await?;
+        save_webdav_blob_cache(app, &webdav_blob_cache);
         upload_webdav_snapshot(
             &client,
             cfg,
             &paths.devices_path,
             latest_op_seq,
-            &local_items,
+            &snapshot_items,
         )
         .await?;
         uploaded_items += local_items.len();
@@ -3387,6 +3928,7 @@ async fn sync_once_webdav(
         });
         sync_head_dirty = true;
         set_setting_i64(app, CLOUD_SYNC_WEBDAV_LAST_SNAPSHOT_PUSH_AT_KEY, now)?;
+        set_setting_string(app, CLOUD_SYNC_E2E_FINGERPRINT_KEY, &e2e_fingerprint)?;
         let _ = cleanup_local_webdav_ops(&client, cfg, &paths.ops_path, latest_op_seq).await;
         replace_local_sync_index(app, &collapse_items_by_sync_key(&local_items))?;
     }
@@ -3414,11 +3956,17 @@ async fn sync_once_webdav(
         state: "idle".to_string(),
         running: true,
         last_sync_at: Some(now),
-        last_error: None,
+        // The sync worked, but some device's data was skipped (see open_downloaded).
+        last_error: E2E_MISMATCH_SEEN
+            .load(Ordering::Relaxed)
+            .then(|| E2E_MISMATCH_MESSAGE.to_string()),
         uploaded_items,
         received_items,
     })
 }
+
+/// Shown in sync status; the frontend translates it by this exact text.
+const E2E_MISMATCH_MESSAGE: &str = "e2e_mismatch";
 
 async fn sync_once(
     app: &AppHandle,
@@ -3617,7 +4165,13 @@ pub fn start_cloud_sync_client(app: AppHandle) {
                     );
                 }
             } else if cfg.auto_sync || requested {
-                if let Err(e) = sync_once(&app, &cfg, false).await {
+                let result = sync_once(&app, &cfg, false).await;
+                if result.is_ok() {
+                    CLOUD_SYNC_CONSECUTIVE_FAILURES.store(0, Ordering::Relaxed);
+                } else {
+                    CLOUD_SYNC_CONSECUTIVE_FAILURES.fetch_add(1, Ordering::Relaxed);
+                }
+                if let Err(e) = result {
                     emit_status(
                         Some(&app),
                         CloudSyncStatus {
@@ -3649,9 +4203,11 @@ pub fn start_cloud_sync_client(app: AppHandle) {
                 break;
             }
 
-            let interval = cfg.auto_sync.then(|| Duration::from_secs(
-                cfg.interval_secs.clamp(MIN_INTERVAL_SECS, MAX_INTERVAL_SECS),
-            ));
+            let failures = CLOUD_SYNC_CONSECUTIVE_FAILURES.load(Ordering::Relaxed);
+            let interval = cfg.auto_sync.then(|| {
+                Duration::from_secs(cfg.interval_secs.clamp(MIN_INTERVAL_SECS, MAX_INTERVAL_SECS))
+                    .max(failure_backoff(failures))
+            });
             wait_for_sync_trigger(
                 &CLOUD_SYNC_REQUESTED, &CLOUD_SYNC_CANCEL_REQUESTED, sync_wake_signal(), interval,
             ).await;
@@ -3802,6 +4358,7 @@ fn check_and_create_emoji_sync_op(app: &AppHandle) -> AppResult<Option<CloudSync
         pinned_order: 0,
         tags: vec![],
         use_count: 0,
+        tags_updated_at: 0,
     }))
 }
 
@@ -3950,10 +4507,10 @@ mod tests {
             "timestamp":1,"preview":"example","is_pinned":false
         })).unwrap();
         let prefs: super::CloudSyncContentPrefs = serde_json::from_str("{}").unwrap();
-        assert_eq!(super::entries_to_sync_items(vec![entry.clone()], &prefs).len(), 1);
+        assert_eq!(super::entries_to_sync_items(vec![entry.clone()], &prefs, &std::collections::HashMap::new()).len(), 1);
         for tag in ["sensitive", "密码", "password"] {
             entry.tags = vec![tag.into()];
-            assert!(super::entries_to_sync_items(vec![entry.clone()], &prefs).is_empty());
+            assert!(super::entries_to_sync_items(vec![entry.clone()], &prefs, &std::collections::HashMap::new()).is_empty());
         }
     }
     use super::{
@@ -4005,6 +4562,36 @@ mod tests {
     }
 
     #[test]
+    fn one_enveloped_item_does_not_reject_the_batch() {
+        let item = |content: &str| CloudSyncItem {
+            content_type: "text".to_string(),
+            content: content.to_string(),
+            content_hash: 0,
+            deleted_at: 0,
+            html_content: None,
+            content_blob_hash: None,
+            html_blob_hash: None,
+            source_app: "Test".to_string(),
+            timestamp: 1,
+            created_at: 1,
+            last_used_at: 0,
+            sort_at: 1,
+            preview: content.to_string(),
+            is_pinned: false,
+            tags: vec![],
+            use_count: 0,
+            pinned_order: 0,
+            tags_updated_at: 0,
+        };
+        let batch = [item("keep me"), item("plain: looks like an envelope"), item("me too")];
+
+        let kept = super::drop_invalid_sync_items(&batch);
+
+        let contents: Vec<&str> = kept.iter().map(|item| item.content.as_str()).collect();
+        assert_eq!(contents, ["keep me", "me too"]);
+    }
+
+    #[test]
     fn normalize_item_for_sync_rewrites_rich_html_local_resources() {
         let dir = make_temp_dir("normalize-item");
         let image_path = dir.join("entry.png");
@@ -4031,6 +4618,7 @@ mod tests {
             tags: vec![],
             use_count: 0,
             pinned_order: 0,
+            tags_updated_at: 0,
         };
 
         let normalized = normalize_item_for_sync(item).expect("normalized item");

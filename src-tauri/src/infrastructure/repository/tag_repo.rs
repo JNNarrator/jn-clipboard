@@ -48,8 +48,8 @@ impl SqliteTagRepository {
 
         let tags_json = serde_json::to_string(&tags).unwrap_or_else(|_| "[]".to_string());
         conn.execute(
-            "UPDATE clipboard_history SET tags = ? WHERE id = ?",
-            params![tags_json, entry_id],
+            "UPDATE clipboard_history SET tags = ?, tags_updated_at = ? WHERE id = ?",
+            params![tags_json, chrono::Utc::now().timestamp_millis(), entry_id],
         )
         .map_err(|e| e.to_string())?;
         Ok(())
@@ -207,39 +207,30 @@ impl TagRepository for SqliteTagRepository {
             .filter_map(Result::ok)
             .collect();
 
+        // Through the normal delete: it leaves a sync tombstone (without one a
+        // synced device brings the entries back) and also cleans up rich-text
+        // image files. Pinned entries are kept and only lose the tag, as
+        // "clear history" keeps them.
+        let clipboard_repo =
+            crate::infrastructure::repository::clipboard_repo::SqliteClipboardRepository::new(self.conn.clone());
+        let transaction = conn.unchecked_transaction().map_err(|e| e.to_string())?;
+        let mut candidates = Vec::new();
         for id in ids {
-            if let Some(dir) = data_dir {
-                let attachments_dir = dir.join("attachments");
-                let mut stmt_content = conn
-                    .prepare("SELECT content, is_external FROM clipboard_history WHERE id = ?")
+            let pinned: bool = transaction
+                .query_row("SELECT is_pinned FROM clipboard_history WHERE id = ?", [id], |row| row.get(0))
+                .unwrap_or(false);
+            if pinned {
+                transaction
+                    .execute("DELETE FROM entry_tags WHERE entry_id = ?1 AND tag = ?2", params![id, name])
                     .map_err(|e| e.to_string())?;
-
-                if let Ok(entry) = stmt_content.query_row([id], |row| {
-                    let content_raw: String = row.get(0)?;
-                    let is_ext: i32 = row.get(1)?;
-                    Ok((content_raw, is_ext == 1))
-                }) {
-                    if entry.1 {
-                        // is_external
-                        let content_path = self.maybe_decrypt_text(&entry.0).map_err(|e| e.to_string())?;
-                        let path = std::path::Path::new(&content_path);
-                        if path.starts_with(&attachments_dir) && path.exists() {
-                            let file_name = path.file_name().and_then(|f| f.to_str()).unwrap_or("");
-                            let other_use: i64 = conn.query_row(
-                                "SELECT COUNT(*) FROM clipboard_history WHERE id != ?1 AND (content = ?2 OR content LIKE ?3)",
-                                params![id, content_path, format!("%{}%", file_name)],
-                                |r| r.get(0)
-                            ).unwrap_or(0);
-                            if other_use == 0 {
-                                let _ = std::fs::remove_file(path);
-                            }
-                        }
-                    }
-                }
+                Self::refresh_entry_tags_json(&transaction, id)?;
+            } else {
+                candidates.extend(clipboard_repo.delete_collecting_files(&transaction, id, data_dir)?);
             }
-            let _ = conn.execute("DELETE FROM entry_tags WHERE entry_id = ?", params![id]);
-            let _ = conn.execute("DELETE FROM clipboard_history WHERE id = ?", params![id]);
         }
+        let unused = clipboard_repo.unreferenced_files(&transaction, candidates);
+        transaction.commit().map_err(|e| e.to_string())?;
+        crate::infrastructure::repository::clipboard_repo::remove_attachment_files(unused);
         Ok(())
     }
 
@@ -329,8 +320,8 @@ impl TagRepository for SqliteTagRepository {
             repo.decrypt_entry_with_conn(&conn, id)?;
         }
         conn.execute(
-            "UPDATE clipboard_history SET tags = ? WHERE id = ?",
-            params![tags_json, id],
+            "UPDATE clipboard_history SET tags = ?, tags_updated_at = ? WHERE id = ?",
+            params![tags_json, chrono::Utc::now().timestamp_millis(), id],
         )
         .map_err(|e| e.to_string())?;
         conn.commit().map_err(|e| e.to_string())

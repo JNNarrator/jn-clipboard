@@ -68,6 +68,7 @@ body.pin-sticker #root::after {
   padding: 10px;
   overflow: visible;
   background: transparent !important;
+  -webkit-user-select: none;
   user-select: none;
   display: flex;
   align-items: center;
@@ -140,6 +141,7 @@ html.dark-mode .pin-sticker-shell:hover .pin-sticker-image-wrapper {
   transition: transform 0.12s ease-out;
   pointer-events: auto;
   -webkit-user-drag: none;
+  -webkit-user-select: none;
   user-select: none;
   border-radius: 0;
   filter: none !important;

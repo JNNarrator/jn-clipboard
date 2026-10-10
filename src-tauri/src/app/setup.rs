@@ -7,8 +7,6 @@ use crate::app::window_manager::{maybe_open_devtools, toggle_window};
 #[cfg(target_os = "windows")]
 use crate::app::hooks::{keyboard_proc, mouse_proc};
 #[cfg(target_os = "windows")]
-use crate::app::system::tray_subclass_proc;
-#[cfg(target_os = "windows")]
 use crate::app::window_manager::{release_modifier_keys, restore_previous_app_focus};
 use crate::app_state::{AppDataDir, EncryptionQueueState, PasteQueue, SessionHistory, SettingsState};
 use crate::database::{self, DbState};
@@ -27,8 +25,6 @@ use windows::Win32::Foundation::{HINSTANCE, HWND, POINT, RECT};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 #[cfg(target_os = "windows")]
 use windows::Win32::UI::Input::KeyboardAndMouse::GetAsyncKeyState;
-#[cfg(target_os = "windows")]
-use windows::Win32::UI::Shell::SetWindowSubclass;
 #[cfg(target_os = "windows")]
 use windows::Win32::UI::WindowsAndMessaging::{
     GetCursorPos, GetWindowRect, RegisterWindowMessageW, GWL_EXSTYLE, WS_EX_NOACTIVATE,
@@ -159,8 +155,24 @@ pub fn init(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/// Debug macOS builds keep their encryption key in a local file instead of the
+/// Keychain, so they must never share an encrypted database with release builds.
+pub(crate) fn default_app_data_dir<R: tauri::Runtime>(
+    paths: &tauri::path::PathResolver<R>,
+) -> tauri::Result<std::path::PathBuf> {
+    let dir = paths.app_data_dir()?;
+    // `npm run tauri:dev` already uses the com.tiez.dev identifier; only a
+    // debug build run with the release config still needs the suffix.
+    #[cfg(all(target_os = "macos", debug_assertions))]
+    let dir = match dir.file_name().and_then(|n| n.to_str()) {
+        Some(name) if name.ends_with(".dev") => dir,
+        name => dir.with_file_name(format!("{}.dev", name.unwrap_or("com.tiez"))),
+    };
+    Ok(dir)
+}
+
 fn resolve_data_dir(app: &App) -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
-    let default_app_dir = app.path().app_data_dir()?;
+    let default_app_dir = default_app_data_dir(app.path())?;
 
     // Perform migration if needed
     crate::migration::perform_migration_v028(&default_app_dir);
@@ -171,7 +183,12 @@ fn resolve_data_dir(app: &App) -> Result<std::path::PathBuf, Box<dyn std::error:
         if let Ok(entries) = std::fs::read_dir(&temp_dir) {
             for entry in entries.flatten() {
                 if let Ok(name) = entry.file_name().into_string() {
-                    if name.starts_with("TieZ_Clip_") {
+                    // Clipboard temp files from earlier runs: pasted images
+                    // (TieZ_IMG_/TieZ_GIF_) were never removed and piled up.
+                    if ["TieZ_Clip_", "TieZ_IMG_", "TieZ_GIF_"]
+                        .iter()
+                        .any(|prefix| name.starts_with(prefix))
+                    {
                         let _ = std::fs::remove_file(entry.path());
                     }
                 }
@@ -296,6 +313,7 @@ pub struct StartupSettings {
     pub sequential_mode: bool,
     pub sequential_hotkey: String,
     pub rich_paste_hotkey: String,
+    pub plain_paste_hotkey: String,
     pub search_hotkey: String,
     pub quick_paste_modifier: String,
     pub sound_enabled: bool,
@@ -396,6 +414,11 @@ fn load_settings(repo: &impl SettingsRepository) -> StartupSettings {
             .get("app.rich_paste_hotkey")
             .unwrap_or(Some("Alt+Shift+V".to_string()))
             .unwrap_or("Alt+Shift+V".to_string()),
+        plain_paste_hotkey: repo
+            .get("app.plain_paste_hotkey")
+            .ok()
+            .flatten()
+            .unwrap_or_default(),
         search_hotkey: repo
             .get("app.search_hotkey")
             .unwrap_or(Some("Alt+F".to_string()))
@@ -481,7 +504,7 @@ fn load_settings(repo: &impl SettingsRepository) -> StartupSettings {
         sound_volume: repo
             .get("app.sound_volume")
             .unwrap_or(Some("1.0".to_string()))
-            .and_then(|v| v.parse::<f64>().ok())
+            .and_then(|v| crate::database::sound_volume_from_setting(&v))
             .unwrap_or(1.0),
     }
 }
@@ -531,6 +554,7 @@ fn setup_state(
         sequential_mode: AtomicBool::new(s.sequential_mode),
         sequential_paste_hotkey: std::sync::Mutex::new(s.sequential_hotkey.clone()),
         rich_paste_hotkey: std::sync::Mutex::new(s.rich_paste_hotkey.clone()),
+        plain_paste_hotkey: std::sync::Mutex::new(s.plain_paste_hotkey.clone()),
         search_hotkey: std::sync::Mutex::new(s.search_hotkey.clone()),
         quick_paste_modifier: std::sync::Mutex::new(s.quick_paste_modifier.clone()),
         sound_enabled: AtomicBool::new(s.sound_enabled),
@@ -550,6 +574,8 @@ fn setup_state(
     app.manage(SessionHistory(std::sync::Mutex::new(
         std::collections::VecDeque::new(),
     )));
+    crate::services::clipboard::start_session_file_sweeper(app.handle().clone(), &app_dir);
+    crate::app::commands::thumbnail_cmd::init_thumbnail_cache(app.handle());
     app.manage(AppDataDir(std::sync::Mutex::new(app_dir)));
     app.manage(crate::services::file_transfer::ChatState::default());
     app.manage(crate::services::file_transfer::SharedFileState(
@@ -915,6 +941,12 @@ fn setup_main_window(app: &App, s: &StartupSettings) {
             maybe_open_devtools(&window);
         }
     } else {
+        // The main window is created visible (tauri.conf.json), so autostart
+        // and silent start must hide it, or it pops up at login (#107).
+        #[cfg(target_os = "windows")]
+        if let Some(window) = app.get_webview_window("main") {
+            let _ = window.hide();
+        }
         // Not showing on startup, but ensure window is focusable when it does appear
         #[cfg(not(target_os = "windows"))]
         if let Some(window) = app.get_webview_window("main") {
@@ -1687,7 +1719,10 @@ fn apply_initial_theme(app: &App) {
 }
 
 #[cfg(target_os = "windows")]
-fn init_win32_hooks(_app: &App) {
+fn init_win32_hooks(app: &App) {
+    if let Some(window) = app.get_webview_window("main") {
+        crate::app::hooks::remember_main_hwnd(&window);
+    }
     std::thread::spawn(move || {
         use windows::Win32::UI::WindowsAndMessaging::{
             DispatchMessageW, GetMessageW, SetWindowsHookExW, TranslateMessage,
@@ -1733,18 +1768,15 @@ fn init_win32_hooks(_app: &App) {
 }
 
 #[cfg(target_os = "windows")]
-fn setup_taskbar_listener(app: &App) {
+fn setup_taskbar_listener(_app: &App) {
     unsafe {
         let msg = RegisterWindowMessageW(windows::core::w!("TaskbarCreated"));
         if msg != 0 {
             TASKBAR_CREATED_MSG.store(msg, Ordering::Relaxed);
-            if let Some(window) = app.get_webview_window("main") {
-                if let Ok(hwnd) = window.hwnd() {
-                    let _ = SetWindowSubclass(HWND(hwnd.0), Some(tray_subclass_proc), 1337, 0);
-                }
-            }
         }
     }
+    // Not the main window: light mode destroys and recreates it.
+    crate::app::system::start_system_event_window();
 }
 
 pub fn handle_global_shortcut(
@@ -1785,6 +1817,16 @@ pub fn handle_global_shortcut(
         } {
             if shortcut == &rich_s {
                 crate::services::clipboard_ops::paste_latest_rich(app.clone());
+                return;
+            }
+        }
+
+        if let Ok(plain_s) = {
+            let val = settings.plain_paste_hotkey.lock().unwrap().clone();
+            val.replace("Win", "Super").parse::<Shortcut>()
+        } {
+            if shortcut == &plain_s {
+                crate::services::clipboard_ops::paste_latest_plain(app.clone());
                 return;
             }
         }

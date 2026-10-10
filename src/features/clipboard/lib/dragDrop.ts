@@ -15,7 +15,9 @@ const normalizeFileUri = (rawPath: string): string => {
   const p = rawPath.trim();
   if (p.startsWith("file://")) return p;
   const normalized = p.replace(/\\/g, "/");
-  return `file://${normalized.startsWith("/") ? "" : "/"}${encodeURI(normalized)}`;
+  // encodeURI leaves "#" and "?" alone, which would cut the path short.
+  const encoded = encodeURI(normalized).replace(/#/g, "%23").replace(/\?/g, "%3F");
+  return `file://${normalized.startsWith("/") ? "" : "/"}${encoded}`;
 };
 
 /**

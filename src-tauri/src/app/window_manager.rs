@@ -469,13 +469,36 @@ pub fn toggle_window(app: &AppHandle) {
     toggle_window_macos(app);
 }
 
+/// Whether the clipboard window is currently on screen.
+pub fn is_main_window_shown(app: &AppHandle) -> bool {
+    #[cfg(target_os = "macos")]
+    if crate::infrastructure::macos_api::window::is_clipboard_panel_available(app) {
+        return crate::infrastructure::macos_api::window::is_clipboard_panel_visible();
+    }
+    app.get_webview_window("main")
+        .map(|window| window.is_visible().unwrap_or(false))
+        .unwrap_or(false)
+}
+
+/// Light mode destroyed the UI: rebuild it and show it once it has rendered.
+/// Skipped if another summon already showed the window in the meantime.
+fn rebuild_then_toggle(app: &AppHandle) {
+    if let Err(err) = crate::app::light_mode::ensure_main_window(app) {
+        eprintln!("[light-mode] recreate before toggle failed: {err}");
+        return;
+    }
+    crate::app::light_mode::show_when_ready(app, |app| {
+        if !is_main_window_shown(app) {
+            toggle_window(app);
+        }
+    });
+}
+
 #[cfg(target_os = "windows")]
 fn toggle_window_windows(app: &AppHandle) {
-    if app.get_webview_window("main").is_none() {
-        if let Err(err) = crate::app::light_mode::ensure_main_window(app) {
-            eprintln!("[light-mode] recreate before toggle failed: {err}");
-            return;
-        }
+    if crate::app::light_mode::needs_rebuild(app) {
+        rebuild_then_toggle(app);
+        return;
     }
 
     if let Some(window) = app.get_webview_window("main") {
@@ -726,11 +749,9 @@ fn toggle_window_windows(app: &AppHandle) {
 
 #[cfg(target_os = "macos")]
 fn toggle_window_macos(app_handle: &AppHandle) {
-    if app_handle.get_webview_window("main").is_none() {
-        if let Err(err) = crate::app::light_mode::ensure_main_window(app_handle) {
-            eprintln!("[light-mode] recreate before toggle failed: {err}");
-            return;
-        }
+    if crate::app::light_mode::needs_rebuild(app_handle) {
+        rebuild_then_toggle(app_handle);
+        return;
     }
 
     if let Some(window) = app_handle.get_webview_window("main") {
@@ -928,6 +949,18 @@ pub fn hide_window_on_resign(app_handle: AppHandle) -> Result<(), String> {
     hide_window(app_handle, false)
 }
 
+/// The frontend has rendered with its settings applied (see light_mode).
+#[tauri::command]
+pub fn main_ui_ready() {
+    crate::app::light_mode::mark_ui_ready();
+}
+
+/// The frontend has unmounted ahead of a light-mode release (see light_mode).
+#[tauri::command]
+pub fn main_ui_released() {
+    crate::app::light_mode::mark_ui_released();
+}
+
 #[tauri::command]
 pub fn toggle_window_cmd(app_handle: AppHandle) -> Result<(), String> {
     toggle_window(&app_handle);
@@ -936,8 +969,13 @@ pub fn toggle_window_cmd(app_handle: AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 pub fn focus_clipboard_window(app_handle: AppHandle) -> Result<(), String> {
-    if app_handle.get_webview_window("main").is_none() {
+    if crate::app::light_mode::needs_rebuild(&app_handle) {
+        // Rebuilt after light mode: focus (idempotent) once the UI has rendered.
         crate::app::light_mode::ensure_main_window(&app_handle)?;
+        crate::app::light_mode::show_when_ready(&app_handle, |app| {
+            let _ = focus_clipboard_window(app.clone());
+        });
+        return Ok(());
     }
     crate::app::light_mode::on_window_shown();
 

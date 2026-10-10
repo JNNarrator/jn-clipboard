@@ -465,12 +465,26 @@ body.dark-mode {
   --popover-backdrop-filter: blur(28px) saturate(180%);
 }
 
+/* App chrome (buttons, labels, list rows) is not selectable, so a slightly
+   missed drag doesn't highlight it. macOS (WKWebView) only understands the
+   -webkit- prefix; without it none of these rules applied there. */
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
   font-family: var(--font-main);
+  -webkit-user-select: none;
   user-select: none;
+}
+
+/* What the user types or reads to copy stays selectable. */
+input,
+textarea,
+[contenteditable=""],
+[contenteditable="true"],
+[contenteditable="plaintext-only"] {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 body {

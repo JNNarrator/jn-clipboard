@@ -11,8 +11,8 @@ const resolved = new Map<string, string>();
 const inflight = new Map<string, Promise<string>>();
 const MAX_RESOLVED = 600;
 
-const loadThumbnail = (path: string): Promise<string> => {
-  let pending = inflight.get(path);
+const loadThumbnail = (path: string, key: string): Promise<string> => {
+  let pending = inflight.get(key);
   if (!pending) {
     pending = invoke<string>("get_image_thumbnail", { path })
       .then((thumbPath) => convertFileSrc(thumbPath))
@@ -22,16 +22,16 @@ const loadThumbnail = (path: string): Promise<string> => {
           const oldest = resolved.keys().next().value;
           if (oldest !== undefined) resolved.delete(oldest);
         }
-        resolved.set(path, src);
-        inflight.delete(path);
+        resolved.set(key, src);
+        inflight.delete(key);
         return src;
       });
-    inflight.set(path, pending);
+    inflight.set(key, pending);
   }
   return pending;
 };
 
-const originalSrc = (content: string, isExternal?: boolean) =>
+export const originalImageSrc = (content: string, isExternal?: boolean) =>
   content.startsWith("data:")
     ? content
     : toTauriLocalImageSrc(content) || (isExternal ? convertFileSrc(content) : content);
@@ -40,30 +40,37 @@ const originalSrc = (content: string, isExternal?: boolean) =>
  * Image src for a list card. Returns null only while a local file's thumbnail
  * is looked up for the first time; callers should keep the card's space reserved.
  */
-export const useImageThumbnail = (content: string | null, isExternal?: boolean): string | null => {
+export const useImageThumbnail = (
+  content: string | null,
+  isExternal?: boolean,
+  /** Changes when the entry changes (e.g. its timestamp), so an updated image
+   * isn't served from this session cache. */
+  version?: number
+): string | null => {
   const path = content && isTauriRuntime() ? toLocalFilePath(content) : null;
-  const fallback = content ? originalSrc(content, isExternal) : null;
-  const [src, setSrc] = useState<string | null>(() => (path ? resolved.get(path) ?? null : fallback));
+  const key = path ? `${path}|${version ?? 0}` : null;
+  const fallback = content ? originalImageSrc(content, isExternal) : null;
+  const [src, setSrc] = useState<string | null>(() => (key ? resolved.get(key) ?? null : fallback));
 
   useEffect(() => {
-    if (!path) {
+    if (!path || !key) {
       setSrc(fallback);
       return;
     }
-    const cached = resolved.get(path);
+    const cached = resolved.get(key);
     if (cached) {
       setSrc(cached);
       return;
     }
     let alive = true;
     setSrc(null);
-    void loadThumbnail(path).then((next) => {
+    void loadThumbnail(path, key).then((next) => {
       if (alive) setSrc(next);
     });
     return () => {
       alive = false;
     };
-  }, [path, fallback]);
+  }, [path, key, fallback]);
 
   return src;
 };

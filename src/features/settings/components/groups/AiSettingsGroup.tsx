@@ -1,4 +1,5 @@
 import { ChevronDown, ChevronRight, Edit2, RotateCcw, Trash2 } from "lucide-react";
+import { getAiProvider } from "../../aiProviders";
 import type { AiProfile, AiProfileStatusMap, EditableAiProfile } from "../../types";
 import { SettingSwitch } from "../SettingControls";
 
@@ -22,8 +23,6 @@ interface AiSettingsGroupProps {
     setAiAssignedProfileTranslate: (id: string) => void;
     aiTargetLang: string;
     setAiTargetLang: (val: string) => void;
-    aiThinkingBudget: string;
-    setAiThinkingBudget: (val: string) => void;
     theme: string;
 }
 
@@ -46,9 +45,7 @@ const AiSettingsGroup = ({
     aiAssignedProfileTranslate,
     setAiAssignedProfileTranslate,
     aiTargetLang,
-    setAiTargetLang,
-    aiThinkingBudget,
-    setAiThinkingBudget
+    setAiTargetLang
 }: AiSettingsGroupProps) => (
     <div className={`settings-group ${collapsed ? 'collapsed' : ''}`}>
         <button type="button" className="group-header" aria-expanded={!collapsed} onClick={onToggle}>
@@ -78,7 +75,7 @@ const AiSettingsGroup = ({
                             <button
                                 type="button"
                                 className="settings-action-button settings-action-button--small"
-                                onClick={() => setEditingProfile({ isNew: true, baseUrl: 'https://api.deepseek.com/v1', apiKey: '', model: '', enableThinking: false })}
+                                onClick={() => setEditingProfile({ isNew: true, provider: 'deepseek', baseUrl: 'https://api.deepseek.com/v1', apiKey: '', model: '', enableThinking: false })}
                             >
                                 {t('ai_add_model')}
                             </button>
@@ -95,7 +92,10 @@ const AiSettingsGroup = ({
                                         <span className={`settings-status-dot ${statusTone}`} title={profileStatus || 'Unknown'} />
                                         <div className="ai-profile-text">
                                             <div className="ai-profile-name">{profile.model}</div>
-                                            {profile.enableThinking && <div className="ai-profile-sub">{t('ai_thinking_enabled')}</div>}
+                                            <div className="ai-profile-sub">
+                                                {getAiProvider(profile).label || t('ai_provider_custom')}
+                                                {profile.enableThinking && getAiProvider(profile).thinking !== 'model' && ` · ${t('ai_thinking_enabled')}`}
+                                            </div>
                                         </div>
                                         <div className="ai-profile-actions">
                                             <button type="button" className="btn-icon" onClick={() => checkModelStatus(profile)} title={t('ai_check_connection')}>
@@ -156,7 +156,7 @@ const AiSettingsGroup = ({
                             </select>
                         </div>
 
-                        <div className="setting-item">
+                        <div className="setting-item is-child">
                             <div className="item-label-group">
                                 <span className="item-label">{t('ai_target_lang')}</span>
                             </div>
@@ -175,23 +175,6 @@ const AiSettingsGroup = ({
                                 <option value="de">{t('lang_de')}</option>
                                 <option value="fr">{t('lang_fr')}</option>
                             </select>
-                        </div>
-
-                        <div className="setting-item">
-                            <div className="item-label-group">
-                                <span className="item-label">{t('ai_thinking_budget')}</span>
-                            </div>
-                            <input
-                                className="search-input settings-field"
-                                type="number"
-                                min="1024"
-                                max="10000"
-                                value={aiThinkingBudget}
-                                onChange={e => {
-                                    setAiThinkingBudget(e.target.value);
-                                    saveSetting('ai_thinking_budget', e.target.value);
-                                }}
-                            />
                         </div>
                     </>
                 )}

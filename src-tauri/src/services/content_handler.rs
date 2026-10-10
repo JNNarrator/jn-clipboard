@@ -87,8 +87,23 @@ pub async fn open_content(
     // Check if content points to existing file(s)
     if is_file_type(&content_type) && !content.starts_with("data:image") {
         if let Some(path) = get_existing_file_path(&content) {
-            temp_path = path;
-            use_direct_path = true;
+            // TieZ's own image files are named by their content and may be
+            // shared by several entries: edit a copy. Editing them in place
+            // changed what other entries (and later copies of the original
+            // image) show. Saved edits come back as a new image for this entry.
+            if content_type == "image" && is_managed_attachment(&app_handle, &path) {
+                let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("image.png");
+                let copy = std::env::temp_dir().join(format!("TieZ_Clip_edit_{}", name));
+                if std::fs::copy(&path, &copy).is_ok() {
+                    temp_path = copy;
+                } else {
+                    temp_path = path;
+                    use_direct_path = true;
+                }
+            } else {
+                temp_path = path;
+                use_direct_path = true;
+            }
         }
     }
 
@@ -204,6 +219,7 @@ pub fn register_file_preview_watch(
                 } else if let Some((new_content, preview)) =
                     read_changed_file(&file_path, &content_type)
                 {
+                    let new_content = store_edited_image(&app_handle, id, &content_type, new_content);
                     update_database_with_changes(&app_handle, id, &new_content, &preview);
                 }
             }
@@ -655,4 +671,39 @@ fn update_database_with_changes(
         let _ = app_handle.emit("clipboard-changed", id);
         crate::services::cloud_sync::request_cloud_sync(app_handle.clone());
     }
+}
+
+/// A file in TieZ's data folder (attachments, session images).
+fn is_managed_attachment(app_handle: &tauri::AppHandle, path: &std::path::Path) -> bool {
+    let Some(data_dir) = app_handle
+        .try_state::<crate::app_state::AppDataDir>()
+        .map(|dir| dir.0.lock().unwrap().clone())
+    else {
+        return false;
+    };
+    path.starts_with(&data_dir)
+}
+
+/// An edited image arrives as a data URL; keep it as an attachment file
+/// rather than a large data URL in the database.
+fn store_edited_image(
+    app_handle: &tauri::AppHandle,
+    id: i64,
+    content_type: &str,
+    content: String,
+) -> String {
+    if content_type != "image" || !content.starts_with("data:") {
+        return content;
+    }
+    let Some(data_dir) = app_handle
+        .try_state::<crate::app_state::AppDataDir>()
+        .map(|dir| dir.0.lock().unwrap().clone())
+    else {
+        return content;
+    };
+    // Database entries (id > 0, e.g. pinned while persistence is off) keep
+    // their files in attachments/; only session entries use session/, which
+    // is swept once no session entry shows the file.
+    let root = if id > 0 { data_dir.clone() } else { data_dir.join("session") };
+    crate::database::save_image_to_file(&content, &root).unwrap_or(content)
 }

@@ -1,4 +1,5 @@
 pub mod ai_cmd;
+mod ai_provider;
 pub mod secure_transfer;
 pub use secure_transfer::*;
 pub mod clipboard_cmd;

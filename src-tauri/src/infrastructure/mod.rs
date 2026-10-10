@@ -1,4 +1,5 @@
 pub mod encryption;
+pub mod stable_hash;
 pub mod http_error;
 #[cfg(target_os = "macos")]
 pub mod macos_api;

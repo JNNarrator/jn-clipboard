@@ -69,6 +69,25 @@ pub fn set_rich_paste_hotkey(
 }
 
 #[tauri::command]
+pub fn set_plain_paste_hotkey(
+    app_handle: AppHandle,
+    state: State<'_, SettingsState>,
+    hotkey: String,
+) -> AppResult<()> {
+    if let Ok(mut guard) = state.plain_paste_hotkey.lock() {
+        *guard = hotkey.clone();
+    }
+
+    let db_state = app_handle.state::<DbState>();
+    db_state
+        .settings_repo
+        .set("app.plain_paste_hotkey", &hotkey)
+        .map_err(AppError::from)?;
+
+    sync_registered_hotkeys(&app_handle)
+}
+
+#[tauri::command]
 pub fn set_search_hotkey(
     app_handle: AppHandle,
     state: State<'_, SettingsState>,
@@ -150,7 +169,7 @@ pub fn save_setting(
                 .store(value == "true", Ordering::Relaxed);
         }
         "app.sound_volume" => {
-            if let Ok(v) = value.parse::<f64>() {
+            if let Some(v) = crate::database::sound_volume_from_setting(&value) {
                 if let Ok(mut guard) = settings_state.sound_volume.lock() {
                     *guard = v;
                 }
@@ -626,6 +645,12 @@ pub fn reset_settings(
         .get("app.rich_paste_hotkey")
         .unwrap_or(Some("Alt+Shift+V".to_string()))
         .unwrap_or("Alt+Shift+V".to_string());
+    let plain_hotkey = state
+        .settings_repo
+        .get("app.plain_paste_hotkey")
+        .ok()
+        .flatten()
+        .unwrap_or_default();
     let search_hotkey = state
         .settings_repo
         .get("app.search_hotkey")
@@ -648,6 +673,10 @@ pub fn reset_settings(
     {
         let mut guard = settings_state.rich_paste_hotkey.lock().unwrap();
         *guard = rich_hotkey.clone();
+    }
+    {
+        let mut guard = settings_state.plain_paste_hotkey.lock().unwrap();
+        *guard = plain_hotkey;
     }
     {
         let mut guard = settings_state.search_hotkey.lock().unwrap();

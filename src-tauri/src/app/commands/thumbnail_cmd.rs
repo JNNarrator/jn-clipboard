@@ -1,8 +1,6 @@
 use crate::error::AppError;
-use image::codecs::gif::GifDecoder;
 use image::codecs::jpeg::JpegEncoder;
-use image::codecs::webp::WebPDecoder;
-use image::{AnimationDecoder, DynamicImage, ImageDecoder, ImageFormat, ImageReader};
+use image::{DynamicImage, ImageDecoder, ImageFormat, ImageReader};
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::io::BufReader;
@@ -16,18 +14,97 @@ pub const THUMBNAIL_MAX_SIDE: u32 = 320;
 const THUMBNAIL_JPEG_QUALITY: u8 = 82;
 /// Bump to invalidate every cached thumbnail when the output format changes.
 const THUMBNAIL_CACHE_VERSION: &str = "v1";
+/// Thumbnails not refreshed for this long are dropped at startup…
+const THUMBNAIL_MAX_AGE: std::time::Duration = std::time::Duration::from_secs(30 * 24 * 60 * 60);
+/// …and the folder is trimmed, oldest first, to this size.
+const THUMBNAIL_CACHE_MAX_BYTES: u64 = 300 * 1024 * 1024;
 
-static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
+static THUMBNAIL_DIR: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
 
-/// Returns an absolute path to a thumbnail (longest side <= 320 px) for `path`.
-/// Images that already fit, and animated GIF/WebP, return `path` unchanged.
-#[tauri::command]
-pub async fn get_image_thumbnail(app: AppHandle, path: String) -> Result<String, AppError> {
-    let cache_dir = app
+fn thumbnail_dir(app: &AppHandle) -> Result<PathBuf, AppError> {
+    if let Some(dir) = THUMBNAIL_DIR.get() {
+        return Ok(dir.clone());
+    }
+    let dir = app
         .path()
         .app_cache_dir()
         .map_err(|e| AppError::IO(format!("cache dir unavailable: {}", e)))?
         .join("thumbnails");
+    Ok(THUMBNAIL_DIR.get_or_init(|| dir).clone())
+}
+
+/// At startup: remember where thumbnails live (so deletes can remove them) and
+/// prune the cache in the background. Edited images get a new key and deleted
+/// ones used to leave their thumbnails behind forever.
+pub fn init_thumbnail_cache(app: &AppHandle) {
+    if let Ok(dir) = thumbnail_dir(app) {
+        std::thread::spawn(move || prune_thumbnail_cache(&dir));
+    }
+}
+
+fn prune_thumbnail_cache(dir: &Path) {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    let mut files: Vec<(PathBuf, std::time::SystemTime, u64)> = entries
+        .flatten()
+        .filter_map(|entry| {
+            let meta = entry.metadata().ok()?;
+            meta.is_file().then(|| (entry.path(), meta.modified().unwrap_or(UNIX_EPOCH), meta.len()))
+        })
+        .collect();
+    let now = std::time::SystemTime::now();
+    files.retain(|(path, modified, _)| {
+        let stale = now.duration_since(*modified).map_or(false, |age| age > THUMBNAIL_MAX_AGE);
+        if stale {
+            let _ = fs::remove_file(path);
+        }
+        !stale
+    });
+    let mut total: u64 = files.iter().map(|(_, _, size)| size).sum();
+    files.sort_by_key(|(_, modified, _)| *modified);
+    for (path, _, size) in files {
+        if total <= THUMBNAIL_CACHE_MAX_BYTES {
+            break;
+        }
+        if fs::remove_file(&path).is_ok() {
+            total = total.saturating_sub(size);
+        }
+    }
+}
+
+/// Remove the cached thumbnails of an image that is about to be deleted, so a
+/// deleted (possibly sensitive) screenshot doesn't live on as a thumbnail.
+pub fn remove_cached_thumbnails(path: &Path) {
+    let Some(dir) = THUMBNAIL_DIR.get() else {
+        return;
+    };
+    let Ok(canonical) = fs::canonicalize(path) else {
+        return;
+    };
+    let Ok(meta) = fs::metadata(&canonical) else {
+        return;
+    };
+    let mtime_nanos = meta
+        .modified()
+        .ok()
+        .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let key = thumbnail_cache_key(&canonical, meta.len(), mtime_nanos);
+    for ext in ["jpg", "png"] {
+        let _ = fs::remove_file(dir.join(format!("{}.{}", key, ext)));
+    }
+}
+
+static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+/// Returns an absolute path to a thumbnail (longest side <= 320 px) for `path`.
+/// Images that already fit return `path` unchanged; larger animated ones get a
+/// still thumbnail of their first frame.
+#[tauri::command]
+pub async fn get_image_thumbnail(app: AppHandle, path: String) -> Result<String, AppError> {
+    let cache_dir = thumbnail_dir(&app)?;
     tauri::async_runtime::spawn_blocking(move || build_thumbnail(&path, &cache_dir))
         .await
         .map_err(|e| AppError::Internal(format!("thumbnail task failed: {}", e)))?
@@ -80,16 +157,15 @@ fn build_thumbnail(path: &str, cache_dir: &Path) -> Result<String, AppError> {
         }
     }
 
-    let format = open_reader(&canonical)?.format();
     let (width, height) = open_reader(&canonical)?
         .into_dimensions()
         .map_err(|_| decode_error())?;
     let Some((target_w, target_h)) = fit_within(width, height, THUMBNAIL_MAX_SIDE) else {
         return Ok(path.to_string());
     };
-    if is_animated(&canonical, format) {
-        return Ok(path.to_string());
-    }
+    // Large animated GIF/WebP get a still thumbnail of their first frame (the
+    // decoder below reads only that one): the list plays them on hover only.
+    // Every visible row decoding every frame at full size kept the CPU/GPU busy.
 
     let mut decoder = open_reader(&canonical)?
         .into_decoder()
@@ -136,21 +212,6 @@ fn decode_error() -> AppError {
     AppError::Internal("failed to decode image".to_string())
 }
 
-fn is_animated(path: &Path, format: Option<ImageFormat>) -> bool {
-    let Ok(file) = fs::File::open(path) else {
-        return false;
-    };
-    let reader = BufReader::new(file);
-    match format {
-        Some(ImageFormat::Gif) => GifDecoder::new(reader)
-            .map(|d| d.into_frames().take(2).filter(|f| f.is_ok()).count() > 1)
-            .unwrap_or(false),
-        Some(ImageFormat::WebP) => WebPDecoder::new(reader)
-            .map(|d| d.has_animation())
-            .unwrap_or(false),
-        _ => false,
-    }
-}
 
 /// Write via a temp file + rename so concurrent callers never see a partial file.
 fn write_atomically(final_path: &PathBuf, bytes: &[u8]) -> Result<(), AppError> {

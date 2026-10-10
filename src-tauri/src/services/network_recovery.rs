@@ -56,7 +56,14 @@ impl RecoveryDetector {
         wake: bool,
     ) -> bool {
         if let Some(network) = network {
-            if self.network.as_ref().is_some_and(|old| old != &network) {
+            // Only the route out matters. Extra interfaces coming and going
+            // (IPv6 temporary addresses, VPN adapters, virtual bridges) used
+            // to restart connections that were perfectly healthy.
+            if self
+                .network
+                .as_ref()
+                .is_some_and(|old| old.default_address != network.default_address)
+            {
                 self.pending = true;
             }
             self.network = Some(network);
@@ -187,6 +194,24 @@ mod tests {
             now + Duration::from_secs(30),
             wall + Duration::from_secs(305),
             true
+        ));
+    }
+
+    #[test]
+    fn side_interfaces_changing_do_not_restart_connections() {
+        let mut detector = RecoveryDetector::default();
+        let now = Instant::now();
+        let wall = SystemTime::now();
+        detector.observe(network("192.168.1.2"), now, wall, false);
+        let ip: IpAddr = "192.168.1.2".parse().unwrap();
+        assert!(!detector.observe(
+            Some(NetworkSnapshot {
+                interfaces: vec![("wifi".into(), ip), ("utun3".into(), "10.8.0.2".parse().unwrap())],
+                default_address: Some(ip),
+            }),
+            now + POLL_INTERVAL,
+            wall + POLL_INTERVAL,
+            false
         ));
     }
 

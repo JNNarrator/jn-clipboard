@@ -23,6 +23,8 @@ pub struct SettingsState {
     pub sequential_mode: AtomicBool,
     pub sequential_paste_hotkey: Mutex<String>,
     pub rich_paste_hotkey: Mutex<String>,
+    /// Pastes the latest item as plain text (#148). Empty: off.
+    pub plain_paste_hotkey: Mutex<String>,
     pub search_hotkey: Mutex<String>,
     pub quick_paste_modifier: Mutex<String>,
     pub sound_enabled: AtomicBool,

@@ -74,7 +74,7 @@ encoding_rs = "0.8"
 block2 = "0.6"
 objc2 = "0.6.3"
 objc2-foundation = { version = "0.3.2", features = ["block2", "NSData", "NSDictionary", "NSNotification", "NSObject", "NSOperation", "NSString", "NSArray", "NSURL", "NSGeometry"] }
-objc2-app-kit = { version = "0.3.2", features = ["NSBitmapImageRep", "NSImage", "NSImageRep", "NSWorkspace", "NSPasteboard", "NSRunningApplication", "NSWindow", "NSPanel", "NSApplication", "NSSound", "NSEvent"] }
+objc2-app-kit = { version = "0.3.2", features = ["NSBitmapImageRep", "NSImage", "NSImageRep", "NSWorkspace", "NSPasteboard", "NSPasteboardItem", "NSRunningApplication", "NSWindow", "NSPanel", "NSApplication", "NSSound", "NSEvent"] }
 tauri-nspanel = { git = "https://github.com/ahkohd/tauri-nspanel", branch = "v2.1" }
 security-framework = "2"
 

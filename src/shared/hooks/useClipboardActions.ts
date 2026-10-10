@@ -11,6 +11,9 @@ interface UseClipboardActionsOptions {
   pushToast: (msg: string, duration?: number) => number;
   deleteAfterPaste: boolean;
   moveToTopAfterPaste: boolean;
+  /** Clicking (or Enter on) an item only copies it; the user pastes (#175). */
+  clickCopyOnly: boolean;
+  isWindowPinned: boolean;
   setSearch: (val: string) => void;
   setHistory: Dispatch<SetStateAction<ClipboardEntry[]>>;
   virtualListRef: RefObject<VirtualClipboardListHandle | null>;
@@ -21,6 +24,8 @@ export const useClipboardActions = ({
   pushToast,
   deleteAfterPaste,
   moveToTopAfterPaste,
+  clickCopyOnly,
+  isWindowPinned,
   setSearch,
   setHistory,
   virtualListRef
@@ -39,13 +44,34 @@ export const useClipboardActions = ({
           document.activeElement.blur();
         }
 
-        const shouldDelete = deleteAfterPaste && !isPinned && tags.length === 0;
         const invokeContent =
           id !== 0 &&
           (contentType === "image" || contentType === "video" || contentType === "file")
             ? ""
             : content;
 
+        if (clickCopyOnly) {
+          await invoke("copy_to_clipboard", {
+            content: invokeContent,
+            contentType,
+            paste: false,
+            id: id,
+            deleteAfterUse: false,
+            pasteWithFormat,
+            moveToTop: false
+          });
+          setSearch("");
+          // Out of the way so the user can paste where they want; a pinned
+          // window stays, so confirm instead.
+          if (isWindowPinned) {
+            pushToast(t("copied_to_clipboard"), 1500);
+          } else {
+            await invoke("hide_window_cmd");
+          }
+          return;
+        }
+
+        const shouldDelete = deleteAfterPaste && !isPinned && tags.length === 0;
         await invoke("copy_to_clipboard", {
           content: invokeContent,
           contentType,
@@ -73,7 +99,7 @@ export const useClipboardActions = ({
         pushToast(errorMsg, 3000);
       }
     },
-    [deleteAfterPaste, moveToTopAfterPaste, pushToast, setHistory, setSearch, t]
+    [clickCopyOnly, deleteAfterPaste, isWindowPinned, moveToTopAfterPaste, pushToast, setHistory, setSearch, t]
   );
 
   const openContent = useCallback(

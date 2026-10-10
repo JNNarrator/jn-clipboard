@@ -81,6 +81,7 @@ interface UseSettingsPostInitOptions {
 
   setDeleteAfterPaste: (val: boolean) => void;
   setMoveToTopAfterPaste: (val: boolean) => void;
+  setClickCopyOnly: (val: boolean) => void;
   setHideTrayIcon: (val: boolean) => void;
   setHideDockIcon: (val: boolean) => void;
   setEdgeDocking: (val: boolean) => void;
@@ -117,6 +118,7 @@ interface UseSettingsPostInitOptions {
   setFileServerPort: (val: string) => void;
   setSequentialHotkey: (val: string) => void;
   setRichPasteHotkey: (val: string) => void;
+  setPlainPasteHotkey: (val: string) => void;
   setSearchHotkey: (val: string) => void;
   setQuickPasteModifier: (val: QuickPasteModifier) => void;
   setSequentialModeState: (val: boolean) => void;
@@ -125,7 +127,6 @@ interface UseSettingsPostInitOptions {
   setSoundVolume: (val: number) => void;
   setAiEnabled: (val: boolean) => void;
   setAiTargetLang: (val: string) => void;
-  setAiThinkingBudget: (val: string) => void;
   setIsWindowPinned: (val: boolean) => void;
   setAiProfiles: (val: AiProfile[]) => void;
   setAiAssignedProfileTask: (val: string) => void;
@@ -174,6 +175,7 @@ export const useSettingsPostInit = ({
 
   setDeleteAfterPaste,
   setMoveToTopAfterPaste,
+  setClickCopyOnly,
   setHideTrayIcon,
   setHideDockIcon,
   setEdgeDocking,
@@ -210,6 +212,7 @@ export const useSettingsPostInit = ({
   setFileServerPort,
   setSequentialHotkey,
   setRichPasteHotkey,
+  setPlainPasteHotkey,
   setSearchHotkey,
   setQuickPasteModifier,
   setSequentialModeState,
@@ -218,7 +221,6 @@ export const useSettingsPostInit = ({
   setSoundVolume,
   setAiEnabled,
   setAiTargetLang,
-  setAiThinkingBudget,
   setIsWindowPinned,
   setAiProfiles,
   setAiAssignedProfileTask,
@@ -359,6 +361,7 @@ export const useSettingsPostInit = ({
     // These have false as default, so check for 'true'
     setDeleteAfterPaste(settings["app.delete_after_paste"] === "true");
     setMoveToTopAfterPaste(settings["app.move_to_top_after_paste"] !== "false");
+    setClickCopyOnly(settings["app.click_copy_only"] === "true");
     setHideTrayIcon(settings["app.hide_tray_icon"] === "true");
     setHideDockIcon(settings["app.hide_dock_icon"] === "true");
     const edgeDockingEnabled = settings["app.edge_docking"] === "true";
@@ -382,9 +385,16 @@ export const useSettingsPostInit = ({
     setMqttPort(settings["mqtt_port"] || "1883");
     setMqttUser(settings["mqtt_username"] || "");
     setMqttPass(settings["mqtt_password"] || "");
-    const anonId = settings["app.anon_id"] || "";
-    const shortId = anonId.split("-")[0] || "unknown";
-    setMqttTopic(settings["mqtt_topic"] || `tiez/tiez_${shortId}`);
+    if (settings["mqtt_topic"]) {
+      setMqttTopic(settings["mqtt_topic"]);
+    } else {
+      // Same shape as the topic the MQTT client creates (128 random bits),
+      // saved now so the pairing QR shows the topic the client will use.
+      const bytes = crypto.getRandomValues(new Uint8Array(16));
+      const topic = `tiez/tiez_${Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("")}`;
+      setMqttTopic(topic);
+      invoke("save_setting", { key: "mqtt_topic", value: topic }).catch(console.error);
+    }
     setMqttProtocol(settings["mqtt_protocol"] || "mqtt://");
     setMqttWsPath(settings["mqtt_ws_path"] || "/mqtt");
     setMqttNotificationEnabled(settings["mqtt_notification_enabled"] !== "false");
@@ -422,6 +432,7 @@ export const useSettingsPostInit = ({
     if (settings["file_server_port"]) setFileServerPort(settings["file_server_port"]);
     if (settings["app.sequential_hotkey"]) setSequentialHotkey(settings["app.sequential_hotkey"]);
     if (settings["app.rich_paste_hotkey"]) setRichPasteHotkey(settings["app.rich_paste_hotkey"]);
+    if (settings["app.plain_paste_hotkey"]) setPlainPasteHotkey(settings["app.plain_paste_hotkey"]);
     if (settings["app.search_hotkey"] !== undefined) setSearchHotkey(settings["app.search_hotkey"]);
     setQuickPasteModifier(normalizeQuickPasteModifier(settings["app.quick_paste_modifier"]));
     if (settings["app.sequential_mode"] === "true") setSequentialModeState(true);
@@ -433,12 +444,14 @@ export const useSettingsPostInit = ({
     setPasteSoundEnabled(pasteSoundOn);
     invoke("set_paste_sound_enabled", { enabled: pasteSoundOn }).catch(console.error);
     if (settings["app.sound_volume"]) {
-      setSoundVolume(parseFloat(settings["app.sound_volume"]) || 1.0);
+      // Windows 0.3.x stored 0-100; read anything above 1 as a percentage.
+      const volume = parseFloat(settings["app.sound_volume"]);
+      if (Number.isFinite(volume)) {
+        setSoundVolume(Math.max(0, volume > 1 ? Math.min(volume, 100) / 100 : volume));
+      }
     }
     if (settings["ai_enabled"]) setAiEnabled(settings["ai_enabled"] === "true");
     if (settings["ai_target_lang"]) setAiTargetLang(settings["ai_target_lang"]);
-    if (settings["ai_thinking_budget"]) setAiThinkingBudget(settings["ai_thinking_budget"]);
-
     if (settings["app.window_pinned"] === "true") {
       setIsWindowPinned(true);
       invoke("set_window_pinned", { pinned: true }).catch(console.error);
@@ -448,6 +461,7 @@ export const useSettingsPostInit = ({
     const recommended: AiProfile[] = [
       {
         id: "ds_v4_pro_v1",
+        provider: "deepseek",
         baseUrl: "https://api.deepseek.com/v1",
         apiKey: "",
         model: "deepseek-v4-pro",
@@ -455,6 +469,7 @@ export const useSettingsPostInit = ({
       },
       {
         id: "ds_flash_v1",
+        provider: "deepseek",
         baseUrl: "https://api.deepseek.com/v1",
         apiKey: "",
         model: "deepseek-flash",
@@ -495,9 +510,19 @@ export const useSettingsPostInit = ({
             (profile, index, arr) => arr.findIndex((p) => p.id === profile.id) === index
           );
           finalProfiles = [
-            ...recommended,
+            ...recommended.map((preset) => {
+              const saved = customById.find((profile) => profile.id === preset.id);
+              return saved ? { ...preset, ...saved } : preset;
+            }),
             ...customById.filter((profile) => !recommended.some((preset) => preset.id === profile.id))
           ];
+          // The thinking budget used to be one global setting; carry it into each profile.
+          const legacyBudget = Number(settings["ai_thinking_budget"]);
+          if (legacyBudget > 0) {
+            finalProfiles = finalProfiles.map((profile) =>
+              profile.thinkingBudget ? profile : { ...profile, thinkingBudget: legacyBudget }
+            );
+          }
         }
       } catch (e) {
         console.error(e);
@@ -575,6 +600,7 @@ export const useSettingsPostInit = ({
 
     setDeleteAfterPaste,
     setMoveToTopAfterPaste,
+    setClickCopyOnly,
     setHideTrayIcon,
     setHideDockIcon,
     setEdgeDocking,
@@ -611,6 +637,7 @@ export const useSettingsPostInit = ({
     setFileServerPort,
     setSequentialHotkey,
     setRichPasteHotkey,
+    setPlainPasteHotkey,
     setSearchHotkey,
     setQuickPasteModifier,
     setSequentialModeState,
@@ -619,7 +646,6 @@ export const useSettingsPostInit = ({
     setSoundVolume,
     setAiEnabled,
     setAiTargetLang,
-    setAiThinkingBudget,
     setIsWindowPinned,
     setAiProfiles,
     setAiAssignedProfileTask,

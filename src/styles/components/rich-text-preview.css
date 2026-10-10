@@ -59,5 +59,6 @@ body.compact-preview .rich-text-preview {
   object-position: top left;
   pointer-events: none;
   -webkit-user-drag: none;
+  -webkit-user-select: none;
   user-select: none;
 }

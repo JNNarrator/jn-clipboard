@@ -90,7 +90,9 @@ export interface AppState {
   sequentialHotkey: string;
   setSequentialHotkey: StateSetter<string>;
   richPasteHotkey: string;
+  plainPasteHotkey: string;
   setRichPasteHotkey: StateSetter<string>;
+  setPlainPasteHotkey: StateSetter<string>;
   searchHotkey: string;
   setSearchHotkey: StateSetter<string>;
   quickPasteModifier: QuickPasteModifier;
@@ -102,13 +104,17 @@ export interface AppState {
   isRecordingSequential: boolean;
   setIsRecordingSequential: StateSetter<boolean>;
   isRecordingRich: boolean;
+  isRecordingPlain: boolean;
   setIsRecordingRich: StateSetter<boolean>;
+  setIsRecordingPlain: StateSetter<boolean>;
   isRecordingSearch: boolean;
   setIsRecordingSearch: StateSetter<boolean>;
   deleteAfterPaste: boolean;
   setDeleteAfterPaste: StateSetter<boolean>;
   moveToTopAfterPaste: boolean;
+  clickCopyOnly: boolean;
   setMoveToTopAfterPaste: StateSetter<boolean>;
+  setClickCopyOnly: StateSetter<boolean>;
   privacyProtection: boolean;
   setPrivacyProtection: StateSetter<boolean>;
   privacyProtectionKinds: string[];
@@ -286,8 +292,6 @@ export interface AppState {
   setAiEnabled: StateSetter<boolean>;
   aiTargetLang: string;
   setAiTargetLang: StateSetter<string>;
-  aiThinkingBudget: string;
-  setAiThinkingBudget: StateSetter<string>;
   aiProfiles: AiProfile[];
   setAiProfiles: StateSetter<AiProfile[]>;
   aiAssignedProfileTask: string;

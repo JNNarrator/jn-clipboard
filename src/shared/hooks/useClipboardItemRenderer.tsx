@@ -8,6 +8,7 @@ import { isKeyboardSelectedItem } from "../../features/clipboard/lib/itemInterac
 import type { QuickPasteHint } from "../../features/clipboard/types";
 import type { ClipboardEntry } from "../types";
 import type { Locale } from "../types";
+import type { AiDetail } from "./useAiActions";
 
 interface UseClipboardItemRendererOptions {
   privacyProtection: boolean;
@@ -58,6 +59,10 @@ interface UseClipboardItemRendererOptions {
   handleUpdateTags: (id: number, tags: string[]) => void;
   handleUpdateNote: (id: number, note: string) => void;
   handleAIAction: (id: number, content: string, actionType: string) => void;
+  handleAISupplement: (id: number, input: string) => void;
+  aiDetails: Record<number, AiDetail>;
+  applyAIResult: (id: number) => Promise<void>;
+  discardAIResult: (id: number) => void;
 }
 
 type RenderItemContent = (
@@ -107,7 +112,11 @@ export const useClipboardItemRenderer = ({
   setTagInput,
   handleUpdateTags,
   handleUpdateNote,
-  handleAIAction
+  handleAIAction,
+  handleAISupplement,
+  aiDetails,
+  applyAIResult,
+  discardAIResult
 }: UseClipboardItemRendererOptions): { renderItemContent: RenderItemContent } => {
   const renderItemContent = useCallback(
     (item: ClipboardEntry, index: number, dragControls?: DragControls, disableLayout?: boolean) => {
@@ -119,6 +128,9 @@ export const useClipboardItemRenderer = ({
         !revealedIds.has(item.id);
       const isEditingTags = !splitActive && editingTagsId === item.id;
       const isEditingNote = !splitActive && editingNoteId === item.id;
+      // The detail pane offers the same choice for the entry it shows.
+      const aiDetail = splitActive && detailFocusedId === item.id ? undefined : aiDetails[item.id];
+      const aiIdle = aiDetail && !aiDetail.processing && !isSensitiveHidden;
 
       return (
         <ClipboardItem
@@ -215,20 +227,20 @@ export const useClipboardItemRenderer = ({
           onTagDelete={(tag) => {
             handleUpdateTags(item.id, item.tags ? item.tags.filter((t) => t !== tag) : []);
           }}
-          isAIProcessing={processingAiId === item.id}
+          // Per-item state, so a second request elsewhere keeps this spinner.
+          isAIProcessing={aiDetail?.processing ?? processingAiId === item.id}
           aiEnabled={aiEnabled}
           aiOptionsOpen={aiOptionsOpenId === item.id}
           onAIOptionsToggle={() =>
             setAiOptionsOpenId((prev) => (prev === item.id ? null : item.id))
           }
           onAIAction={(actionType) => handleAIAction(item.id, item.content, actionType)}
-          onInputSubmit={(input) =>
-            handleAIAction(
-              item.id,
-              `这是我之前的原始意图：\n"${item.content}"\n\n这是我补充的信息：\n"${input}"\n\n请结合以上信息完成任务。`,
-              "task"
-            )
-          }
+          onInputSubmit={(input) => handleAISupplement(item.id, input)}
+          aiQuestion={aiIdle ? aiDetail.question : undefined}
+          aiPendingResult={aiIdle ? aiDetail.response : undefined}
+          // A result from a cut-down long entry can only be copied, not applied.
+          onAIApply={aiDetail?.truncated ? undefined : () => void applyAIResult(item.id)}
+          onAIDiscard={() => discardAIResult(item.id)}
           dragControls={dragControls}
           disableLayout={disableLayout}
         />
@@ -274,7 +286,11 @@ export const useClipboardItemRenderer = ({
       setTagInput,
       handleUpdateTags,
       handleUpdateNote,
-      handleAIAction
+      handleAIAction,
+      handleAISupplement,
+      aiDetails,
+      applyAIResult,
+      discardAIResult
     ]
   );
 

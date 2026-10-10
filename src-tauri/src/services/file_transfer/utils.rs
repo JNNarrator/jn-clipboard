@@ -234,3 +234,40 @@ fn collect_files_from_dir(
         }
     }
 }
+
+/// Reserve `<prefix><timestamp>_<name>` in `dir`, adding " (2)", " (3)"… when
+/// the name is taken. The empty file is created with `create_new`, so two
+/// uploads finishing in the same second can never pick (and overwrite) the
+/// same file; callers then write into it or rename over it.
+pub fn reserve_unique_path(
+    dir: &std::path::Path,
+    prefix: &str,
+    name: &str,
+) -> std::io::Result<std::path::PathBuf> {
+    let stamp = chrono::Utc::now().format("%Y%m%d%H%M%S");
+    let (stem, ext) = match name.rsplit_once('.') {
+        Some((stem, ext)) if !stem.is_empty() => (stem, format!(".{ext}")),
+        _ => (name, String::new()),
+    };
+    for n in 1..1000 {
+        let candidate = if n == 1 {
+            format!("{prefix}{stamp}_{name}")
+        } else {
+            format!("{prefix}{stamp}_{stem} ({n}){ext}")
+        };
+        let path = dir.join(candidate);
+        match std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path)
+        {
+            Ok(_) => return Ok(path),
+            Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(err) => return Err(err),
+        }
+    }
+    Err(std::io::Error::new(
+        std::io::ErrorKind::AlreadyExists,
+        "no free file name",
+    ))
+}

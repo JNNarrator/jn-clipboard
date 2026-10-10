@@ -52,15 +52,41 @@ fn safe_file_name(value: &str) -> String {
     let base = normalized.rsplit('/').next().unwrap_or("");
     let cleaned: String = base
         .chars()
-        .filter(|ch| !ch.is_control() && *ch != '/' && *ch != '\\')
+        // Invisible direction/format marks can disguise "x\u{202E}gpj.exe" as
+        // an image name; they never belong in a file name.
+        .filter(|ch| !ch.is_control() && !is_format_char(*ch) && *ch != '/' && *ch != '\\')
+        // Characters Windows rejects (':' would even write an NTFS stream).
+        .map(|ch| if matches!(ch, '<' | '>' | ':' | '"' | '|' | '?' | '*') { '_' } else { ch })
         .take(240)
         .collect();
     let cleaned = cleaned.trim().trim_matches('.').trim();
     if cleaned.is_empty() {
-        "unnamed-file".to_string()
+        return "unnamed-file".to_string();
+    }
+    // CON, NUL, COM1… are device names on Windows, with or without extension.
+    let stem = cleaned.split('.').next().unwrap_or_default().trim_end();
+    let reserved = ["CON", "PRN", "AUX", "NUL"].iter().any(|name| stem.eq_ignore_ascii_case(name))
+        || matches!(stem.as_bytes(), [a, b, c, digit]
+            if (b"COM".eq_ignore_ascii_case(&[*a, *b, *c]) || b"LPT".eq_ignore_ascii_case(&[*a, *b, *c]))
+                && digit.is_ascii_digit());
+    if reserved {
+        format!("_{cleaned}")
     } else {
         cleaned.to_string()
     }
+}
+
+fn is_format_char(ch: char) -> bool {
+    matches!(
+        ch,
+        '\u{061C}' | '\u{200B}'..='\u{200F}' | '\u{202A}'..='\u{202E}' | '\u{2060}'..='\u{2069}' | '\u{FEFF}'
+    )
+}
+
+/// Compare secrets without an early exit, so response timing over the LAN
+/// doesn't reveal how many leading characters of a guess were right.
+fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
+    a.len() == b.len() && a.iter().zip(b).fold(0u8, |diff, (x, y)| diff | (x ^ y)) == 0
 }
 
 fn safe_upload_id(value: &str) -> Option<&str> {
@@ -239,6 +265,15 @@ fn apply_security_headers(response: &mut Response) {
 pub async fn apply_download_security_headers(request: Request, next: Next) -> Response {
     let mut response = next.run(request).await;
     apply_security_headers(&mut response);
+    // Downloaded files are untrusted: an SVG or HTML file opened in the
+    // browser must not run script on the transfer origin (where it could use
+    // the session cookie). `sandbox` also gives it an opaque origin.
+    response.headers_mut().insert(
+        header::CONTENT_SECURITY_POLICY,
+        HeaderValue::from_static(
+            "default-src 'none'; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'unsafe-inline'; sandbox",
+        ),
+    );
     response
 }
 
@@ -262,7 +297,10 @@ pub async fn require_session(
 
     let is_preflight = request.method() == Method::OPTIONS;
     let mut response = if is_preflight
-        || (!expected.is_empty() && supplied.as_deref() == Some(expected.as_str()))
+        || (!expected.is_empty()
+            && supplied
+                .as_deref()
+                .is_some_and(|token| constant_time_eq(token.as_bytes(), expected.as_bytes())))
     {
         next.run(request).await
     } else {
@@ -413,6 +451,7 @@ enum WsIncoming {
 pub async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
     let (mut sender, mut receiver) = socket.split();
     let mut rx = state.ws_tx.subscribe();
+    let mut shutdown = state.shutdown.clone();
     let mut current_device_id: Option<String> = None;
 
     let mut send_task = tokio::spawn(async move {
@@ -496,6 +535,11 @@ pub async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
     tokio::select! {
         _ = (&mut send_task) => recv_task.abort(),
         _ = (&mut recv_task) => send_task.abort(),
+        // Transfer turned off: drop phones that are still connected.
+        _ = shutdown.changed() => {
+            send_task.abort();
+            recv_task.abort();
+        }
     }
 }
 
@@ -665,11 +709,11 @@ pub async fn upload(
                 let _ = std::fs::create_dir_all(&save_dir);
             }
 
-            let target_path = save_dir.join(format!(
-                "{}_{}",
-                chrono::Utc::now().format("%Y%m%d%H%M%S"),
-                file_name
-            ));
+            let Ok(target_path) =
+                super::utils::reserve_unique_path(&save_dir, "", &file_name)
+            else {
+                continue;
+            };
 
             if let Ok(mut file) = File::create(&target_path).await {
                 let mut stream = field;
@@ -809,7 +853,13 @@ async fn process_upload_chunk(
             .clone()
     };
 
+    // One request per upload at a time: the size check and the append below
+    // must not interleave with a concurrent retry of the same chunk.
+    let upload_lock = upload_lock(&meta.upload_id);
+    let _upload_guard = upload_lock.lock().await;
+
     let mut options = tokio::fs::OpenOptions::new();
+    let mut already_written = false;
     let required_space = if meta.chunk_index == 0 {
         meta.total_size
     } else {
@@ -831,13 +881,18 @@ async fn process_upload_chunk(
             .await
             .map(|metadata| metadata.len())
             .unwrap_or(0);
-        if current_size != expected_offset {
+        // Written already, but the reply was lost and the phone retried.
+        if current_size == expected_offset + data.len() as u64 {
+            already_written = true;
+        } else if current_size != expected_offset {
             return (StatusCode::CONFLICT, "Chunk received out of order").into_response();
         }
         options.append(true);
     }
 
-    if let Ok(mut file) = options.open(&temp_path).await {
+    if already_written {
+        // Nothing to write; fall through to finalize if this was the last chunk.
+    } else if let Ok(mut file) = options.open(&temp_path).await {
         if let Err(e) = file.write_all(&data).await {
             eprintln!("Error writing chunk: {}", e);
             return (StatusCode::INTERNAL_SERVER_ERROR, "Write failed").into_response();
@@ -849,12 +904,18 @@ async fn process_upload_chunk(
     if meta.chunk_index == meta.total_chunks - 1 {
         let batch = meta.batch_metadata();
         let file_size = Some(meta.total_size);
-        let final_filename = format!(
-            "{}_{}",
-            chrono::Utc::now().format("%Y%m%d%H%M%S"),
-            safe_name
-        );
-        let final_path = temp_path.parent().unwrap().join(&final_filename);
+        let final_path = match super::utils::reserve_unique_path(
+            temp_path.parent().unwrap(),
+            "",
+            &safe_name,
+        ) {
+            Ok(path) => path,
+            Err(e) => {
+                eprintln!("Error finalizing file: {}", e);
+                let _ = tokio::fs::remove_file(&temp_path).await;
+                return (StatusCode::INTERNAL_SERVER_ERROR, "Finalize failed").into_response();
+            }
+        };
 
         if let Err(e) = tokio::fs::rename(&temp_path, &final_path).await {
             eprintln!("Error finalizing file: {}", e);
@@ -864,6 +925,7 @@ async fn process_upload_chunk(
         {
             let mut sessions_map = sessions.0.lock().unwrap();
             sessions_map.remove(&meta.upload_id);
+            release_upload_lock(&meta.upload_id);
         }
 
         let content_type = meta
@@ -960,7 +1022,13 @@ pub async fn share_chunk(
             .clone()
     };
 
+    // One request per upload at a time: the size check and the append below
+    // must not interleave with a concurrent retry of the same chunk.
+    let upload_lock = upload_lock(&meta.upload_id);
+    let _upload_guard = upload_lock.lock().await;
+
     let mut options = tokio::fs::OpenOptions::new();
+    let mut already_written = false;
     let required_space = if meta.chunk_index == 0 {
         meta.total_size
     } else {
@@ -984,7 +1052,10 @@ pub async fn share_chunk(
             .await
             .map(|metadata| metadata.len())
             .unwrap_or(0);
-        if current_size != expected_offset {
+        // Written already, but the reply was lost and the phone retried.
+        if current_size == expected_offset + data.len() as u64 {
+            already_written = true;
+        } else if current_size != expected_offset {
             return with_cors(
                 (StatusCode::CONFLICT, "Chunk received out of order").into_response(),
             );
@@ -992,7 +1063,9 @@ pub async fn share_chunk(
         options.append(true);
     }
 
-    if let Ok(mut file) = options.open(&temp_path).await {
+    if already_written {
+        // Nothing to write; fall through to finalize if this was the last chunk.
+    } else if let Ok(mut file) = options.open(&temp_path).await {
         if let Err(e) = file.write_all(&data).await {
             eprintln!("Error writing shared chunk: {}", e);
             return with_cors((StatusCode::INTERNAL_SERVER_ERROR, "Write failed").into_response());
@@ -1004,12 +1077,20 @@ pub async fn share_chunk(
     if meta.chunk_index == meta.total_chunks.saturating_sub(1) {
         let batch = meta.batch_metadata();
         let file_size = Some(meta.total_size);
-        let final_filename = format!(
-            "share_{}_{}",
-            chrono::Utc::now().format("%Y%m%d%H%M%S"),
-            safe_name
-        );
-        let final_path = temp_path.parent().unwrap().join(&final_filename);
+        let final_path = match super::utils::reserve_unique_path(
+            temp_path.parent().unwrap(),
+            "share_",
+            &safe_name,
+        ) {
+            Ok(path) => path,
+            Err(e) => {
+                eprintln!("Error finalizing shared file: {}", e);
+                let _ = tokio::fs::remove_file(&temp_path).await;
+                return with_cors(
+                    (StatusCode::INTERNAL_SERVER_ERROR, "Finalize failed").into_response(),
+                );
+            }
+        };
 
         if let Err(e) = tokio::fs::rename(&temp_path, &final_path).await {
             eprintln!("Error finalizing shared file: {}", e);
@@ -1021,6 +1102,7 @@ pub async fn share_chunk(
         {
             let mut sessions_map = sessions.0.lock().unwrap();
             sessions_map.remove(&meta.upload_id);
+            release_upload_lock(&meta.upload_id);
         }
 
         let content_type = meta
@@ -1307,7 +1389,8 @@ pub async fn handle_file_download_proxy(
             let mime = mime_guess::from_path(&path)
                 .first_or_octet_stream()
                 .to_string();
-            let is_image = mime.starts_with("image/");
+            // SVG can carry script, so it is always a download, never inline.
+            let is_image = mime.starts_with("image/") && mime != "image/svg+xml";
             let is_video = mime.starts_with("video/");
             let encoded_name = urlencoding::encode(&filename);
             let disposition = if is_image || is_video {
@@ -1395,6 +1478,11 @@ mod tests {
         assert_eq!(safe_file_name("../../private/secret.txt"), "secret.txt");
         assert_eq!(safe_file_name(r"..\..\private\secret.txt"), "secret.txt");
         assert_eq!(safe_file_name("../.."), "unnamed-file");
+        assert_eq!(safe_file_name("a:b?.txt"), "a_b_.txt");
+        assert_eq!(safe_file_name("x\u{202E}gpj.exe"), "xgpj.exe");
+        assert_eq!(safe_file_name("con.txt"), "_con.txt");
+        assert_eq!(safe_file_name("COM1"), "_COM1");
+        assert_eq!(safe_file_name("a€.txt"), "a€.txt");
     }
 
     #[test]
@@ -1512,4 +1600,24 @@ mod tests {
         assert_eq!(parse_single_byte_range("bytes=0-1,4-5", 100), None);
         assert_eq!(parse_single_byte_range("bytes=0-", 0), None);
     }
+}
+
+static UPLOAD_LOCKS: std::sync::LazyLock<
+    std::sync::Mutex<HashMap<String, std::sync::Arc<tokio::sync::Mutex<()>>>>,
+> = std::sync::LazyLock::new(Default::default);
+
+fn upload_lock(upload_id: &str) -> std::sync::Arc<tokio::sync::Mutex<()>> {
+    UPLOAD_LOCKS
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .entry(upload_id.to_string())
+        .or_default()
+        .clone()
+}
+
+fn release_upload_lock(upload_id: &str) {
+    UPLOAD_LOCKS
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .remove(upload_id);
 }

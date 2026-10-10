@@ -4,8 +4,6 @@ use std::sync::atomic::Ordering;
 use tauri::Manager;
 #[cfg(target_os = "windows")]
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
-#[cfg(target_os = "windows")]
-use windows::Win32::UI::Shell::DefSubclassProc;
 
 pub const LEGACY_PLACEHOLDER_MACHINE_ID: &str = "MAC-DEVICE-000000";
 pub const LEGACY_PLACEHOLDER_ANON_ID: &str = "MAC-DEVICE-000000-0000-0000-0000-000000000000";
@@ -90,16 +88,9 @@ pub fn same_anon_id(left: &str, right: &str) -> bool {
     }
 }
 
-/// Window subclass procedure to handle taskbar recreation (explorer restart)
+/// Wake-from-sleep and Explorer-restart notifications.
 #[cfg(target_os = "windows")]
-pub unsafe extern "system" fn tray_subclass_proc(
-    hwnd: HWND,
-    msg: u32,
-    wparam: WPARAM,
-    lparam: LPARAM,
-    _id: usize,
-    _data: usize,
-) -> LRESULT {
+fn handle_system_message(msg: u32, wparam: WPARAM) {
     use windows::Win32::UI::WindowsAndMessaging::{
         PBT_APMRESUMEAUTOMATIC, PBT_APMRESUMECRITICAL, PBT_APMRESUMESUSPEND,
         WM_POWERBROADCAST,
@@ -126,5 +117,73 @@ pub unsafe extern "system" fn tray_subclass_proc(
             });
         }
     }
-    DefSubclassProc(hwnd, msg, wparam, lparam)
+}
+
+#[cfg(target_os = "windows")]
+unsafe extern "system" fn system_event_proc(
+    hwnd: HWND,
+    msg: u32,
+    wparam: WPARAM,
+    lparam: LPARAM,
+) -> LRESULT {
+    handle_system_message(msg, wparam);
+    unsafe { windows::Win32::UI::WindowsAndMessaging::DefWindowProcW(hwnd, msg, wparam, lparam) }
+}
+
+/// A hidden top-level window that lives as long as the process.
+/// WM_POWERBROADCAST and the TaskbarCreated broadcast only reach top-level
+/// windows (not message-only ones). They used to be read off the main window,
+/// but light mode destroys and recreates that, which lost both — and while it
+/// is destroyed (overnight, typically) a resume had no window to arrive at.
+#[cfg(target_os = "windows")]
+pub fn start_system_event_window() {
+    std::thread::spawn(|| unsafe {
+        use windows::core::w;
+        use windows::Win32::Foundation::HINSTANCE;
+        use windows::Win32::System::LibraryLoader::GetModuleHandleW;
+        use windows::Win32::UI::WindowsAndMessaging::{
+            CreateWindowExW, DispatchMessageW, GetMessageW, RegisterClassW, TranslateMessage,
+            MSG, WNDCLASSW, WS_EX_TOOLWINDOW, WS_POPUP,
+        };
+
+        let Ok(module) = GetModuleHandleW(None) else {
+            eprintln!("[system-events] GetModuleHandleW failed");
+            return;
+        };
+        let instance = HINSTANCE(module.0);
+        let class_name = w!("TieZSystemEvents");
+        let class = WNDCLASSW {
+            lpfnWndProc: Some(system_event_proc),
+            hInstance: instance,
+            lpszClassName: class_name,
+            ..Default::default()
+        };
+        if RegisterClassW(&class) == 0 {
+            eprintln!("[system-events] RegisterClassW failed");
+            return;
+        }
+        // Never shown; WS_EX_TOOLWINDOW keeps it out of Alt+Tab and the taskbar.
+        if let Err(err) = CreateWindowExW(
+            WS_EX_TOOLWINDOW,
+            class_name,
+            w!("TieZ system events"),
+            WS_POPUP,
+            0,
+            0,
+            0,
+            0,
+            None,
+            None,
+            Some(instance),
+            None,
+        ) {
+            eprintln!("[system-events] CreateWindowExW failed: {err}");
+            return;
+        }
+        let mut msg = MSG::default();
+        while GetMessageW(&mut msg, None, 0, 0).as_bool() {
+            let _ = TranslateMessage(&msg);
+            DispatchMessageW(&msg);
+        }
+    });
 }

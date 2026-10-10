@@ -39,6 +39,7 @@ interface SyncSettingsGroupProps {
     setMqttTopic: (val: string) => void;
     mqttNotificationEnabled: boolean;
     setMqttNotificationEnabled: (val: boolean) => void;
+    e2eKey: string;
 }
 
 const SyncSettingsGroup = ({
@@ -65,7 +66,8 @@ const SyncSettingsGroup = ({
     mqttTopic,
     setMqttTopic,
     mqttNotificationEnabled,
-    setMqttNotificationEnabled
+    setMqttNotificationEnabled,
+    e2eKey
 }: SyncSettingsGroupProps) => (
     <div className={`settings-group ${collapsed ? 'collapsed' : ''}`}>
         <button type="button" className="group-header" aria-expanded={!collapsed} onClick={onToggle}>
@@ -174,7 +176,11 @@ const SyncSettingsGroup = ({
                             </div>
                         )}
                         <div className="setting-item">
-                            <div className="item-label-group"><span className="item-label">{t('mqtt_host')}</span></div>
+                            <div className="item-label-group">
+                                <span className="item-label">{t('mqtt_host')}</span>
+                                {/* Messages are not end-to-end encrypted; the broker's access rules are the only protection. */}
+                                <span className="item-desc">{t('mqtt_host_privacy_hint')}</span>
+                            </div>
                             <input
                                 className="search-input settings-field"
                                 value={mqttServer}
@@ -228,6 +234,7 @@ const SyncSettingsGroup = ({
                                 username: mqttUser,
                                 password: mqttPass,
                                 topic: mqttTopic,
+                                e2eKey,
                             });
                             const mqttQrReady = isMqttConfigQrReady(mqttQr);
                             return (
@@ -237,6 +244,8 @@ const SyncSettingsGroup = ({
                                     title={t('mqtt_share_qr_title')}
                                     hint={t('mqtt_share_qr_hint')}
                                     emptyHint={t('mqtt_share_qr_empty')}
+                                revealLabel={t('config_qr_reveal')}
+                                revealHint={t('config_qr_reveal_hint')}
                                 />
                             );
                         })()}

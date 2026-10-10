@@ -1,5 +1,7 @@
 import {
   memo,
+  lazy,
+  Suspense,
   useEffect,
   useId,
   useLayoutEffect,
@@ -24,7 +26,8 @@ import {
   Sparkles,
   StickyNote,
   Tag,
-  Trash2
+  Trash2,
+  ImageOff,
 } from "lucide-react";
 import type { ClipboardEntry } from "../../../shared/types";
 import HtmlContent from "../../../shared/components/HtmlContent";
@@ -33,6 +36,9 @@ import { getSourceAppIcon, peekSourceAppIcon } from "../../../shared/lib/sourceA
 import { isTauriRuntime } from "../../../shared/lib/tauriRuntime";
 import { openPinStickerWindow } from "../lib/pinStickerControls";
 import DetailAnnotationEditor from "./DetailAnnotationEditor";
+import type { AiDetail } from "../../../shared/hooks/useAiActions";
+
+const DetailAIResult = lazy(() => import("./DetailAIResult"));
 
 export interface DetailPaneActions {
   paste: (item: ClipboardEntry) => void;
@@ -43,6 +49,10 @@ export interface DetailPaneActions {
   addTag: (item: ClipboardEntry, tag: string) => void;
   deleteTag: (item: ClipboardEntry, tag: string) => void;
   runAI: (item: ClipboardEntry, actionType: string) => void;
+  supplementAI: (item: ClipboardEntry, input: string) => void;
+  applyAI: (item: ClipboardEntry) => void;
+  discardAI: (item: ClipboardEntry) => void;
+  copyAIText: (content: string) => void;
   open: (item: ClipboardEntry) => void;
   toggleReveal: (item: ClipboardEntry) => void;
   remove: (event: MouseEvent, item: ClipboardEntry) => void;
@@ -60,6 +70,7 @@ interface ClipboardDetailPaneProps {
   isEditingNote: boolean;
   aiEnabled: boolean;
   isAIProcessing: boolean;
+  aiDetail?: AiDetail;
   showSourceAppIcon: boolean;
   tagInput: string;
   tagSuggestions: string[];
@@ -72,6 +83,8 @@ interface ClipboardDetailPaneProps {
 // full text once and keeps a small cache so hovering back and forth is instant.
 const LIST_CONTENT_LIMIT = 1990;
 const MAX_DISPLAY_CHARS = 100_000;
+/** Files listed in the detail pane; the rest are summarised. */
+const MAX_LISTED_FILES = 200;
 // Keyed by id but checked against the list copy, which changes when an AI
 // action rewrites the entry in place.
 const fullContentCache = new Map<number, { source: string; text: string }>();
@@ -383,6 +396,7 @@ const ClipboardDetailPane = ({
   isEditingNote,
   aiEnabled,
   isAIProcessing,
+  aiDetail,
   showSourceAppIcon,
   tagInput,
   tagSuggestions,
@@ -390,8 +404,11 @@ const ClipboardDetailPane = ({
   noteDraft,
   onNoteDraftChange
 }: ClipboardDetailPaneProps) => {
-  const text = useFullContent(item, !isSensitiveHidden);
+  const originalItem = useMemo(() => item && aiDetail ? { ...item, ...aiDetail.original } : item, [item, aiDetail]);
+  const fetchedText = useFullContent(originalItem, !isSensitiveHidden && !aiDetail);
+  const text = aiDetail?.original.content ?? fetchedText;
   const [imageSize, setImageSize] = useState<{ id: number; w: number; h: number } | null>(null);
+  const [imageFailedId, setImageFailedId] = useState<number | null>(null);
   const [appIcon, setAppIcon] = useState<string | null>(null);
 
   const sourcePath = item?.source_app_path?.trim() || null;
@@ -425,6 +442,7 @@ const ClipboardDetailPane = ({
   }
 
   const locale = localeFor(language);
+  const originalType = originalItem?.content_type ?? item.content_type;
   const formatTime = (ms?: number) => (ms
     ? new Date(ms).toLocaleString(locale, {
         month: "short",
@@ -445,7 +463,14 @@ const ClipboardDetailPane = ({
       </div>
     );
   } else if (item.content_type === "image") {
-    preview = (
+    // The list row and compact preview already show a placeholder for a
+    // missing image; the detail pane showed the browser's broken-image icon.
+    preview = (item.is_external && item.file_preview_exists === false) || imageFailedId === item.id ? (
+      <div className="detail-sensitive">
+        <ImageOff size={20} />
+        <span>{t("image_deleted")}</span>
+      </div>
+    ) : (
       <img
         className="detail-image"
         src={mediaSrc(item)}
@@ -453,6 +478,7 @@ const ClipboardDetailPane = ({
         draggable={false}
         decoding="async"
         onLoad={(e) => setImageSize({ id: item.id, w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
+        onError={() => setImageFailedId(item.id)}
       />
     );
   } else if (item.content_type === "video") {
@@ -460,19 +486,25 @@ const ClipboardDetailPane = ({
   } else if (item.content_type === "file") {
     preview = (
       <ul className="detail-files">
-        {filePaths.map((path) => (
+        {/* Capped: a list of thousands of files mounted thousands of rows. */}
+        {filePaths.slice(0, MAX_LISTED_FILES).map((path) => (
           <li key={path}>
             <strong>{path.split(/[\\/]/).pop() || path}</strong>
             <span>{path}</span>
           </li>
         ))}
+        {filePaths.length > MAX_LISTED_FILES && (
+          <li className="detail-files-more">
+            {t("detail_more_files").replace("{count}", String(filePaths.length - MAX_LISTED_FILES))}
+          </li>
+        )}
       </ul>
     );
-  } else if (item.content_type === "rich_text" && item.html_content) {
-    preview = <HtmlContent htmlContent={item.html_content} fallbackText={item.content} className="detail-rich" />;
+  } else if (originalItem?.content_type === "rich_text" && originalItem.html_content) {
+    preview = <HtmlContent htmlContent={originalItem.html_content} fallbackText={text} className="detail-rich" />;
   } else {
     preview = (
-      <pre className={`detail-text${item.content_type === "code" ? " is-code" : ""}`}>
+      <pre className={`detail-text${originalItem?.content_type === "code" ? " is-code" : ""}`}>
         {displayText}
         {text.length > MAX_DISPLAY_CHARS && (
           <span className="detail-truncated">{t("detail_truncated").replace("{n}", MAX_DISPLAY_CHARS.toLocaleString(locale))}</span>
@@ -491,9 +523,9 @@ const ClipboardDetailPane = ({
             title={item.source_app || undefined}
             aria-label={`${t("detail_source")}: ${item.source_app || "—"}`}
           >
-            {item.source_app || t(typeLabelKey(item.content_type))}
+            {item.source_app || t(typeLabelKey(originalType))}
           </span>
-          {item.source_app && <span className="detail-content-type">{t(typeLabelKey(item.content_type))}</span>}
+          {item.source_app && <span className="detail-content-type">{t(typeLabelKey(originalType))}</span>}
           {item.content_type === "image" && imageSize?.id === item.id && (
             <span className="detail-media-info">{`${imageSize.w} × ${imageSize.h}`}</span>
           )}
@@ -511,7 +543,20 @@ const ClipboardDetailPane = ({
       </div>
       {/* Keyed by id so switching entries resets scroll and replays the fade. */}
       <div className="detail-preview" key={`preview-${item.id}`}>
+        {aiDetail && !isSensitiveHidden && (
+          <div className="detail-ai-heading">
+            <h3>{t("ai_original")}</h3>
+            <button type="button" className="detail-ai-copy" onClick={() => actions.copyAIText(text)}>{t("ai_copy_original")}</button>
+          </div>
+        )}
         {preview}
+        {aiDetail && !isSensitiveHidden && (
+          <Suspense fallback={<p className="detail-ai-hint">{t("ai_processing")}</p>}>
+            <DetailAIResult key={`ai-${item.id}`} detail={aiDetail} t={t} onCopy={actions.copyAIText}
+              onSupplement={(input) => actions.supplementAI(item, input)}
+              onApply={() => actions.applyAI(item)} onDiscard={() => actions.discardAI(item)} />
+          </Suspense>
+        )}
         {!!(item.tags?.length || item.note || isEditingTags || isEditingNote) && (
           <section className="detail-annotations" aria-label={t("detail_information")}>
             {!!item.tags?.length && !isEditingTags && (

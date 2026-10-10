@@ -1,9 +1,16 @@
+import type { AiProviderId, AiReasoningEffort } from "./aiProviders";
+
 export interface AiProfile {
   id: string;
+  /** Missing on profiles saved before providers existed; inferred from baseUrl. */
+  provider?: AiProviderId;
   baseUrl: string;
   apiKey: string;
   model: string;
   enableThinking: boolean;
+  reasoningEffort?: AiReasoningEffort;
+  /** Token cap for providers that limit thinking by budget. */
+  thinkingBudget?: number;
 }
 
 export type AppCleanupPolicyAction = "ignore" | "clean";
@@ -31,6 +38,7 @@ export const DEFAULT_COLLAPSED_GROUPS: Record<string, boolean> = {
   appearance: true,
   sync: true,
   cloud_sync: true,
+  e2e: true,
   ai: true,
   file_transfer: true,
   default_apps: true,

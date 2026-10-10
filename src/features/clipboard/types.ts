@@ -28,6 +28,10 @@ export interface ClipboardItemProps {
   language: Locale;
   t: (key: string) => string;
   isAIProcessing?: boolean;
+  /** A follow-up question from the AI waiting for the user's answer. */
+  aiQuestion?: string;
+  /** An AI result waiting for the user to replace the entry or discard it. */
+  aiPendingResult?: string;
   aiEnabled?: boolean;
   tagColors?: Record<string, string>;
   aiOptionsOpen?: boolean;
@@ -58,6 +62,8 @@ export interface ClipboardItemProps {
   onAIAction?: (type: string) => void;
   onAIOptionsToggle?: () => void;
   onInputSubmit?: (val: string) => void;
+  onAIApply?: () => void;
+  onAIDiscard?: () => void;
   dragControls?: DragControls;
   id?: string;
   disableLayout?: boolean;

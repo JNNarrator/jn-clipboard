@@ -1,4 +1,5 @@
 {
+  "identifier": "com.tiez.app",
   "bundle": {
     "targets": ["nsis"],
     "icon": [

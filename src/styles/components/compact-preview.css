@@ -122,6 +122,7 @@ body.compact-preview .compact-popover-portal,
     white-space: nowrap !important;
     font-size: var(--font-size-xs) !important;
     margin-bottom: 8px !important;
+    -webkit-user-select: none !important;
     user-select: none !important;
     flex: 0 0 auto !important;
 }

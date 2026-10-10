@@ -39,6 +39,9 @@ use windows::Win32::UI::WindowsAndMessaging::{
 };
 
 enum ClipboardSnapshot {
+    /// macOS: the whole pasteboard, every item and type (lossless).
+    #[cfg(target_os = "macos")]
+    Native(crate::infrastructure::macos_api::clipboard::PasteboardSnapshot),
     Empty,
     Text { text: String, html: Option<String> },
     Image { data_url: String },
@@ -46,6 +49,16 @@ enum ClipboardSnapshot {
 }
 
 fn capture_clipboard_snapshot() -> ClipboardSnapshot {
+    // macOS keeps the raw data of every type, so an image, rich text or files
+    // come back exactly (an image used to come back as an empty string, rich
+    // text as plain text).
+    #[cfg(target_os = "macos")]
+    if let Some(snapshot) =
+        crate::infrastructure::macos_api::clipboard::snapshot_pasteboard(64 * 1024 * 1024)
+    {
+        return ClipboardSnapshot::Native(snapshot);
+    }
+
     #[cfg(target_os = "windows")]
     unsafe {
         if let Some(files) =
@@ -149,6 +162,11 @@ fn capture_clipboard_snapshot() -> ClipboardSnapshot {
 
 async fn restore_clipboard_snapshot(snapshot: ClipboardSnapshot) -> AppResult<()> {
     match snapshot {
+        #[cfg(target_os = "macos")]
+        ClipboardSnapshot::Native(snapshot) => {
+            crate::infrastructure::macos_api::clipboard::restore_pasteboard(&snapshot)
+                .map_err(AppError::Internal)
+        }
         ClipboardSnapshot::Empty => {
             #[cfg(target_os = "windows")]
             unsafe {
@@ -332,19 +350,28 @@ fn materialize_rich_html_for_paste(
 }
 
 #[cfg(target_os = "windows")]
+/// `keep_existing`: an image was just written for this paste; add text and
+/// HTML next to it instead of emptying the clipboard (which threw the image
+/// fallback away and left only HTML and text).
 fn set_windows_formatted_clipboard(
     plain: &str,
     html_fragment: &str,
     named_formats: &[crate::infrastructure::windows_api::win_clipboard::NamedClipboardFormat],
+    keep_existing: bool,
 ) -> AppResult<()> {
+    use crate::infrastructure::windows_api::win_clipboard::{
+        append_clipboard_text_and_html, set_clipboard_text_and_html,
+    };
     use crate::services::clipboard::encode_cf_html;
 
     let cf_html = encode_cf_html(html_fragment);
     unsafe {
-        crate::infrastructure::windows_api::win_clipboard::set_clipboard_text_and_html(
-            plain, &cf_html,
-        )
-        .map_err(AppError::Internal)?;
+        let written = if keep_existing {
+            append_clipboard_text_and_html(plain, &cf_html)
+        } else {
+            set_clipboard_text_and_html(plain, &cf_html)
+        };
+        written.map_err(AppError::Internal)?;
         if !named_formats.is_empty() {
             let mut registered_formats = Vec::new();
             let mut standard_formats = Vec::new();
@@ -372,7 +399,7 @@ fn set_windows_formatted_clipboard(
     Ok(())
 }
 
-fn resolve_paste_with_format(
+pub(crate) fn resolve_paste_with_format(
     content: &str,
     content_type: &str,
     html_content: Option<&str>,
@@ -467,11 +494,18 @@ async fn copy_to_clipboard_inner(
     Ok(())
 }
 
+/// Held from writing the clipboard until the paste keystroke has gone out.
+/// Without it two quick pastes (sequential-paste presses, fast clicks on
+/// history items) interleave: the second write lands before the first Cmd/Ctrl+V,
+/// so one item is pasted twice and the other never.
+pub static PASTE_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
 #[tauri::command]
 pub async fn paste_text_directly(app_handle: tauri::AppHandle, content: String) -> AppResult<()> {
     if content.is_empty() {
         return Ok(());
     }
+    let _paste_guard = PASTE_LOCK.lock().await;
 
     handle_window_focus_for_paste(&app_handle).await?;
     let paste_method = app_handle
@@ -497,6 +531,7 @@ pub async fn copy_to_clipboard(
     paste_with_format: Option<bool>,
     move_to_top: Option<bool>,
 ) -> AppResult<()> {
+    let _paste_guard = PASTE_LOCK.lock().await;
     copy_to_clipboard_inner(
         app_handle,
         &state,
@@ -522,6 +557,15 @@ pub async fn paste_content_transiently(
     id: i64,
     paste_with_format: Option<bool>,
 ) -> AppResult<()> {
+    let _paste_guard = PASTE_LOCK.lock().await;
+    // Without Accessibility the keystroke is dropped silently; say so instead
+    // of swapping the clipboard back and forth for nothing.
+    #[cfg(target_os = "macos")]
+    if !crate::infrastructure::macos_api::permissions::has_accessibility_permission() {
+        return Err(AppError::Validation(
+            "需要在「系统设置 → 隐私与安全性 → 辅助功能」里允许 TieZ，才能直接粘贴。".to_string(),
+        ));
+    }
     let previous_clipboard = capture_clipboard_snapshot();
     let mut html_content: Option<String> = None;
 
@@ -577,7 +621,9 @@ pub async fn paste_content_transiently(
     )
     .await;
 
-    tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+    // Give the target time to read the clipboard before it is restored: slow
+    // (Electron) apps sometimes took longer than 250 ms and pasted the old one.
+    tokio::time::sleep(std::time::Duration::from_millis(450)).await;
     let restore_result = restore_clipboard_snapshot(previous_clipboard).await;
 
     paste_result?;
@@ -590,6 +636,7 @@ pub async fn paste_history_item_by_index(
     app_handle: tauri::AppHandle,
     index: usize,
 ) -> AppResult<()> {
+    let _paste_guard = PASTE_LOCK.lock().await;
     let db_state = app_handle.state::<DbState>();
     let session = app_handle.state::<SessionHistory>();
     let app_handle_clone = app_handle.clone();
@@ -804,13 +851,33 @@ async fn copy_content_to_system_clipboard(
                 if content_type == "image" {
                     // For image type with local path, read pixels for better compatibility with chat apps
                     let image_path = &file_paths[0];
-                    let bytes = std::fs::read(image_path).map_err(AppError::from)?;
+                    let bytes = std::fs::read(image_path).map_err(|_| {
+                        AppError::Validation("图片文件已不存在，无法粘贴。".to_string())
+                    })?;
                     let (primary_hash, _secondary_hash) =
                         copy_image_bytes_to_clipboard(bytes, current_time, Some(image_path))?;
                     // Keep LAST_APP_SET_HASH as content_hash (path hash)
                     // Store pixel/byte hash in HASH_ALT
                     crate::LAST_APP_SET_HASH_ALT.store(primary_hash, Ordering::SeqCst);
                 } else {
+                    // Paste the files that still exist. A missing one made
+                    // Explorer/Finder abort or error while TieZ said it worked.
+                    let total = file_paths.len();
+                    let file_paths: Vec<String> = file_paths
+                        .into_iter()
+                        .filter(|path| std::path::Path::new(path).exists())
+                        .collect();
+                    if file_paths.is_empty() {
+                        return Err(AppError::Validation(
+                            "这些文件都已不存在，无法粘贴。".to_string(),
+                        ));
+                    }
+                    if file_paths.len() != total {
+                        // What the monitor will read back, so it isn't re-recorded.
+                        let (hash, _) = calculate_content_hash(&file_paths.join("\n"));
+                        crate::LAST_APP_SET_HASH.store(hash, Ordering::SeqCst);
+                    }
+
                     #[cfg(target_os = "windows")]
                     unsafe {
                         crate::infrastructure::windows_api::win_clipboard::set_clipboard_files(
@@ -922,15 +989,18 @@ async fn copy_content_to_system_clipboard(
 
                     #[cfg(target_os = "windows")]
                     {
-                        if image_bytes.is_some() {
-                            let (primary_hash, _secondary_hash) = copy_image_bytes_to_clipboard(
-                                image_bytes.unwrap(),
-                                current_time,
-                                None,
-                            )?;
+                        let wrote_image = image_bytes.is_some();
+                        if let Some(bytes) = image_bytes {
+                            let (primary_hash, _secondary_hash) =
+                                copy_image_bytes_to_clipboard(bytes, current_time, None)?;
                             crate::LAST_APP_SET_HASH_ALT.store(primary_hash, Ordering::SeqCst);
                         }
-                        set_windows_formatted_clipboard(&paste_plain, &paste_html, &named_formats)?;
+                        set_windows_formatted_clipboard(
+                            &paste_plain,
+                            &paste_html,
+                            &named_formats,
+                            wrote_image,
+                        )?;
                     }
 
                     #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
@@ -962,7 +1032,7 @@ async fn copy_content_to_system_clipboard(
     Ok(())
 }
 
-#[cfg(target_os = "windows")]
+#[cfg(any(target_os = "windows", target_os = "macos"))]
 fn image_extension_for_bytes(bytes: &[u8]) -> &'static str {
     if bytes.len() >= 3 && &bytes[0..3] == b"GIF" {
         "gif"
@@ -1012,7 +1082,7 @@ fn resolve_image_paste_path(bytes: &[u8], source_path: Option<&str>) -> AppResul
     write_temp_image_path(bytes)
 }
 
-#[cfg(target_os = "windows")]
+#[cfg(any(target_os = "windows", target_os = "macos"))]
 fn encode_png_from_rgba(rgba: &image::RgbaImage) -> AppResult<Vec<u8>> {
     let mut png_buf = Vec::new();
     image::DynamicImage::ImageRgba8(rgba.clone())
@@ -1024,6 +1094,44 @@ fn encode_png_from_rgba(rgba: &image::RgbaImage) -> AppResult<Vec<u8>> {
     Ok(png_buf)
 }
 
+/// macOS: write the stored bytes as they are (see set_clipboard_image). Only
+/// non-PNG images are decoded, for a static PNG of their first frame. The echo
+/// hash is the hash of what the monitor reads back first: the GIF bytes for a
+/// GIF, otherwise the PNG (it used to compare a GIF-bytes hash with a hash of
+/// decoded pixels, so every GIF paste came back as a new flattened entry).
+#[cfg(target_os = "macos")]
+fn copy_image_bytes_to_clipboard_macos(
+    bytes: &[u8],
+    is_gif: bool,
+    source_path: Option<&str>,
+) -> AppResult<(u64, u64)> {
+    let extension = image_extension_for_bytes(bytes);
+    let static_png = if extension == "png" {
+        None
+    } else {
+        let first_frame = image::load_from_memory(bytes)
+            .map_err(|e| AppError::Internal(format!("无法打开图片。\n详情：{}", e)))?
+            .to_rgba8();
+        Some(encode_png_from_rgba(&first_frame)?)
+    };
+    // The file itself lets chat apps and Finder take the animated original.
+    let file_path = source_path
+        .map(str::trim)
+        .filter(|path| is_gif && !path.is_empty() && std::path::Path::new(path).is_file());
+    crate::infrastructure::macos_api::clipboard::set_clipboard_image(
+        bytes,
+        extension,
+        static_png.as_deref(),
+        file_path,
+    )
+    .map_err(AppError::Internal)?;
+
+    let echo_bytes: &[u8] = if is_gif { bytes } else { static_png.as_deref().unwrap_or(bytes) };
+    let mut hasher = DefaultHasher::new();
+    echo_bytes.to_vec().hash(&mut hasher);
+    Ok((hasher.finish(), 0))
+}
+
 fn copy_image_bytes_to_clipboard(
     bytes: Vec<u8>,
     current_time: u64,
@@ -1032,6 +1140,13 @@ fn copy_image_bytes_to_clipboard(
     // Check if it's a GIF by magic number
     let is_gif = bytes.len() > 3 && &bytes[0..3] == b"GIF";
 
+    #[cfg(target_os = "macos")]
+    {
+        crate::LAST_APP_SET_TIMESTAMP.store(current_time, Ordering::SeqCst);
+        return copy_image_bytes_to_clipboard_macos(&bytes, is_gif, source_path);
+    }
+
+    #[allow(unreachable_code)]
     let (width, height, raw_bytes) = {
         let img = image::load_from_memory(&bytes)
             .map_err(|e| AppError::Internal(format!("无法打开图片。\n详情：{}", e)))?
@@ -1257,7 +1372,7 @@ async fn hide_window_after_paste(app_handle: &tauri::AppHandle) {
     }
 }
 
-fn resolve_paste_method_for_target(method: &str) -> String {
+pub(crate) fn resolve_paste_method_for_target(method: &str) -> String {
     #[cfg(target_os = "windows")]
     {
         return resolve_windows_paste_method(method);
@@ -1815,7 +1930,7 @@ fn handle_post_paste_actions(
                 let app_data = app_handle.state::<crate::app_state::AppDataDir>();
                 let data_dir = app_data.0.lock().unwrap();
 
-                if state.repo.delete(id, Some(&data_dir)).is_ok() {
+                if state.repo.delete_after_paste(id, Some(&data_dir)).is_ok() {
                     let _ = app_handle.emit("clipboard-removed", id);
                 }
             } else {
@@ -1846,6 +1961,15 @@ fn handle_post_paste_actions(
 
 #[tauri::command]
 pub fn paste_latest_rich(app_handle: tauri::AppHandle) {
+    paste_latest(app_handle, true);
+}
+
+/// The plain-text counterpart of paste_latest_rich (#148).
+pub fn paste_latest_plain(app_handle: tauri::AppHandle) {
+    paste_latest(app_handle, false);
+}
+
+fn paste_latest(app_handle: tauri::AppHandle, with_format: bool) {
     let app_handle_clone = app_handle.clone();
     tauri::async_runtime::spawn(async move {
         let delete_after = {
@@ -1874,7 +1998,7 @@ pub fn paste_latest_rich(app_handle: tauri::AppHandle) {
                     true, // paste
                     item.id,
                     delete_after, // delete_after_use
-                    Some(true),   // paste_with_format
+                    Some(with_format),
                     None,
                 )
                 .await;

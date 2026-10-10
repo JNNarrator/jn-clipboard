@@ -62,6 +62,7 @@ html.platform-macos .tag-manager-body:not(.is-split) .tag-manager-chip-row::-web
   color: var(--text-primary);
   font-size: var(--font-size-sm);
   cursor: pointer;
+  -webkit-user-select: none;
   user-select: none;
   flex-shrink: 0;
 }

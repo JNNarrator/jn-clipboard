@@ -52,6 +52,7 @@ interface CloudSyncSettingsGroupProps {
     status: CloudSyncStatusPayload;
     syncingNow: boolean;
     onSyncNow: () => void;
+    e2eKey: string;
 }
 
 const statusTone = (state: string) => {
@@ -94,7 +95,8 @@ const CloudSyncSettingsGroup = ({
     saveCloudSync,
     status,
     syncingNow,
-    onSyncNow
+    onSyncNow,
+    e2eKey
 }: CloudSyncSettingsGroupProps) => {
     const normalizeInterval = (raw: string) => {
         const parsed = Number.parseInt(raw, 10);
@@ -286,6 +288,7 @@ const CloudSyncSettingsGroup = ({
                             username: cloudSyncWebdavUsername,
                             password: cloudSyncWebdavPassword,
                             basePath: cloudSyncWebdavBasePath,
+                                e2eKey,
                         });
                         const webdavQrReady = isWebdavConfigQrReady(webdavQr);
                         return (
@@ -295,6 +298,8 @@ const CloudSyncSettingsGroup = ({
                                 title={t("webdav_share_qr_title")}
                                 hint={t("webdav_share_qr_hint")}
                                 emptyHint={t("webdav_share_qr_empty")}
+                                revealLabel={t("config_qr_reveal")}
+                                revealHint={t("config_qr_reveal_hint")}
                             />
                         );
                     })()}
@@ -359,7 +364,7 @@ const CloudSyncSettingsGroup = ({
                         </div>
                         {status.last_error && (
                             <div className="settings-panel-meta is-error">
-                                {t("cloud_sync_last_error")}: {formatError(status.last_error, t)}
+                                {t("cloud_sync_last_error")}: {status.last_error === "e2e_mismatch" ? t("e2e_mismatch") : formatError(status.last_error, t)}
                             </div>
                         )}
                     </div>

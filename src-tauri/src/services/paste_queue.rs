@@ -83,6 +83,8 @@ pub fn paste_next_step(app_handle: tauri::AppHandle) {
 }
 
 async fn paste_next_step_inner(app_handle: tauri::AppHandle) {
+    // One step at a time: a second press waits until this item's keystroke is out.
+    let _paste_guard = crate::services::clipboard_ops::PASTE_LOCK.lock().await;
     let state = app_handle.state::<PasteQueue>();
     let db_state = app_handle.state::<DbState>();
     let session = app_handle.state::<SessionHistory>();
@@ -130,7 +132,13 @@ async fn paste_next_step_inner(app_handle: tauri::AppHandle) {
                 &content,
                 &c_type,
                 html_content.as_deref(),
-                c_type == "rich_text" && html_content.as_deref().is_some(),
+                // Same rule as a normal click (some rich entries must paste as exact text).
+                crate::services::clipboard_ops::resolve_paste_with_format(
+                    &content,
+                    &c_type,
+                    html_content.as_deref(),
+                    None,
+                ),
             )
             .await
             {
@@ -197,6 +205,10 @@ async fn paste_next_step_inner(app_handle: tauri::AppHandle) {
                         .try_state::<crate::database::DbState>()
                         .and_then(|db| db.settings_repo.get("app.paste_method").ok().flatten())
                         .unwrap_or_else(|| "shift_insert".to_string());
+                    // Per-app override, as for a normal paste: Shift+Insert does
+                    // nothing in WeChat/Chrome on Windows, consoles need Ctrl+Shift+V.
+                    let paste_method =
+                        crate::services::clipboard_ops::resolve_paste_method_for_target(&paste_method);
                     crate::services::clipboard_ops::send_paste_keystroke(
                         &paste_method,
                         Some(&content),
@@ -225,7 +237,7 @@ async fn paste_next_step_inner(app_handle: tauri::AppHandle) {
                         if id > 0 {
                             let app_data = app_handle.state::<AppDataDir>();
                             let data_dir = app_data.0.lock().unwrap();
-                            if db_state.repo.delete(id, Some(&data_dir)).is_ok() {
+                            if db_state.repo.delete_after_paste(id, Some(&data_dir)).is_ok() {
                                 let _ = app_handle.emit("clipboard-removed", id);
                             }
                         } else {

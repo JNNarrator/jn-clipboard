@@ -834,7 +834,7 @@ pub fn set_data_path(app_handle: AppHandle, new_path: String) -> AppResult<()> {
     }
 
     // 2. Save new path to a persistent config file
-    let config_dir = app_handle.path().app_data_dir().map_err(AppError::from)?;
+    let config_dir = crate::app::setup::default_app_data_dir(app_handle.path()).map_err(AppError::from)?;
     if !config_dir.exists() {
         std::fs::create_dir_all(&config_dir).map_err(AppError::from)?;
     }

@@ -23,8 +23,6 @@ import { useSettingsSync } from "./shared/hooks/useSettingsSync";
 import { useTagColors } from "./shared/hooks/useTagColors";
 import { useClipboardEvents } from "./shared/hooks/useClipboardEvents";
 import { useClipboardActions } from "./shared/hooks/useClipboardActions";
-import { useMqttListener } from "./shared/hooks/useMqttListener";
-import { useSoundEffects } from "./shared/hooks/useSoundEffects";
 import { useWindowPinnedListener } from "./shared/hooks/useWindowPinnedListener";
 import { useCustomBackground } from "./shared/hooks/useCustomBackground";
 import { useToastListener } from "./shared/hooks/useToastListener";
@@ -199,7 +197,9 @@ const App = () => {
     sequentialHotkey,
     setSequentialHotkey,
     richPasteHotkey,
+    plainPasteHotkey,
     setRichPasteHotkey,
+    setPlainPasteHotkey,
     searchHotkey,
     setSearchHotkey,
     quickPasteModifier,
@@ -211,13 +211,17 @@ const App = () => {
     isRecordingSequential,
     setIsRecordingSequential,
     isRecordingRich,
+    isRecordingPlain,
     setIsRecordingRich,
+    setIsRecordingPlain,
     isRecordingSearch,
     setIsRecordingSearch,
     deleteAfterPaste,
     setDeleteAfterPaste,
     moveToTopAfterPaste,
+    clickCopyOnly,
     setMoveToTopAfterPaste,
+    setClickCopyOnly,
     privacyProtection,
     setPrivacyProtection,
     sensitiveMaskPrefixVisible,
@@ -314,7 +318,6 @@ const App = () => {
     setMqttTopic,
     setMqttProtocol,
     setMqttWsPath,
-    mqttNotificationEnabled,
     setMqttNotificationEnabled,
     cloudSyncEnabled,
     setCloudSyncEnabled,
@@ -346,16 +349,13 @@ const App = () => {
     fileTransferAutoOpen,
     fileTransferAutoCopy,
     fileServerAutoClose,
-    soundEnabled,
     setSoundEnabled,
-    pasteSoundEnabled,
     setPasteSoundEnabled,
     soundVolume,
     setSoundVolume,
     aiEnabled,
     setAiEnabled,
     setAiTargetLang,
-    setAiThinkingBudget,
     aiProfiles,
     setAiProfiles,
     setAiAssignedProfileTask,
@@ -568,7 +568,7 @@ const App = () => {
 
   useEffect(() => {
     const handleKeydown = (event: KeyboardEvent) => {
-      if (isRecording || isRecordingSequential || isRecordingRich || isRecordingSearch) return;
+      if (isRecording || isRecordingSequential || isRecordingRich || isRecordingPlain || isRecordingSearch) return;
       if (!hotkey || hotkey === t('not_set')) return;
 
       const activeEl = document.activeElement as HTMLElement | null;
@@ -592,12 +592,11 @@ const App = () => {
 
     window.addEventListener('keydown', handleKeydown, true);
     return () => window.removeEventListener('keydown', handleKeydown, true);
-  }, [hotkey, isRecording, isRecordingSequential, isRecordingRich, isRecordingSearch, t]);
+  }, [hotkey, isRecording, isRecordingSequential, isRecordingRich, isRecordingPlain, isRecordingSearch, t]);
 
 
   const { toasts, pushToast, confirmDialog, openConfirm, closeConfirm } = useOverlays(t);
 
-  useSoundEffects({ soundEnabled, pasteSoundEnabled, soundVolume });
 
   const fetchEffectiveTransferPath = useCallback(() => {
     invoke<string>("get_active_file_transfer_path")
@@ -618,6 +617,14 @@ const App = () => {
     setCompactMode,
     setLanguage
   });
+
+  // After light mode rebuilds the WebView, Rust shows the window only once this
+  // arrives, so the first frame is the themed UI rather than an empty shell.
+  // Effects run while the window is still hidden (unlike requestAnimationFrame).
+  useEffect(() => {
+    if (!settings || !isTauriRuntime()) return;
+    invoke("main_ui_ready").catch(() => { /* older backend: it times out instead */ });
+  }, [settings]);
 
   useSettingsPostInit({
     settings,
@@ -659,6 +666,7 @@ const App = () => {
 
     setDeleteAfterPaste,
     setMoveToTopAfterPaste,
+    setClickCopyOnly,
     setHideTrayIcon,
     setHideDockIcon,
     setEdgeDocking,
@@ -695,6 +703,7 @@ const App = () => {
     setFileServerPort,
     setSequentialHotkey,
     setRichPasteHotkey,
+    setPlainPasteHotkey,
     setSearchHotkey,
     setQuickPasteModifier,
     setSequentialModeState,
@@ -703,7 +712,6 @@ const App = () => {
     setSoundVolume,
     setAiEnabled,
     setAiTargetLang,
-    setAiThinkingBudget,
     setIsWindowPinned,
     setAiProfiles,
     setAiAssignedProfileTask,
@@ -753,7 +761,7 @@ const App = () => {
 
   useEffect(() => {
     const handleSearchKeydown = (event: KeyboardEvent) => {
-      if (isRecording || isRecordingSequential || isRecordingRich || isRecordingSearch) return;
+      if (isRecording || isRecordingSequential || isRecordingRich || isRecordingPlain || isRecordingSearch) return;
       if (!searchHotkey || searchHotkey === t('not_set')) return;
       if (matchesHotkey(event, searchHotkey)) {
         event.preventDefault();
@@ -763,12 +771,12 @@ const App = () => {
 
     window.addEventListener('keydown', handleSearchKeydown, true);
     return () => window.removeEventListener('keydown', handleSearchKeydown, true);
-  }, [searchHotkey, isRecording, isRecordingSequential, isRecordingRich, isRecordingSearch, t, focusSearchBox]);
+  }, [searchHotkey, isRecording, isRecordingSequential, isRecordingRich, isRecordingPlain, isRecordingSearch, t, focusSearchBox]);
 
   // Ctrl/Cmd+F → TieZ search (browser find is already blocked globally; this routes it).
   useEffect(() => {
     const onFind = (event: KeyboardEvent) => {
-      if (isRecording || isRecordingSequential || isRecordingRich || isRecordingSearch) return;
+      if (isRecording || isRecordingSequential || isRecordingRich || isRecordingPlain || isRecordingSearch) return;
       if (showSettings || effectiveShowTagManager || chatMode || effectiveShowEmojiPanel) return;
 
       const key = event.key.toLowerCase();
@@ -788,6 +796,7 @@ const App = () => {
     isRecording,
     isRecordingSequential,
     isRecordingRich,
+    isRecordingPlain,
     isRecordingSearch,
     showSettings,
     effectiveShowTagManager,
@@ -864,14 +873,21 @@ const App = () => {
     const onShown = () => {
       noteCompactPreviewClipboardShown();
     };
-    const unlistenClipboardShown = listen("clipboard-shown", onShown);
+    // Each opening starts unfiltered: a type filter is for digging out one
+    // item, not a mode to keep (#142). A pinned window never reopens, so its
+    // filter stays.
+    const onClipboardShown = () => {
+      onShown();
+      setTypeFilter(null);
+    };
+    const unlistenClipboardShown = listen("clipboard-shown", onClipboardShown);
     const unlistenShow = getCurrentWindow().listen("tauri://show", onShown);
     return () => {
       unlistenForceHide.then((off) => off());
       unlistenClipboardShown.then((off) => off());
       unlistenShow.then((off) => off()).catch(() => {});
     };
-  }, []);
+  }, [setTypeFilter]);
 
   useCustomBackground({ customBackground, customBackgroundOpacity, theme });
 
@@ -890,7 +906,6 @@ const App = () => {
     }
   });
 
-  useMqttListener({ enabled: mqttNotificationEnabled, t });
 
   useToastListener({ pushToast });
 
@@ -969,6 +984,7 @@ const App = () => {
     updateHotkey,
     updateSequentialHotkey,
     updateRichPasteHotkey,
+    updatePlainPasteHotkey,
     updateSearchHotkey
   } =
     useHotkeyConfig({
@@ -977,7 +993,9 @@ const App = () => {
       sequentialHotkey,
       setSequentialHotkey,
       richPasteHotkey,
+      plainPasteHotkey,
       setRichPasteHotkey,
+      setPlainPasteHotkey,
       searchHotkey,
       setSearchHotkey,
       sequentialMode,
@@ -986,7 +1004,9 @@ const App = () => {
       isRecordingSequential,
       setIsRecordingSequential,
       isRecordingRich,
+      isRecordingPlain,
       setIsRecordingRich,
+      setIsRecordingPlain,
       isRecordingSearch,
       setIsRecordingSearch,
       saveAppSetting,
@@ -1002,6 +1022,8 @@ const App = () => {
       pushToast,
       deleteAfterPaste,
       moveToTopAfterPaste,
+      clickCopyOnly,
+      isWindowPinned,
       setSearch,
       setHistory,
       virtualListRef
@@ -1017,7 +1039,8 @@ const App = () => {
     fetchHistory
   });
 
-  const { handleAIAction } = useAiActions({
+  const { handleAIAction, handleAISupplement, applyAIResult, discardAIResult, copyAIText, aiDetails } = useAiActions({
+    history,
     aiProfiles,
     t,
     pushToast,
@@ -1099,6 +1122,10 @@ const App = () => {
     togglePin,
     deleteEntry,
     handleAIAction,
+    handleAISupplement,
+    applyAIResult,
+    discardAIResult,
+    copyAIText,
     setEditingTagsId,
     setEditingNoteId,
     setTagInput,
@@ -1185,7 +1212,11 @@ const App = () => {
     setTagInput,
     handleUpdateTags,
     handleUpdateNote,
-    handleAIAction
+    handleAIAction,
+    handleAISupplement,
+    aiDetails,
+    applyAIResult,
+    discardAIResult
   });
 
   const settingsPanelProps = useSettingsPanelProps({
@@ -1198,6 +1229,7 @@ const App = () => {
     updateHotkey,
     updateSequentialHotkey,
     updateRichPasteHotkey,
+    updatePlainPasteHotkey,
     updateSearchHotkey,
     saveAppSetting,
     saveSetting,
@@ -1334,7 +1366,8 @@ const App = () => {
               isEditingTags={!!detailItem && editingTagsId === detailItem.id}
               isEditingNote={!!detailItem && editingNoteId === detailItem.id}
               aiEnabled={aiEnabled}
-              isAIProcessing={!!detailItem && processingAiId === detailItem.id}
+              isAIProcessing={!!detailItem && (aiDetails[detailItem.id]?.processing ?? processingAiId === detailItem.id)}
+              aiDetail={detailItem ? aiDetails[detailItem.id] : undefined}
               showSourceAppIcon={showSourceAppIcon}
               tagInput={tagInput}
               tagSuggestions={allTags}

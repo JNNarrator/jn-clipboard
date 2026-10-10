@@ -1,5 +1,9 @@
-//! Idle "light mode": destroy the main WebView to free memory while clipboard
-//! listening / hotkeys / tray keep running. Recreate on next summon (#154).
+//! Idle "light mode": drop the main WebView's page to free memory while
+//! clipboard listening / hotkeys / tray keep running; rebuild on next summon
+//! (#154). Windows destroys the window. macOS cannot: tauri-nspanel replaces
+//! the window delegate, so Tauri never sees the close and the panel (with its
+//! WKWebView) stays alive. There the page is swapped for about:blank instead,
+//! which frees the JS heap, DOM and decoded images, and is reloaded on summon.
 
 use crate::app_state::SettingsState;
 use crate::database::DbState;
@@ -9,8 +13,8 @@ use crate::global_state::{
 };
 use crate::infrastructure::repository::settings_repo::SettingsRepository;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use tauri::{AppHandle, Manager, WebviewWindow, WebviewWindowBuilder};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use tauri::{AppHandle, Emitter, Manager, WebviewWindow, WebviewWindowBuilder};
 
 /// True while the main WebView has been destroyed for light mode.
 pub static WEBVIEW_LIGHT_MODE: AtomicBool = AtomicBool::new(false);
@@ -20,6 +24,55 @@ static LAST_HIDDEN_AT_MS: AtomicU64 = AtomicU64::new(0);
 
 /// When true, `ExitRequested` is allowed to tear down the process (tray Quit etc.).
 pub static ALLOW_APP_EXIT: AtomicBool = AtomicBool::new(false);
+
+/// The main page has been unmounted or unloaded for light mode; it must be
+/// reloaded from APP_URL before the window is shown again.
+static PAGE_UNLOADED: AtomicBool = AtomicBool::new(false);
+static APP_URL: std::sync::Mutex<Option<tauri::Url>> = std::sync::Mutex::new(None);
+
+/// The main UI must be rebuilt (or reloaded) before it can be shown.
+pub fn needs_rebuild(app: &AppHandle) -> bool {
+    app.get_webview_window("main").is_none() || PAGE_UNLOADED.load(Ordering::SeqCst)
+}
+
+/// False from rebuilding the WebView until its UI has rendered (main_ui_ready).
+static UI_READY: AtomicBool = AtomicBool::new(true);
+const UI_READY_TIMEOUT: Duration = Duration::from_millis(1500);
+
+/// Set by the page once it has unmounted ahead of a light-mode release.
+static UI_RELEASED: AtomicBool = AtomicBool::new(false);
+const UI_RELEASE_TIMEOUT: Duration = Duration::from_millis(1000);
+
+pub fn mark_ui_released() {
+    UI_RELEASED.store(true, Ordering::SeqCst);
+}
+
+/// Called by the frontend once settings and theme are applied.
+pub fn mark_ui_ready() {
+    UI_READY.store(true, Ordering::SeqCst);
+}
+
+/// Show a rebuilt window only once its UI has rendered (or after a short
+/// timeout), so a summon after light mode never flashes an empty shell.
+/// `show` re-runs the caller's normal show path off the calling thread.
+pub fn show_when_ready<F>(app: &AppHandle, show: F)
+where
+    F: FnOnce(&AppHandle) + Send + 'static,
+{
+    let app = app.clone();
+    std::thread::spawn(move || {
+        let started = Instant::now();
+        while !UI_READY.load(Ordering::SeqCst) && started.elapsed() < UI_READY_TIMEOUT {
+            std::thread::sleep(Duration::from_millis(15));
+        }
+        eprintln!(
+            "[light-mode] showing rebuilt window after {} ms ({})",
+            started.elapsed().as_millis(),
+            if UI_READY.load(Ordering::SeqCst) { "UI ready" } else { "timed out" }
+        );
+        show(&app);
+    });
+}
 
 fn now_ms() -> u64 {
     SystemTime::now()
@@ -42,7 +95,19 @@ pub fn request_app_exit(app: &AppHandle) {
     app.exit(0);
 }
 
+/// Bench override `TIEZ_LIGHT_MODE_IDLE_SECS=15`: light mode on, entered after
+/// 15 s instead of minutes. Debug builds only, so users can't trip it.
+fn bench_idle_secs() -> Option<u64> {
+    if !cfg!(debug_assertions) {
+        return None;
+    }
+    std::env::var("TIEZ_LIGHT_MODE_IDLE_SECS").ok()?.parse().ok()
+}
+
 fn light_mode_enabled(app: &AppHandle) -> bool {
+    if bench_idle_secs().is_some() {
+        return true;
+    }
     app.try_state::<SettingsState>()
         .map(|s| s.light_mode_enabled.load(Ordering::Relaxed))
         .unwrap_or(false)
@@ -55,17 +120,14 @@ fn light_mode_idle_minutes(app: &AppHandle) -> u64 {
 }
 
 fn light_mode_idle_ms(app: &AppHandle) -> u64 {
-    // Bench override: TIEZ_LIGHT_MODE_IDLE_SECS=15 → enter after 15s (not minutes).
-    if let Ok(secs) = std::env::var("TIEZ_LIGHT_MODE_IDLE_SECS") {
-        if let Ok(s) = secs.parse::<u64>() {
-            return s.saturating_mul(1000).max(1_000);
-        }
+    if let Some(secs) = bench_idle_secs() {
+        return secs.saturating_mul(1000).max(1_000);
     }
     light_mode_idle_minutes(app).saturating_mul(60_000)
 }
 
 fn watcher_interval() -> Duration {
-    if std::env::var("TIEZ_LIGHT_MODE_IDLE_SECS").is_ok() {
+    if bench_idle_secs().is_some() {
         Duration::from_secs(2)
     } else {
         Duration::from_secs(30)
@@ -159,6 +221,9 @@ fn apply_post_create(app: &AppHandle, window: &WebviewWindow) {
 /// Ensure the main WebView exists (recreate after light-mode destroy).
 pub fn ensure_main_window(app: &AppHandle) -> Result<WebviewWindow, String> {
     if let Some(window) = app.get_webview_window("main") {
+        if PAGE_UNLOADED.load(Ordering::SeqCst) {
+            reload_page(&window)?;
+        }
         WEBVIEW_LIGHT_MODE.store(false, Ordering::SeqCst);
         return Ok(window);
     }
@@ -174,13 +239,17 @@ pub fn ensure_main_window(app: &AppHandle) -> Result<WebviewWindow, String> {
 
     // from_config must not run on a sync WebView2 command path; callers should
     // already be off the webview IPC stack (hotkey / tray / idle thread).
+    UI_READY.store(false, Ordering::SeqCst);
     let builder = WebviewWindowBuilder::from_config(app, &cfg).map_err(|e| e.to_string())?;
     let window = builder
         .visible(false)
         .build()
         .map_err(|e| e.to_string())?;
 
+    #[cfg(target_os = "windows")]
+    crate::app::hooks::remember_main_hwnd(&window);
     apply_post_create(app, &window);
+    PAGE_UNLOADED.store(false, Ordering::SeqCst);
     WEBVIEW_LIGHT_MODE.store(false, Ordering::SeqCst);
     on_window_shown();
     eprintln!("[light-mode] main WebView recreated");
@@ -225,25 +294,82 @@ pub fn try_enter_light_mode(app: &AppHandle) {
         let _ = preview.destroy();
     }
 
-    if let Some(main) = app.get_webview_window("main") {
-        // Re-check visibility right before destroy.
-        if main.is_visible().unwrap_or(false) {
+    let Some(main) = app.get_webview_window("main") else {
+        return;
+    };
+    if main.is_visible().unwrap_or(false) {
+        return;
+    }
+    let Ok(url) = main.url() else {
+        return;
+    };
+    if url.scheme() != "about" {
+        *APP_URL.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(url);
+    }
+
+    // 1. Let the page unmount React first: Tauri keeps a webview's JS event
+    //    listeners across reloads and destroy, so without the effect cleanups
+    //    every cycle would leave ~50 dead listeners behind. From here on a
+    //    summon must reload the page (needs_rebuild).
+    PAGE_UNLOADED.store(true, Ordering::SeqCst);
+    UI_RELEASED.store(false, Ordering::SeqCst);
+    let _ = main.emit_to("main", "light-mode-release", ());
+    let started = Instant::now();
+    while !UI_RELEASED.load(Ordering::SeqCst) && started.elapsed() < UI_RELEASE_TIMEOUT {
+        std::thread::sleep(Duration::from_millis(15));
+    }
+    eprintln!(
+        "[light-mode] page unmount after {} ms ({})",
+        started.elapsed().as_millis(),
+        if UI_RELEASED.load(Ordering::SeqCst) { "acknowledged" } else { "timed out" }
+    );
+
+    // 2. Release on the main thread, where window show/hide also runs, so a
+    //    summon in between can't end up showing a page that is going away.
+    let app = app.clone();
+    let _ = app.clone().run_on_main_thread(move || {
+        let Some(main) = app.get_webview_window("main") else {
+            return;
+        };
+        // A summon in the meantime reloaded the page (or is showing it).
+        if !PAGE_UNLOADED.load(Ordering::SeqCst) || main.is_visible().unwrap_or(false) {
             return;
         }
         WEBVIEW_LIGHT_MODE.store(true, Ordering::SeqCst);
         NAVIGATION_ENABLED.store(false, Ordering::SeqCst);
         NAVIGATION_MODE_ACTIVE.store(false, Ordering::SeqCst);
-        if let Err(err) = main.destroy() {
+
+        // macOS can't destroy (see module docs); blank the page instead.
+        #[cfg(target_os = "macos")]
+        let released = tauri::Url::parse("about:blank")
+            .map_err(|err| err.to_string())
+            .and_then(|blank| main.navigate(blank).map_err(|err| err.to_string()));
+        #[cfg(not(target_os = "macos"))]
+        let released = main.destroy().map_err(|err| err.to_string());
+
+        if let Err(err) = released {
             WEBVIEW_LIGHT_MODE.store(false, Ordering::SeqCst);
-            eprintln!("[light-mode] destroy failed: {err}");
+            eprintln!("[light-mode] release failed: {err}");
             return;
         }
-        eprintln!(
-            "[light-mode] WebView destroyed after {} ms idle",
-            idle_ms
-        );
+        eprintln!("[light-mode] UI released after {} ms idle", idle_ms);
         trim_working_set();
-    }
+    });
+}
+
+/// Load the app page back into a window whose page light mode unloaded.
+fn reload_page(window: &WebviewWindow) -> Result<(), String> {
+    let url = APP_URL
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .clone()
+        .ok_or_else(|| "app URL unknown".to_string())?;
+    UI_READY.store(false, Ordering::SeqCst);
+    // Cleared first so a release still queued on the main thread backs off.
+    PAGE_UNLOADED.store(false, Ordering::SeqCst);
+    window.navigate(url).map_err(|err| err.to_string())?;
+    eprintln!("[light-mode] main page reloaded");
+    Ok(())
 }
 
 pub fn start_idle_watcher(app: AppHandle) {
@@ -275,10 +401,13 @@ pub fn start_idle_watcher(app: AppHandle) {
             );
             std::thread::sleep(Duration::from_millis(idle_ms + 2_000));
             try_enter_light_mode(&app2);
+            // destroy() is dispatched to the main thread; look once it has run.
+            std::thread::sleep(Duration::from_secs(2));
             eprintln!(
-                "[light-mode] bench: after try_enter light_mode={} webview={}",
+                "[light-mode] bench: after try_enter light_mode={} window={} page_unloaded={}",
                 WEBVIEW_LIGHT_MODE.load(Ordering::SeqCst),
-                app2.get_webview_window("main").is_some()
+                app2.get_webview_window("main").is_some(),
+                PAGE_UNLOADED.load(Ordering::SeqCst)
             );
         });
     }

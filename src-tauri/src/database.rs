@@ -23,12 +23,21 @@ const SENSITIVE_KEYS: &[&str] = &[
     "ai_profiles",
     "cloud_sync_api_key",
     "cloud_sync_webdav_password",
+    "e2e_key",
 ];
 
 pub const SENSITIVE_TAGS: &[&str] = &["sensitive", "密码", "password"];
 
 pub fn is_sensitive_key(key: &str) -> bool {
     SENSITIVE_KEYS.iter().any(|k| k.eq_ignore_ascii_case(key))
+}
+
+/// `app.sound_volume` as 0-1. Windows 0.3.x stored 0-100 (and can still sync
+/// such a value in), so anything above 1 is read as a percentage.
+pub fn sound_volume_from_setting(value: &str) -> Option<f64> {
+    let volume = value.trim().parse::<f64>().ok().filter(|v| v.is_finite())?;
+    let volume = if volume > 1.0 { volume.min(100.0) / 100.0 } else { volume };
+    Some(volume.max(0.0))
 }
 
 pub fn has_sensitive_tag(tags: &[String]) -> bool {
@@ -45,12 +54,59 @@ fn normalize_text(content: &str) -> String {
 }
 
 pub fn calc_text_hash(content: &str) -> u64 {
-    use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};
     let normalized = normalize_text(content);
-    let mut hasher = DefaultHasher::new();
+    let mut hasher = crate::infrastructure::stable_hash::StableHasher::new();
     normalized.hash(&mut hasher);
     hasher.finish()
+}
+
+/// Hash of raw bytes that stays the same across Rust releases (stored hashes
+/// and attachment names depend on it; see infrastructure::stable_hash).
+pub fn stable_bytes_hash(bytes: &[u8]) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = crate::infrastructure::stable_hash::StableHasher::new();
+    bytes.hash(&mut hasher);
+    hasher.finish()
+}
+
+/// File extension from an image's magic bytes.
+pub fn image_extension_from_magic(bytes: &[u8]) -> Option<&'static str> {
+    if bytes.starts_with(b"GIF8") {
+        Some("gif")
+    } else if bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
+        Some("png")
+    } else if bytes.starts_with(b"\xFF\xD8\xFF") {
+        Some("jpg")
+    } else if bytes.len() >= 12 && &bytes[0..4] == b"RIFF" && &bytes[8..12] == b"WEBP" {
+        Some("webp")
+    } else if bytes.starts_with(b"BM") {
+        Some("bmp")
+    } else {
+        None
+    }
+}
+
+/// Content-addressed attachment (`img_<hash>.<ext>` in `dir`). Written to a
+/// temp file and renamed into place; an existing file of the wrong size (a
+/// write cut short by a crash or a full disk) is rewritten instead of being
+/// reused for good.
+pub fn write_attachment(dir: &std::path::Path, bytes: &[u8], ext: &str) -> Option<std::path::PathBuf> {
+    std::fs::create_dir_all(dir).ok()?;
+    let name = format!("img_{:x}.{}", stable_bytes_hash(bytes), ext);
+    let path = dir.join(&name);
+    let intact = std::fs::metadata(&path)
+        .map(|meta| meta.len() == bytes.len() as u64)
+        .unwrap_or(false);
+    if !intact {
+        let temp = dir.join(format!(".{}.{}.tmp", name, std::process::id()));
+        std::fs::write(&temp, bytes).ok()?;
+        if std::fs::rename(&temp, &path).is_err() {
+            let _ = std::fs::remove_file(&temp);
+            return None;
+        }
+    }
+    Some(path)
 }
 
 /// Stable cross-platform fingerprint used by the cloud-sync wire protocol.
@@ -88,11 +144,7 @@ pub fn calc_sync_content_hash(content_type: &str, content: &str) -> i64 {
 }
 
 pub fn calc_image_hash_from_bytes(bytes: &[u8]) -> Option<i64> {
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
-    let mut hasher = DefaultHasher::new();
-    bytes.hash(&mut hasher);
-    Some(hasher.finish() as i64)
+    Some(stable_bytes_hash(bytes) as i64)
 }
 
 pub fn calc_image_hash(base64_data: &str) -> Option<i64> {
@@ -148,33 +200,19 @@ pub fn save_image_bytes_to_file_with_extension(
     data_dir: &std::path::Path,
     extension: &str,
 ) -> Option<String> {
-    use std::io::Write;
-
-    let attachments_dir = data_dir.join("attachments");
-    if !attachments_dir.exists() {
-        let _ = std::fs::create_dir_all(&attachments_dir);
-    }
-
-    let mut hasher = std::collections::hash_map::DefaultHasher::new();
-    use std::hash::{Hash, Hasher};
-    image_bytes.hash(&mut hasher);
-    let hash = hasher.finish();
-
-    let extension = match extension.trim().to_ascii_lowercase().as_str() {
-        "gif" => "gif",
-        "jpg" | "jpeg" => "jpg",
-        "webp" => "webp",
-        _ => "png",
-    };
-    let file_name = format!("img_{:x}.{}", hash, extension);
-    let file_path = attachments_dir.join(&file_name);
-
-    if !file_path.exists() {
-        let mut file = std::fs::File::create(&file_path).ok()?;
-        file.write_all(image_bytes).ok()?;
-    }
-
-    Some(file_path.to_string_lossy().to_string())
+    // The bytes decide the extension: a GIF from a data URL labelled PNG, or a
+    // BMP, used to be saved as .png.
+    let extension = image_extension_from_magic(image_bytes).unwrap_or(
+        match extension.trim().to_ascii_lowercase().as_str() {
+            "gif" => "gif",
+            "jpg" | "jpeg" => "jpg",
+            "webp" => "webp",
+            "bmp" => "bmp",
+            _ => "png",
+        },
+    );
+    write_attachment(&data_dir.join("attachments"), image_bytes, extension)
+        .map(|path| path.to_string_lossy().to_string())
 }
 
 pub fn save_image_bytes_to_file(png_bytes: &[u8], data_dir: &std::path::Path) -> Option<String> {
@@ -363,7 +401,10 @@ pub fn seed_defaults(conn: &Connection) -> Result<()> {
         [],
     );
     let _ = conn.execute(
-        "INSERT OR IGNORE INTO settings (key, value) VALUES ('file_server_port', '12345')",
+        // 12345 is NetBus's port, so port scans name TieZ a trojan (#157).
+        // Only new installs get the new one; saved ports (and phones that
+        // bookmarked them) stay as they are.
+        "INSERT OR IGNORE INTO settings (key, value) VALUES ('file_server_port', '28462')",
         [],
     );
 
@@ -630,6 +671,15 @@ mod tests {
         )
         .unwrap();
         conn
+    }
+
+    #[test]
+    fn sound_volume_reads_legacy_percentages() {
+        assert_eq!(sound_volume_from_setting("0.4"), Some(0.4));
+        assert_eq!(sound_volume_from_setting("70"), Some(0.7));
+        assert_eq!(sound_volume_from_setting("250"), Some(1.0));
+        assert_eq!(sound_volume_from_setting("0"), Some(0.0));
+        assert_eq!(sound_volume_from_setting("loud"), None);
     }
 
     #[test]

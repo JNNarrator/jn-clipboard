@@ -332,6 +332,36 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
         conn.execute("INSERT INTO schema_migrations (version) VALUES (14)", [])?;
     }
 
+    // Migration 15: when an entry's tags were last edited, so cloud sync can
+    // keep the newer edit instead of letting any remote copy overwrite it.
+    if current_version < 15 {
+        if !has_column(conn, "clipboard_history", "tags_updated_at")? {
+            conn.execute(
+                "ALTER TABLE clipboard_history ADD COLUMN tags_updated_at INTEGER NOT NULL DEFAULT 0",
+                [],
+            )?;
+        }
+        conn.execute("INSERT INTO schema_migrations (version) VALUES (15)", [])?;
+    }
+
+    // Migration 16: Windows 0.3.x stored the sound volume as 0-100; it is 0-1
+    // now. Left alone, 70 shows as 7000% and plays at full volume.
+    if current_version < 16 {
+        let has_settings: bool = conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'settings')",
+            [],
+            |row| row.get(0),
+        )?;
+        if has_settings {
+            conn.execute(
+                "UPDATE settings SET value = CAST(MIN(CAST(value AS REAL), 100.0) / 100.0 AS TEXT)
+                 WHERE key = 'app.sound_volume' AND CAST(value AS REAL) > 1.0",
+                [],
+            )?;
+        }
+        conn.execute("INSERT INTO schema_migrations (version) VALUES (16)", [])?;
+    }
+
     Ok(())
 }
 
@@ -400,6 +430,45 @@ mod tests {
                 row.get(0)
             })
             .expect("read schema version");
-        assert_eq!(version, 14);
+        assert_eq!(version, 16);
+    }
+
+    #[test]
+    fn migration_16_rescales_percent_sound_volume() {
+        let conn = Connection::open_in_memory().expect("open database");
+        conn.execute_batch(
+            "
+            CREATE TABLE schema_migrations (
+                version INTEGER PRIMARY KEY,
+                applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            INSERT INTO schema_migrations(version) VALUES (15);
+            CREATE TABLE clipboard_history (id INTEGER PRIMARY KEY, note TEXT NOT NULL DEFAULT '');
+            CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+            INSERT INTO settings(key, value) VALUES ('app.sound_volume', '70');
+            ",
+        )
+        .expect("create version 15 fixture");
+
+        run_migrations(&conn).expect("run update migrations");
+
+        let volume = |conn: &Connection| -> f64 {
+            conn.query_row(
+                "SELECT value FROM settings WHERE key = 'app.sound_volume'",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .expect("read volume")
+            .parse()
+            .expect("volume is a number")
+        };
+        assert!((volume(&conn) - 0.7).abs() < 1e-9);
+
+        // Already on the 0-1 scale: untouched.
+        conn.execute("UPDATE settings SET value = '0.5' WHERE key = 'app.sound_volume'", [])
+            .unwrap();
+        conn.execute("DELETE FROM schema_migrations WHERE version = 16", []).unwrap();
+        run_migrations(&conn).expect("rerun migration 16");
+        assert!((volume(&conn) - 0.5).abs() < 1e-9);
     }
 }

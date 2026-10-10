@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 
 interface UseAppActionsOptions {
@@ -11,6 +11,8 @@ interface UseAppActionsOptions {
   fetchHistory: (reset?: boolean) => Promise<void>;
 }
 
+const MQTT_RESTART_DEBOUNCE_MS = 1200;
+
 export const useAppActions = ({
   t,
   mqttEnabled,
@@ -20,11 +22,15 @@ export const useAppActions = ({
   pushToast,
   fetchHistory
 }: UseAppActionsOptions) => {
+  // Typing in a connection field saves on every keystroke. Restart once the
+  // user pauses instead of reconnecting per character (brokers may ban an IP
+  // after a burst of failed logins); this also lets a protocol change and the
+  // port change it brings land together.
+  const mqttRestartTimer = useRef<number | null>(null);
   const saveMqtt = useCallback(
     async (key: string, value: string) => {
       try {
         await invoke("save_setting", { key, value });
-        // Restart MQTT client when any MQTT-related setting changes (if enabled)
         const mqttKeys = [
           "mqtt_enabled",
           "mqtt_server",
@@ -33,15 +39,17 @@ export const useAppActions = ({
           "mqtt_password",
           "mqtt_topic",
           "mqtt_protocol",
+          "mqtt_ws_path",
           "mqtt_client_id"
         ];
-        if (key === "mqtt_enabled" && value === "true") {
-          await invoke("restart_mqtt_client");
-          console.log("MQTT client restarted due to mqtt_enabled toggle");
-        } else if (mqttKeys.includes(key) && mqttEnabled) {
-          await invoke("restart_mqtt_client");
-          console.log(`MQTT client restarted due to ${key} change`);
-        }
+        const shouldRestart = (key === "mqtt_enabled" && value === "true") || (mqttKeys.includes(key) && mqttEnabled);
+        if (!shouldRestart) return;
+        if (mqttRestartTimer.current !== null) window.clearTimeout(mqttRestartTimer.current);
+        const delay = key === "mqtt_enabled" ? 0 : MQTT_RESTART_DEBOUNCE_MS;
+        mqttRestartTimer.current = window.setTimeout(() => {
+          mqttRestartTimer.current = null;
+          invoke("restart_mqtt_client").catch((err) => console.error("MQTT restart failed", err));
+        }, delay);
       } catch (err) {
         console.error("MQTT Set save failed", err);
       }

@@ -3,6 +3,7 @@ pub mod clipboard_listener;
 pub mod clipboard_ops;
 pub mod cloud_sync;
 pub mod content_handler;
+pub mod e2e;
 pub mod encryption_queue;
 pub mod file_transfer;
 pub mod importers;

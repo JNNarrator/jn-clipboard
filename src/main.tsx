@@ -8,6 +8,9 @@ import "./styles/platform-macos.css";
 import "./styles/components/pin-sticker.css";
 import { installBrowserAcceleratorBlocker } from "./shared/lib/blockBrowserAccelerators";
 import ErrorBoundary from "./shared/components/ErrorBoundary";
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+import { isTauriRuntime } from "./shared/lib/tauriRuntime";
 
 // Suppress Chromium/WebView browser accelerators in every window (main, preview, settings…).
 installBrowserAcceleratorBlocker();
@@ -36,7 +39,8 @@ if (isMacPlatform) {
   document.body.classList.add("platform-windows");
 }
 
-ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
+const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement);
+root.render(
   <React.StrictMode>
     <ErrorBoundary>
       <Suspense fallback={null}>
@@ -45,3 +49,16 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     </ErrorBoundary>
   </React.StrictMode>,
 );
+
+// Light mode is about to drop this page. Unmount first so every effect cleanup
+// unregisters its Tauri event listener; Tauri keeps them across reloads
+// otherwise. Rust waits for the ack (or gives up after a second).
+if (!isCompactPreview && !isPinSticker && isTauriRuntime()) {
+  const offRelease = listen("light-mode-release", async () => {
+    root.unmount();
+    (await offRelease)();
+    // Let the unlisten calls from the cleanups go out before Rust navigates.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    await invoke("main_ui_released").catch(() => {});
+  });
+}

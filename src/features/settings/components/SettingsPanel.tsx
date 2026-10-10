@@ -15,11 +15,13 @@ import {
     Palette,
     Settings2,
     ShieldCheck,
+    KeyRound,
     Sparkles,
     Wifi,
     type LucideIcon
 } from "lucide-react";
 import type { Locale } from "../../../shared/types";
+import { formatError } from "../../../shared/lib/errorMessage";
 import type { DefaultAppsMap, InstalledAppOption, SettingsSubpage, CloudSyncContentPrefs } from "../../app/types";
 import type { AiProfile, AiProfileStatusMap, AppCleanupPolicy, EditableAiProfile } from "../types";
 import AppSelectorModal from "./AppSelectorModal";
@@ -31,6 +33,8 @@ import AdvancedSettingsGroup from "./groups/AdvancedSettingsGroup";
 import AppearanceSettingsGroup from "./groups/AppearanceSettingsGroup";
 import SyncSettingsGroup from "./groups/SyncSettingsGroup";
 import CloudSyncSettingsGroup, { type CloudSyncStatusPayload } from "./groups/CloudSyncSettingsGroup";
+import E2eSettingsGroup from "./groups/E2eSettingsGroup";
+import { useE2eKey } from "../hooks/useE2eKey";
 import DefaultAppsSettingsGroup from "./groups/DefaultAppsSettingsGroup";
 import DataSettingsGroup from "./groups/DataSettingsGroup";
 import FileTransferSettingsGroup from "./groups/FileTransferSettingsGroup";
@@ -78,6 +82,7 @@ interface SettingsPanelProps {
     richTextSnapshotPreview: boolean;
     deleteAfterPaste: boolean;
     moveToTopAfterPaste: boolean;
+    clickCopyOnly: boolean;
     pasteMethod: string;
     setPasteMethod: (val: string) => void;
     registryWinVEnabled: boolean;
@@ -86,7 +91,9 @@ interface SettingsPanelProps {
     sequentialHotkey: string;
     isRecordingSequential: boolean;
     richPasteHotkey: string;
+    plainPasteHotkey: string;
     isRecordingRich: boolean;
+    isRecordingPlain: boolean;
     searchHotkey: string;
     isRecordingSearch: boolean;
     quickPasteModifier: "disabled" | "ctrl" | "alt" | "shift" | "win";
@@ -205,12 +212,15 @@ interface SettingsPanelProps {
     setRichTextSnapshotPreview: (val: boolean) => void;
     setDeleteAfterPaste: (val: boolean) => void;
     setMoveToTopAfterPaste: (val: boolean) => void;
+    setClickCopyOnly: (val: boolean) => void;
     saveAppSetting: (key: string, val: string) => void;
     setSequentialModeState: (val: boolean) => void;
     setIsRecordingSequential: (val: boolean) => void;
     updateSequentialHotkey: (key: string) => void;
     setIsRecordingRich: (val: boolean) => void;
+    setIsRecordingPlain: (val: boolean) => void;
     updateRichPasteHotkey: (key: string) => void;
+    updatePlainPasteHotkey: (key: string) => void;
     setIsRecordingSearch: (val: boolean) => void;
     updateSearchHotkey: (key: string) => void;
     setPrivacyProtection: (val: boolean) => void;
@@ -274,8 +284,6 @@ interface SettingsPanelProps {
     setAiEnabled: (val: boolean) => void;
     aiTargetLang: string;
     setAiTargetLang: (val: string) => void;
-    aiThinkingBudget: string;
-    setAiThinkingBudget: (val: string) => void;
     saveSetting: (key: string, val: string) => void;
     aiProfiles: AiProfile[];
     setAiProfiles: (val: AiProfile[]) => void;
@@ -300,6 +308,7 @@ const SECTION_ICONS: Record<string, LucideIcon> = {
     ai: Sparkles,
     sync: MessageSquareText,
     cloud_sync: Cloud,
+    e2e: KeyRound,
     file_transfer: Wifi,
     secure_transfer: ShieldCheck,
     data: Database
@@ -308,16 +317,16 @@ const SECTION_ICONS: Record<string, LucideIcon> = {
 const NAV_GROUPS: { labelKey: string; ids: string[] }[] = [
     { labelKey: "settings_nav_group_basic", ids: ["general", "appearance"] },
     { labelKey: "settings_nav_group_clipboard", ids: ["clipboard", ADVANCED_ENTRY, "default_apps", "ai"] },
-    { labelKey: "settings_nav_group_sync", ids: ["sync", "cloud_sync", "file_transfer"] },
+    { labelKey: "settings_nav_group_sync", ids: ["sync", "cloud_sync", "e2e", "file_transfer"] },
     { labelKey: "settings_nav_group_data", ids: ["secure_transfer", "data"] }
 ];
 
 const SettingsPanel = (props: SettingsPanelProps) => {
     const {
         t, theme, nativePalette, nativeCustomColor, setNativePalette, language, colorMode, showAppBorder, setShowAppBorder, showSourceAppIcon, setShowSourceAppIcon, hideUnselectedItemActions, setHideUnselectedItemActions,
-        collapsedGroups, settingsSubpage, autoStart, elevatedAutostart, silentStart, persistent, persistentLimitEnabled, persistentLimit, deduplicate, captureFiles, captureRichText, richTextSnapshotPreview, deleteAfterPaste, moveToTopAfterPaste, pasteMethod, setPasteMethod, registryWinVEnabled, setRegistryWinVEnabled,
+        collapsedGroups, settingsSubpage, autoStart, elevatedAutostart, silentStart, persistent, persistentLimitEnabled, persistentLimit, deduplicate, captureFiles, captureRichText, richTextSnapshotPreview, deleteAfterPaste, moveToTopAfterPaste, clickCopyOnly, pasteMethod, setPasteMethod, registryWinVEnabled, setRegistryWinVEnabled,
         sequentialMode, sequentialHotkey, isRecordingSequential,
-        richPasteHotkey, isRecordingRich, searchHotkey, isRecordingSearch, quickPasteModifier, setQuickPasteModifier,
+        richPasteHotkey, isRecordingRich, plainPasteHotkey, isRecordingPlain, searchHotkey, isRecordingSearch, quickPasteModifier, setQuickPasteModifier,
         privacyProtection, privacyProtectionKinds, setPrivacyProtectionKinds, privacyProtectionCustomRules, setPrivacyProtectionCustomRules, sensitiveMaskPrefixVisible, setSensitiveMaskPrefixVisible, sensitiveMaskSuffixVisible, setSensitiveMaskSuffixVisible, sensitiveMaskEmailDomain, setSensitiveMaskEmailDomain, cleanupRules, setCleanupRules, appCleanupPolicies, setAppCleanupPolicies, setShowSearchBox, searchBoxPinned, setSearchBoxPinned, scrollTopButtonEnabled, setScrollTopButtonEnabled, arrowKeySelection, setArrowKeySelection,
         lightModeEnabled, setLightModeEnabled, lightModeIdleMinutes, setLightModeIdleMinutes,
         soundEnabled, setSoundEnabled, pasteSoundEnabled, setPasteSoundEnabled,
@@ -334,9 +343,10 @@ const SettingsPanel = (props: SettingsPanelProps) => {
         fileServerEnabled, fileServerPort, localIp, availableIps, setLocalIp, actualPort, fileTransferAccessToken, fileTransferAutoOpen, showAutoCloseHint, fileServerAutoClose, fileTransferAutoCopy, fileTransferPath,
         installedApps, appSettings, defaultApps, showAppSelector, dataPath,
 
-        toggleGroup, setSettingsSubpage, setAutoStart, setElevatedAutostart, setSilentStart, setPersistent, setPersistentLimitEnabled, setPersistentLimit, setDeduplicate, setCaptureFiles, setCaptureRichText, setRichTextSnapshotPreview, setDeleteAfterPaste, setMoveToTopAfterPaste, saveAppSetting,
+        toggleGroup, setSettingsSubpage, setAutoStart, setElevatedAutostart, setSilentStart, setPersistent, setPersistentLimitEnabled, setPersistentLimit, setDeduplicate, setCaptureFiles, setCaptureRichText, setRichTextSnapshotPreview, setDeleteAfterPaste, setMoveToTopAfterPaste, setClickCopyOnly, saveAppSetting,
         setSequentialModeState, setIsRecordingSequential, updateSequentialHotkey,
         setIsRecordingRich, updateRichPasteHotkey,
+        setIsRecordingPlain, updatePlainPasteHotkey,
         setIsRecordingSearch, updateSearchHotkey,
         setPrivacyProtection,
         setIsRecording, isRecording, hotkey, hotkeyParts, updateHotkey,
@@ -347,7 +357,7 @@ const SettingsPanel = (props: SettingsPanelProps) => {
         setCloudSyncEnabled, setCloudSyncAuto, setCloudSyncIntervalSec, setCloudSyncSnapshotIntervalMin, setCloudSyncWebdavUrl, setCloudSyncWebdavUsername, setCloudSyncWebdavPassword, setCloudSyncWebdavBasePath, setCloudSyncContentPrefs, saveCloudSync,
         setFileServerEnabled, setFileServerPort, setFileTransferAutoOpen, setShowAutoCloseHint, setFileServerAutoClose, setFileTransferAutoCopy, fetchEffectiveTransferPath,
         setShowAppSelector, handleResetSettings,
-        aiEnabled, setAiEnabled, aiTargetLang, setAiTargetLang, aiThinkingBudget, setAiThinkingBudget, saveSetting,
+        aiEnabled, setAiEnabled, aiTargetLang, setAiTargetLang, saveSetting,
         onOpenChat,
         aiProfiles, setAiProfiles, aiAssignedProfileTask, setAiAssignedProfileTask, aiAssignedProfileMouthpiece, setAiAssignedProfileMouthpiece, aiAssignedProfileTranslate, setAiAssignedProfileTranslate
     } = props;
@@ -406,7 +416,8 @@ const SettingsPanel = (props: SettingsPanelProps) => {
             const result = await invoke<string>("check_ai_connectivity", {
                 baseUrl: profile.baseUrl,
                 apiKey: profile.apiKey,
-                model: profile.model
+                model: profile.model,
+                provider: profile.provider ?? null
             });
             if (result === "success") {
                 setProfileStatuses(prev => ({ ...prev, [profile.id]: 'success' }));
@@ -414,6 +425,8 @@ const SettingsPanel = (props: SettingsPanelProps) => {
         } catch (e: unknown) {
             console.error("AI Check failed:", e);
             setProfileStatuses(prev => ({ ...prev, [profile.id]: 'error' }));
+            // The red dot alone left users guessing (#114).
+            void emit("toast", `${t("ai_check_failed")}${formatError(e, t)}`);
         }
     };
 
@@ -514,6 +527,7 @@ const SettingsPanel = (props: SettingsPanelProps) => {
 
     // Narrow windows show an accordion of collapsible groups. Wide ones list the
     // sections on the left and show the selected group, always open, on the right.
+    const { key: e2eKey, save: saveE2eKey } = useE2eKey();
     const groupState = (id: string) => wideLayout
         ? { collapsed: false, onToggle: noop }
         : { collapsed: collapsedGroups[id], onToggle: () => toggleGroup(id) };
@@ -590,9 +604,13 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                     richTextSnapshotPreview={richTextSnapshotPreview}
                     setRichTextSnapshotPreview={setRichTextSnapshotPreview}
                     richPasteHotkey={richPasteHotkey}
+                    plainPasteHotkey={plainPasteHotkey}
                     isRecordingRich={isRecordingRich}
+                    isRecordingPlain={isRecordingPlain}
                     setIsRecordingRich={setIsRecordingRich}
+                    setIsRecordingPlain={setIsRecordingPlain}
                     updateRichPasteHotkey={updateRichPasteHotkey}
+                    updatePlainPasteHotkey={updatePlainPasteHotkey}
                     searchHotkey={searchHotkey}
                     isRecordingSearch={isRecordingSearch}
                     setIsRecordingSearch={setIsRecordingSearch}
@@ -602,7 +620,9 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                     deleteAfterPaste={deleteAfterPaste}
                     setDeleteAfterPaste={setDeleteAfterPaste}
                     moveToTopAfterPaste={moveToTopAfterPaste}
+                    clickCopyOnly={clickCopyOnly}
                     setMoveToTopAfterPaste={setMoveToTopAfterPaste}
+                    setClickCopyOnly={setClickCopyOnly}
                     pasteMethod={pasteMethod}
                     setPasteMethod={setPasteMethod}
                     registryWinVEnabled={registryWinVEnabled}
@@ -713,6 +733,7 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                     setMqttTopic={setMqttTopic}
                     mqttNotificationEnabled={mqttNotificationEnabled}
                     setMqttNotificationEnabled={setMqttNotificationEnabled}
+                    e2eKey={e2eKey}
                 />
             )
         },
@@ -747,10 +768,23 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                         status={cloudSyncStatus}
                         syncingNow={cloudSyncNowRunning}
                         onSyncNow={handleCloudSyncNow}
+                        e2eKey={e2eKey}
                     />
                 )
             }]
             : []),
+        {
+            id: "e2e",
+            label: t("e2e_settings"),
+            node: (
+                <E2eSettingsGroup
+                    t={t}
+                    {...groupState('e2e')}
+                    e2eKey={e2eKey}
+                    saveE2eKey={saveE2eKey}
+                />
+            )
+        },
         {
             id: "ai",
             label: t("ai_settings"),
@@ -774,8 +808,6 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                     setAiAssignedProfileTranslate={setAiAssignedProfileTranslate}
                     aiTargetLang={aiTargetLang}
                     setAiTargetLang={setAiTargetLang}
-                    aiThinkingBudget={aiThinkingBudget}
-                    setAiThinkingBudget={setAiThinkingBudget}
                     theme={theme}
                 />
             )

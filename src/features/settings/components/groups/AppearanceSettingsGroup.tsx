@@ -17,7 +17,6 @@ import {
 import { isWindowsPlatform } from "../../../../shared/lib/platform";
 import type { Locale } from "../../../../shared/types";
 import {
-    ensureInstalledThemeStyle,
     getInstalledThemeLabel,
     listInstalledThemes,
     removeInstalledThemeStyle,
@@ -140,43 +139,6 @@ const AppearanceSettingsGroup = ({
             disposed = true;
         };
     }, []);
-
-    const installTheme = async () => {
-        try {
-            const selected = await withNativeDialog(async () => open({
-                multiple: false,
-                title: t('theme_package_import'),
-                filters: [{
-                    name: t('theme_package_file'),
-                    extensions: ['zip', 'tiez-theme']
-                }]
-            }), "settings:import-theme");
-            if (!selected || typeof selected !== 'string') return;
-
-            const installed = await invoke<InstalledThemeDefinition>('install_theme_package', {
-                packagePath: selected
-            });
-            const loaded = await ensureInstalledThemeStyle(installed.id, { force: true });
-            if (!loaded) throw new Error(t('theme_package_load_failed'));
-
-            setInstalledThemes(current => [
-                ...current.filter(item => item.id !== installed.id),
-                installed
-            ].sort((a, b) => a.id.localeCompare(b.id)));
-            setTheme(installed.id);
-            saveAppSetting('theme', installed.id);
-            await message(t('theme_package_install_success'), {
-                title: t('visual_theme'),
-                kind: 'info'
-            });
-        } catch (error) {
-            console.error("Failed to install theme package:", error);
-            await message(`${t('theme_package_install_failed')}\n${formatError(error, t)}`, {
-                title: t('error'),
-                kind: 'error'
-            });
-        }
-    };
 
     const uninstallTheme = async (item: InstalledThemeDefinition) => {
         try {
@@ -303,13 +265,6 @@ const AppearanceSettingsGroup = ({
                             </div>
                         </>
                     )}
-                    <button
-                        type="button"
-                        className="settings-action-button settings-action-button--small theme-package-import-btn"
-                        onClick={() => void installTheme()}
-                    >
-                        {t('theme_package_import')}
-                    </button>
                 </div>
 
                 {supportsNativePalette(theme) && (

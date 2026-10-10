@@ -115,6 +115,7 @@ pub fn sync_registered_hotkeys(app_handle: &AppHandle) -> AppResult<()> {
     let main_hotkey = settings.main_hotkey.lock().unwrap().clone();
     let sequential_hotkey = settings.sequential_paste_hotkey.lock().unwrap().clone();
     let rich_hotkey = settings.rich_paste_hotkey.lock().unwrap().clone();
+    let plain_hotkey = settings.plain_paste_hotkey.lock().unwrap().clone();
     let search_hotkey = settings.search_hotkey.lock().unwrap().clone();
     let quick_paste_modifier = settings.quick_paste_modifier.lock().unwrap().clone();
     let sequential_mode = settings.sequential_mode.load(Ordering::Relaxed);
@@ -132,6 +133,9 @@ pub fn sync_registered_hotkeys(app_handle: &AppHandle) -> AppResult<()> {
 
     if !rich_hotkey.is_empty() {
         register_unique_shortcut(app_handle, &rich_hotkey, &mut registered)?;
+    }
+    if !plain_hotkey.is_empty() {
+        register_unique_shortcut(app_handle, &plain_hotkey, &mut registered)?;
     }
     if !search_hotkey.is_empty() {
         register_unique_shortcut(app_handle, &search_hotkey, &mut registered)?;

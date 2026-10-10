@@ -8,6 +8,8 @@ use tokio::sync::broadcast;
 pub struct AppState {
     pub app_handle: AppHandle,
     pub ws_tx: broadcast::Sender<String>,
+    /// Flips to true when the server is turned off, closing open WebSockets.
+    pub shutdown: tokio::sync::watch::Receiver<bool>,
 }
 
 #[derive(Default)]

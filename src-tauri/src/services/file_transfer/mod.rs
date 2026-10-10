@@ -26,6 +26,20 @@ pub use models::*;
 pub use utils::*;
 
 pub static SERVER_HANDLE: Mutex<Option<JoinHandle<()>>> = Mutex::new(None);
+/// Aborting the server task only stops accepting; axum's per-connection tasks
+/// (open WebSockets) live on until told to close through this.
+static SERVER_SHUTDOWN: Mutex<Option<tokio::sync::watch::Sender<bool>>> = Mutex::new(None);
+/// Set while toggle_file_server is starting a server, so a concurrent start
+/// (UI toggle racing an auto-start) can't spawn a second, unstoppable one.
+static SERVER_STARTING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+struct StartingGuard;
+
+impl Drop for StartingGuard {
+    fn drop(&mut self) {
+        SERVER_STARTING.store(false, Ordering::SeqCst);
+    }
+}
 const SHARED_FILE_TOKEN_LIFETIME: Duration = Duration::from_secs(8 * 60 * 60);
 const MAX_SHARED_FILE_TOKENS: usize = 1_024;
 const MAX_CHAT_MESSAGES: usize = 5_000;
@@ -46,6 +60,12 @@ pub(super) fn register_shared_file(app_handle: &AppHandle, file_path: String) ->
         }
         keep
     });
+    // Reuse the file's live token: /poll re-registers every file message, and
+    // minting fresh ones evicted the links the phone was already showing.
+    if let Some((token, entry)) = files.iter_mut().find(|(_, entry)| entry.path == file_path) {
+        *entry = SharedFileEntry::new(file_path, SHARED_FILE_TOKEN_LIFETIME);
+        return Some(token.clone());
+    }
     if files.len() >= MAX_SHARED_FILE_TOKENS {
         if let Some(oldest_key) = files
             .iter()
@@ -395,7 +415,11 @@ pub async fn get_download_url(app_handle: AppHandle, file_path: String) -> Resul
         let p = server_info.port.load(Ordering::Relaxed);
         if p == 0 {
             match toggle_file_server(app_handle.clone(), true, None).await {
-                Ok(p_str) => p_str.parse::<u16>().unwrap_or(0),
+                Ok(p_str) => match p_str.parse::<u16>() {
+                    Ok(port) => port,
+                    // Another caller is starting (or just started) it.
+                    Err(_) => wait_for_server_port(&app_handle).await,
+                },
                 Err(_) => 0,
             }
         } else {
@@ -420,6 +444,49 @@ pub async fn get_download_url(app_handle: AppHandle, file_path: String) -> Resul
     ))
 }
 
+/// Leftovers that nothing cleans up otherwise: `.tmp_*` parts of uploads that
+/// never finished (aborted, app quit or crashed) in the transfer folder, and
+/// files phones shared into the temp folder. Only files old enough that no
+/// live upload or recent chat message can still need them.
+fn sweep_stale_transfer_files(app_handle: &AppHandle) {
+    const PARTIAL_AFTER: Duration = Duration::from_secs(24 * 60 * 60);
+    const SHARED_AFTER: Duration = Duration::from_secs(7 * 24 * 60 * 60);
+    let save_dir = std::path::PathBuf::from(get_active_file_transfer_path(app_handle.clone()));
+    let shared_dir = std::env::temp_dir().join("tiez_shared_uploads");
+    for (dir, partial_only, max_age) in [(save_dir, true, PARTIAL_AFTER), (shared_dir, false, SHARED_AFTER)] {
+        let Ok(entries) = std::fs::read_dir(&dir) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            if partial_only && !entry.file_name().to_string_lossy().starts_with(".tmp_") {
+                continue;
+            }
+            let Ok(meta) = entry.metadata() else {
+                continue;
+            };
+            let stale = meta
+                .modified()
+                .ok()
+                .and_then(|modified| modified.elapsed().ok())
+                .is_some_and(|age| age > max_age);
+            if meta.is_file() && stale {
+                let _ = std::fs::remove_file(entry.path());
+            }
+        }
+    }
+}
+
+async fn wait_for_server_port(app_handle: &AppHandle) -> u16 {
+    for _ in 0..30 {
+        let port = app_handle.state::<ServerInfo>().port.load(Ordering::SeqCst);
+        if port != 0 {
+            return port;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    0
+}
+
 #[tauri::command]
 pub async fn toggle_file_server(
     app_handle: AppHandle,
@@ -427,13 +494,17 @@ pub async fn toggle_file_server(
     port: Option<u16>,
 ) -> Result<String, String> {
     if enabled {
+        if SERVER_STARTING.swap(true, Ordering::SeqCst) {
+            return Ok("Server already starting".to_string());
+        }
+        let _starting = StartingGuard;
         {
             let handle = SERVER_HANDLE.lock().unwrap();
             if handle.is_some() {
                 return Ok("Server already running".to_string());
             }
         }
-        let target_port = port.unwrap_or(12345);
+        let target_port = port.unwrap_or(28462);
         let (listener, actual_port) = bind_listener(target_port).await;
         if actual_port == 0 {
             return Err("Failed to bind any port".to_string());
@@ -454,6 +525,8 @@ pub async fn toggle_file_server(
         let h = tokio::spawn(async move {
             run_server(listener, app_handle_clone).await;
         });
+        let sweep_app = app_handle.clone();
+        tokio::task::spawn_blocking(move || sweep_stale_transfer_files(&sweep_app));
         {
             let mut handle = SERVER_HANDLE.lock().unwrap();
             *handle = Some(h);
@@ -481,6 +554,14 @@ pub async fn toggle_file_server(
         let mut handle = SERVER_HANDLE.lock().unwrap();
         if let Some(h) = handle.take() {
             h.abort();
+            if let Some(shutdown) = SERVER_SHUTDOWN.lock().unwrap().take() {
+                let _ = shutdown.send(true);
+            }
+            if let Some(ws_state) = app_handle.try_state::<WsBroadcaster>() {
+                if let Ok(mut guard) = ws_state.0.lock() {
+                    *guard = None;
+                }
+            }
             let db_state = app_handle.state::<DbState>();
             let _ = db_state.settings_repo.set("file_server_enabled", "false");
             let server_info = app_handle.state::<ServerInfo>();
@@ -519,9 +600,12 @@ pub async fn run_server(listener: tokio::net::TcpListener, app_handle: AppHandle
             *guard = Some(ws_tx.clone());
         };
     }
+    let (shutdown_tx, shutdown) = tokio::sync::watch::channel(false);
+    *SERVER_SHUTDOWN.lock().unwrap() = Some(shutdown_tx);
     let state = Arc::new(AppState {
         app_handle: app_handle.clone(),
         ws_tx: ws_tx.clone(),
+        shutdown,
     });
     let protected_routes = Router::new()
         .route("/", get(handlers::index))

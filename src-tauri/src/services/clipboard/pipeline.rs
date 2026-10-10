@@ -203,47 +203,8 @@ impl PipelineStage for TransformationStage {
         // Normalize line endings only; preserve leading/trailing whitespace (#97).
         entry.content = entry.content.replace("\r\n", "\n");
 
-        if let Some((image_bytes, extension)) = ctx.encoded_image.take() {
-            ctx.image_content_hash = calc_image_hash_from_bytes(&image_bytes);
-            let app_data_dir = ctx.app_handle.state::<AppDataDir>();
-            let data_dir = app_data_dir.0.lock().unwrap().clone();
-            if let Some(path) =
-                save_image_bytes_to_file_with_extension(&image_bytes, &data_dir, &extension)
-            {
-                entry.content = path;
-                entry.is_external = true;
-            }
-        } else if entry.content_type == "image" && entry.is_external && !entry.content.starts_with("data:") {
-            // If the image was captured as an external file (e.g. from WeChat, QQ, Snipping Tool, or browser temp folder),
-            // copy its bytes into TieZ's permanent attachments folder so it doesn't turn empty when the external temp file is cleaned up!
-            let src_path = std::path::Path::new(&entry.content);
-            let app_data_dir = ctx.app_handle.state::<AppDataDir>();
-            let data_dir = app_data_dir.0.lock().unwrap().clone();
-            let attachments_dir = data_dir.join("attachments");
-
-            if !src_path.starts_with(&attachments_dir) && src_path.exists() {
-                if let Ok(metadata) = std::fs::metadata(src_path) {
-                    if metadata.len() > 0 && metadata.len() <= 30 * 1024 * 1024 {
-                        if let Ok(image_bytes) = std::fs::read(src_path) {
-                            let extension = src_path
-                                .extension()
-                                .and_then(|e| e.to_str())
-                                .unwrap_or("png");
-                            if let Some(path) = save_image_bytes_to_file_with_extension(
-                                &image_bytes,
-                                &data_dir,
-                                extension,
-                            ) {
-                                entry.content = path;
-                                entry.is_external = true;
-                                ctx.image_content_hash = calc_image_hash_from_bytes(&image_bytes);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
+        // App policies first: an image from an app set to "ignore" must not be
+        // written to disk at all (it used to be saved, then dropped, and left).
         let app_cleanup_policies_raw = settings.app_cleanup_policies.lock().unwrap().clone();
         if !app_cleanup_policies_raw.trim().is_empty() {
             let app_cleanup_policies = parse_app_cleanup_policies(&app_cleanup_policies_raw);
@@ -273,6 +234,53 @@ impl PipelineStage for TransformationStage {
                         entry.content = cleaned.replace("\r\n", "\n");
                         entry.preview =
                             build_entry_preview(&entry.content_type, &entry.content, None);
+                    }
+                }
+            }
+        }
+
+        // Session-only mode keeps images out of the permanent attachments folder:
+        // they live under session/ for this run only (see session_storage_root).
+        let persistent = settings.persistent.load(Ordering::Relaxed);
+        let storage_root = {
+            let data_dir = ctx.app_handle.state::<AppDataDir>().0.lock().unwrap().clone();
+            if persistent { data_dir } else { session_storage_root(&data_dir) }
+        };
+
+        if let Some((image_bytes, extension)) = ctx.encoded_image.take() {
+            ctx.image_content_hash = calc_image_hash_from_bytes(&image_bytes);
+            let data_dir = storage_root.clone();
+            if let Some(path) =
+                save_image_bytes_to_file_with_extension(&image_bytes, &data_dir, &extension)
+            {
+                entry.content = path;
+                entry.is_external = true;
+            }
+        } else if entry.content_type == "image" && entry.is_external && !entry.content.starts_with("data:") {
+            // If the image was captured as an external file (e.g. from WeChat, QQ, Snipping Tool, or browser temp folder),
+            // copy its bytes into TieZ's permanent attachments folder so it doesn't turn empty when the external temp file is cleaned up!
+            let src_path = std::path::Path::new(&entry.content);
+            let data_dir = storage_root.clone();
+            let attachments_dir = data_dir.join("attachments");
+
+            if !src_path.starts_with(&attachments_dir) && src_path.exists() {
+                if let Ok(metadata) = std::fs::metadata(src_path) {
+                    if metadata.len() > 0 && metadata.len() <= 64 * 1024 * 1024 {
+                        if let Ok(image_bytes) = std::fs::read(src_path) {
+                            let extension = src_path
+                                .extension()
+                                .and_then(|e| e.to_str())
+                                .unwrap_or("png");
+                            if let Some(path) = save_image_bytes_to_file_with_extension(
+                                &image_bytes,
+                                &data_dir,
+                                extension,
+                            ) {
+                                entry.content = path;
+                                entry.is_external = true;
+                                ctx.image_content_hash = calc_image_hash_from_bytes(&image_bytes);
+                            }
+                        }
                     }
                 }
             }
@@ -447,6 +455,13 @@ impl PipelineStage for DeduplicationStage {
                     if let Ok(Some(existing)) = db_state.repo.get_entry_by_id_with_conn(&conn, id) {
                         entry_mut.created_at = existing.created_at;
                         entry_mut.last_used_at = existing.last_used_at;
+                        // The UPDATE leaves these alone, but the entry is also
+                        // sent to the list as is; without them a pinned item
+                        // copied again drops out of the pinned section (#152).
+                        entry_mut.is_pinned = existing.is_pinned;
+                        entry_mut.pinned_order = existing.pinned_order;
+                        entry_mut.note = existing.note;
+                        entry_mut.use_count = existing.use_count + 1;
                         if entry_mut.tags.is_empty() {
                             entry_mut.tags = existing.tags;
                         } else {
@@ -661,4 +676,48 @@ impl PipelineStage for DistributionStage {
             }
         }
     }
+}
+
+/// Where session-only mode (persistence off) keeps images: `<data>/session`,
+/// emptied at startup and as entries leave the session history.
+pub fn session_storage_root(data_dir: &std::path::Path) -> std::path::PathBuf {
+    data_dir.join("session")
+}
+
+/// Delete session-only image files no session entry shows any more. Entries
+/// leave the session history in many ways (delete, clear, tag delete, the
+/// 500-item cap, paste-and-delete); sweeping by reference catches all of them.
+/// Run right after user deletes, and every 30 s by start_session_file_sweeper.
+pub fn sweep_session_files(app: &tauri::AppHandle) {
+    let data_dir = app.state::<AppDataDir>().0.lock().unwrap().clone();
+    let attachments = session_storage_root(&data_dir).join("attachments");
+    let Ok(files) = std::fs::read_dir(&attachments) else {
+        return;
+    };
+    let referenced: Vec<String> = app
+        .state::<crate::app_state::SessionHistory>()
+        .0
+        .lock()
+        .unwrap()
+        .iter()
+        .flat_map(|entry| [entry.content.clone(), entry.html_content.clone().unwrap_or_default()])
+        .collect();
+    for file in files.flatten() {
+        let path = file.path();
+        let name = file.file_name().to_string_lossy().to_string();
+        if !referenced.iter().any(|text| text.contains(&name)) {
+            crate::app::commands::thumbnail_cmd::remove_cached_thumbnails(&path);
+            let _ = std::fs::remove_file(&path);
+        }
+    }
+}
+
+/// Startup: the previous run's session images are unreachable now; delete
+/// them, then keep sweeping while the app runs.
+pub fn start_session_file_sweeper(app: tauri::AppHandle, data_dir: &std::path::Path) {
+    let _ = std::fs::remove_dir_all(session_storage_root(data_dir));
+    std::thread::spawn(move || loop {
+        std::thread::sleep(std::time::Duration::from_secs(30));
+        sweep_session_files(&app);
+    });
 }

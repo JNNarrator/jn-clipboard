@@ -18,7 +18,6 @@ export interface ClipboardEntry {
   tags: string[];
   /** Free-text remark (not a category tag) */
   note?: string;
-  isInputting?: boolean;
   questionCount?: number;
   use_count?: number;
   is_external?: boolean;

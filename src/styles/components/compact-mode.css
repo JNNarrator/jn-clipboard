@@ -502,6 +502,7 @@ body.hide-unselected-item-actions .history-item.compact:hover .item-actions {
     color: var(--text-secondary);
     opacity: 0.68;
     white-space: nowrap;
+    -webkit-user-select: none;
     user-select: none;
     pointer-events: none;
     transform: none;
@@ -638,6 +639,7 @@ body.hide-unselected-item-actions .history-item.compact:hover .item-meta-right-i
     flex-direction: column;
     gap: 2px;
     animation: compactMenuFadeIn 0.12s cubic-bezier(0.16, 1, 0.3, 1);
+    -webkit-user-select: none;
     user-select: none;
     box-sizing: border-box;
 }

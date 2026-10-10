@@ -60,6 +60,103 @@ fn compute_clipboard_signature() -> u64 {
     hasher.finish()
 }
 
+/// changeCount of a pasteboard write TieZ made that must not be recorded
+/// (restoring the user's previous clipboard after a transient paste).
+static OWN_CHANGE_COUNT: std::sync::atomic::AtomicIsize = std::sync::atomic::AtomicIsize::new(-1);
+
+/// NSPasteboard's change counter (bumped on every write by any app).
+pub fn change_count() -> isize {
+    #[cfg(target_os = "macos")]
+    return autoreleasepool(|_| NSPasteboard::generalPasteboard().changeCount() as isize);
+
+    #[cfg(not(target_os = "macos"))]
+    0
+}
+
+/// The pasteboard still holds the write restore_pasteboard marked as TieZ's own.
+pub fn is_own_change() -> bool {
+    #[cfg(target_os = "macos")]
+    return autoreleasepool(|_| {
+        NSPasteboard::generalPasteboard().changeCount() as isize == OWN_CHANGE_COUNT.load(Ordering::SeqCst)
+    });
+
+    #[cfg(not(target_os = "macos"))]
+    false
+}
+
+/// Every item on the pasteboard with all its types as raw data, so it can be
+/// put back exactly (images, rich text and files included).
+pub struct PasteboardSnapshot {
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    items: Vec<Vec<(String, Vec<u8>)>>,
+}
+
+/// None when the content is larger than `max_bytes` in total.
+pub fn snapshot_pasteboard(max_bytes: usize) -> Option<PasteboardSnapshot> {
+    #[cfg(target_os = "macos")]
+    return autoreleasepool(|_| {
+        let pb = NSPasteboard::generalPasteboard();
+        let mut total = 0usize;
+        let mut items = Vec::new();
+        if let Some(pasteboard_items) = pb.pasteboardItems() {
+            for item in pasteboard_items.iter() {
+                let mut entries = Vec::new();
+                for pasteboard_type in item.types().iter() {
+                    if let Some(data) = item.dataForType(&pasteboard_type) {
+                        total += data.len();
+                        if total > max_bytes {
+                            return None;
+                        }
+                        entries.push((pasteboard_type.to_string(), data.to_vec()));
+                    }
+                }
+                items.push(entries);
+            }
+        }
+        Some(PasteboardSnapshot { items })
+    });
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = max_bytes;
+        None
+    }
+}
+
+/// Put a snapshot back. The write is marked as TieZ's own, so it is not
+/// recorded as a new copy.
+pub fn restore_pasteboard(snapshot: &PasteboardSnapshot) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    return autoreleasepool(|_| {
+        use objc2_app_kit::NSPasteboardItem;
+        let pb = NSPasteboard::generalPasteboard();
+        // Mark the write as ours before the data goes in: the listener can see
+        // the new change count while large snapshots are still being copied.
+        let count = pb.clearContents();
+        OWN_CHANGE_COUNT.store(count as isize, Ordering::SeqCst);
+        let mut objects: Vec<Retained<ProtocolObject<dyn NSPasteboardWriting>>> = Vec::new();
+        for entries in &snapshot.items {
+            let item = NSPasteboardItem::new();
+            for (pasteboard_type, data) in entries {
+                item.setData_forType(&NSData::with_bytes(data), &NSString::from_str(pasteboard_type));
+            }
+            objects.push(ProtocolObject::from_retained(item));
+        }
+        let written = objects.is_empty() || pb.writeObjects(&NSArray::from_retained_slice(&objects));
+        if written {
+            Ok(())
+        } else {
+            Err("Failed to restore the clipboard".to_string())
+        }
+    });
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = snapshot;
+        Err("Not supported on this platform".to_string())
+    }
+}
+
 pub fn get_clipboard_text() -> Option<String> {
     #[cfg(target_os = "macos")]
     return autoreleasepool(|_| {
@@ -173,6 +270,90 @@ pub fn get_clipboard_raw_format(_name: &str) -> Option<Vec<u8>> {
     None
 }
 
+/// Image types read as-is, best first. GIF keeps its animation, PNG its alpha
+/// and colour profile; decoding the TIFF that apps also offer (what arboard
+/// reads) flattened GIFs to one frame and cost a full decode per copy.
+#[cfg(target_os = "macos")]
+const RAW_IMAGE_TYPES: &[(&str, &str)] = &[
+    ("com.compuserve.gif", "gif"),
+    ("public.png", "png"),
+    ("public.jpeg", "jpg"),
+    ("org.webmproject.webp", "webp"),
+];
+
+/// The clipboard image in its original encoding, with its file extension.
+pub fn get_clipboard_image_bytes() -> Option<(Vec<u8>, &'static str)> {
+    #[cfg(target_os = "macos")]
+    return autoreleasepool(|_| {
+        let pb = NSPasteboard::generalPasteboard();
+        RAW_IMAGE_TYPES.iter().find_map(|(uti, ext)| {
+            let data = pb.dataForType(&NSString::from_str(uti))?;
+            let bytes = data.to_vec();
+            (!bytes.is_empty()).then_some((bytes, *ext))
+        })
+    });
+
+    #[cfg(not(target_os = "macos"))]
+    None
+}
+
+/// Put an image on the pasteboard the way browsers and Finder do: the original
+/// bytes under their own type, a static PNG (and TIFF, for older apps) for
+/// readers that want a bitmap, and optionally the file itself so apps that take
+/// files (chat apps, Finder) get the original, e.g. an animated GIF.
+pub fn set_clipboard_image(
+    original: &[u8],
+    extension: &str,
+    static_png: Option<&[u8]>,
+    file_path: Option<&str>,
+) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    return autoreleasepool(|_| {
+        use objc2_app_kit::{NSBitmapImageRep, NSPasteboardTypeFileURL, NSPasteboardTypeTIFF};
+        let pb = NSPasteboard::generalPasteboard();
+        pb.clearContents();
+
+        let original_type = match extension {
+            "gif" => "com.compuserve.gif",
+            "jpg" | "jpeg" => "public.jpeg",
+            "webp" => "org.webmproject.webp",
+            "bmp" => "com.microsoft.bmp",
+            _ => "public.png",
+        };
+        let ns_type = NSString::from_str(original_type);
+        if !pb.setData_forType(Some(&NSData::with_bytes(original)), &ns_type) {
+            return Err("Failed to write image to pasteboard".to_string());
+        }
+
+        let png = static_png.or((original_type == "public.png").then_some(original));
+        if let Some(png) = png {
+            let png_data = NSData::with_bytes(png);
+            if original_type != "public.png" {
+                unsafe { pb.setData_forType(Some(&png_data), NSPasteboardTypePNG) };
+            }
+            if let Some(tiff) = NSBitmapImageRep::imageRepWithData(&png_data)
+                .and_then(|rep| rep.TIFFRepresentation())
+            {
+                unsafe { pb.setData_forType(Some(&tiff), NSPasteboardTypeTIFF) };
+            }
+        }
+
+        if let Some(path) = file_path {
+            let url = NSURL::fileURLWithPath(&NSString::from_str(path));
+            if let Some(url_string) = url.absoluteString() {
+                unsafe { pb.setString_forType(&url_string, NSPasteboardTypeFileURL) };
+            }
+        }
+        Ok(())
+    });
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (original, extension, static_png, file_path);
+        Err("Not supported on this platform".to_string())
+    }
+}
+
 pub fn get_clipboard_html() -> Option<String> {
     #[cfg(target_os = "macos")]
     return autoreleasepool(|_| {
@@ -264,9 +445,27 @@ pub fn set_clipboard_text_html_rtf_and_image(
             unsafe { pb.setData_forType(Some(&ns_data), NSPasteboardTypeRTF) };
         }
 
+        // The fallback may be a GIF or JPEG; label it by its real type (it used
+        // to go out as PNG), and give GIFs a static PNG for bitmap-only readers.
         if let Some(bytes) = png_bytes {
+            let (uti, static_png) = if bytes.starts_with(b"GIF") {
+                let first_frame = image::load_from_memory(&bytes).ok().and_then(|img| {
+                    let mut png = Vec::new();
+                    img.write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
+                        .ok()
+                        .map(|_| png)
+                });
+                ("com.compuserve.gif", first_frame)
+            } else if bytes.starts_with(b"\xFF\xD8\xFF") {
+                ("public.jpeg", None)
+            } else {
+                ("public.png", None)
+            };
             let ns_data = NSData::from_vec(bytes);
-            unsafe { pb.setData_forType(Some(&ns_data), NSPasteboardTypePNG) };
+            pb.setData_forType(Some(&ns_data), &NSString::from_str(uti));
+            if let Some(png) = static_png {
+                unsafe { pb.setData_forType(Some(&NSData::from_vec(png)), NSPasteboardTypePNG) };
+            }
         }
 
         Ok(())

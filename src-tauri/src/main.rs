@@ -90,7 +90,17 @@ fn main() -> AppResult<()> {
     let builder = builder.plugin(tauri_nspanel::init());
 
     let app = builder
-        .plugin(tauri_plugin_single_instance::init(|_app, _args, _cwd| {}))
+        // Launching TieZ again brings the running instance forward: the way
+        // back when the tray icon is hidden and the hotkey is forgotten.
+        // Off the callback thread: on Windows it runs inside the second
+        // process's WM_COPYDATA SendMessage, where rebuilding the WebView2
+        // after light mode could fail or keep that process waiting.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            let app = app.clone();
+            std::thread::spawn(move || {
+                let _ = app::window_manager::focus_clipboard_window(app);
+            });
+        }))
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec!["--minimized"]),
@@ -105,6 +115,10 @@ fn main() -> AppResult<()> {
             app::window_manager::activate_window_focus,
             app::window_manager::activate_app_focus,
             app::window_manager::focus_clipboard_window,
+            app::window_manager::main_ui_ready,
+            app::window_manager::main_ui_released,
+            services::e2e::e2e_key_fingerprint,
+            services::e2e::generate_e2e_key,
             app::window_manager::disable_webview_browser_accelerators,
             app::window_manager::set_navigation_enabled,
             app::window_manager::set_navigation_mode,
@@ -133,6 +147,7 @@ fn main() -> AppResult<()> {
             app::commands::set_sequential_mode,
             app::commands::set_sequential_hotkey,
             app::commands::set_rich_paste_hotkey,
+            app::commands::set_plain_paste_hotkey,
             app::commands::set_search_hotkey,
             app::commands::set_quick_paste_modifier,
             app::commands::set_deduplication,
@@ -235,6 +250,7 @@ fn main() -> AppResult<()> {
             services::file_transfer::open_file_transfer_folder,
             services::file_transfer::send_file_to_client,
             services::file_transfer::send_files_to_client,
+            services::file_transfer::save_temp_image,
             services::file_transfer::expand_transfer_paths,
             services::file_transfer::get_app_logo,
             services::file_transfer::get_local_ip_addr,
@@ -251,6 +267,7 @@ fn main() -> AppResult<()> {
             app::commands::get_tag_colors,
             app::commands::set_tag_color,
             app::commands::call_ai,
+            app::commands::apply_ai_result,
             app::commands::check_ai_connectivity
         ])
         .on_window_event(|window, event| {

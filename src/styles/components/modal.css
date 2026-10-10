@@ -155,6 +155,14 @@ body:has(.modal-overlay) #root {
   margin-top: 2px;
 }
 
+.modal-form-hint {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
 .modal-form-actions,
 .modal-form-dialog .modal-panel-actions {
   display: flex;

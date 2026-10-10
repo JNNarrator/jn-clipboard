@@ -204,6 +204,7 @@
   text-align: left;
   cursor: pointer;
   transition: background 120ms ease, color 120ms ease, transform 100ms ease;
+  -webkit-user-select: none;
   user-select: none;
 }
 
@@ -278,6 +279,7 @@
   font-size: var(--font-size-xs);
   font-weight: 600;
   letter-spacing: 0.02em;
+  -webkit-user-select: none;
   user-select: none;
 }
 
@@ -584,6 +586,13 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   font-size: var(--font-size-base);
   line-height: 1.44;
   overflow-wrap: anywhere;
+}
+
+/* Message text can be selected to copy part of it. */
+.wt-bubble,
+.wt-bubble * {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 .wt-message.received .wt-bubble {

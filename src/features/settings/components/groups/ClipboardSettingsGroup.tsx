@@ -35,9 +35,13 @@ interface ClipboardSettingsGroupProps {
     richTextSnapshotPreview: boolean;
     setRichTextSnapshotPreview: (val: boolean) => void;
     richPasteHotkey: string;
+    plainPasteHotkey: string;
     isRecordingRich: boolean;
+    isRecordingPlain: boolean;
     setIsRecordingRich: (val: boolean) => void;
+    setIsRecordingPlain: (val: boolean) => void;
     updateRichPasteHotkey: (key: string) => void;
+    updatePlainPasteHotkey: (key: string) => void;
     searchHotkey: string;
     isRecordingSearch: boolean;
     setIsRecordingSearch: (val: boolean) => void;
@@ -47,7 +51,9 @@ interface ClipboardSettingsGroupProps {
     deleteAfterPaste: boolean;
     setDeleteAfterPaste: (val: boolean) => void;
     moveToTopAfterPaste: boolean;
+    clickCopyOnly: boolean;
     setMoveToTopAfterPaste: (val: boolean) => void;
+    setClickCopyOnly: (val: boolean) => void;
     pasteMethod: string;
     setPasteMethod: (val: string) => void;
     registryWinVEnabled: boolean;
@@ -523,6 +529,34 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
                     </div>
                     <div className="setting-item">
                         <div className="item-label-group">
+                            <span className="item-label">{props.t('plain_paste_hotkey_label')}</span>
+                            <span className="hint hotkey-hint">{renderHotkeyHint(props.isRecordingPlain, props.t('plain_paste_hotkey_hint'))}</span>
+                        </div>
+                        <div
+                            className={`key-group ${props.isRecordingPlain ? 'recording' : ''}`}
+                            role="button"
+                            aria-label={props.t('plain_paste_hotkey_label')}
+                            onClick={(event) => {
+                                props.setIsRecordingPlain(true);
+                                event.currentTarget.focus();
+                            }}
+                            tabIndex={0}
+                            onKeyDown={(event) => handleHotkeyKeyDown(
+                                event,
+                                props.isRecordingPlain,
+                                props.setIsRecordingPlain,
+                                props.updatePlainPasteHotkey
+                            )}
+                        >
+                            {props.isRecordingPlain ? (
+                                <div className="key-cap key-cap-recording">{props.t('waiting_for_input')}</div>
+                            ) : (
+                                renderHotkeyCaps(props.plainPasteHotkey)
+                            )}
+                        </div>
+                    </div>
+                    <div className="setting-item">
+                        <div className="item-label-group">
                             <span className="item-label">{props.t('search_hotkey_label')}</span>
                             <span className="hint hotkey-hint">{renderHotkeyHint(props.isRecordingSearch)}</span>
                         </div>
@@ -607,6 +641,26 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
                                     const val = e.target.checked;
                                     props.setMoveToTopAfterPaste(val);
                                     props.saveAppSetting('move_to_top_after_paste', String(val));
+                                }}
+                            />
+                            <div className="toggle"><div className="left" /><div className="right" /></div>
+                        </label>
+                    </div>
+                    <div className="setting-item">
+                        <props.LabelWithHint
+                            label={props.t('click_copy_only')}
+                            hint={props.t('click_copy_only_hint')}
+                            hintKey="click_copy_only"
+                        />
+                        <label className="switch">
+                            <input
+                                className="cb"
+                                type="checkbox"
+                                checked={props.clickCopyOnly}
+                                onChange={(e) => {
+                                    const val = e.target.checked;
+                                    props.setClickCopyOnly(val);
+                                    props.saveAppSetting('click_copy_only', String(val));
                                 }}
                             />
                             <div className="toggle"><div className="left" /><div className="right" /></div>

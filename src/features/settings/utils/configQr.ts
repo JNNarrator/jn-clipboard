@@ -10,6 +10,8 @@ export type TiezMqttQrPayload = {
     password: string;
     topic: string;
   };
+  /** End-to-end key, when encryption is on (docs/E2E-ENCRYPTION.md). */
+  e2eKey?: string;
 };
 
 export type TiezWebdavQrPayload = {
@@ -21,6 +23,7 @@ export type TiezWebdavQrPayload = {
     password: string;
     basePath: string;
   };
+  e2eKey?: string;
 };
 
 export const buildMqttConfigQrPayload = (input: {
@@ -31,6 +34,7 @@ export const buildMqttConfigQrPayload = (input: {
   username: string;
   password: string;
   topic: string;
+  e2eKey?: string;
 }): TiezMqttQrPayload => ({
   v: 1,
   type: "tiez-mqtt",
@@ -43,6 +47,7 @@ export const buildMqttConfigQrPayload = (input: {
     password: input.password,
     topic: input.topic.trim(),
   },
+  ...(input.e2eKey?.trim() ? { e2eKey: input.e2eKey.trim() } : {}),
 });
 
 export const buildWebdavConfigQrPayload = (input: {
@@ -50,6 +55,7 @@ export const buildWebdavConfigQrPayload = (input: {
   username: string;
   password: string;
   basePath: string;
+  e2eKey?: string;
 }): TiezWebdavQrPayload => ({
   v: 1,
   type: "tiez-webdav",
@@ -59,6 +65,7 @@ export const buildWebdavConfigQrPayload = (input: {
     password: input.password,
     basePath: input.basePath.trim() || "tiez-sync",
   },
+  ...(input.e2eKey?.trim() ? { e2eKey: input.e2eKey.trim() } : {}),
 });
 
 export const isMqttConfigQrReady = (payload: TiezMqttQrPayload) =>

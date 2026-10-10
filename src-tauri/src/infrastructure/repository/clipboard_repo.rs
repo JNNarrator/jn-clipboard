@@ -1,6 +1,7 @@
 use crate::database::{
     calc_image_hash, calc_image_hash_from_bytes, calc_sync_content_hash, calc_text_hash,
-    has_sensitive_tag, is_text_type, save_image_to_file, ENCRYPT_PREFIX,
+    has_sensitive_tag, is_text_type, save_image_bytes_to_file_with_extension, save_image_to_file,
+    ENCRYPT_PREFIX,
 };
 use crate::domain::models::ClipboardEntry;
 use crate::infrastructure::encryption;
@@ -584,6 +585,27 @@ impl SqliteClipboardRepository {
             }
         }
 
+        // A session-only image (persistence off) sits under session/, which is
+        // swept once no session entry shows it. Pinning or tagging moves the
+        // entry here, so give the database its own copy in attachments/.
+        if entry.content_type == "image" && !final_content.starts_with("data:") {
+            if let Some(dir) = data_dir {
+                let path = std::path::Path::new(&final_content);
+                if path.starts_with(dir.join("session")) {
+                    let extension = path
+                        .extension()
+                        .and_then(|ext| ext.to_str())
+                        .unwrap_or("png");
+                    if let Some(copied) = std::fs::read(path).ok().and_then(|bytes| {
+                        save_image_bytes_to_file_with_extension(&bytes, dir, extension)
+                    }) {
+                        final_content = copied;
+                        final_is_external = true;
+                    }
+                }
+            }
+        }
+
         let calculated_hash = precomputed_content_hash.unwrap_or_else(|| {
             if entry.content_type == "image" {
                 if entry.content.starts_with("data:") {
@@ -716,63 +738,59 @@ impl SqliteClipboardRepository {
         }
     }
 
-    fn is_attachment_in_use_by_other_entries(
-        &self,
-        conn: &Connection,
-        deleting_id: i64,
-        target_path: &std::path::Path,
-    ) -> bool {
-        let path_str = target_path.to_string_lossy().to_string();
-        let file_name = match target_path.file_name().and_then(|f| f.to_str()) {
-            Some(name) => name,
-            None => return false,
-        };
-
-        let mut stmt = match conn.prepare(
-            "SELECT id, content, html_content, is_external FROM clipboard_history WHERE id != ?"
-        ) {
-            Ok(s) => s,
-            Err(_) => return true,
-        };
-
-        let rows = match stmt.query_map([deleting_id], |row| {
-            let id: i64 = row.get(0)?;
-            let content_raw: String = row.get(1)?;
-            let html_raw: Option<String> = row.get(2).ok();
-            let is_ext: i32 = row.get(3).unwrap_or(0);
-            Ok((id, content_raw, html_raw, is_ext == 1))
-        }) {
-            Ok(r) => r,
-            Err(_) => return true,
-        };
-
-        for row in rows {
-            let Ok(row) = row else { return true; };
-            if row.3 {
-                let Ok(decrypted_content) = self.maybe_decrypt_text(&row.1) else { return true; };
-                if decrypted_content == path_str || decrypted_content.ends_with(file_name) {
-                    return true;
-                }
-            }
-            if let Some(html_raw_value) = row.2 {
-                let Ok(decrypted_html) = self.maybe_decrypt_text(&html_raw_value) else { return true; };
-                if decrypted_html.contains(file_name) || decrypted_html.contains(&path_str) {
-                    return true;
-                }
-            }
-        }
-
-        false
-    }
-
+    /// Delete one entry and remove its attachment files that no other entry
+    /// uses. Inside a larger transaction prefer delete_collecting_files and
+    /// remove the files only after the commit.
     pub fn delete_with_conn(
         &self,
         conn: &Connection,
         id: i64,
         data_dir: Option<&std::path::Path>,
     ) -> Result<(), String> {
+        let candidates = self.delete_collecting_files(conn, id, data_dir)?;
+        remove_attachment_files(self.unreferenced_files(conn, candidates));
+        Ok(())
+    }
+
+    /// Delete an entry that was just pasted ("delete after paste"). The paste
+    /// may still point at its file (a file reference on Windows, resolved by the
+    /// target app later, or a second Ctrl+V), so the file is removed a couple of
+    /// minutes later, and only if no entry uses it by then (the same image may
+    /// have been copied again meanwhile).
+    pub fn delete_after_paste(&self, id: i64, data_dir: Option<&std::path::Path>) -> Result<(), String> {
+        let candidates = {
+            let conn = self.conn.lock().map_err(|e| e.to_string())?;
+            self.delete_collecting_files(&conn, id, data_dir)?
+        };
+        if candidates.is_empty() {
+            return Ok(());
+        }
+        let repo = Self::new(self.conn.clone());
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_secs(120));
+            let unused = match repo.conn.lock() {
+                Ok(conn) => repo.unreferenced_files(&conn, candidates),
+                Err(_) => return,
+            };
+            remove_attachment_files(unused);
+        });
+        Ok(())
+    }
+
+    /// Delete one entry (row, tags, tombstone) and return its attachment files
+    /// without touching them: callers filter them with unreferenced_files once
+    /// all rows are gone and delete them after committing. Checking each file
+    /// against every other row on every delete made clearing N entries O(N²),
+    /// and deleting before the commit lost files when the clear then failed.
+    pub fn delete_collecting_files(
+        &self,
+        conn: &Connection,
+        id: i64,
+        data_dir: Option<&std::path::Path>,
+    ) -> Result<Vec<std::path::PathBuf>, String> {
         self.validate_entry_with_conn(conn, id)?;
         let mut tombstone: Option<(String, i64)> = None;
+        let mut candidates = Vec::new();
         // Check for external files to delete
         if let Some(dir) = data_dir {
             let attachments_dir = dir.join("attachments");
@@ -798,11 +816,7 @@ impl SqliteClipboardRepository {
                 // cannot match the byte-based hash uploaded to mobile devices.
                 let content = self.maybe_decrypt_text(&entry.0)?;
                 tombstone = Some((entry.3.clone(), calc_sync_content_hash(&entry.3, &content)));
-                for path in files_to_remove {
-                    if path.exists() && !self.is_attachment_in_use_by_other_entries(conn, id, &path) {
-                        let _ = std::fs::remove_file(path);
-                    }
-                }
+                candidates.extend(files_to_remove.into_iter().filter(|path| path.exists()));
             }
         } else {
             let mut stmt = conn
@@ -825,7 +839,63 @@ impl SqliteClipboardRepository {
         conn.execute("DELETE FROM clipboard_history WHERE id = ?", [id])
             .map_err(|e| e.to_string())?;
         conn.execute("DELETE FROM entry_tags WHERE entry_id = ?", params![id]).map_err(|e| e.to_string())?;
-        Ok(())
+        Ok(candidates)
+    }
+
+    /// The candidates no remaining entry refers to, from one pass over the
+    /// table. Rows must already be deleted. On any read error nothing is
+    /// returned: keeping a file is safe, deleting a used one is not.
+    pub fn unreferenced_files(
+        &self,
+        conn: &Connection,
+        candidates: Vec<std::path::PathBuf>,
+    ) -> Vec<std::path::PathBuf> {
+        let mut pending: Vec<(std::path::PathBuf, String, String)> = candidates
+            .into_iter()
+            .filter_map(|path| {
+                let name = path.file_name()?.to_str()?.to_string();
+                let full = path.to_string_lossy().to_string();
+                Some((path, full, name))
+            })
+            .collect();
+        pending.sort_by(|a, b| a.1.cmp(&b.1));
+        pending.dedup_by(|a, b| a.1 == b.1);
+        if pending.is_empty() {
+            return Vec::new();
+        }
+        let Ok(mut stmt) = conn.prepare("SELECT content, html_content, is_external FROM clipboard_history") else {
+            return Vec::new();
+        };
+        let Ok(rows) = stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, Option<String>>(1).ok().flatten(),
+                row.get::<_, i32>(2).unwrap_or(0) == 1,
+            ))
+        }) else {
+            return Vec::new();
+        };
+        for row in rows {
+            let Ok((content_raw, html_raw, is_external)) = row else {
+                return Vec::new();
+            };
+            if is_external {
+                let Ok(content) = self.maybe_decrypt_text(&content_raw) else {
+                    return Vec::new();
+                };
+                pending.retain(|(_, full, name)| !(content == *full || content.ends_with(name.as_str())));
+            }
+            if let Some(html_raw) = html_raw {
+                let Ok(html) = self.maybe_decrypt_text(&html_raw) else {
+                    return Vec::new();
+                };
+                pending.retain(|(_, full, name)| !(html.contains(name.as_str()) || html.contains(full.as_str())));
+            }
+            if pending.is_empty() {
+                break;
+            }
+        }
+        pending.into_iter().map(|(path, _, _)| path).collect()
     }
 
     pub fn delete_metadata_with_conn(&self, conn: &Connection, id: i64) -> Result<(), String> {
@@ -935,9 +1005,13 @@ impl SqliteClipboardRepository {
                         rows.filter_map(|r| r.ok()).collect()
                     };
                     // Actually delete records (and files if needed)
+                    let mut candidates = Vec::new();
                     for id in &deleted_ids {
-                        let _ = self.delete_with_conn(conn, *id, data_dir);
+                        if let Ok(files) = self.delete_collecting_files(conn, *id, data_dir) {
+                            candidates.extend(files);
+                        }
                     }
+                    remove_attachment_files(self.unreferenced_files(conn, candidates));
                     return Ok(deleted_ids);
                 }
             }
@@ -1542,11 +1616,15 @@ impl ClipboardRepository for SqliteClipboardRepository {
         // Keep per-entry cleanup/tombstones, but commit them as one transaction.
         // The previous implementation performed one durable SQLite commit per
         // entry and then VACUUMed synchronously, freezing the app on large lists.
+        let mut candidates = Vec::new();
         for id in &ids {
-            self.delete_with_conn(&transaction, *id, data_dir)?;
+            candidates.extend(self.delete_collecting_files(&transaction, *id, data_dir)?);
         }
-
-        transaction.commit().map_err(|e| e.to_string())
+        let unused = self.unreferenced_files(&transaction, candidates);
+        transaction.commit().map_err(|e| e.to_string())?;
+        // Files go only once the rows are really gone.
+        remove_attachment_files(unused);
+        Ok(())
     }
 
     fn get_count(&self) -> Result<i64, String> {
@@ -1718,6 +1796,44 @@ mod tests {
     "#;
 
     #[test]
+    fn saving_a_session_image_copies_it_out_of_session_storage() {
+        let data_dir = std::env::temp_dir().join(format!("tiez-session-save-{}", std::process::id()));
+        let session_dir = data_dir.join("session").join("attachments");
+        std::fs::create_dir_all(&session_dir).unwrap();
+        let png = b"\x89PNG\r\n\x1a\nnot really an image";
+        let session_file = session_dir.join("img_1.png");
+        std::fs::write(&session_file, png).unwrap();
+
+        let repo = search_repository("");
+        let entry: ClipboardEntry = serde_json::from_value(serde_json::json!({
+            "id": -1,
+            "content_type": "image",
+            "content": session_file.to_string_lossy(),
+            "source_app": "App",
+            "timestamp": 1,
+            "preview": "",
+            "is_pinned": true,
+            "is_external": true,
+        }))
+        .unwrap();
+        let id = {
+            let conn = repo.conn.lock().unwrap();
+            repo.save_with_conn(&conn, &entry, Some(&data_dir), None).unwrap()
+        };
+        let stored: String = repo
+            .conn
+            .lock()
+            .unwrap()
+            .query_row("SELECT content FROM clipboard_history WHERE id = ?", [id], |row| row.get(0))
+            .unwrap();
+        let stored = std::path::Path::new(&stored);
+        assert!(stored.starts_with(data_dir.join("attachments")), "{stored:?}");
+        assert_eq!(std::fs::read(stored).unwrap(), png);
+
+        let _ = std::fs::remove_dir_all(&data_dir);
+    }
+
+    #[test]
     fn search_preserves_matching_fields_order_and_limit_without_duplicate_tag_rows() {
         let repo = search_repository(GENERAL_FIXTURE);
         assert_eq!(
@@ -1787,5 +1903,13 @@ mod tests {
         );
         assert_eq!(search_ids(&repo, "needle", 20, false, true), vec![1]);
         assert_eq!(search_ids(&repo, "", 20, false, true), vec![1]);
+    }
+}
+
+/// Remove attachment files (and their cached thumbnails).
+pub fn remove_attachment_files(paths: Vec<std::path::PathBuf>) {
+    for path in paths {
+        crate::app::commands::thumbnail_cmd::remove_cached_thumbnails(&path);
+        let _ = std::fs::remove_file(&path);
     }
 }

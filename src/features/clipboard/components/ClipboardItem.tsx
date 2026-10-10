@@ -49,7 +49,7 @@ import {
 } from "../../../shared/lib/utils";
 import HtmlContent from "../../../shared/components/HtmlContent";
 import { toTauriLocalImageSrc } from "../../../shared/lib/localImageSrc";
-import { useImageThumbnail } from "../../../shared/hooks/useImageThumbnail";
+import { originalImageSrc, useImageThumbnail } from "../../../shared/hooks/useImageThumbnail";
 
 // The wide two-column layout shows the entry in its detail pane, so the
 // floating compact hover preview would only duplicate it.
@@ -822,6 +822,10 @@ const ClipboardItem = ({
     onTagDelete,
     onAIAction,
     onInputSubmit,
+    aiQuestion,
+    aiPendingResult,
+    onAIApply,
+    onAIDiscard,
     aiEnabled,
     aiOptionsOpen,
     onAIOptionsToggle,
@@ -849,7 +853,20 @@ const ClipboardItem = ({
     const [snapshotFailed, setSnapshotFailed] = useState(false);
     const [richImageFallbackFailed, setRichImageFallbackFailed] = useState(false);
     const [imageLoadFailed, setImageLoadFailed] = useState(false);
-    const imageSrc = useImageThumbnail(item.content_type === "image" ? item.content : null, item.is_external);
+    const imageSrc = useImageThumbnail(
+        item.content_type === "image" ? item.content : null,
+        item.is_external,
+        item.timestamp
+    );
+    // Large GIF/WebP rows show a still first frame (see get_image_thumbnail)
+    // and play only while hovered; the detail pane always plays them.
+    const [playAnimation, setPlayAnimation] = useState(false);
+    const isAnimatableImage =
+        item.content_type === "image" && /\.(gif|webp)$/i.test(item.content.trim());
+    const listImageSrc =
+        playAnimation && isAnimatableImage
+            ? originalImageSrc(item.content, item.is_external)
+            : imageSrc;
     const [isDragging, setIsDragging] = useState(false);
     const isDraggingRef = useRef(false);
     const [isReordering, setIsReordering] = useState(false);
@@ -1551,7 +1568,9 @@ const ClipboardItem = ({
         }
 
         const fileName = filePath.split(/[\\/]/).pop();
-        const dirPath = filePath.split(/[\\/]/).slice(0, -1).join('\\');
+        // Keep the path's own separator: "/" on macOS used to show as "\\".
+        const separator = filePath.includes('\\') ? '\\' : '/';
+        const dirPath = filePath.split(/[\\/]/).slice(0, -1).join(separator);
 
         return (
             <div className="file-thumbnail-card" title={item.content}>
@@ -1997,15 +2016,8 @@ const ClipboardItem = ({
                         badge.remove();
                     }, 0);
                 } catch {}
-
-                // Sync native system clipboard in background without pasting
-                invoke("copy_to_clipboard", {
-                    id: item.id,
-                    contentType: item.content_type,
-                    content: item.content,
-                    paste: false,
-                    source: "drag"
-                }).catch(() => {});
+                // Dragging doesn't touch the clipboard: a cancelled drag must
+                // not replace what the user had copied.
             }}
             onDragEndCapture={(e) => {
                 if (!canExportDragRef.current) return;
@@ -2555,17 +2567,21 @@ const ClipboardItem = ({
             <div className={`content-preview-shell${overlayMetaInPreview ? ' has-overlay-meta' : ''}`}>
                 <div data-content-type={item.content_type} className={`content-preview ${item.content_type === 'rich_text' ? 'rich-text' : ''} ${item.content_type === 'file' ? 'file-preview' : ''} ${isSensitiveHidden ? 'sensitive-blur' : ''}`}>
                 {item.content_type === "image" ? (
-                    <div className="image-preview-frame">
+                    <div
+                        className="image-preview-frame"
+                        onMouseEnter={isAnimatableImage ? () => setPlayAnimation(true) : undefined}
+                        onMouseLeave={isAnimatableImage ? () => setPlayAnimation(false) : undefined}
+                    >
                         {(item.is_external && item.file_preview_exists === false) || imageLoadFailed ? (
                             <div className="image-preview error-placeholder" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-element)', color: 'var(--text-secondary)', height: '100px', fontSize: 'var(--font-size-sm)' }}>
                                 <ImageOff size={24} style={{ marginBottom: '8px', opacity: 0.5 }} />
                                 <span>{t('image_deleted')}</span>
                             </div>
-                        ) : imageSrc && (
+                        ) : listImageSrc && (
                             // Not loading="lazy": rows are already virtualized, and lazy
                             // loading only delays images that are about to be visible.
                             <img
-                                src={imageSrc}
+                                src={listImageSrc}
                                 alt={t('image_preview')}
                                 className="image-preview"
                                 draggable={false}
@@ -2612,13 +2628,28 @@ const ClipboardItem = ({
                         <div className="ai-skeleton-line" style={{ width: '75%' }}></div>
                         <div className="ai-skeleton-line" style={{ width: '85%' }}></div>
                     </div>
-                ) : item.isInputting ? (
+                ) : aiPendingResult ? (
+                    <div className="ai-pending-result" onClick={(e) => e.stopPropagation()}>
+                        <div className="ai-pending-text">{aiPendingResult}</div>
+                        {!onAIApply && <div className="ai-pending-hint">{t("ai_result_truncated")}</div>}
+                        <div className="ai-pending-actions">
+                            {onAIApply && (
+                                <button type="button" className="ai-pending-btn is-primary" onClick={() => onAIApply()}>
+                                    {t("ai_apply_result")}
+                                </button>
+                            )}
+                            <button type="button" className="ai-pending-btn" onClick={() => onAIDiscard?.()}>
+                                {t("ai_discard_result")}
+                            </button>
+                        </div>
+                    </div>
+                ) : aiQuestion ? (
                     <div className="ai-input-wrapper">
                         <input
                             autoFocus
                             className="search-input"
                             style={{ width: '100%', fontSize: 'var(--font-size-sm)', padding: '8px', border: '1px solid var(--accent-color)' }}
-                            placeholder={item.content}
+                            placeholder={aiQuestion}
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter') {
                                     e.preventDefault();
@@ -2803,6 +2834,8 @@ export default memo(ClipboardItem, (prevProps, nextProps) => {
         prevProps.isEditingNote === nextProps.isEditingNote &&
         prevProps.noteDraft === nextProps.noteDraft &&
         prevProps.isAIProcessing === nextProps.isAIProcessing &&
+        prevProps.aiQuestion === nextProps.aiQuestion &&
+        prevProps.aiPendingResult === nextProps.aiPendingResult &&
         prevProps.aiOptionsOpen === nextProps.aiOptionsOpen &&
         prevProps.aiEnabled === nextProps.aiEnabled &&
         prevProps.richTextSnapshotPreview === nextProps.richTextSnapshotPreview &&

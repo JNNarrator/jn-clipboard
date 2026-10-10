@@ -370,16 +370,7 @@ fn save_image_bytes_to_attachments(
     attachments_dir: &Path,
 ) -> Option<String> {
     let ext = normalize_image_ext(ext)?;
-    let mut hasher = std::collections::hash_map::DefaultHasher::new();
-    use std::hash::{Hash, Hasher};
-    bytes.hash(&mut hasher);
-    let hash = hasher.finish();
-
-    let file_name = format!("img_{:x}.{}", hash, ext);
-    let target = attachments_dir.join(file_name);
-    if !target.exists() {
-        std::fs::write(&target, bytes).ok()?;
-    }
+    let target = crate::database::write_attachment(attachments_dir, bytes, ext)?;
     let path = target.to_string_lossy().replace('\\', "/");
     if path.starts_with('/') {
         Some(format!("file://{}", path))
@@ -1371,7 +1362,8 @@ fn table_row_has_visible_content(row_html: &str) -> bool {
     })
 }
 
-/// Remove Office/Excel spacer rows and CF_HTML fragment markers before clipboard paste (#122).
+/// Remove the empty rows Excel appends to a whole-column copy, and CF_HTML
+/// fragment markers, before clipboard paste (#122).
 pub fn sanitize_tabular_html_for_paste(html: &str) -> String {
     let lowered = html.to_ascii_lowercase();
     if !lowered.contains("<tr") {
@@ -1382,16 +1374,22 @@ pub fn sanitize_tabular_html_for_paste(html: &str) -> String {
     let tr_re = TR_RE.get_or_init(|| Regex::new(r"(?is)<tr\b[^>]*>.*?</tr>").unwrap());
 
     let stripped = strip_cf_html_fragment_markers(html);
-    let sanitized = tr_re
-        .replace_all(&stripped, |caps: &regex::Captures| {
-            let row = caps.get(0).map(|m| m.as_str()).unwrap_or_default();
-            if table_row_has_visible_content(row) {
-                row.to_string()
-            } else {
-                String::new()
-            }
-        })
-        .into_owned();
+    // Only rows after the last filled one go: empty rows inside the copied
+    // range are the user's data, and dropping them shifts everything below.
+    let rows: Vec<_> = tr_re.find_iter(&stripped).collect();
+    let last_filled = rows
+        .iter()
+        .rposition(|row| table_row_has_visible_content(row.as_str()));
+    let mut sanitized = String::with_capacity(stripped.len());
+    let mut copied_up_to = 0;
+    for (index, row) in rows.iter().enumerate() {
+        if last_filled.is_some_and(|last| index <= last) {
+            continue;
+        }
+        sanitized.push_str(&stripped[copied_up_to..row.start()]);
+        copied_up_to = row.end();
+    }
+    sanitized.push_str(&stripped[copied_up_to..]);
 
     sanitized.trim().to_string()
 }
@@ -2125,19 +2123,26 @@ mod tests {
     }
 
     #[test]
-    fn sanitize_tabular_html_for_paste_removes_empty_excel_rows() {
+    fn sanitize_tabular_html_for_paste_removes_trailing_empty_excel_rows() {
         let html = concat!(
             "<table><tr><td>A</td></tr>",
-            "<tr><td>&nbsp;</td></tr>",
             "<tr><td></td></tr>",
-            "<tr><td>B</td></tr></table>"
+            "<tr><td>B</td></tr>",
+            "<tr><td></td></tr>",
+            "<tr><td>&nbsp;</td></tr></table>"
         );
 
         let sanitized = sanitize_tabular_html_for_paste(html);
 
-        assert!(sanitized.contains("<tr><td>A</td></tr>"));
-        assert!(sanitized.contains("<tr><td>B</td></tr>"));
-        assert_eq!(sanitized.matches("<tr").count(), 2);
+        // The blank row between A and B is data; the two after B are padding.
+        assert_eq!(
+            sanitized,
+            "<table><tr><td>A</td></tr><tr><td></td></tr><tr><td>B</td></tr></table>"
+        );
+        assert_eq!(
+            plain_text_from_tabular_html(&sanitized).as_deref(),
+            Some("A\r\n\r\nB")
+        );
     }
 
     #[test]
@@ -2835,22 +2840,15 @@ pub fn process_local_images_in_html(html: &str, data_dir: &std::path::Path) -> S
 
             if path.exists() {
                 if let Ok(data) = std::fs::read(path) {
-                    let mut hasher = std::collections::hash_map::DefaultHasher::new();
-                    use std::hash::{Hash, Hasher};
-                    data.hash(&mut hasher);
-                    let hash = hasher.finish();
-
                     let ext = path
                         .extension()
                         .and_then(|s| s.to_str())
                         .unwrap_or("png")
                         .to_lowercase();
-                    let new_filename = format!("img_{:x}.{}", hash, ext);
-                    let new_path = attachments_dir.join(&new_filename);
-
-                    if !new_path.exists() {
-                        let _ = std::fs::write(&new_path, &data);
-                    }
+                    let Some(new_path) = crate::database::write_attachment(&attachments_dir, &data, &ext)
+                    else {
+                        return format!("{}{}{}", prefix, src, suffix);
+                    };
 
                     let new_src = new_path.to_string_lossy().replace('\\', "/");
                     let final_src = if new_src.starts_with('/') {

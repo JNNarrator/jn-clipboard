@@ -13,7 +13,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
     WM_MBUTTONDOWN, WM_RBUTTONDOWN, WM_SYSKEYDOWN, WM_SYSKEYUP,
 };
 
-use crate::app::window_manager::{hide_window_cmd, toggle_window};
+use crate::app::window_manager::{hide_window_on_resign, toggle_window};
 use crate::app_state::SettingsState;
 use crate::global_state::*;
 #[cfg(target_os = "windows")]
@@ -21,6 +21,20 @@ use crate::infrastructure::windows_ext::WindowExt;
 
 // Store registered hotkey IDs for cleanup
 static BLOCKED_HOTKEY_IDS: std::sync::Mutex<Vec<i32>> = std::sync::Mutex::new(Vec::new());
+
+/// The main window's HWND, so the mouse hook never asks Tauri for it:
+/// `WebviewWindow::hwnd()` waits for the main thread, and a low-level hook
+/// that waits stalls every click in the system (and Windows may drop it).
+#[cfg(target_os = "windows")]
+static MAIN_HWND: std::sync::atomic::AtomicIsize = std::sync::atomic::AtomicIsize::new(0);
+
+/// Record the main window's HWND. Call wherever the window is (re)created.
+#[cfg(target_os = "windows")]
+pub fn remember_main_hwnd(window: &tauri::WebviewWindow) {
+    if let Ok(hwnd) = window.hwnd() {
+        MAIN_HWND.store(hwnd.0 as isize, Ordering::Relaxed);
+    }
+}
 
 #[cfg(any(target_os = "windows", test))]
 fn is_recording_clear_key(vk: u32) -> bool {
@@ -252,13 +266,18 @@ pub unsafe extern "system" fn keyboard_proc(
             let win_down = (GetAsyncKeyState(VK_LWIN.0 as i32) as u16 & 0x8000 != 0)
                 || (GetAsyncKeyState(VK_RWIN.0 as i32) as u16 & 0x8000 != 0);
 
-            if vk == 0x56 && ctrl_down && !alt_down && !shift_down && !win_down {
+            // Injected keystrokes are skipped: TieZ's own synthetic Ctrl+V already
+            // schedules this sound (clipboard_ops::schedule_paste_sound).
+            let injected = kbd_struct.flags.0 & 0x10 != 0; // LLKHF_INJECTED
+            if vk == 0x56 && ctrl_down && !alt_down && !shift_down && !win_down && !injected {
                 if is_down {
                     if let Some(handle) = GLOBAL_APP_HANDLE.get() {
                         let settings = handle.state::<SettingsState>();
                         if settings.sound_enabled.load(Ordering::Relaxed) {
+                            // Played natively, not by the WebView, so it keeps
+                            // working while light mode has destroyed the UI.
                             std::thread::spawn(move || {
-                                let _ = handle.emit("play-sound", "paste");
+                                crate::services::ui_sound::play_ui_sound(handle, "paste");
                             });
                         }
                     }
@@ -430,44 +449,45 @@ pub unsafe extern "system" fn mouse_proc(n_code: i32, w_param: WPARAM, l_param: 
             }
 
             // Click Elsewhere to Hide Logic
+            // Only plain Win32 calls in here; the reaction runs on its own
+            // thread, since hiding waits on the main thread and sleeps.
             if msg == WM_LBUTTONDOWN || msg == WM_RBUTTONDOWN {
+                let main_hwnd_raw = MAIN_HWND.load(Ordering::Relaxed);
+                let main_hwnd = HWND(main_hwnd_raw as *mut _);
                 if let Some(handle) = GLOBAL_APP_HANDLE.get() {
-                    if let Some(window) = handle.get_webview_window("main") {
-                        if !is_blur_ignored() {
-                            let mouse_struct = *(l_param.0 as *const MSLLHOOKSTRUCT);
-                            let point = mouse_struct.pt;
+                    if main_hwnd_raw != 0
+                        && !is_blur_ignored()
+                        && WindowExt::is_window_visible(main_hwnd)
+                    {
+                        let mouse_struct = *(l_param.0 as *const MSLLHOOKSTRUCT);
+                        let point = mouse_struct.pt;
+                        let mut rect = RECT::default();
+                        let _ = windows::Win32::UI::WindowsAndMessaging::GetWindowRect(
+                            main_hwnd, &mut rect,
+                        );
 
-                            if let Ok(hwnd_raw) = window.hwnd() {
-                                let main_hwnd = HWND(hwnd_raw.0);
-                                if !WindowExt::is_window_visible(main_hwnd) {
-                                    return CallNextHookEx(None, n_code, w_param, l_param);
-                                }
-                                let mut rect = RECT::default();
-                                let _ = windows::Win32::UI::WindowsAndMessaging::GetWindowRect(
-                                    main_hwnd, &mut rect,
-                                );
+                        // Boundary check: Is point outside the rect? (with 5px margin of safety)
+                        let margin = 5;
+                        let is_outside = point.x < rect.left - margin
+                            || point.x > rect.right + margin
+                            || point.y < rect.top - margin
+                            || point.y > rect.bottom + margin;
 
-                                // Boundary check: Is point outside the rect? (with 5px margin of safety)
-                                let margin = 5;
-                                let is_outside = point.x < rect.left - margin
-                                    || point.x > rect.right + margin
-                                    || point.y < rect.top - margin
-                                    || point.y > rect.bottom + margin;
-
-                                if is_outside {
-                                    // Status check before hiding
-                                    if !WindowExt::is_window_visible(main_hwnd) {
-                                        return CallNextHookEx(None, n_code, w_param, l_param);
-                                    }
-
-                                    if WINDOW_PINNED.load(Ordering::Relaxed) {
-                                        // Pinned: Just reset focusable state to ensure we don't retain focus
+                        if is_outside {
+                            let handle = handle.clone();
+                            std::thread::spawn(move || {
+                                if WINDOW_PINNED.load(Ordering::Relaxed) {
+                                    // Pinned: Just reset focusable state to ensure we don't retain focus
+                                    if let Some(window) = handle.get_webview_window("main") {
                                         let _ = window.set_focusable(false);
-                                    } else {
-                                        let _ = hide_window_cmd(handle.clone());
                                     }
+                                } else {
+                                    // Not hide_window_cmd: by now the click has
+                                    // focused what was clicked, and restoring the
+                                    // previous app would pull focus away from it.
+                                    let _ = hide_window_on_resign(handle);
                                 }
-                            }
+                            });
                         }
                     }
                 }
@@ -477,8 +497,12 @@ pub unsafe extern "system" fn mouse_proc(n_code: i32, w_param: WPARAM, l_param: 
             if msg == WM_MBUTTONDOWN {
                 let current = HOTKEY_STRING.lock().unwrap().to_lowercase();
                 if current == "mousemiddle" || current == "mbutton" {
+                    // Off the hook: after light mode the toggle rebuilds the
+                    // WebView, and blocking here stalls every mouse event
+                    // system-wide (Windows drops hooks that keep timing out).
                     if let Some(handle) = GLOBAL_APP_HANDLE.get() {
-                        toggle_window(&handle);
+                        let handle = handle.clone();
+                        std::thread::spawn(move || toggle_window(&handle));
                     }
                     return LRESULT(1);
                 }

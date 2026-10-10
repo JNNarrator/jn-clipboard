@@ -49,6 +49,7 @@ export const useAppState = (): AppState => {
   const [hotkey, setHotkey] = useState<string>("Alt+C");
   const [sequentialHotkey, setSequentialHotkey] = useState<string>("Alt+V");
   const [richPasteHotkey, setRichPasteHotkey] = useState<string>("Alt+Shift+V");
+  const [plainPasteHotkey, setPlainPasteHotkey] = useState<string>("");
   const [searchHotkey, setSearchHotkey] = useState<string>("Alt+F");
   const [quickPasteModifier, setQuickPasteModifier] =
     useState<QuickPasteModifier>("disabled");
@@ -56,9 +57,11 @@ export const useAppState = (): AppState => {
   const [isRecording, setIsRecording] = useState(false);
   const [isRecordingSequential, setIsRecordingSequential] = useState(false);
   const [isRecordingRich, setIsRecordingRich] = useState(false);
+  const [isRecordingPlain, setIsRecordingPlain] = useState(false);
   const [isRecordingSearch, setIsRecordingSearch] = useState(false);
   const [deleteAfterPaste, setDeleteAfterPaste] = useState(false);
   const [moveToTopAfterPaste, setMoveToTopAfterPaste] = useState(true);
+  const [clickCopyOnly, setClickCopyOnly] = useState(false);
   const [privacyProtection, setPrivacyProtection] = useState(true);
   const [privacyProtectionKinds, setPrivacyProtectionKinds] = useState<string[]>([
     "phone",
@@ -142,7 +145,7 @@ export const useAppState = (): AppState => {
   const [cloudSyncContentPrefs, setCloudSyncContentPrefs] =
     useState<CloudSyncContentPrefs>(DEFAULT_CLOUD_SYNC_CONTENT_PREFS);
   const [fileServerEnabled, setFileServerEnabled] = useState(false);
-  const [fileServerPort, setFileServerPort] = useState("12345");
+  const [fileServerPort, setFileServerPort] = useState("28462");
   const [localIp, setLocalIp] = useState("");
   const [availableIps, setAvailableIps] = useState<string[]>([]);
   const [actualPort, setActualPort] = useState("");
@@ -156,10 +159,10 @@ export const useAppState = (): AppState => {
   const [soundVolume, setSoundVolume] = useState(1.0);
   const [aiEnabled, setAiEnabled] = useState(true);
   const [aiTargetLang, setAiTargetLang] = useState("zh");
-  const [aiThinkingBudget, setAiThinkingBudget] = useState("1024");
   const [aiProfiles, setAiProfiles] = useState<AiProfile[]>([
     {
       id: "ds_v4_pro_v1",
+      provider: "deepseek",
       baseUrl: "https://api.deepseek.com/v1",
       apiKey: "",
       model: "deepseek-v4-pro",
@@ -167,6 +170,7 @@ export const useAppState = (): AppState => {
     },
     {
       id: "ds_flash_v1",
+      provider: "deepseek",
       baseUrl: "https://api.deepseek.com/v1",
       apiKey: "",
       model: "deepseek-flash",
@@ -245,7 +249,9 @@ export const useAppState = (): AppState => {
     sequentialHotkey,
     setSequentialHotkey,
     richPasteHotkey,
+    plainPasteHotkey,
     setRichPasteHotkey,
+    setPlainPasteHotkey,
     searchHotkey,
     setSearchHotkey,
     quickPasteModifier,
@@ -257,13 +263,17 @@ export const useAppState = (): AppState => {
     isRecordingSequential,
     setIsRecordingSequential,
     isRecordingRich,
+    isRecordingPlain,
     setIsRecordingRich,
+    setIsRecordingPlain,
     isRecordingSearch,
     setIsRecordingSearch,
     deleteAfterPaste,
     setDeleteAfterPaste,
     moveToTopAfterPaste,
+    clickCopyOnly,
     setMoveToTopAfterPaste,
+    setClickCopyOnly,
     privacyProtection,
     setPrivacyProtection,
     privacyProtectionKinds,
@@ -442,8 +452,6 @@ export const useAppState = (): AppState => {
     setAiEnabled,
     aiTargetLang,
     setAiTargetLang,
-    aiThinkingBudget,
-    setAiThinkingBudget,
     aiProfiles,
     setAiProfiles,
     aiAssignedProfileTask,

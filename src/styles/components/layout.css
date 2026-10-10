@@ -16,6 +16,7 @@ header {
   /* Keep visible so .tags-dropdown can paint over the list.
      overflow-x:hidden here would force overflow-y to auto and clip it. */
   overflow: visible;
+  -webkit-user-select: none;
   user-select: none;
   cursor: default;
 }
@@ -86,6 +87,7 @@ header {
   -webkit-mask: url("../../assets/tiez-wordmark.svg") left center / contain no-repeat;
   mask: url("../../assets/tiez-wordmark.svg") left center / contain no-repeat;
   pointer-events: none;
+  -webkit-user-select: none;
   user-select: none;
 }
 
@@ -448,6 +450,7 @@ header {
   flex-direction: column;
   gap: 2px;
   z-index: var(--z-dropdown);
+  -webkit-user-select: none;
   user-select: none;
 }
 
@@ -772,6 +775,7 @@ select.search-input option {
 /* Custom drag ghost badge */
 .drag-ghost-badge {
   box-sizing: border-box;
+  -webkit-user-select: none;
   user-select: none;
   pointer-events: none;
 }

@@ -8,8 +8,9 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager};
+use tauri_plugin_notification::NotificationExt;
 use tokio::time::sleep;
 
 #[derive(Clone, Debug)]
@@ -31,6 +32,11 @@ struct MqttConfig {
 static MQTT_RUNNING: AtomicBool = AtomicBool::new(false);
 static MQTT_CONNECTED: AtomicBool = AtomicBool::new(false);
 static MQTT_RECONNECT_ATTEMPTS: AtomicU32 = AtomicU32::new(0);
+/// A connection that lasted this long resets the reconnect backoff.
+const STABLE_CONNECTION: Duration = Duration::from_secs(60);
+/// rumqttc's default is 10 KB, which dropped long texts and tore down the
+/// connection on every oversized (possibly retained) message.
+const MAX_MQTT_PACKET: usize = 1024 * 1024;
 static MQTT_TASK_ACTIVE: AtomicBool = AtomicBool::new(false);
 static MQTT_GENERATION: AtomicU64 = AtomicU64::new(0);
 
@@ -191,18 +197,20 @@ fn get_mqtt_config(app: &AppHandle) -> Option<MqttConfig> {
     {
         let _ = db_state.settings_repo.set("app.anon_id", &anon_id);
     }
-    let short_id = anon_id.split('-').next().unwrap_or("unknown");
-    let default_topic = format!("tiez/tiez_{}", short_id);
-
     let db_topic = db_state
         .settings_repo
         .get("mqtt_topic")
         .ok()
         .flatten()
         .filter(|s| !s.is_empty());
+    // The topic is the only thing keeping strangers on a shared broker out, so
+    // a new install gets an unguessable one (128 random bits) instead of the
+    // first 8 hex digits of the anonymous id. Saved topics are kept: the phone
+    // was paired with them.
     let topic = db_topic.unwrap_or_else(|| {
+        let default_topic = format!("tiez/tiez_{}", uuid::Uuid::new_v4().simple());
         let _ = db_state.settings_repo.set("mqtt_topic", &default_topic);
-        default_topic.clone()
+        default_topic
     });
 
     let custom_client_id = db_state
@@ -456,6 +464,7 @@ pub fn start_mqtt_client(app: AppHandle) {
                 }
 
                 // Initialize client
+                mqttoptions.set_max_packet_size(MAX_MQTT_PACKET, MAX_MQTT_PACKET);
                 let (client, mut eventloop) = AsyncClient::new(mqttoptions, 10);
 
                 let mut connected = false;
@@ -465,7 +474,8 @@ pub fn start_mqtt_client(app: AppHandle) {
                             Ok(Event::Incoming(Incoming::ConnAck(_))) => {
                                 info!(">>> [MQTT] Connection Established.");
                                 MQTT_CONNECTED.store(true, Ordering::Relaxed);
-                                MQTT_RECONNECT_ATTEMPTS.store(0, Ordering::Relaxed);
+                                // Attempts are reset only once a connection has
+                                // proved stable (see the event-loop error below).
                                 let _ = app.emit("mqtt-status", "connected");
                                 return Ok::<(), rumqttc::ConnectionError>(());
                             }
@@ -526,6 +536,7 @@ pub fn start_mqtt_client(app: AppHandle) {
                 }
                 // Catch changes published while this computer was disconnected.
                 crate::services::cloud_sync::request_cloud_sync(app.clone());
+                let connected_at = Instant::now();
 
                 loop {
                     // Restart/stop requested: drop this connection and let outer loop reconnect.
@@ -559,7 +570,21 @@ pub fn start_mqtt_client(app: AppHandle) {
                                         }
                                         PublishRoute::Clipboard => {},
                                     }
+                                    // The broker redelivers a retained message on every
+                                    // (re)connect; apply each one once.
+                                    if publish.retain && !first_delivery_of_retained(&app, &publish.payload) {
+                                        continue;
+                                    }
                                     if let Ok(payload_str) = std::str::from_utf8(&publish.payload) {
+                                        let opened;
+                                        let payload_str = match open_e2e_payload(&app, payload_str) {
+                                            Some(E2eOpened::Plain) => payload_str,
+                                            Some(E2eOpened::Decrypted(text)) => {
+                                                opened = text;
+                                                opened.as_str()
+                                            }
+                                            None => continue,
+                                        };
                                         let payload_trimmed = payload_str.trim();
                                         let final_content = if let Ok(json_val) =
                                             serde_json::from_str::<serde_json::Value>(
@@ -585,53 +610,8 @@ pub fn start_mqtt_client(app: AppHandle) {
                                             payload_trimmed.to_string()
                                         };
 
-                                        let payload_owned = final_content.clone();
-                                        let app_handle_for_clipboard = app.clone();
-
-                                        // Use blocking pool instead of unbounded OS threads.
-                                        tauri::async_runtime::spawn_blocking(move || {
-                                            let normalized =
-                                                payload_owned.trim().replace("\r\n", "\n");
-                                            let mut hasher = DefaultHasher::new();
-                                            normalized.hash(&mut hasher);
-                                            let content_hash = hasher.finish();
-                                            let now = std::time::SystemTime::now()
-                                                .duration_since(std::time::UNIX_EPOCH)
-                                                .unwrap_or_default()
-                                                .as_secs();
-                                            LAST_APP_SET_HASH.store(content_hash, Ordering::SeqCst);
-                                            LAST_APP_SET_TIMESTAMP.store(now, Ordering::SeqCst);
-                                            match arboard::Clipboard::new() {
-                                                Ok(mut clipboard) => {
-                                                    let mut attempts = 0;
-                                                    while attempts < 3 {
-                                                        if clipboard
-                                                            .set_text(payload_owned.clone())
-                                                            .is_err()
-                                                        {
-                                                            std::thread::sleep(
-                                                                std::time::Duration::from_millis(
-                                                                    100,
-                                                                ),
-                                                            );
-                                                            attempts += 1;
-                                                        } else {
-                                                            break;
-                                                        }
-                                                    }
-                                                }
-                                                Err(_) => {}
-                                            }
-                                            crate::services::clipboard::process_new_entry(
-                                                &app_handle_for_clipboard,
-                                                crate::services::clipboard::ClipboardData::Text(
-                                                    payload_owned,
-                                                ),
-                                                Some("mqtt".to_string()),
-                                            );
-                                        });
-
-                                        let _ = app.emit("mqtt-message", &final_content);
+                                        apply_incoming_text(&app, final_content.clone());
+                                        notify_incoming_message(&app, &final_content);
                                     }
                                 }
                                 Incoming::SubAck(ack) => {
@@ -650,6 +630,19 @@ pub fn start_mqtt_client(app: AppHandle) {
                                 MQTT_RUNNING.store(false, Ordering::Relaxed);
                                 MQTT_CONNECTED.store(false, Ordering::Relaxed);
                                 let _ = app.emit("mqtt-status", "disconnected");
+                                // Back off before reconnecting. A connection that
+                                // keeps dropping right after connecting (another
+                                // client with this id, a broker kick, a packet it
+                                // rejects) must not turn into a tight loop.
+                                let attempts = if connected_at.elapsed() >= STABLE_CONNECTION {
+                                    MQTT_RECONNECT_ATTEMPTS.store(1, Ordering::Relaxed);
+                                    1
+                                } else {
+                                    MQTT_RECONNECT_ATTEMPTS.fetch_add(1, Ordering::Relaxed) + 1
+                                };
+                                let delay = reconnect_delay(attempts);
+                                info!(">>> [MQTT] Reconnecting in {}s (Attempt {})...", delay.as_secs(), attempts);
+                                wait_or_restart(delay, generation).await;
                                 break;
                             }
                         },
@@ -820,5 +813,151 @@ mod tests {
         let mut receiver = NoticeReceiver::default();
         assert!(receiver.accept(&result.1, false, &scope, "device-b"));
         assert!(!receiver.accept(&result.1, false, &scope, "device-b"));
+    }
+}
+
+/// System notification for an incoming message. Sent from here rather than by
+/// the WebView so it still arrives while light mode has destroyed the UI.
+fn notify_incoming_message(app: &AppHandle, content: &str) {
+    let Some(db) = app.try_state::<DbState>() else {
+        return;
+    };
+    let enabled = db
+        .settings_repo
+        .get("mqtt_notification_enabled")
+        .ok()
+        .flatten()
+        .map(|value| value != "false")
+        .unwrap_or(true);
+    if !enabled {
+        return;
+    }
+
+    let message = content.split_whitespace().collect::<Vec<_>>().join(" ");
+    if message.is_empty() {
+        return;
+    }
+
+    // The same text often arrives twice in a row (retained + live, resends).
+    static LAST_NOTIFIED: OnceLock<Mutex<Option<(String, Instant)>>> = OnceLock::new();
+    {
+        let mut last = LAST_NOTIFIED
+            .get_or_init(|| Mutex::new(None))
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        if let Some((previous, at)) = last.as_ref() {
+            if *previous == message && at.elapsed() < Duration::from_secs(10) {
+                return;
+            }
+        }
+        *last = Some((message.clone(), Instant::now()));
+    }
+
+    // Same wording as mqtt_notification_title in src/locales.ts.
+    let title = match db.settings_repo.get("app.language").ok().flatten().as_deref() {
+        Some("en") => "New MQTT Message",
+        Some("tw") => "收到新訊息",
+        _ => "收到新消息",
+    };
+    let body = if message.chars().count() <= 64 {
+        message
+    } else {
+        format!("{}...", message.chars().take(61).collect::<String>())
+    };
+    if let Err(err) = app.notification().builder().title(title).body(body).show() {
+        error!(">>> [MQTT] Notification failed: {}", err);
+    }
+}
+
+/// Incoming texts go through one worker so they reach the clipboard in the
+/// order they arrived (a blocking task each could finish out of order).
+fn apply_incoming_text(app: &AppHandle, text: String) {
+    static WORKER: OnceLock<Mutex<std::sync::mpsc::Sender<(AppHandle, String)>>> = OnceLock::new();
+    let sender = WORKER.get_or_init(|| {
+        let (tx, rx) = std::sync::mpsc::channel::<(AppHandle, String)>();
+        std::thread::spawn(move || {
+            for (app, text) in rx {
+                write_incoming_text(&app, text);
+            }
+        });
+        Mutex::new(tx)
+    });
+    let _ = sender
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .send((app.clone(), text));
+}
+
+fn write_incoming_text(app: &AppHandle, text: String) {
+    let normalized = text.trim().replace("\r\n", "\n");
+    let mut hasher = DefaultHasher::new();
+    normalized.hash(&mut hasher);
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    LAST_APP_SET_HASH.store(hasher.finish(), Ordering::SeqCst);
+    LAST_APP_SET_TIMESTAMP.store(now, Ordering::SeqCst);
+    if let Ok(mut clipboard) = arboard::Clipboard::new() {
+        for _ in 0..3 {
+            if clipboard.set_text(text.clone()).is_ok() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+    }
+    crate::services::clipboard::process_new_entry(
+        app,
+        crate::services::clipboard::ClipboardData::Text(text),
+        Some("mqtt".to_string()),
+    );
+}
+
+/// Remembers the last retained payload applied (across restarts), so a stale
+/// retained message can't overwrite the clipboard again after every wake or
+/// settings change, while a new one sent during downtime still gets through.
+fn first_delivery_of_retained(app: &AppHandle, payload: &[u8]) -> bool {
+    use sha2::{Digest, Sha256};
+    let Some(db) = app.try_state::<DbState>() else {
+        return false;
+    };
+    let digest = format!("{:x}", Sha256::digest(payload));
+    let key = "mqtt_last_retained_sha256";
+    if db.settings_repo.get(key).ok().flatten().as_deref() == Some(digest.as_str()) {
+        return false;
+    }
+    let _ = db.settings_repo.set(key, &digest);
+    true
+}
+
+enum E2eOpened {
+    Plain,
+    Decrypted(String),
+}
+
+/// With an end-to-end key set, only fresh messages sealed with it get
+/// through (strangers on the broker can neither read nor inject). Without
+/// one, sealed messages are dropped: there is nothing to open them with.
+fn open_e2e_payload(app: &AppHandle, payload: &str) -> Option<E2eOpened> {
+    use crate::services::e2e;
+    match e2e::load_keys(app) {
+        Some(keys) => {
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis() as i64;
+            match keys.open_mqtt_text(payload, now) {
+                Ok(text) => Some(E2eOpened::Decrypted(text)),
+                Err(reason) => {
+                    info!(">>> [MQTT] Dropped a message: end-to-end check failed ({:?})", reason);
+                    None
+                }
+            }
+        }
+        None if e2e::is_sealed_mqtt_text(payload) => {
+            info!(">>> [MQTT] Dropped an encrypted message: no end-to-end key set");
+            None
+        }
+        None => Some(E2eOpened::Plain),
     }
 }

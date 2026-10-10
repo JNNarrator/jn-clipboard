@@ -92,14 +92,19 @@ fn validate_and_repair_external_media(item: &mut ClipboardEntry, data_dir: &std:
             return;
         }
 
-        // For multi-file entries
+        // Multi-file entries count as present while any file is: one moved
+        // file used to show the whole entry as deleted although the rest still
+        // paste. Only the first files are checked, so a huge list or a network
+        // share doesn't make every page load stat thousands of paths.
         if item.content_type == "file" && raw_path.contains('\n') {
-            let all_exist = raw_path
-                .lines()
-                .map(|line| line.trim())
-                .filter(|line| !line.is_empty())
-                .all(|p| std::path::Path::new(p).exists());
-            item.file_preview_exists = all_exist;
+            const MAX_CHECKED_FILES: usize = 50;
+            let mut paths = raw_path.lines().map(str::trim).filter(|line| !line.is_empty());
+            let any_exist = paths
+                .by_ref()
+                .take(MAX_CHECKED_FILES)
+                .any(|p| std::path::Path::new(p).exists())
+                || paths.next().is_some();
+            item.file_preview_exists = any_exist;
             return;
         }
 
@@ -123,7 +128,9 @@ fn validate_and_repair_external_media(item: &mut ClipboardEntry, data_dir: &std:
     }
 }
 
-#[tauri::command]
+// async: off the main thread. Checking that files exist can be slow (many
+// files, a disconnected network share) and froze the UI on every list load.
+#[tauri::command(async)]
 pub fn get_clipboard_history(
     state: State<'_, DbState>,
     session: State<'_, SessionHistory>,
@@ -343,6 +350,8 @@ pub fn delete_clipboard_entry(
         let mut session_items = session.inner().0.lock().unwrap();
         session_items.retain(|item| item.id != id);
     }
+    // Session-only images go as soon as their entry does (privacy).
+    crate::services::clipboard::sweep_session_files(&app_handle);
 
     if id > 0 {
         let data_dir = app_data.0.lock().unwrap();
@@ -364,6 +373,8 @@ pub fn clear_clipboard_history(
         let mut session_items = session.inner().0.lock().unwrap();
         session_items.retain(|item| item.is_pinned || !item.tags.is_empty());
     }
+    // Session-only images go as soon as their entry does (privacy).
+    crate::services::clipboard::sweep_session_files(&app_handle);
     let data_dir = app_data.0.lock().unwrap();
     state.repo.clear(Some(&data_dir)).map_err(AppError::from)?;
     let _ = app_handle.emit("clipboard-changed", ());
@@ -430,6 +441,7 @@ pub fn rename_tag_globally(
 
 #[tauri::command]
 pub fn delete_tag_from_all(
+    app_handle: tauri::AppHandle,
     state: State<'_, DbState>,
     session: State<'_, SessionHistory>,
     app_data: State<'_, AppDataDir>,
@@ -439,6 +451,8 @@ pub fn delete_tag_from_all(
         let mut session_items = session.inner().0.lock().unwrap();
         session_items.retain(|item| !item.tags.contains(&tag_name));
     }
+    // Session-only images go as soon as their entry does (privacy).
+    crate::services::clipboard::sweep_session_files(&app_handle);
 
     let data_dir = app_data.0.lock().unwrap();
     state
