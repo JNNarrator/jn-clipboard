@@ -1055,6 +1055,14 @@ pub fn resolve_clipboard_text_capture(
     Some(ResolvedClipboardCapture { text, html })
 }
 
+/// HTML that carries only pictures and no text, like the `<img src>` browsers
+/// put next to the bitmap when copying an image. Taken as rich text, that copy
+/// was saved as a lone space and showed as "·" instead of the image.
+pub fn html_is_image_only(html: &str) -> bool {
+    html.to_ascii_lowercase().contains("<img")
+        && derive_rich_text_content("", Some(html)).trim().is_empty()
+}
+
 pub fn derive_rich_text_content(content: &str, html_content: Option<&str>) -> String {
     let line_plain = normalize_clipboard_line_endings(content);
     if looks_like_obsidian_callout_markdown(&line_plain) {
@@ -1647,7 +1655,7 @@ mod tests {
         extract_animated_image_data_url_from_text, extract_first_image_data_url_from_html,
         infer_rich_html_from_plain_text, normalize_clipboard_line_endings,
         normalize_clipboard_plain_text, parse_app_cleanup_policies, parse_cf_html,
-        parse_cleanup_rules, plain_text_from_tabular_html, sanitize_tabular_html_for_paste,
+        html_is_image_only, parse_cleanup_rules, plain_text_from_tabular_html, sanitize_tabular_html_for_paste,
         split_rich_html_and_image_fallback, split_rich_html_and_named_formats,
         truncate_html_for_preview, visible_whitespace_preview, AppCleanupPolicy,
         HTML_TRUNCATION_SUFFIX,
@@ -2120,6 +2128,16 @@ mod tests {
             Some("data:image/png;base64,AAAA")
         );
         assert_eq!(cleaned, "<table><tr><td>Excel</td></tr></table>");
+    }
+
+    #[test]
+    fn browser_image_markup_counts_as_image_only() {
+        // What Chrome puts on the clipboard next to the bitmap for "Copy image".
+        assert!(html_is_image_only(
+            "<meta charset='utf-8'><img src=\"https://example.com/cat.png\" alt=\"\"/>"
+        ));
+        assert!(!html_is_image_only("<p>caption</p><img src=\"https://example.com/cat.png\">"));
+        assert!(!html_is_image_only("<p>no picture</p>"));
     }
 
     #[test]

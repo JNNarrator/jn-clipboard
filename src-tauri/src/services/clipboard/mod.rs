@@ -733,7 +733,15 @@ pub fn start_clipboard_monitor(app_handle: AppHandle) {
                     normalized.hash(&mut text_hasher);
                     let text_hash = text_hasher.finish();
 
-                    if recent_image_echo(text_hash) {
+                    // A browser's "Copy image" adds an `<img src>` with no text;
+                    // leave that to the image branch below so the picture is kept.
+                    let image_only = text.trim().is_empty()
+                        && utils::html_is_image_only(&html)
+                        && (clipboard_image.is_some() || native_clipboard_image.is_some());
+
+                    if image_only {
+                        // Not handled: the image branch below records it.
+                    } else if recent_image_echo(text_hash) {
                         crate::LAST_APP_SET_HASH.store(0, Ordering::SeqCst);
                         crate::LAST_APP_SET_HASH_ALT.store(0, Ordering::SeqCst);
                         handled = true;
@@ -836,11 +844,16 @@ pub fn start_clipboard_monitor(app_handle: AppHandle) {
             let rich_text_enabled = settings.capture_rich_text.load(Ordering::Relaxed);
             #[cfg(not(target_os = "macos"))]
             let has_text = clipboard.get_text().map(|t| !t.is_empty()).unwrap_or(false);
+            // HTML that only wraps the copied picture (browsers' "Copy image")
+            // isn't rich text: record the image itself.
             #[cfg(target_os = "macos")]
             let has_rich_html = rich_text_enabled
                 && clipboard_html_snapshot
                     .as_ref()
-                    .map(|html| !html.trim().is_empty())
+                    .map(|html| {
+                        !html.trim().is_empty()
+                            && !(has_clipboard_image && utils::html_is_image_only(html))
+                    })
                     .unwrap_or(false);
             #[cfg(not(target_os = "macos"))]
             let has_rich_html = if rich_text_enabled && has_text {

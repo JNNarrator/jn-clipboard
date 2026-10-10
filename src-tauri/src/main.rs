@@ -84,7 +84,19 @@ fn main() -> AppResult<()> {
                 .build(),
         );
 
-    let builder = builder.plugin(tauri_plugin_window_state::Builder::default().build());
+    // Only the main window's geometry is remembered. The plugin otherwise
+    // calls show() on any window it has no saved state for, so the hidden
+    // compact preview popped up the first time it was created; and restoring
+    // "visible" would fight silent start. The app shows windows itself.
+    let builder = builder.plugin(
+        tauri_plugin_window_state::Builder::default()
+            .with_state_flags(
+                tauri_plugin_window_state::StateFlags::all()
+                    - tauri_plugin_window_state::StateFlags::VISIBLE,
+            )
+            .with_filter(|label| label == "main")
+            .build(),
+    );
 
     #[cfg(target_os = "macos")]
     let builder = builder.plugin(tauri_nspanel::init());

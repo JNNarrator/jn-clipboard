@@ -55,7 +55,9 @@ export const LabelWithHint = memo(({ label, hint, hintKey }: {
                     </button>
                 )}
             </div>
-            {summary && <span className="item-desc">{summary}</span>}
+            {/* A one-line hint stays visible; a longer one waits behind the ? button,
+                summary included, so clicking it doesn't add a second line under a first. */}
+            {summary && (!details || open) && <span className="item-desc">{summary}</span>}
             {details && open && (
                 typeof details === "string" ? <span className="hint">{details}</span> : details
             )}
