@@ -1,13 +1,15 @@
-//! macOS-style clipboard sounds (Tink/Boop, Frog/Jump) as embedded WAV on Windows.
+//! Clipboard sounds (Kenney, CC0; see resources/sounds/README.md) embedded as
+//! WAV. macOS plays them through NSSound; elsewhere this module plays them.
 //!
 //! Uses `PlaySoundW` (no rodio/cpal) to keep the Windows binary small.
 
-static COPY_SOUND: &[u8] = include_bytes!("../../resources/sounds/Tink.wav");
-static PASTE_SOUND: &[u8] = include_bytes!("../../resources/sounds/Frog.wav");
+pub(crate) static COPY_SOUND: &[u8] = include_bytes!("../../resources/sounds/copy.wav");
+pub(crate) static PASTE_SOUND: &[u8] = include_bytes!("../../resources/sounds/paste.wav");
 
 #[cfg(target_os = "windows")]
 use std::io::Cursor;
 
+#[cfg(not(target_os = "macos"))]
 pub fn play_clipboard_sound(kind: &str, volume: f64) {
     let vol = volume.clamp(0.0, 1.0) as f32;
     if vol <= 0.0 {

@@ -1,20 +1,42 @@
-//! Play audible UI sounds using cached NSSound instances for low latency.
-//!
-//! macOS renames legacy files in System Settings → Sound → Sound Effects:
-//! - Boop  → Tink.aiff
-//! - Jump  → Frog.aiff
-//! (see AlertSounds.loctable in Sound.appex)
+//! Play the bundled clipboard sounds through cached NSSound instances for low
+//! latency. Same WAV data as Windows (see `bundled_sound`).
 
-use std::cell::RefCell;
-use std::thread::LocalKey;
+use std::sync::Mutex;
 
 use objc2::rc::{autoreleasepool, Retained};
+use objc2::AllocAnyThread;
 use objc2_app_kit::NSSound;
-use objc2_foundation::NSString;
+use objc2_foundation::NSData;
 
-thread_local! {
-    static COPY_SOUND: RefCell<Option<Retained<NSSound>>> = const { RefCell::new(None) };
-    static PASTE_SOUND: RefCell<Option<Retained<NSSound>>> = const { RefCell::new(None) };
+use crate::infrastructure::bundled_sound::{COPY_SOUND, PASTE_SOUND};
+
+struct CachedSound(Option<Retained<NSSound>>);
+
+// SAFETY: the NSSound is only touched while its mutex is held. Before, every
+// thread shared AppKit's single named instance without any lock.
+unsafe impl Send for CachedSound {}
+
+// Process-wide rather than per thread: paste sounds play on a short-lived
+// thread, and a thread-local unnamed NSSound would be freed mid-playback.
+static COPY_CACHE: Mutex<CachedSound> = Mutex::new(CachedSound(None));
+static PASTE_CACHE: Mutex<CachedSound> = Mutex::new(CachedSound(None));
+
+fn slot_for(kind: &str) -> (&'static Mutex<CachedSound>, &'static [u8]) {
+    match kind {
+        "paste" => (&PASTE_CACHE, PASTE_SOUND),
+        _ => (&COPY_CACHE, COPY_SOUND),
+    }
+}
+
+fn with_sound<R>(kind: &str, f: impl FnOnce(&NSSound) -> R) -> Option<R> {
+    let (cache, wav) = slot_for(kind);
+    let mut slot = cache.lock().unwrap_or_else(|e| e.into_inner());
+    autoreleasepool(|_| {
+        if slot.0.is_none() {
+            slot.0 = NSSound::initWithData(NSSound::alloc(), &NSData::with_bytes(wav));
+        }
+        slot.0.as_deref().map(f)
+    })
 }
 
 pub fn play_clipboard_sound(kind: &str, volume: f64) {
@@ -23,80 +45,16 @@ pub fn play_clipboard_sound(kind: &str, volume: f64) {
         return;
     }
 
-    let sound_name = match kind {
-        "paste" => "Frog", // Jump
-        _ => "Tink",       // Boop
-    };
-
-    if play_cached_nssound(kind, sound_name, vol) {
-        return;
-    }
-
-    // Fallback only if AppKit cannot resolve the system sound name.
-    let path = format!("/System/Library/Sounds/{}.aiff", sound_name);
-    let vol_arg = format!("{:.3}", vol);
-
-    std::thread::spawn(move || {
-        let _ = std::process::Command::new("/usr/bin/afplay")
-            .arg("-v")
-            .arg(vol_arg)
-            .arg(path)
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status();
+    with_sound(kind, |sound| {
+        sound.setVolume(vol as f32);
+        let _ = sound.stop();
+        sound.setCurrentTime(0.0);
+        sound.play()
     });
 }
 
-fn play_cached_nssound(kind: &str, sound_name: &str, volume: f64) -> bool {
-    let cache = match kind {
-        "paste" => &PASTE_SOUND,
-        _ => &COPY_SOUND,
-    };
-
-    play_from_cache(cache, sound_name, volume as f32)
-}
-
-fn play_from_cache(
-    cache: &'static LocalKey<RefCell<Option<Retained<NSSound>>>>,
-    sound_name: &str,
-    volume: f32,
-) -> bool {
-    autoreleasepool(|_| {
-        cache.with(|slot| {
-            let mut cached_sound = slot.borrow_mut();
-            if cached_sound.is_none() {
-                let ns_name = NSString::from_str(sound_name);
-                *cached_sound = NSSound::soundNamed(&ns_name);
-            }
-
-            let Some(sound) = cached_sound.as_ref() else {
-                return false;
-            };
-
-            sound.setVolume(volume);
-            let _ = sound.stop();
-            sound.setCurrentTime(0.0);
-            sound.play()
-        })
-    })
-}
-
-/// Warm NSSound caches at startup so the first copy feedback is not delayed by AppKit loading.
+/// Decode both sounds at startup so the first copy feedback is not delayed.
 pub fn preload_clipboard_sounds() {
-    autoreleasepool(|_| {
-        COPY_SOUND.with(|slot| {
-            let mut cached_sound = slot.borrow_mut();
-            if cached_sound.is_none() {
-                let ns_name = NSString::from_str("Tink");
-                *cached_sound = NSSound::soundNamed(&ns_name);
-            }
-        });
-        PASTE_SOUND.with(|slot| {
-            let mut cached_sound = slot.borrow_mut();
-            if cached_sound.is_none() {
-                let ns_name = NSString::from_str("Frog");
-                *cached_sound = NSSound::soundNamed(&ns_name);
-            }
-        });
-    });
+    with_sound("copy", |_| ());
+    with_sound("paste", |_| ());
 }
