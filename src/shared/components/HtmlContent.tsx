@@ -26,6 +26,23 @@ const stripFontSizeFromCssText = (cssText: string): string => {
     .trim();
 };
 
+/**
+ * Page margins, first-line indents and double spacing from Word or a web page
+ * push a preview's text off to the side and out of view; drop them, along
+ * with fixed sizes.
+ */
+const stripPreviewLayoutFromCssText = (cssText: string): string => {
+  // The trailing ";" is left in place so the next declaration still has the
+  // separator these patterns anchor on.
+  return cssText
+    .replace(/(^|[;{])\s*(?:width|height|min-width|max-width|text-indent|line-height)\s*:[^;}]+/gi, "$1")
+    .replace(/(^|[;{])\s*(?:margin|padding)(?:-[a-z-]+)?\s*:[^;}]+/gi, "$1")
+    .replace(/;(?:\s*;)+/g, ";")
+    .replace(/\{\s*;/g, "{")
+    .replace(/^\s*;+|;+\s*$/g, "")
+    .trim();
+};
+
 const stripUnsafeCssText = (cssText: string): string => {
   return cssText
     .replace(/@import\s+[^;]+;?/gi, "")
@@ -169,7 +186,7 @@ const sanitizeHTML = (html: string, preview?: boolean) => {
       return;
     }
     if (preview && style.textContent) {
-      style.textContent = stripFontSizeFromCssText(style.textContent);
+      style.textContent = stripPreviewLayoutFromCssText(stripFontSizeFromCssText(style.textContent));
     }
     if (style.textContent) {
       style.textContent = stripUnsafeCssText(style.textContent);
@@ -225,11 +242,7 @@ const sanitizeHTML = (html: string, preview?: boolean) => {
           .replace(/^;+|;+$/g, "");
         cleanedStyle = stripUnsafeCssText(cleanedStyle);
         if (preview) {
-          cleanedStyle = stripFontSizeFromCssText(cleanedStyle);
-          cleanedStyle = cleanedStyle
-            .replace(/(?:^|[;{])\s*(?:width|height|min-width|max-width)\s*:[^;}]+;?/gi, "")
-            .replace(/;\s*;/g, ";")
-            .trim();
+          cleanedStyle = stripPreviewLayoutFromCssText(stripFontSizeFromCssText(cleanedStyle));
         }
         if (cleanedStyle) {
           el.setAttribute("style", cleanedStyle);
@@ -285,6 +298,11 @@ type HtmlContentProps = {
   className?: string;
   style?: React.CSSProperties;
   preview?: boolean;
+  /**
+   * Show at most this many lines, cut at a line boundary with an ellipsis
+   * (list rows). Headings and gaps are tightened so the lines carry text.
+   */
+  clampLines?: number;
 };
 
 const SHADOW_BASE_STYLE = `
@@ -294,6 +312,24 @@ const SHADOW_BASE_STYLE = `
     font-family: var(--font-main);
     font-size: var(--clipboard-item-font-size);
     line-height: 1.4;
+  }
+  :host([data-clamp]) .tiez-rich-root {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: var(--rich-preview-lines, 4);
+    overflow: hidden;
+  }
+  :host([data-clamp]) .tiez-rich-root :is(h1, h2, h3, h4, h5, h6) {
+    font-size: 1em !important;
+    margin: 0 !important;
+  }
+  :host([data-clamp]) .tiez-rich-root :is(p, div, ul, ol, li, blockquote, pre, table) {
+    margin-top: 0 !important;
+    margin-bottom: 0.15em !important;
+  }
+  :host([data-clamp]) .tiez-rich-root :is(img, video) {
+    max-height: 4.2em;
+    width: auto;
   }
   .tiez-rich-root {
     color: inherit;
@@ -619,7 +655,7 @@ const repairUnreadableSourceColors = (root: ShadowRoot, host: HTMLElement) => {
   }
 };
 
-const HtmlContent = ({ htmlContent, fallbackText, className, style, preview }: HtmlContentProps) => {
+const HtmlContent = ({ htmlContent, fallbackText, className, style, preview, clampLines }: HtmlContentProps) => {
   const contentRef = useRef<HTMLDivElement | null>(null);
   const processedRef = useRef<{ htmlContent: string; preview?: boolean; fallbackText?: string } | null>(null);
   const [isVisible, setIsVisible] = useState(!!preview);
@@ -681,8 +717,10 @@ const HtmlContent = ({ htmlContent, fallbackText, className, style, preview }: H
     <div
       ref={contentRef}
       className={className}
+      data-clamp={clampLines ? "" : undefined}
       style={{
         minHeight: isVisible ? undefined : (preview ? previewPlaceholderMinHeight : '100px'),
+        ...(clampLines ? { ["--rich-preview-lines" as string]: clampLines } : null),
         ...style
       }}
     />

@@ -34,6 +34,11 @@ body.compact-preview #root > * {
 .compact-preview-root {
     width: auto;
     height: auto;
+    /* Keeps the card's border off the window edge, where fractional display
+       scaling cut its right and bottom sides. Must match CARD_INSET_PX in
+       CompactPreviewWindow.tsx, which adds it to the window size. */
+    padding: 1px;
+    box-sizing: content-box;
     background: transparent;
     display: inline-flex;
     align-items: flex-start;
@@ -159,6 +164,11 @@ body.compact-preview .compact-popover-portal,
 .compact-preview-root .popover-meta .meta-dot {
     flex-shrink: 0 !important;
     opacity: 0.35 !important;
+}
+
+.compact-preview-root .popover-content.is-clipped {
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
 }
 
 .compact-preview-root .popover-content {

@@ -362,6 +362,25 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
         conn.execute("INSERT INTO schema_migrations (version) VALUES (16)", [])?;
     }
 
+    // Migration 17: rich text previews show the formatted text itself now; the
+    // snapshot image (default on until now, marked experimental) shrank long
+    // content until it was unreadable. Everyone starts with it off once; it
+    // was on by default, so a deliberate choice can't be told apart.
+    if current_version < 17 {
+        let has_settings: bool = conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'settings')",
+            [],
+            |row| row.get(0),
+        )?;
+        if has_settings {
+            conn.execute(
+                "UPDATE settings SET value = 'false' WHERE key = 'app.rich_text_snapshot_preview'",
+                [],
+            )?;
+        }
+        conn.execute("INSERT INTO schema_migrations (version) VALUES (17)", [])?;
+    }
+
     Ok(())
 }
 
@@ -430,7 +449,7 @@ mod tests {
                 row.get(0)
             })
             .expect("read schema version");
-        assert_eq!(version, 16);
+        assert_eq!(version, 17);
     }
 
     #[test]
@@ -467,7 +486,7 @@ mod tests {
         // Already on the 0-1 scale: untouched.
         conn.execute("UPDATE settings SET value = '0.5' WHERE key = 'app.sound_volume'", [])
             .unwrap();
-        conn.execute("DELETE FROM schema_migrations WHERE version = 16", []).unwrap();
+        conn.execute("DELETE FROM schema_migrations WHERE version >= 16", []).unwrap();
         run_migrations(&conn).expect("rerun migration 16");
         assert!((volume(&conn) - 0.5).abs() < 1e-9);
     }

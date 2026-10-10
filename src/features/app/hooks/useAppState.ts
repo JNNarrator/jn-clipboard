@@ -77,7 +77,7 @@ export const useAppState = (): AppState => {
   const [appCleanupPolicies, setAppCleanupPolicies] = useState<AppCleanupPolicy[]>([]);
   const [captureFiles, setCaptureFiles] = useState(true);
   const [captureRichText, setCaptureRichText] = useState(false);
-  const [richTextSnapshotPreview, setRichTextSnapshotPreview] = useState(true);
+  const [richTextSnapshotPreview, setRichTextSnapshotPreview] = useState(false);
   const [silentStart, setSilentStart] = useState(true);
   const [followMouse, setFollowMouse] = useState(false);
   const [showAppBorder, setShowAppBorder] = useState(false);

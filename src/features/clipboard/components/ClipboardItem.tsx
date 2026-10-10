@@ -70,6 +70,7 @@ import { getFileIcon as getSystemFileIcon, peekFileIcon } from "../../../shared/
 import { getSourceAppIcon, peekSourceAppIcon } from "../../../shared/lib/sourceAppIcon";
 import { stripRichStorageMarkers } from "../../../shared/lib/repairHtmlFragment";
 import { registerCompactPreviewControls } from "../lib/compactPreviewControls";
+import { isAnimatedGifSrc, isSpreadsheetLikeSource, richHtmlLooksTabular } from "../lib/richPreview";
 import {
     isCompactPreviewHoverArmed,
     noteCompactPreviewHoverPoint,
@@ -86,9 +87,6 @@ const COMPACT_PREVIEW_READY_TIMEOUT_MS = 400;
 const COMPACT_PREVIEW_FALLBACK_MS = 220;
 const RICH_IMAGE_FALLBACK_PREFIX = "<!--TIEZ_RICH_IMAGE:";
 const RICH_IMAGE_FALLBACK_SUFFIX = "-->";
-const TABULAR_RICH_HTML_RE = /<(table|tr|td|th|thead|tbody|tfoot|colgroup|col)\b/i;
-const SPREADSHEET_SOURCE_RE = /\b(excel|et|wpssheet|wps表格|sheet|spreadsheet|calc)\b/i;
-const SPREADSHEET_APP_RE = /(?:^|[\\/])(excel|et|wps|wpssheet|soffice)(?:\.exe|\.app)?$/i;
 const STANDALONE_COLOR_RE = /^(#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})|(?:rgb|hsl)a?\(\s*[^)]+\s*\))$/i;
 const COMPACT_PREVIEW_DEBUG = false;
 const IS_MACOS =
@@ -152,24 +150,6 @@ const resolveRichImageSrc = (payload?: string): string | null => {
     return toTauriLocalImageSrc(value);
 };
 
-const isAnimatedGifSrc = (src?: string | null): boolean => {
-    const value = (src || "").trim().toLowerCase();
-    if (!value) return false;
-    return value.startsWith("data:image/gif") || /\.gif(?:$|[?#])/i.test(value);
-};
-
-const richHtmlLooksTabular = (html?: string): boolean => {
-    if (!html) return false;
-    return TABULAR_RICH_HTML_RE.test(html);
-};
-
-const isSpreadsheetLikeSource = (...candidates: Array<string | undefined>): boolean => {
-    return candidates.some((candidate) => {
-        const value = (candidate || "").trim();
-        if (!value) return false;
-        return SPREADSHEET_APP_RE.test(value) || SPREADSHEET_SOURCE_RE.test(value);
-    });
-};
 
 const getStandaloneColorValue = (contentType: string, content: string): string | null => {
     if (contentType !== "text" && contentType !== "code") {
@@ -1054,7 +1034,6 @@ const ClipboardItem = ({
         ]
     );
     const richTextCleanHtml = stripRichStorageMarkers(richTextFallback?.cleanHtml || item.html_content || "");
-    const richTextSnapshotDisplayMaxHeight = compactMode ? 40 : 64;
     const richTextSnapshotRenderMaxHeight = compactMode ? 100 : 200;
     const spreadsheetLikeRichSource = item.content_type === "rich_text"
         && !!item.html_content
@@ -1108,9 +1087,11 @@ const ClipboardItem = ({
         ? (effectiveRichImageFallbackSrc || effectiveRichTextSnapshotSrc)
         : preferImageFallbackForTabular
             ? (effectiveRichImageFallbackSrc || effectiveRichTextSnapshotSrc)
-            : richTextSnapshotPreview
+            : richTextSnapshotPreview || !item.content.trim()
                 ? (effectiveRichTextSnapshotSrc || effectiveRichImageFallbackSrc)
-                : (effectiveRichTextSnapshotSrc || effectiveRichImageFallbackSrc);
+                // Text reads better as text than as the source app's bitmap
+                // shrunk to a row.
+                : effectiveRichTextSnapshotSrc;
     const useSnapshotPreviewImage = !!richTextPreviewSrc && richTextPreviewSrc === effectiveRichTextSnapshotSrc;
     const useRichImageFallback = !!richTextPreviewSrc && richTextPreviewSrc === effectiveRichImageFallbackSrc;
     const visibleTagCount = item.tags?.length || 0;
@@ -2712,15 +2693,14 @@ const ClipboardItem = ({
                             htmlContent={richTextCleanHtml || item.html_content}
                             fallbackText={item.preview}
                             preview={true}
+                            // Same line count as plain text rows, cut between lines:
+                            // a fixed height used to slice a line in half.
+                            clampLines={compactMode ? 2 : 4}
                             style={{
-                                maxHeight: `${richTextSnapshotDisplayMaxHeight}px`,
-                                overflow: 'hidden',
                                 fontSize: 'var(--clipboard-item-font-size)',
                                 lineHeight: '1.4',
                                 position: 'relative',
-                                pointerEvents: 'none', // Prevent interacting with links in the list
-                                maskImage: 'linear-gradient(to bottom, black 70%, transparent 100%)',
-                                WebkitMaskImage: 'linear-gradient(to bottom, black 70%, transparent 100%)'
+                                pointerEvents: 'none' // Prevent interacting with links in the list
                             }}
                         />
                     )

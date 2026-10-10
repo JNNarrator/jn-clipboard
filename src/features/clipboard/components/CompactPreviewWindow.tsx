@@ -29,6 +29,7 @@ import { toTauriLocalImageSrc } from "../../../shared/lib/localImageSrc";
 import { stripRichStorageMarkers } from "../../../shared/lib/repairHtmlFragment";
 import { getRichTextSnapshotDataUrl } from "../../../shared/lib/richTextSnapshot";
 import { ensureInstalledThemeStyle } from "../../../shared/lib/themePackages";
+import { preferRichImageFallback } from "../lib/richPreview";
 
 type PreviewPayload = {
     requestId: number;
@@ -61,6 +62,18 @@ type PreviewResizePayload = {
     height: number;
 };
 
+/**
+ * Transparent gap between the card and the window edge. A border right on the
+ * edge loses its right and bottom sides at fractional display scaling (only
+ * left and top showed, like the main window's old CSS border).
+ */
+const CARD_INSET_PX = 1;
+/** Card padding and border around rich content (see .compact-popover-portal). */
+const RICH_CARD_CHROME_PX = 26;
+
+/** Short rich text gets a compact card; longer text uses the room there is. */
+const richCardWidth = (payload: { content?: string; maxWidth: number }) =>
+    Math.min(payload.maxWidth, (payload.content || "").trim().length <= 80 ? 380 : 520);
 const RICH_IMAGE_FALLBACK_PREFIX = "<!--TIEZ_RICH_IMAGE:";
 const RICH_IMAGE_FALLBACK_SUFFIX = "-->";
 
@@ -200,16 +213,26 @@ const CompactPreviewWindow = () => {
         if (!imagePayload) return null;
         const src = resolveRichImageSrc(imagePayload);
         if (!src) return null;
-        return src;
+        // The source app's bitmap, shrunk to the card, was unreadable for text.
+        const useBitmap = preferRichImageFallback({
+            imageSrc: src,
+            text: payload.content,
+            html: payload.htmlContent,
+            sourceApp: payload.sourceApp,
+            sourceAppPath: payload.sourceAppPath
+        });
+        return useBitmap ? src : null;
     }, [payload]);
     const richTextSnapshotSrc = useMemo(() => {
         if (!payload || payload.contentType !== "rich_text" || !payload.htmlContent) return null;
         if (!payload.richTextSnapshotPreview) return null;
         const { cleanHtml } = extractRichImageFallback(payload.htmlContent);
         const htmlForSnapshot = stripRichStorageMarkers(cleanHtml || payload.htmlContent);
+        // Rendered at the width it is shown at; the card crops what doesn't
+        // fit instead of shrinking the whole image until the text is tiny.
         return getRichTextSnapshotDataUrl(htmlForSnapshot, {
-            width: payload.maxWidth,
-            maxHeight: Math.max(payload.maxHeight * 2, 720)
+            width: richCardWidth(payload) - RICH_CARD_CHROME_PX,
+            maxHeight: payload.maxHeight
         });
     }, [payload]);
     const snapshotFailed = !!payload && snapshotFailedRequestId === payload.requestId;
@@ -473,7 +496,7 @@ const calculateStandardCardDimensions = (
 
     // 4. Rich Text Preview
     if (payload.contentType === "rich_text") {
-        const standardRichWidth = Math.max(metaMinWidth, Math.min(maxW, 420));
+        const standardRichWidth = Math.max(metaMinWidth, Math.min(maxW, richCardWidth(payload)));
         applyCardWidth(standardRichWidth);
         const measuredHeight = Math.ceil(container.scrollHeight || container.offsetHeight || container.getBoundingClientRect().height);
         return {
@@ -549,6 +572,16 @@ const calculateStandardCardDimensions = (
                     metaRef.current
                 );
 
+                // Content taller than the card is cropped; fade it out so the
+                // cut doesn't look like the end (the window takes no scrolling).
+                const contentEl = contentRef.current;
+                if (contentEl) {
+                    contentEl.classList.toggle(
+                        "is-clipped",
+                        contentEl.scrollHeight > contentEl.clientHeight + 1
+                    );
+                }
+
                 if (width < 40 || height < 40) {
                     compactPreviewLog("skip emit: measured size too small", {
                         width,
@@ -575,8 +608,15 @@ const calculateStandardCardDimensions = (
                     height
                 });
 
-                emit("compact-preview-resize", { requestId, width, height }).catch(() => {});
-                emitTo("main", "compact-preview-resize", { requestId, width, height }).catch((err) => {
+                // The window is the card plus its inset on every side (see
+                // .compact-preview-root in compact-preview.css).
+                const windowSize = {
+                    requestId,
+                    width: width + 2 * CARD_INSET_PX,
+                    height: height + 2 * CARD_INSET_PX
+                };
+                emit("compact-preview-resize", windowSize).catch(() => {});
+                emitTo("main", "compact-preview-resize", windowSize).catch((err) => {
                     console.error(err);
                     compactPreviewLog("emit compact-preview-resize failed", err);
                 });
@@ -791,6 +831,7 @@ const calculateStandardCardDimensions = (
                         ref={richSnapshotImgRef}
                         src={effectiveRichTextSnapshotSrc}
                         alt="rich text snapshot preview"
+                        className="rich-text-snapshot-full"
                         onLoad={() => {
                             if (richSnapshotFallbackTimerRef.current) {
                                 window.clearTimeout(richSnapshotFallbackTimerRef.current);
@@ -812,11 +853,10 @@ const calculateStandardCardDimensions = (
                             setSnapshotFailedRequestId(payload.requestId);
                         }}
                         style={{
-                            maxWidth: "100%",
-                            maxHeight: "var(--preview-media-fit-height, 460px)",
-                            width: "auto",
+                            // Full card width, natural height: .popover-content
+                            // crops (and fades) the rest.
+                            width: "100%",
                             height: "auto",
-                            objectFit: "contain",
                             display: "block",
                             borderRadius: "4px"
                         }}
