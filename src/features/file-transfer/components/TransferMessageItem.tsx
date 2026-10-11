@@ -1,6 +1,5 @@
 import type { MouseEvent as ReactMouseEvent } from "react";
 import {
-    Clipboard,
     Image as ImageIcon,
     Video,
     AlertCircle,
@@ -18,9 +17,6 @@ import {
 export interface TransferMessageItemProps {
     t: (key: string) => string;
     message: FileTransferMessage;
-    groupedWithPrevious: boolean;
-    copiedMessageId: number | null;
-    onCopyText: (messageId: number, text: string) => void;
     getMessageMediaSrc: (message: FileTransferMessage) => string;
     onMediaPreviewError: (message: FileTransferMessage, target: HTMLImageElement | HTMLVideoElement) => void;
     onOpenContent: (target: { filePath?: string; content?: string; type?: string }) => void;
@@ -31,9 +27,6 @@ export interface TransferMessageItemProps {
 export const TransferMessageItem = ({
     t,
     message: m,
-    groupedWithPrevious,
-    copiedMessageId,
-    onCopyText,
     getMessageMediaSrc,
     onMediaPreviewError,
     onOpenContent,
@@ -62,10 +55,6 @@ export const TransferMessageItem = ({
                 });
             }}
         >
-            {m.sender_name && m.direction === 'in' && !groupedWithPrevious && (
-                <div className="wt-sender-name">{m.sender_name}</div>
-            )}
-
             {/* Text Message */}
             {m.msg_type === 'text' && (
                 <div className="wt-text-wrapper">
@@ -78,22 +67,6 @@ export const TransferMessageItem = ({
                     >
                         {renderTextWithLinks(m.content)}
                     </div>
-                    <button
-                        type="button"
-                        className={`wt-bubble-copy-btn ${copiedMessageId === m.id ? 'is-copied' : ''}`}
-                        title={copiedMessageId === m.id ? t("ft_copied") : t("ft_copy_content")}
-                        aria-label={copiedMessageId === m.id ? t("ft_copied") : t("ft_copy_content")}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onCopyText(m.id, m.content);
-                        }}
-                    >
-                        {copiedMessageId === m.id ? (
-                            <span className="wt-copy-check">✓</span>
-                        ) : (
-                            <Clipboard size={12} />
-                        )}
-                    </button>
                 </div>
             )}
 

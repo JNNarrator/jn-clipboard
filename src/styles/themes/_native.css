@@ -90,7 +90,6 @@ html.theme-macos .history-item.compact {
   --im-surface: color-mix(in srgb, var(--bg-input) 86%, transparent);
   --im-input: color-mix(in srgb, var(--bg-input) 92%, transparent);
   --im-incoming: color-mix(in srgb, var(--bg-input) 88%, var(--bg-panel) 12%);
-  --im-outgoing: color-mix(in srgb, var(--accent-color) 22%, var(--bg-input) 78%);
 }
 
 /* ---- From components/tags.css ---- */

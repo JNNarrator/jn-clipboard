@@ -4,7 +4,7 @@ import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { emit, listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open } from "@tauri-apps/plugin-dialog";
-import { Folder, Wifi, Search } from "lucide-react";
+import { Check, Copy, Folder, Wifi, Search } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { QRCodeCanvas } from "qrcode.react";
 
@@ -45,6 +45,7 @@ import { TransferHeader } from "./TransferHeader";
 import { TransferFilterBar } from "./TransferFilterBar";
 import { TransferBatchBubble } from "./TransferBatchBubble";
 import { TransferMessageItem } from "./TransferMessageItem";
+import { TransferPeerAvatar } from "./TransferPeerAvatar";
 import { TransferComposer } from "./TransferComposer";
 import { TransferContextMenu } from "./TransferContextMenu";
 import ConfirmDialog from "../../../shared/components/ConfirmDialog";
@@ -66,7 +67,6 @@ const FileTransferChatView = ({
     const [messages, setMessages] = useState<FileTransferMessage[]>([]);
     const [mediaFallbackSources, setMediaFallbackSources] = useState<Record<string, string>>({});
     const [input, setInput] = useState("");
-    const [appLogo, setAppLogo] = useState("");
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const chatBoxRef = useRef<HTMLDivElement>(null);
     const [isUserScrolling, setIsUserScrolling] = useState(false);
@@ -720,33 +720,6 @@ const FileTransferChatView = ({
         }
     };
 
-    const getAvatarConfig = (m: FileTransferMessage) => {
-        if (m.sender_id === "pc" || m.direction === "out") {
-            return {
-                isImg: !!appLogo,
-                content: appLogo || "PC",
-                color: "var(--accent-color)",
-                initial: "PC",
-            };
-        }
-
-        let initial = "M";
-        if (m.sender_name) {
-            const name = m.sender_name.toLowerCase();
-            if (name.includes("iphone")) initial = "iP";
-            else if (name.includes("ipad")) initial = "iD";
-            else if (name.includes("android")) initial = "An";
-            else if (name.includes("手机")) initial = "M";
-            else initial = m.sender_name.charAt(0).toUpperCase();
-        }
-
-        return {
-            isImg: false,
-            color: "color-mix(in srgb, var(--accent-color) 74%, var(--text-secondary))",
-            initial,
-        };
-    };
-
     const fetchMessages = async () => {
         try {
             const msgs = await invoke<FileTransferMessage[]>("get_chat_history");
@@ -776,7 +749,6 @@ const FileTransferChatView = ({
     useEffect(() => {
         const appWindow = getCurrentWindow();
         fetchMessages();
-        invoke<string>("get_app_logo").then(setAppLogo).catch(console.error);
 
         const handleDragDrop = async (event: { payload: unknown }) => {
             setDragging(false);
@@ -1292,7 +1264,6 @@ const FileTransferChatView = ({
                 )}
 
                 {filteredMessages.map((m, index) => {
-                    const avatar = getAvatarConfig(m);
                     const batchMessages = m.batch_id
                         ? filteredMessages
                               .filter((message) => message.batch_id === m.batch_id)
@@ -1334,30 +1305,11 @@ const FileTransferChatView = ({
                                         m.direction === "out" ? "sent" : "received"
                                     } is-group-start is-group-end`}
                                 >
-                                    <div
-                                        className="wt-avatar"
-                                        style={{
-                                            background: avatar.isImg
-                                                ? "transparent"
-                                                : avatar.color,
-                                        }}
-                                        aria-label={
-                                            m.direction === "out"
-                                                ? t("ft_my_device")
-                                                : m.sender_name || t("ft_peer_device")
-                                        }
-                                    >
-                                        {avatar.isImg ? (
-                                            <img
-                                                src={avatar.content}
-                                                loading="lazy"
-                                                alt=""
-                                            />
-                                        ) : (
-                                            avatar.initial
-                                        )}
-                                    </div>
+                                    {m.direction !== "out" && <TransferPeerAvatar message={m} />}
                                     <div className="wt-message-stack">
+                                        {m.direction !== "out" && m.sender_name && (
+                                            <div className="wt-sender-name">{m.sender_name}</div>
+                                        )}
                                         <TransferBatchBubble
                                             t={t}
                                             message={m}
@@ -1399,56 +1351,49 @@ const FileTransferChatView = ({
                                     groupedWithNext ? "is-grouped-with-next" : "is-group-end"
                                 }`}
                             >
-                                {!groupedWithNext ? (
-                                    <div
-                                        className="wt-avatar"
-                                        style={{
-                                            background: avatar.isImg
-                                                ? "transparent"
-                                                : avatar.color,
-                                        }}
-                                        aria-label={
-                                            m.direction === "out"
-                                                ? t("ft_my_device")
-                                                : m.sender_name || t("ft_peer_device")
-                                        }
-                                    >
-                                        {avatar.isImg ? (
-                                            <img
-                                                src={avatar.content}
-                                                loading="lazy"
-                                                alt={
-                                                    m.direction === "out"
-                                                        ? t("ft_my_device")
-                                                        : m.sender_name || t("ft_peer_device")
-                                                }
-                                            />
-                                        ) : (
-                                            avatar.initial
-                                        )}
-                                    </div>
-                                ) : (
-                                    <div className="wt-avatar-spacer" aria-hidden="true" />
-                                )}
+                                {/* Incoming only: the avatar sits on a group's last message. */}
+                                {m.direction !== "out" &&
+                                    (groupedWithNext ? (
+                                        <div className="wt-avatar-spacer" aria-hidden="true" />
+                                    ) : (
+                                        <TransferPeerAvatar message={m} />
+                                    ))}
                                 <div className="wt-message-stack">
-                                    <TransferMessageItem
-                                        t={t}
-                                        message={m}
-                                        groupedWithPrevious={groupedWithPrevious}
-                                        copiedMessageId={copiedMessageId}
-                                        onCopyText={handleCopyText}
-                                        getMessageMediaSrc={getMessageMediaSrc}
-                                        onMediaPreviewError={handleMediaPreviewError}
-                                        onOpenContent={openTransferContent}
-                                        onRetrySend={retrySendFile}
-                                        onContextMenu={openContextMenu}
-                                    />
-                                    <div className="wt-message-meta">
-                                        <span>{formatMessageTime(m.timestamp)}</span>
-                                        {m.direction === "out" && (
-                                            <span className="wt-delivery-mark">✓</span>
+                                    {m.direction !== "out" && m.sender_name && !groupedWithPrevious && (
+                                        <div className="wt-sender-name">{m.sender_name}</div>
+                                    )}
+                                    <div className="wt-bubble-anchor">
+                                        <TransferMessageItem
+                                            t={t}
+                                            message={m}
+                                            getMessageMediaSrc={getMessageMediaSrc}
+                                            onMediaPreviewError={handleMediaPreviewError}
+                                            onOpenContent={openTransferContent}
+                                            onRetrySend={retrySendFile}
+                                            onContextMenu={openContextMenu}
+                                        />
+                                        {/* Beside the bubble, not over its text. */}
+                                        {m.msg_type === "text" && (
+                                            <button
+                                                type="button"
+                                                className={`wt-copy-btn${copiedMessageId === m.id ? " is-copied" : ""}`}
+                                                title={copiedMessageId === m.id ? t("ft_copied") : t("ft_copy_content")}
+                                                aria-label={copiedMessageId === m.id ? t("ft_copied") : t("ft_copy_content")}
+                                                onClick={() => void handleCopyText(m.id, m.content)}
+                                            >
+                                                {copiedMessageId === m.id ? <Check size={14} /> : <Copy size={14} />}
+                                            </button>
                                         )}
                                     </div>
+                                    {/* One time per group, under its last message. */}
+                                    {!groupedWithNext && (
+                                        <div className="wt-message-meta">
+                                            <span>{formatMessageTime(m.timestamp)}</span>
+                                            {m.direction === "out" && (
+                                                <span className="wt-delivery-mark">✓</span>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </Fragment>

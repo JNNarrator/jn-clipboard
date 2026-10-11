@@ -60,6 +60,13 @@
   --file-tint-code: #4e82d8;
   --file-tint-image: #4a9f82;
   --file-tint-video: #8a69d5;
+  /* LAN transfer avatars, one per sending device (tinted background, icon in the tone). */
+  --avatar-tone-1: #3d6fd6;
+  --avatar-tone-2: #2b7a4b;
+  --avatar-tone-3: #7b5bd0;
+  --avatar-tone-4: #b85a1f;
+  --avatar-tone-5: #c74b86;
+  --avatar-tone-6: #17807f;
 
   --line-soft: rgba(24, 34, 53, 0.12);
   --line-strong: rgba(24, 34, 53, 0.22);

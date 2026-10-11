@@ -68,7 +68,6 @@
   --im-canvas: color-mix(in srgb, var(--bg-window) 92%, var(--accent-color) 8%);
   --im-canvas-shade: color-mix(in srgb, var(--im-canvas) 84%, transparent);
   --im-incoming: color-mix(in srgb, var(--bg-element) 94%, rgb(var(--highlight-rgb)) 6%);
-  --im-outgoing: color-mix(in srgb, var(--accent-color) 14%, var(--bg-element) 86%);
 }
 
 :root.theme-sticky-note,

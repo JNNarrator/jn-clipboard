@@ -27,7 +27,7 @@
   --im-canvas: var(--bg-window);
   --im-canvas-shade: color-mix(in srgb, var(--bg-window) 90%, transparent);
   --im-incoming: var(--bg-element);
-  --im-outgoing: color-mix(in srgb, var(--accent-color) 14%, var(--bg-element) 86%);
+  --im-bubble-border: var(--line-soft);
 }
 
 

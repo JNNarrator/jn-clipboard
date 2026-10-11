@@ -48,9 +48,6 @@ export const TransferBatchBubble = ({
                 batchMessages
             })}
         >
-            {m.sender_name && m.direction === 'in' && (
-                <div className="wt-sender-name">{m.sender_name}</div>
-            )}
             <button
                 type="button"
                 className="wt-batch-header"

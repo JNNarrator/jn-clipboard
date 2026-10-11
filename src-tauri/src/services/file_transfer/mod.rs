@@ -999,8 +999,3 @@ pub fn get_file_server_status(app_handle: AppHandle) -> StatusPayload {
         lan_key: lan_key_text(&server_info),
     }
 }
-
-#[tauri::command]
-pub fn get_app_logo(app_handle: AppHandle) -> String {
-    get_app_logo_base64(&app_handle)
-}

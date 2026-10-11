@@ -20,18 +20,22 @@
   --im-surface: var(--bg-panel);
   --im-input: color-mix(in srgb, var(--bg-input) 96%, transparent);
   --im-incoming: color-mix(in srgb, var(--bg-panel) 97%, var(--accent-color) 3%);
-  --im-outgoing: color-mix(in srgb, var(--bg-panel) 82%, var(--accent-color) 18%);
+  /* Text you send sits on the accent, iMessage style (see .wt-bubble-text below). */
+  --im-outgoing: var(--accent-color);
   --im-text: var(--text-primary);
   --im-muted: var(--text-muted);
   --im-border: var(--line-soft);
   --im-strong-border: var(--line-strong);
-  --im-bubble-shadow: 0 1px 2px rgba(var(--shadow-rgb), 0.08);
+  --im-bubble-shadow: none;
+  /* Themes whose bubbles match the canvas outline them instead. */
+  --im-bubble-border: transparent;
   --im-menu-shadow: var(--menu-shadow);
+  /* .wt-message-meta: a 12px row under a 2px gap. */
+  --im-meta-height: 14px;
   /* Shapes follow the active theme's scale instead of a private one. */
-  --im-bubble-radius: var(--card-radius);
+  --im-bubble-radius: calc(var(--card-radius) * 1.5);
   --im-control-radius: var(--input-radius);
   --im-panel-radius: var(--panel-radius);
-  --im-avatar-radius: var(--radius-pill);
 
   position: relative;
   display: flex;
@@ -514,7 +518,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   max-width: min(78%, 540px);
   align-items: flex-end;
   align-self: flex-start;
-  gap: 8px;
+  gap: 6px;
   margin: 1px 0 4px;
   animation: wt-message-in var(--duration-base) cubic-bezier(0.2, 0.75, 0.3, 1) both;
 }
@@ -534,32 +538,26 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
 
 .wt-avatar,
 .wt-avatar-spacer {
-  width: 30px;
-  height: 30px;
-  flex: 0 0 30px;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
 }
 
+/* Level with the bubble's bottom edge, not with the time below it. */
 .wt-avatar {
-  position: relative;
   display: grid;
   place-items: center;
-  overflow: hidden;
-  border: 2px solid color-mix(in srgb, var(--im-surface) 88%, transparent);
-  border-radius: var(--im-avatar-radius);
-  color: var(--on-accent);
-  box-shadow:
-    0 0 0 1px rgba(var(--im-accent-rgb), 0.22),
-    0 2px 6px rgba(var(--shadow-rgb), 0.1);
-  font-size: var(--font-size-2xs);
-  font-weight: 720;
-  letter-spacing: -0.02em;
+  margin-bottom: var(--im-meta-height);
+  border-radius: var(--radius-pill);
+  color: color-mix(in srgb, var(--wt-avatar-tone, var(--avatar-tone-1)) 72%, var(--text-primary));
+  background: color-mix(in srgb, var(--wt-avatar-tone, var(--avatar-tone-1)) 16%, var(--im-surface));
 }
 
-.wt-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
+.wt-avatar[data-tone="1"] { --wt-avatar-tone: var(--avatar-tone-2); }
+.wt-avatar[data-tone="2"] { --wt-avatar-tone: var(--avatar-tone-3); }
+.wt-avatar[data-tone="3"] { --wt-avatar-tone: var(--avatar-tone-4); }
+.wt-avatar[data-tone="4"] { --wt-avatar-tone: var(--avatar-tone-5); }
+.wt-avatar[data-tone="5"] { --wt-avatar-tone: var(--avatar-tone-6); }
 
 .wt-message-stack {
   display: flex;
@@ -574,11 +572,11 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
 
 .wt-bubble {
   position: relative;
-  min-width: 46px;
+  min-width: 36px;
   max-width: 100%;
-  padding: 8px 10px;
+  padding: 6px 12px;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--im-border) 78%, transparent);
+  border: 1px solid var(--im-bubble-border);
   border-radius: var(--im-bubble-radius);
   color: var(--im-text);
   background: var(--im-incoming);
@@ -595,38 +593,51 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   user-select: text;
 }
 
+/* The corner toward the sender stays small where a group continues or ends. */
 .wt-message.received .wt-bubble {
-  border-bottom-left-radius: min(4px, var(--im-bubble-radius));
+  border-bottom-left-radius: min(6px, var(--im-bubble-radius));
 }
 
 .wt-message.sent .wt-bubble {
-  border-color: color-mix(in srgb, var(--im-accent) 16%, var(--im-border));
-  border-bottom-right-radius: min(4px, var(--im-bubble-radius));
-  background: var(--im-outgoing);
+  border-bottom-right-radius: min(6px, var(--im-bubble-radius));
 }
 
 .wt-message.received.is-grouped-with-previous .wt-bubble {
-  border-top-left-radius: min(7px, var(--im-bubble-radius));
-}
-
-.wt-message.received.is-grouped-with-next .wt-bubble {
-  border-bottom-left-radius: min(7px, var(--im-bubble-radius));
+  border-top-left-radius: min(6px, var(--im-bubble-radius));
 }
 
 .wt-message.sent.is-grouped-with-previous .wt-bubble {
-  border-top-right-radius: min(7px, var(--im-bubble-radius));
+  border-top-right-radius: min(6px, var(--im-bubble-radius));
 }
 
-.wt-message.sent.is-grouped-with-next .wt-bubble {
-  border-bottom-right-radius: min(7px, var(--im-bubble-radius));
+/* Only text is filled with the accent; files, media and batches keep the
+   plain card, whose progress bars and lists are drawn for a light surface.
+   Inside, the --im-* colors are re-pointed so links and muted text read on it. */
+.wt-message.sent .wt-bubble-text {
+  --im-text: var(--on-accent);
+  --im-muted: color-mix(in srgb, var(--on-accent) 82%, var(--accent-color));
+  --im-accent: var(--on-accent);
+  border-color: transparent;
+  color: var(--im-text);
+  background: var(--im-outgoing);
+}
+
+.wt-message.sent .wt-bubble-text .wt-link {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.wt-message.sent .wt-bubble-text ::selection {
+  color: var(--accent-color);
+  background: var(--on-accent);
 }
 
 .wt-sender-name {
-  margin: -1px 0 4px;
-  color: var(--im-accent);
+  margin: 0 0 2px 12px;
+  color: var(--im-muted);
   font-size: var(--font-size-2xs);
-  font-weight: 680;
-  line-height: 1.2;
+  font-weight: 500;
+  line-height: 1.3;
 }
 
 .wt-text-content {
@@ -639,51 +650,49 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   width: 100%;
 }
 
-.wt-bubble-copy-btn {
+.wt-bubble-anchor {
+  position: relative;
+  max-width: 100%;
+}
+
+/* Copy, beside the bubble on its open side; shown while the message is hovered. */
+.wt-copy-btn {
   position: absolute;
-  top: -4px;
-  right: -4px;
-  width: 20px;
-  height: 20px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  top: 50%;
+  left: calc(100% + 4px);
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
   padding: 0;
-  border: 1px solid var(--im-border);
+  border: 0;
   border-radius: var(--button-radius);
-  background: var(--im-surface);
   color: var(--im-muted);
-  box-shadow: 0 2px 6px rgba(var(--shadow-rgb), 0.08);
+  background: transparent;
   opacity: 0;
-  pointer-events: none;
-  transform: scale(0.85);
-  transition: opacity var(--duration-base) ease, transform var(--duration-base) ease, color var(--duration-base) ease, background var(--duration-base) ease;
+  transform: translateY(-50%);
+  transition: opacity var(--duration-fast) ease, color var(--duration-fast) ease, background var(--duration-fast) ease;
   cursor: pointer;
-  z-index: 5;
 }
 
-.wt-bubble:hover .wt-bubble-copy-btn {
+.wt-message.sent .wt-copy-btn {
+  left: auto;
+  right: calc(100% + 4px);
+}
+
+.wt-message:hover .wt-copy-btn,
+.wt-copy-btn:focus-visible,
+.wt-copy-btn.is-copied {
   opacity: 1;
-  pointer-events: auto;
-  transform: scale(1);
 }
 
-.wt-bubble-copy-btn:hover {
-  color: var(--im-accent);
-  background: var(--im-surface-strong, var(--im-surface));
+.wt-copy-btn:hover {
+  color: var(--im-text);
+  background: rgba(var(--neutral-rgb), 0.14);
 }
 
-.wt-bubble-copy-btn.is-copied {
-  opacity: 1;
-  pointer-events: auto;
-  transform: scale(1);
+.wt-copy-btn.is-copied {
   color: var(--status-success);
-  border-color: var(--status-success);
-}
-
-.wt-copy-check {
-  font-size: var(--font-size-2xs);
-  font-weight: 800;
 }
 
 .wt-message-meta {
@@ -1335,7 +1344,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
 .wt-context-item {
   display: flex;
   width: 100%;
-  min-height: 34px;
+  min-height: 32px;
   align-items: center;
   gap: 10px;
   padding: 6px 8px;
@@ -1343,7 +1352,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   border-radius: var(--compact-action-radius);
   color: var(--im-text);
   background: transparent;
-  font: var(--font-size-xs)/1.3 var(--font-main);
+  font: var(--font-size-sm)/1.3 var(--font-main);
   text-align: left;
   cursor: pointer;
 }
@@ -1525,8 +1534,6 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   --im-canvas: color-mix(in srgb, var(--bg-window) 92%, var(--accent-color) 8%);
   --im-canvas-shade: color-mix(in srgb, var(--im-canvas) 78%, transparent);
   --im-incoming: color-mix(in srgb, var(--bg-panel) 95%, var(--accent-color) 5%);
-  --im-outgoing: color-mix(in srgb, var(--bg-panel) 76%, var(--accent-color) 24%);
-  --im-bubble-shadow: 0 1px 2px rgba(var(--shadow-rgb), 0.24);
 }
 
 @keyframes wt-message-in {
@@ -1562,8 +1569,6 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
 @media (max-width: 380px) {
   
   .wt-chat-box { padding-inline: 10px; }
-  .wt-avatar,
-  .wt-avatar-spacer { width: 27px; height: 27px; flex-basis: 27px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

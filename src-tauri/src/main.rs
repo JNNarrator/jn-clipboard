@@ -266,7 +266,6 @@ fn main() -> AppResult<()> {
             services::file_transfer::send_files_to_client,
             services::file_transfer::save_temp_image,
             services::file_transfer::expand_transfer_paths,
-            services::file_transfer::get_app_logo,
             services::file_transfer::get_local_ip_addr,
             services::file_transfer::get_available_ips,
             services::file_transfer::get_available_network_interfaces,

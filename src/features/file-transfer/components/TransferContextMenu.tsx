@@ -10,8 +10,8 @@ import {
     Image as ImageIcon,
     Link as LinkIcon,
     Video,
-    Clipboard,
-    Send,
+    Copy,
+    ClipboardPaste,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { FileTransferContextMenu, FileTransferMessage } from "../types";
@@ -439,7 +439,7 @@ export const TransferContextMenu = ({
                                         await navigator.clipboard.writeText(selected.content);
                                 }}
                             >
-                                <Clipboard size={16} />
+                                <Copy size={16} />
                                 <span>{t("copy_text")}</span>
                             </button>
                             <button
@@ -464,7 +464,7 @@ export const TransferContextMenu = ({
                                     }
                                 }}
                             >
-                                <Send size={16} />
+                                <ClipboardPaste size={16} />
                                 <span>{t("ft_copy_and_paste")}</span>
                             </button>
                         </>
