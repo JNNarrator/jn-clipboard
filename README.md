@@ -23,14 +23,14 @@
 
 ## Theme Gallery
 
-Explore 4 elegant themes designed for every workspace and efficiency scenarios.
+Eight built-in themes; four of them:
 
   <table>
     <tr>
-      <td align="center"><b>Frosted Glass</b><br><img src="docs/images/毛玻璃.png" width="220" /></td>
-      <td align="center"><b>Notebook Style</b><br><img src="docs/images/书.png" width="220" /></td>
-      <td align="center"><b>Sticky Note</b><br><img src="docs/images/便利贴.png" width="220" /></td>
-      <td align="center"><b>3D Interaction</b><br><img src="docs/images/3d.png" width="220" /></td>
+      <td align="center"><b>Frosted</b><br><img src="docs/images/毛玻璃.png" width="220" /></td>
+      <td align="center"><b>Paper</b><br><img src="docs/images/书.png" width="220" /></td>
+      <td align="center"><b>Sticky</b><br><img src="docs/images/便利贴.png" width="220" /></td>
+      <td align="center"><b>Retro</b><br><img src="docs/images/3d.png" width="220" /></td>
     </tr>
   </table>
 </div>

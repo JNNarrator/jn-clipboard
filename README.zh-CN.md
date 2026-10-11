@@ -25,14 +25,14 @@
 
 ## 主题展示 (Theme Gallery)
 
-探索为各种工作场景和效率场景精心设计的 4 款优雅主题样式。
+内置 8 款主题，下面是其中 4 款。
 
   <table>
     <tr>
-      <td align="center"><b>极简毛玻璃</b><br><img src="docs/images/毛玻璃.png" width="220" /></td>
-      <td align="center"><b>笔记本风格</b><br><img src="docs/images/书.png" width="220" /></td>
-      <td align="center"><b>便利贴风格</b><br><img src="docs/images/便利贴.png" width="220" /></td>
-      <td align="center"><b>3D 动感</b><br><img src="docs/images/3d.png" width="220" /></td>
+      <td align="center"><b>磨砂</b><br><img src="docs/images/毛玻璃.png" width="220" /></td>
+      <td align="center"><b>纸张</b><br><img src="docs/images/书.png" width="220" /></td>
+      <td align="center"><b>便签</b><br><img src="docs/images/便利贴.png" width="220" /></td>
+      <td align="center"><b>复古</b><br><img src="docs/images/3d.png" width="220" /></td>
     </tr>
   </table>
 </div>

@@ -13,9 +13,9 @@ const metadata = {
   apiVersion: 1,
   id: "retro",
   name: {
-    zh: "3D复古",
-    en: "Retro 3D",
-    tw: "3D復古"
+    zh: "复古",
+    en: "Retro",
+    tw: "復古"
   },
   description: {
     zh: "经典机械式立体界面",
