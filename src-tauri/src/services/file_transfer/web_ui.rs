@@ -1153,7 +1153,7 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
         if (!lanKey) {{
             // Without the key nothing can be read or sent; never fall back to plain text.
             document.body.innerHTML = '<div style="padding:48px 24px;text-align:center;font:15px/1.6 system-ui;color:var(--text-primary)">'
-                + '请用电脑上 TieZ「局域网互传」的二维码重新打开此页面。<br><span style="opacity:.7">链接里缺少加密密钥。</span></div>';
+                + '连接已失效，请用电脑上 TieZ 的二维码重新扫码。</div>';
             throw new Error('missing transfer key');
         }}
         const textEncoder = new TextEncoder();

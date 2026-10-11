@@ -545,7 +545,6 @@ pub async fn handle_socket(socket: WebSocket, state: Arc<AppState>, sealed_mode:
                                         id: device_id.clone(),
                                         name: device_name,
                                         last_seen: chrono::Utc::now().timestamp_millis(),
-                                        encrypted: sealed_mode,
                                     },
                                 );
                                 current_device_id = Some(device_id);
