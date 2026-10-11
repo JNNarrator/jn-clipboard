@@ -6,7 +6,9 @@ import {
     MoreHorizontal,
     Globe,
     Check,
+    QrCode,
 } from "lucide-react";
+import { QRCodeCanvas } from "qrcode.react";
 import type { NetworkInterfaceInfo } from "../types";
 
 export interface TransferHeaderProps {
@@ -46,21 +48,29 @@ export const TransferHeader = ({
     onOpenFolder,
     hasMessages,
     onClearHistory,
+    activeIp,
+    actualPort,
+    connectionUrl,
+    copiedLink,
+    onCopyLink,
+    showQrCode,
+    onToggleQrCode,
 }: TransferHeaderProps) => {
     const [showMoreMenu, setShowMoreMenu] = useState(false);
     const moreMenuRef = useRef<HTMLDivElement>(null);
 
-    // Close menu when clicking outside
+    // Close the menu and the pairing code when clicking outside
     useEffect(() => {
-        if (!showMoreMenu) return;
+        if (!showMoreMenu && !showQrCode) return;
         const handleClickOutside = (e: MouseEvent) => {
             if (!moreMenuRef.current?.contains(e.target as Node)) {
                 setShowMoreMenu(false);
+                if (showQrCode) onToggleQrCode?.();
             }
         };
         window.addEventListener("pointerdown", handleClickOutside);
         return () => window.removeEventListener("pointerdown", handleClickOutside);
-    }, [showMoreMenu]);
+    }, [showMoreMenu, showQrCode, onToggleQrCode]);
 
     return (
         <div className="wt-header">
@@ -86,6 +96,24 @@ export const TransferHeader = ({
 
             {/* Right: Only primary Search button + "三个点" (...) More Menu button */}
             <div className="wt-header-actions" ref={moreMenuRef}>
+                {/* The pairing code stays reachable once a device is connected,
+                    for another phone or a reconnect. */}
+                {connectionUrl && (
+                    <button
+                        type="button"
+                        className={`wt-header-action ${showQrCode ? "is-active" : ""}`}
+                        title={t("ft_pair_title")}
+                        aria-label={t("ft_pair_title")}
+                        aria-expanded={showQrCode}
+                        onClick={() => {
+                            setShowMoreMenu(false);
+                            onToggleQrCode?.();
+                        }}
+                    >
+                        <QrCode size={15} strokeWidth={2.2} />
+                    </button>
+                )}
+
                 <button
                     type="button"
                     className={`wt-header-action ${showSearchBar || isFiltering ? "is-active" : ""}`}
@@ -102,10 +130,36 @@ export const TransferHeader = ({
                     title={t("more_actions")}
                     aria-label={t("more_actions")}
                     aria-expanded={showMoreMenu}
-                    onClick={() => setShowMoreMenu((prev) => !prev)}
+                    onClick={() => {
+                        if (showQrCode) onToggleQrCode?.();
+                        setShowMoreMenu((prev) => !prev);
+                    }}
                 >
                     <MoreHorizontal size={18} strokeWidth={2.4} />
                 </button>
+
+                {showQrCode && connectionUrl && (
+                    <div className="wt-qr-popover" role="dialog" aria-label={t("ft_pair_title")}>
+                        <div className="wt-pairing-hero">
+                            <div className="wt-pairing-qr">
+                                <QRCodeCanvas value={connectionUrl} size={144} />
+                            </div>
+                            <div className="wt-pairing-title">{t("ft_pair_title")}</div>
+                            <div className="wt-pairing-tip">{t("ft_pair_tip")}</div>
+                            <div className="wt-pairing-address-row">
+                                <span className="wt-pairing-address">{activeIp}:{actualPort}</span>
+                                <button
+                                    type="button"
+                                    className="wt-pairing-copy-btn"
+                                    onClick={() => onCopyLink?.(connectionUrl)}
+                                    title={t("ft_copy_connect_url")}
+                                >
+                                    {copiedLink ? t("ft_copied") : t("ft_copy_address")}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* "三个点" 更多操作下拉菜单 */}
                 {showMoreMenu && (

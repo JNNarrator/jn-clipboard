@@ -180,6 +180,24 @@
   animation: wt-menu-in var(--duration-base) cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+/* The pairing code, opened from the header once the empty state is gone. */
+.wt-qr-popover {
+  position: absolute;
+  z-index: var(--z-dropdown);
+  top: calc(100% + 8px);
+  right: 0;
+  width: 260px;
+  padding: 16px;
+  border: var(--menu-border);
+  border-radius: var(--menu-radius);
+  background: var(--menu-background);
+  box-shadow: var(--menu-shadow);
+  backdrop-filter: var(--popover-backdrop-filter);
+  -webkit-backdrop-filter: var(--popover-backdrop-filter);
+  transform-origin: top right;
+  animation: wt-menu-in var(--duration-base) cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 @keyframes wt-menu-in {
   from {
     opacity: 0;

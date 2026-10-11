@@ -100,6 +100,12 @@ const FileTransferChatView = ({
     const searchInputRef = useRef<HTMLInputElement>(null);
 
     const hasOnlineDevices = onlineDevices.length > 0;
+    // A device that just joined has scanned the code; put it away.
+    const onlineCountRef = useRef(onlineDevices.length);
+    useEffect(() => {
+        if (onlineDevices.length > onlineCountRef.current) setShowQrCode(false);
+        onlineCountRef.current = onlineDevices.length;
+    }, [onlineDevices.length]);
     const primaryDeviceName =
         typeof onlineDevices[0]?.name === "string" && onlineDevices[0].name.trim()
             ? onlineDevices[0].name.trim()
