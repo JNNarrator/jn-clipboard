@@ -20,10 +20,10 @@ sends it as `Authorization: Bearer`). The key sits in the URL fragment, which
 browsers never put on the network; the page moves it to `sessionStorage` and
 removes both from the address bar. Scanning the code is the trust step: no
 key ever crosses the network, so a stranger on the same Wi-Fi can neither
-read nor impersonate either side.
+read nor impersonate either side (but see Compatibility).
 
-A page opened without `#k=` shows a notice and makes no requests; it never
-falls back to plain text.
+A page opened without `#k=` asks the user to scan the code again and makes no
+requests; it never falls back to plain text.
 
 ## Sealed box
 
@@ -39,6 +39,7 @@ aad = "tiez-lan-v1/<kind>"
 | `upload` | body of `POST /s/upload-chunk`: `u32 BE metadata length ‖ metadata JSON ‖ chunk bytes` (metadata as `ChunkMetadata`) |
 | `ws` | every frame, both ways, of `GET /ws?s=1` (binary frames; JSON inside) |
 | `download/<i>/<last>` | frame `i` of `GET /s/download/<token>` |
+| `batch` | response of `POST /s/download-batch/<id>`: `{url, name}` of the packaged zip |
 
 Request and response bodies on `/s/*` are `application/octet-stream`. A body
 that does not open is rejected with 400.
@@ -59,6 +60,17 @@ Range support, and the URL carries no file name: message links look like
 `/download/<token>?name=…`, and clients rewrite them to `/s/download/<token>`
 and keep the name to themselves. `X-Tiez-Size` gives the plaintext size.
 
+Readers should hold about one frame at a time:
+
+- The app downloads the sealed stream to a scratch file, opens it frame by
+  frame into a second one, and moves that into place.
+- The page has nowhere to write but browser memory (streaming to disk needs a
+  secure context). Files up to 64 MiB are decrypted there and handed over as
+  8 MiB blobs, which Chromium can move to disk. Larger files, pictures and
+  videos go to the browser as the message's plain link, which it saves to
+  disk or streams by itself. This is automatic: nothing in the UI mentions
+  encryption.
+
 ## Around the protocol
 
 - The app sends the token as `Authorization: Bearer`, on the WebSocket
@@ -78,7 +90,15 @@ and keep the name to themselves. `X-Tiez-Size` gives the plaintext size.
 The plaintext routes (`/poll`, `/send-text`, `/upload-chunk*`, `/download/…`,
 `/ws` without `s=1`) remain for TieZ apps that predate encryption; such apps
 ignore the `#k=` fragment and keep working unencrypted. The page served by the
-desktop always uses the sealed routes.
+desktop uses the sealed routes, except for files past 64 MiB. Old apps get no
+warning either.
+
+These routes take the same session token as the sealed ones, and that token
+crosses the network in the clear (in the first request's `?auth=`, then in a
+cookie or header). While they exist, someone who captures it can read the
+message list through `/poll` and fetch files through their links. The
+encryption therefore stops passive listening, not an attacker who also sends
+requests; closing that gap means retiring the plaintext routes.
 
 ## Browser crypto
 

@@ -708,6 +708,10 @@ pub async fn run_server(listener: tokio::net::TcpListener, app_handle: AppHandle
         .route("/s/send-text", post(handlers::sealed_text))
         .route("/s/upload-chunk", post(handlers::sealed_upload_chunk))
         .route("/s/download/{token}", get(handlers::sealed_download))
+        .route(
+            "/s/download-batch/{batch_id}",
+            post(handlers::sealed_batch_download),
+        )
         .layer(middleware::from_fn_with_state(
             state.clone(),
             handlers::require_session,

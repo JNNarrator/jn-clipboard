@@ -1769,6 +1769,23 @@ pub async fn sealed_upload_chunk(
     }
 }
 
+/// `prepare_batch_download`'s answer, sealed: its link is all anyone needs
+/// to fetch the package.
+pub async fn sealed_batch_download(
+    Path(batch_id): Path<String>,
+    State(state): State<Arc<AppState>>,
+) -> Response {
+    let key = state.lan_key;
+    let response = prepare_batch_download(Path(batch_id), State(state)).await;
+    if !response.status().is_success() {
+        return response;
+    }
+    match axum::body::to_bytes(response.into_body(), 64 * 1024).await {
+        Ok(json) => sealed_body(&key, "batch", &json),
+        Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Unable to share package").into_response(),
+    }
+}
+
 /// The file as `u32 BE length || box` frames of `sealed::DOWNLOAD_CHUNK`
 /// plaintext bytes. No Range support and no file name in the URL: the client
 /// keeps the name from the (sealed) message that linked here.

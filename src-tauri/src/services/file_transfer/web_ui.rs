@@ -1177,11 +1177,29 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
         // Messages link to /download/<token>?name=; read the sealed stream
         // instead, and keep the file name off the wire.
         const sealedPath = (url) => url.replace(/^\/download\//, '/s/download/').split('?')[0];
-        async function fetchSealedFile(url) {{
+        // Files up to IN_PAGE_LIMIT are decrypted here, in browser memory.
+        // Larger ones, which a phone may not have room for, go to the browser
+        // as the message's plain link: it saves them to disk with its own
+        // progress, and videos stream as they always did.
+        const IN_PAGE_LIMIT = 64 * 1024 * 1024;
+        // Decrypted bytes leave the script in blobs of this size, so the page
+        // itself holds little; Chromium moves large blobs to disk.
+        const BLOB_PART = 8 * 1024 * 1024;
+        // Null when the file is past IN_PAGE_LIMIT. `progress(done, size)`
+        // runs after each frame.
+        async function fetchSealedFile(url, progress) {{
             const response = await fetch(sealedPath(url), {{ cache: 'no-store' }});
             if (!response.ok || !response.body) throw new Error('HTTP ' + response.status);
+            const size = Number(response.headers.get('X-Tiez-Size')) || 0;
+            if (size > IN_PAGE_LIMIT) {{
+                response.body.cancel();
+                return null;
+            }}
             const reader = response.body.getReader();
-            const parts = [];
+            const blobs = [];
+            let parts = [];
+            let partBytes = 0;
+            let received = 0;
             let pending = new Uint8Array(0);
             let index = 0;
             let done = false;
@@ -1204,7 +1222,16 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
                     if (pending.length < 4 + len) break;
                     const isLast = done && pending.length === 4 + len;
                     if (!isLast && pending.length === 4 + len) break;
-                    parts.push(open('download/' + index + '/' + (isLast ? 1 : 0), pending.subarray(4, 4 + len)));
+                    const plain = open('download/' + index + '/' + (isLast ? 1 : 0), pending.subarray(4, 4 + len));
+                    parts.push(plain);
+                    partBytes += plain.length;
+                    if (partBytes >= BLOB_PART) {{
+                        blobs.push(new Blob(parts));
+                        parts = [];
+                        partBytes = 0;
+                    }}
+                    received += plain.length;
+                    if (progress) progress(received, size);
                     pending = pending.subarray(4 + len);
                     index++;
                     if (isLast) {{ sawLast = true; break; }}
@@ -1212,40 +1239,59 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
                 // Ended without a frame sealed as last: cut off, or tampered with.
                 if (done && !sawLast) throw new Error('truncated download');
             }}
-            return new Blob(parts);
+            blobs.push(new Blob(parts));
+            return new Blob(blobs);
         }}
         function plainFileName(name) {{
             const base = (name || '').split('/').pop().split('\\').pop();
             const m = base.match(/^\d{{8,}}_(.+)$/);
             return m ? m[1] : (base || 'download');
         }}
-        async function downloadSealed(url, name) {{
+        function saveAs(href, name) {{
+            const a = document.createElement('a');
+            a.href = href;
+            a.download = name;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        }}
+        // `label`, if given, shows the progress and gets its text back after.
+        async function downloadSealed(url, name, label) {{
+            const original = label ? label.textContent : '';
             try {{
-                const href = URL.createObjectURL(await fetchSealedFile(url));
-                const a = document.createElement('a');
-                a.href = href;
-                a.download = plainFileName(name);
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
+                const blob = await fetchSealedFile(url, (done, size) => {{
+                    if (label && size) label.textContent = `下载中 ${{Math.floor(done * 100 / size)}}%`;
+                }});
+                if (!blob) return saveAs(url, plainFileName(name));
+                const href = URL.createObjectURL(blob);
+                saveAs(href, plainFileName(name));
                 setTimeout(() => URL.revokeObjectURL(href), 60000);
             }} catch (error) {{
                 console.error(error);
                 alert('下载失败，请重试。');
+            }} finally {{
+                if (label) label.textContent = original;
             }}
         }}
         function bindSealedDownload(el, url, name) {{
             el.style.cursor = 'pointer';
-            el.onclick = (event) => {{ event.preventDefault(); downloadSealed(url, name); }};
+            el.onclick = (event) => {{
+                event.preventDefault();
+                if (el.dataset.downloading) return;
+                el.dataset.downloading = '1';
+                downloadSealed(url, name, el.querySelector('.file-size, .batch-file-status'))
+                    .finally(() => {{ delete el.dataset.downloading; }});
+            }};
         }}
-        // <img>/<video> cannot read sealed streams: decrypt, then show a blob URL.
+        // <img>/<video> cannot read sealed streams: decrypt, then show a blob
+        // URL. Past IN_PAGE_LIMIT they load the plain link instead.
         const sealedMediaCache = new Map();
         function hydrateSealedMedia(root) {{
             root.querySelectorAll('[data-sealed-src]').forEach(el => {{
                 const url = el.getAttribute('data-sealed-src');
                 el.removeAttribute('data-sealed-src');
                 if (!sealedMediaCache.has(url)) {{
-                    sealedMediaCache.set(url, fetchSealedFile(url).then(blob => URL.createObjectURL(blob)));
+                    sealedMediaCache.set(url, fetchSealedFile(url).then(blob => blob ? URL.createObjectURL(blob) : url));
                 }}
                 sealedMediaCache.get(url).then(src => {{ el.src = src; }}).catch(error => console.error(error));
             }});
@@ -1393,10 +1439,10 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
             const original = button.textContent;
             button.textContent = '正在打包…';
             try {{
-                const response = await fetch('/download-batch/' + encodeURIComponent(batchId), {{ method: 'POST' }});
+                const response = await fetch('/s/download-batch/' + encodeURIComponent(batchId), {{ method: 'POST', cache: 'no-store' }});
                 if (!response.ok) throw new Error(await response.text());
-                const result = await response.json();
-                await downloadSealed(result.url, result.name);
+                const result = openJson('batch', await response.arrayBuffer());
+                await downloadSealed(result.url, result.name, button);
                 button.textContent = '已开始下载';
             }} catch (error) {{
                 console.error(error);
@@ -2095,13 +2141,21 @@ mod tests {
     fn page_only_talks_through_sealed_routes() {
         let page = render_index("macos", "light", "");
         assert!(page.contains("TiezLanCrypto"), "the AES-GCM bundle is inlined");
-        for sealed in ["/s/poll", "/s/send-text", "/s/upload-chunk", "/ws?s=1", "/s/download/"] {
+        for sealed in [
+            "/s/poll",
+            "/s/send-text",
+            "/s/upload-chunk",
+            "/ws?s=1",
+            "/s/download/",
+            "/s/download-batch/",
+        ] {
             assert!(page.contains(sealed), "uses {sealed}");
         }
         for plain in [
             "fetch(`/poll",
             "fetch('/send-text'",
             "fetch('/upload-chunk'",
+            "fetch('/download-batch/'",
             "new FormData()",
             "window.location.href = url",
             "window.location.href = result.url",
