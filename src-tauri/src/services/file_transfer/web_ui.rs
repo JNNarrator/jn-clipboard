@@ -10,6 +10,7 @@ fn file_transfer_theme_variants(theme: &str) -> (&'static str, &'static str, &'s
             --text-primary: #5d4037;
             --text-secondary: #7a5c50;
             --accent-color: #f0a70b;
+            --bubble-sent-color: #3e2a12;
             --shadow-color: rgba(93, 64, 55, 0.16);
             --font-mono: "Consolas", "Courier New", monospace;
             --content-font-family: "Comic Sans MS", "Chalkboard SE", "Segoe Print", "Microsoft YaHei", sans-serif;
@@ -41,6 +42,7 @@ fn file_transfer_theme_variants(theme: &str) -> (&'static str, &'static str, &'s
             --text-primary: #f2eee3;
             --text-secondary: #d0c7b5;
             --accent-color: #ffd44d;
+            --bubble-sent-color: #1c1c1e;
             --shadow-color: rgba(0, 0, 0, 0.28);
             --bubble-received-bg: #3a3a3c;
             --panel-border: 1px solid rgba(255, 212, 77, 0.16);
@@ -91,6 +93,7 @@ fn file_transfer_theme_variants(theme: &str) -> (&'static str, &'static str, &'s
             --text-primary: #3c3836;
             --text-secondary: #7c6f64;
             --accent-color: #8b5a2b;
+            --bubble-border: 1px solid var(--border-dark);
             --shadow-color: rgba(60, 56, 54, 0.12);
             --font-mono: "Courier New", Courier, monospace;
             --content-font-family: "Georgia", "STSong", "SimSun", "Songti SC", serif;
@@ -118,6 +121,7 @@ fn file_transfer_theme_variants(theme: &str) -> (&'static str, &'static str, &'s
             --text-primary: #ebdbb2;
             --text-secondary: #a89984;
             --accent-color: #d79921;
+            --bubble-sent-color: #1d2021;
             --shadow-color: rgba(0, 0, 0, 0.3);
             --bubble-received-bg: #32302f;
             --panel-border: 1px solid #504945;
@@ -302,6 +306,7 @@ fn file_transfer_theme_variants(theme: &str) -> (&'static str, &'static str, &'s
             --text-primary: #4a343a;
             --text-secondary: #946c78;
             --accent-color: #ff85a1;
+            --bubble-sent-color: #4a1d2a;
             --shadow-color: rgba(92, 58, 68, 0.12);
             --font-mono: "Segoe UI", system-ui, -apple-system, "PingFang SC", sans-serif;
             --content-font-family: var(--font-mono);
@@ -330,6 +335,7 @@ fn file_transfer_theme_variants(theme: &str) -> (&'static str, &'static str, &'s
             --text-primary: #fcecef;
             --text-secondary: #d4a5b2;
             --accent-color: #ff9fb4;
+            --bubble-sent-color: #2a1218;
             --shadow-color: rgba(0, 0, 0, 0.3);
             --bubble-received-bg: rgba(65, 45, 52, 0.88);
             --panel-border: 1px solid rgba(255, 255, 255, 0.06);
@@ -361,6 +367,8 @@ fn file_transfer_theme_variants(theme: &str) -> (&'static str, &'static str, &'s
             --text-primary: #e6edf3;
             --text-secondary: #8b949e;
             --accent-color: #3fb950;
+            --bubble-border: 1px solid var(--border-dark);
+            --bubble-sent-color: #0d1117;
             --shadow-color: rgba(0, 0, 0, 0.55);
             --font-mono: "SF Mono", Menlo, Monaco, "Cascadia Mono", Consolas, monospace;
             --content-font-family: var(--font-mono);
@@ -399,9 +407,6 @@ fn file_transfer_theme_variants(theme: &str) -> (&'static str, &'static str, &'s
             .theme-terminal .bubble {{
                 box-shadow: none;
             }}
-            .theme-terminal .message.sent .bubble {{
-                color: #56d364;
-            }}
             "#,
         ),
         "receipt" => (
@@ -414,6 +419,7 @@ fn file_transfer_theme_variants(theme: &str) -> (&'static str, &'static str, &'s
             --text-primary: #1e1e1e;
             --text-secondary: #6a6a6a;
             --accent-color: #2a2a2a;
+            --bubble-border: 1px dashed var(--border-dark);
             --shadow-color: rgba(0, 0, 0, 0.1);
             --font-mono: "Courier New", Courier, "SF Mono", monospace;
             --content-font-family: var(--font-mono);
@@ -442,6 +448,7 @@ fn file_transfer_theme_variants(theme: &str) -> (&'static str, &'static str, &'s
             --text-primary: #e8e8e8;
             --text-secondary: #a0a0a0;
             --accent-color: #e8e8e8;
+            --bubble-sent-color: #1c1c1c;
             --shadow-color: rgba(0, 0, 0, 0.35);
             --bubble-received-bg: #242424;
             --panel-border: 1px dashed rgba(255, 255, 255, 0.16);
@@ -479,6 +486,7 @@ fn file_transfer_theme_variants(theme: &str) -> (&'static str, &'static str, &'s
             --text-primary: #1a1a1a;
             --text-secondary: #5c5c5c;
             --accent-color: #9b2d30;
+            --bubble-border: 1px solid var(--border-dark);
             --shadow-color: rgba(26, 26, 26, 0.08);
             --font-mono: "Songti SC", "STSong", "Noto Serif SC", Georgia, serif;
             --content-font-family: var(--font-mono);
@@ -540,6 +548,8 @@ fn file_transfer_theme_variants(theme: &str) -> (&'static str, &'static str, &'s
             --text-primary: #373737;
             --text-secondary: #707070;
             --accent-color: #487bdb;
+            --bubble-border: 2px solid var(--border-dark);
+            --bubble-shadow: 3px 3px 0 var(--shadow-color);
             --shadow-color: #373737;
             --font-mono: "Courier New", Courier, monospace;
             --content-font-family: var(--font-mono);
@@ -624,6 +634,8 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
     <title>TieZ 文件互传</title>
+    <link rel="icon" href="{logo_base64}">
+    <link rel="apple-touch-icon" href="{logo_base64}">
     <style>
         * {{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }}
         
@@ -757,100 +769,76 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
             margin: 8px 0; font-weight: bold;
         }}
 
-        .message {{ display: flex; gap: 10px; max-width: 90%; }}
+        .message {{ display: flex; align-items: flex-end; gap: 6px; max-width: 84%; }}
         .message.received {{ align-self: flex-start; }}
         .message.sent {{ align-self: flex-end; flex-direction: row-reverse; }}
+        .message-stack {{ display: flex; min-width: 0; flex-direction: column; align-items: flex-start; }}
+        .message.sent .message-stack {{ align-items: flex-end; }}
+        .sender-name {{ margin: 0 0 2px 12px; color: var(--text-secondary); font-size: 11px; }}
 
+        /* The sending device: a monitor for the computer, a phone for the
+           others, each phone in a color of its own. */
         .avatar {{
-            width: 36px; height: 36px; background: #fff;
-            border: 2px solid var(--border-dark);
-            display: flex; align-items: center; justify-content: center;
-            font-weight: bold; font-size: 18px; flex-shrink: 0;
-            box-shadow: 2px 2px 0 var(--shadow-color);
-            border-radius: var(--radius); overflow: hidden;
+            display: grid; place-items: center;
+            width: 24px; height: 24px; flex: 0 0 24px;
+            border-radius: 50%;
+            color: var(--avatar-tone, var(--accent-color));
+            background: rgba(127, 127, 127, 0.16);
+            background: color-mix(in srgb, var(--avatar-tone, var(--accent-color)) 18%, transparent);
         }}
-        .avatar img {{ width: 100%; height: 100%; object-fit: cover; }}
-        
-        .theme-mica .avatar, .theme-acrylic .avatar, .theme-macos .avatar {{
-            box-shadow: none; border-width: 1px;
-        }}
+        .avatar svg {{ width: 14px; height: 14px; }}
+        .avatar[data-tone="0"] {{ --avatar-tone: #3d6fd6; }}
+        .avatar[data-tone="1"] {{ --avatar-tone: #2b7a4b; }}
+        .avatar[data-tone="2"] {{ --avatar-tone: #7b5bd0; }}
+        .avatar[data-tone="3"] {{ --avatar-tone: #b85a1f; }}
+        .avatar[data-tone="4"] {{ --avatar-tone: #c74b86; }}
+        .avatar[data-tone="5"] {{ --avatar-tone: #17807f; }}
 
+        /* iMessage-style bubbles, as on the desktop: text you send sits on the
+           accent, everything else on the plain bubble. Themes set
+           --bubble-border/-shadow for their look and --bubble-sent-color where
+           white would not read on their accent. */
         .bubble {{
-            padding: 10px 14px;
-            background: #fff;
-            border: 2px solid var(--border-dark);
-            box-shadow: 3px 3px 0 var(--shadow-color);
-            font-size: 14px; line-height: 1.5;
-            word-break: break-all;
+            --bubble-r: calc(var(--radius) * 1.6);
             position: relative;
-            border-radius: var(--radius);
+            padding: 8px 12px;
+            border: var(--bubble-border, 1px solid transparent);
+            border-radius: var(--bubble-r);
+            box-shadow: var(--bubble-shadow, none);
+            color: var(--text-primary);
+            background: var(--bubble-received-bg);
+            font-size: 15px; line-height: 1.45;
+            overflow-wrap: anywhere;
         }}
-        .message.received .bubble {{ background: var(--bubble-received-bg); }}
-        .message.sent .bubble {{ background: var(--accent-color); color: #fff; border-color: var(--border-dark); }}
-        
-        /* Mica Style Bubbles */
-        .theme-mica .bubble, .theme-acrylic .bubble, .theme-macos .bubble {{
-            box-shadow: 0 2px 10px var(--shadow-color);
-            border: 1px solid var(--border-dark);
-            border-radius: 12px;
+        .message.received .bubble {{ border-bottom-left-radius: min(6px, var(--bubble-r)); }}
+        .message.sent .bubble {{ border-bottom-right-radius: min(6px, var(--bubble-r)); }}
+        .message.sent .bubble-text {{
+            border-color: transparent;
+            color: var(--bubble-sent-color, #ffffff);
+            background: var(--bubble-sent-bg, var(--accent-color));
         }}
+        .message.sent .bubble-text a {{ color: inherit; text-decoration: underline; }}
+        .bubble-media {{ padding: 4px; }}
         .theme-mica .message.received .bubble, .theme-acrylic .message.received .bubble, .theme-macos .message.received .bubble {{
-             background: var(--bubble-received-bg);
-             backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
         }}
+        .chat-hint {{ margin: -8px 0 0; color: var(--text-secondary); font-size: 12px; text-align: center; }}
 
-        /* Triangle tail for retro style only */
-        :root:not(.theme-mica):not(.theme-acrylic):not(.theme-macos) .message.received .bubble::after {{
-            content: ''; position: absolute; left: -10px; top: 10px;
-            width: 0; height: 0; border: 5px solid transparent;
-            border-right-color: var(--bubble-received-bg);
-        }}
-        :root:not(.theme-mica):not(.theme-acrylic):not(.theme-macos) .message.received .bubble::before {{
-            content: ''; position: absolute; left: -13px; top: 9px;
-            width: 0; height: 0; border: 6px solid transparent;
-            border-right-color: var(--border-dark);
-        }}
-        :root:not(.theme-mica):not(.theme-acrylic):not(.theme-macos) .message.sent .bubble::after {{
-            content: ''; position: absolute; right: -10px; top: 10px;
-            width: 0; height: 0; border: 5px solid transparent;
-            border-left-color: var(--accent-color);
-        }}
-        :root:not(.theme-mica):not(.theme-acrylic):not(.theme-macos) .message.sent .bubble::before {{
-            content: ''; position: absolute; right: -13px; top: 9px;
-            width: 0; height: 0; border: 6px solid transparent;
-            border-left-color: var(--border-dark);
-        }}
-        
-        /* Mica doesn't use these triangles */
-        .theme-mica .message.received .bubble::before,
-        .theme-acrylic .message.received .bubble::before,
-        .theme-macos .message.received .bubble::before {{ border-right-color: var(--border-dark); }}
-        .theme-mica .message.received .bubble::after,
-        .theme-acrylic .message.received .bubble::after,
-        .theme-macos .message.received .bubble::after {{ border-right-color: var(--bubble-received-bg); }}
-        
-        @media (prefers-color-scheme: dark) {{
-            .theme-mica .message.received .bubble, .theme-acrylic .message.received .bubble, .theme-macos .message.received .bubble {{ background: var(--bubble-received-bg); }}
-        }}
-
-        .theme-mica .message.sent .bubble::before,
-        .theme-acrylic .message.sent .bubble::before,
-        .theme-macos .message.sent .bubble::before {{ display: none; }}
-        .theme-mica .message.sent .bubble::after,
-        .theme-acrylic .message.sent .bubble::after,
-        .theme-macos .message.sent .bubble::after {{ 
-            border-left-color: var(--accent-color) !important; 
-            right: -7px; 
-            bottom: 10px;
-        }}
-
-        
         /* File Card */
-        .file-card {{ display: flex; align-items: center; gap: 12px; }}
-        .file-icon {{ font-size: 24px; flex-shrink: 0; }}
+        .file-card {{ display: flex; align-items: center; gap: 10px; min-width: 0; }}
+        .file-icon {{
+            display: grid; place-items: center;
+            width: 36px; height: 36px; flex: 0 0 36px;
+            border-radius: calc(var(--radius) + 2px);
+            color: var(--accent-color);
+            background: rgba(127, 127, 127, 0.14);
+            background: color-mix(in srgb, var(--accent-color) 14%, transparent);
+        }}
+        .file-icon svg {{ width: 18px; height: 18px; }}
         .file-info {{ display: flex; flex-direction: column; min-width: 0; overflow: hidden; }}
-        .file-name {{ font-weight: 700; font-family: var(--font-mono); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px; }}
-        .file-size {{ font-size: 11px; font-family: var(--font-mono); opacity: 0.8; margin-top: 2px; }}
+        .file-name {{ max-width: 180px; overflow: hidden; font-size: 14px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }}
+        .file-size {{ margin-top: 2px; color: var(--text-secondary); font-size: 12px; }}
         .batch-bubble {{ width: min(310px, calc(100vw - 72px)); padding: 9px; }}
         .batch-header {{ display:flex; align-items:center; gap:10px; padding:5px; cursor:pointer; }}
         .batch-header-icon {{ display:grid; width:38px; height:38px; place-items:center; flex:0 0 38px; border-radius:var(--input-radius, 8px); background:rgba(127,127,127,0.12); font-size:22px; }}
@@ -875,9 +863,7 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
             width: auto;
             max-height: 400px;
             display: block;
-            border: 1px solid rgba(0,0,0,0.1);
-            margin-bottom: 6px;
-            border-radius: 8px;
+            border-radius: max(0px, calc(var(--radius) * 1.6 - 4px));
             object-fit: contain;
         }}
         .video-preview {{
@@ -886,8 +872,7 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
             min-height: 120px;
             max-height: 400px;
             display: block;
-            margin-bottom: 6px;
-            border-radius: 8px;
+            border-radius: max(0px, calc(var(--radius) * 1.6 - 4px));
             background: #000;
         }}
 
@@ -900,7 +885,7 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
             padding-bottom: calc(10px + env(safe-area-inset-bottom));
             background: var(--bg-panel);
             border-top: 2px solid var(--border-dark);
-            display: flex; gap: 12px; align-items: flex-end;
+            display: flex; gap: 8px; align-items: flex-end;
             flex-shrink: 0;
             z-index: 10;
         }}
@@ -977,15 +962,11 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
             border: var(--send-button-border, var(--button-border, 2px solid var(--border-dark)));
             box-shadow: var(--send-button-shadow, var(--button-active-filled-shadow, 2px 2px 0 0 var(--shadow-color)));
         }}
-        .paste-btn {{
-            width: 40px; height: 40px;
-            font-size: 16px; flex-shrink: 0;
-            display: inline-flex; align-items: center; justify-content: center;
-            padding: 0; cursor: pointer;
-        }}
         
         .text-input {{ 
-            flex: 1; height: 40px; min-height: 40px; max-height: 100px; padding: 10px 12px;
+            /* min-width: a textarea will not shrink below ~20 columns otherwise,
+               which pushed the send button off 375px-wide phones. */
+            flex: 1; min-width: 0; height: 40px; min-height: 40px; max-height: 100px; padding: 10px 12px;
             background: var(--bg-input); border: var(--input-border, 2px solid var(--border-dark));
             box-shadow: var(--input-shadow, inset 2px 2px 0 rgba(0,0,0,0.1));
             font-size: 14px; font-family: var(--content-font-family, var(--font-mono));
@@ -1077,14 +1058,8 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
     </header>
 
     <div id="chat-box">
-        <div class="timestamp">SYS: <span id="time-now"></span></div>
-        <div class="message received">
-            <div class="avatar"><img src="{logo_base64}" onerror="this.innerText='T'"></div>
-            <div class="bubble">
-                <div style="font-weight:900; margin-bottom:4px">传输就绪</div>
-                向电脑发送文字、图片或文件。
-            </div>
-        </div>
+        <div class="timestamp"><span id="time-now"></span></div>
+        <div class="chat-hint">可以和电脑互发文字、图片和文件</div>
     </div>
     
     <!-- Full Screen Editor Modal -->
@@ -1113,11 +1088,10 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
                 </button>
             </div>
         </div>
-        <div style="position:relative; flex:1; display:flex;">
+        <div style="position:relative; flex:1; min-width:0; display:flex;">
             <textarea class="text-input" id="text-input" placeholder="输入要发送的文字" rows="1"></textarea>
             <div class="expand-btn" id="expand-btn" onclick="openFullscreen()">⤢</div>
         </div>
-        <button type="button" class="retro-btn paste-btn" id="paste-btn" title="粘贴内容" aria-label="粘贴内容">📋</button>
         <button class="retro-btn send-btn" id="send-btn">发送</button>
         <input type="file" id="file-input" multiple style="display:none">
     </footer>
@@ -1299,7 +1273,6 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
         const fileInput = document.getElementById('file-input');
         const textInput = document.getElementById('text-input');
         const sendBtn = document.getElementById('send-btn');
-        const pasteBtn = document.getElementById('paste-btn');
         const chatBox = document.getElementById('chat-box');
         const fileModeToggle = document.getElementById('file-mode-toggle');
         const fileModeMenu = document.getElementById('file-mode-menu');
@@ -1346,7 +1319,24 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
         localStorage.setItem('tiez_device_id', deviceId);
         
         const deviceName = "Mobile";
-        const TIEZ_LOGO = "{logo_base64}";
+        const ICON_ATTRS = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
+        const ICONS = {{
+            monitor: `<svg ${{ICON_ATTRS}}><rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8M12 17v4"/></svg>`,
+            phone: `<svg ${{ICON_ATTRS}}><rect width="14" height="20" x="5" y="2" rx="2"/><path d="M12 18h.01"/></svg>`,
+            file: `<svg ${{ICON_ATTRS}}><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>`,
+        }};
+        // Messages from the computer carry sender_id "pc"; everyone else is a phone.
+        const isFromPc = (senderId) => !senderId || senderId === 'pc';
+        function avatarHtml(senderId) {{
+            if (isFromPc(senderId)) return `<div class="avatar">${{ICONS.monitor}}</div>`;
+            let hash = 0;
+            for (const ch of String(senderId)) hash = (hash * 31 + ch.codePointAt(0)) >>> 0;
+            return `<div class="avatar" data-tone="${{hash % 6}}">${{ICONS.phone}}</div>`;
+        }}
+        // Another phone's name; the computer needs none, its avatar says it.
+        const senderNameHtml = (senderId, name) => isFromPc(senderId) || !name
+            ? ''
+            : `<div class="sender-name">${{escapeHTML(name)}}</div>`;
         const pendingUploads = new Map(); // filename -> [elements]
         const batchElements = new Map();
 
@@ -1461,16 +1451,13 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
             if (!entry) {{
                 const outer = document.createElement('div');
                 outer.className = `message ${{direction}}`;
-                if (direction === 'received') {{
-                    const avatar = document.createElement('div');
-                    avatar.className = 'avatar';
-                    avatar.innerHTML = `<img src="${{TIEZ_LOGO}}" alt="TieZ">`;
-                    outer.appendChild(avatar);
-                }}
+                if (direction === 'received') outer.insertAdjacentHTML('beforeend', avatarHtml(msg.sender_id));
+                const stack = document.createElement('div');
+                stack.className = 'message-stack';
+                if (direction === 'received') stack.innerHTML = senderNameHtml(msg.sender_id, senderName);
                 const bubble = document.createElement('div');
                 bubble.className = 'bubble batch-bubble';
                 bubble.innerHTML = `
-                    ${{senderName ? `<div style="font-size:10px;opacity:.65;margin:0 5px 3px">${{escapeHTML(senderName)}}</div>` : ''}}
                     <div class="batch-header">
                         <span class="batch-header-icon">🗂️</span>
                         <span class="batch-header-copy">
@@ -1484,7 +1471,8 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
                         <span class="batch-file-status">文件独立传输</span>
                         <button type="button" class="batch-download">下载整组</button>
                     </div>`;
-                outer.appendChild(bubble);
+                stack.appendChild(bubble);
+                outer.appendChild(stack);
                 bubble.querySelector('.batch-header').onclick = () => {{
                     bubble.classList.toggle('expanded');
                     bubble.querySelector('.batch-toggle').textContent = bubble.classList.contains('expanded') ? '⌄' : '›';
@@ -1526,7 +1514,8 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
             entry.bubble.querySelector('.batch-count').textContent = String(entry.indices.size);
             return row;
         }}
-        function createMessageElement(direction, content, senderName, msgType, file_path, msgId) {{
+        // `sender`: {{ id, name }} of a received message; `fileSize` for file cards.
+        function createMessageElement(direction, content, sender, msgType, file_path, msgId, fileSize) {{
             const div = document.createElement('div');
             div.className = `message ${{direction}}`;
             if (msgId) div.setAttribute('data-msg-id', String(msgId));
@@ -1549,29 +1538,24 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
                  const fileName = normalizeFileName(rawName);
                  bubbleContent = `
                     <div class="file-card">
-                        <div class="file-icon">📄</div>
+                        <div class="file-icon">${{ICONS.file}}</div>
                         <div class="file-info">
                             <span class="file-name">${{fileName}}</span>
-                            <span class="file-size">DOWNLOAD</span>
+                            <span class="file-size">${{formatBytes(fileSize) || '点击下载'}}</span>
                         </div>
                     </div>
                  `;
             }}
+            const isMedia = bubbleContent.includes('class="img-preview"') || bubbleContent.includes('class="video-preview"');
+            const isText = !isMedia && !bubbleContent.includes('class="file-card"');
+            const bubbleClass = isText ? 'bubble bubble-text' : isMedia ? 'bubble bubble-media' : 'bubble';
 
-            const escapedSenderName = escapeHTML(senderName);
+            const received = direction === 'received';
             div.innerHTML = `
-                ${{direction === 'received' ? (() => {{
-                    const name = (senderName || '').trim();
-                    const lower = name.toLowerCase();
-                    const isPc = name === '电脑' || name === 'PC' || lower === 'pc' || lower === 'tiez';
-                    if (isPc) {{
-                        return `<div class="avatar"><img src="${{TIEZ_LOGO}}" alt="TieZ"></div>`;
-                    }}
-                    return `<div class="avatar">${{name ? escapeHTML(name[0]) : '?'}}</div>`;
-                }})() : ''}}
-                <div class="bubble">
-                    ${{escapedSenderName && escapedSenderName !== 'System' ? `<div style="font-size:10px; opacity:0.6; margin-bottom:2px">${{escapedSenderName}}</div>` : ''}}
-                    ${{bubbleContent}}
+                ${{received ? avatarHtml(sender && sender.id) : ''}}
+                <div class="message-stack">
+                    ${{received ? senderNameHtml(sender && sender.id, sender && sender.name) : ''}}
+                    <div class="${{bubbleClass}}">${{bubbleContent}}</div>
                 </div>
             `;
             
@@ -1665,11 +1649,8 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
                     const pending = takePendingUpload(normalizeFileName(rawName));
                     if (pending) pending.remove();
                 }}
-                appendBatchMessage(
-                    msg,
-                    msg.direction === 'out' ? 'received' : 'sent',
-                    msg.direction === 'out' ? msg.sender_name : 'You'
-                );
+                const mine = msg.direction === 'in' && msg.sender_id === deviceId;
+                appendBatchMessage(msg, mine ? 'sent' : 'received', mine ? '' : msg.sender_name);
                 return;
             }}
             if (msg.direction === 'in' && msg.sender_id === deviceId && (msg.msg_type === 'file' || msg.msg_type === 'image' || msg.msg_type === 'video')) {{
@@ -1677,18 +1658,17 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
                 const maybeName = normalizeFileName(rawName);
                 const pending = takePendingUpload(maybeName);
                 if (pending) {{
-                    const replacement = createMessageElement('sent', msg.content, 'You', msg.msg_type, msg.file_path, msg.id);
+                    const replacement = createMessageElement('sent', msg.content, null, msg.msg_type, msg.file_path, msg.id, msg.file_size);
                     pending.replaceWith(replacement);
                     return;
                 }}
             }}
-            if (msg.direction === 'out') {{
-                const el = createMessageElement('received', msg.content, msg.sender_name, msg.msg_type, msg.file_path, msg.id);
-                chatBox.appendChild(el);
-            }} else if (msg.direction === 'in') {{
-                const el = createMessageElement('sent', msg.content, 'You', msg.msg_type, msg.file_path, msg.id);
-                chatBox.appendChild(el);
-            }}
+            // Yours on the right; the computer's and other phones' on the left.
+            if (msg.direction !== 'out' && msg.direction !== 'in') return;
+            const mine = msg.direction === 'in' && msg.sender_id === deviceId;
+            chatBox.appendChild(mine
+                ? createMessageElement('sent', msg.content, null, msg.msg_type, msg.file_path, msg.id, msg.file_size)
+                : createMessageElement('received', msg.content, {{ id: msg.sender_id, name: msg.sender_name }}, msg.msg_type, msg.file_path, msg.id, msg.file_size));
         }}
 
         let isSyncing = false;
@@ -1806,30 +1786,6 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
             }} catch(e) {{ alert('Send failed'); }}
         }};
 
-        if (pasteBtn) {{
-            pasteBtn.onclick = async () => {{
-                try {{
-                    if (navigator.clipboard && navigator.clipboard.readText) {{
-                        const text = await navigator.clipboard.readText();
-                        if (text && text.trim()) {{
-                            const current = textInput.value;
-                            textInput.value = current ? current + '\n' + text : text;
-                            textInput.style.height = '40px';
-                            const newHeight = Math.min(textInput.scrollHeight, 100);
-                            textInput.style.height = newHeight + 'px';
-                            document.getElementById('expand-btn').style.display = newHeight > 50 ? 'flex' : 'none';
-                            textInput.focus();
-                            return;
-                        }}
-                    }}
-                    alert('请先复制内容，并允许读取剪贴板。');
-                }} catch (err) {{
-                    console.warn('Clipboard read failed:', err);
-                    textInput.focus();
-                }}
-            }};
-        }}
-
         fileInput.onchange = async () => {{
             if (!fileInput.files.length || isUploading) return;
             const files = Array.from(fileInput.files);
@@ -1861,8 +1817,8 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
                 content: file.name,
                 msg_type: msgType
             }} : null;
-            const batchRow = pendingMessage ? appendBatchMessage(pendingMessage, 'sent', 'You') : null;
-            const el = batchRow ? batchRow.closest('.message') : createMessageElement('sent', previewUrl, 'You', msgType, undefined);
+            const batchRow = pendingMessage ? appendBatchMessage(pendingMessage, 'sent', '') : null;
+            const el = batchRow ? batchRow.closest('.message') : createMessageElement('sent', previewUrl, null, msgType, undefined, undefined, file.size);
             el.dataset.fileName = file.name;
             el.dataset.pending = 'true';
             if (!batchRow) addPendingUpload(file.name, el);
@@ -1985,14 +1941,6 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
                  for(let index = 0; index < files.length; index++) {{
                      await uploadFile(files[index], batch ? {{ ...batch, index }} : null);
                  }}
-                 
-                 // Small delay for UI and then notify PC
-                 setTimeout(() => {{
-                     const fileCount = files.length;
-                     const replyEl = createMessageElement('received', `ACK: <b>${{fileCount}}</b> FILES SAVED.`, 'System', 'pc');
-                     chatBox.appendChild(replyEl);
-                     scrollToBottom();
-                 }}, 800);
             }}
         }});
 
