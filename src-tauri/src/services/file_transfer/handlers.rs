@@ -324,12 +324,34 @@ pub async fn require_session(
     response
 }
 
+/// Origins of TieZ's own window, the only page allowed to call the server
+/// cross-origin (it shares dropped files through `/share-chunk`).
+fn is_app_origin(origin: &str) -> bool {
+    matches!(
+        origin,
+        "tauri://localhost" | "http://tauri.localhost" | "https://tauri.localhost"
+    ) || (cfg!(debug_assertions) && origin == "http://localhost:1420")
+}
+
+/// Allows cross-origin calls from TieZ's window only, never `*`.
+pub async fn app_origin_cors(request: Request, next: Next) -> Response {
+    let origin = request
+        .headers()
+        .get(header::ORIGIN)
+        .and_then(|value| value.to_str().ok())
+        .filter(|origin| is_app_origin(origin))
+        .and_then(|origin| HeaderValue::from_str(origin).ok());
+    let mut response = next.run(request).await;
+    let headers = response.headers_mut();
+    headers.insert(header::VARY, HeaderValue::from_static("Origin"));
+    if let Some(origin) = origin {
+        headers.insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, origin);
+    }
+    response
+}
+
 fn with_cors(mut response: axum::response::Response) -> axum::response::Response {
     let headers = response.headers_mut();
-    headers.insert(
-        header::ACCESS_CONTROL_ALLOW_ORIGIN,
-        HeaderValue::from_static("*"),
-    );
     headers.insert(
         header::ACCESS_CONTROL_ALLOW_METHODS,
         HeaderValue::from_static("POST, OPTIONS"),
@@ -1527,6 +1549,15 @@ pub async fn handle_file_download_proxy(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_the_app_window_may_call_cross_origin() {
+        assert!(is_app_origin("tauri://localhost"));
+        assert!(is_app_origin("http://tauri.localhost"));
+        assert!(!is_app_origin("http://evil.example"));
+        assert!(!is_app_origin("null"));
+        assert!(!is_app_origin("tauri://localhost.evil"));
+    }
 
     #[test]
     fn file_names_cannot_escape_the_receive_directory() {

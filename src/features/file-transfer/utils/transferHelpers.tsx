@@ -308,3 +308,10 @@ export const MULTI_FILE_SEND_MODE_KEY = 'tiez.file-transfer.multi-file-send-mode
  */
 export const buildPairingUrl = (ip: string, port: string, token: string, lanKey: string) =>
     `http://${ip}:${port}/?auth=${encodeURIComponent(token)}${lanKey ? `#k=${lanKey}` : ""}`;
+
+/**
+ * Copies a link that grants access (pairing link, file download link) marked
+ * so clipboard history tools, TieZ included, do not keep it.
+ */
+export const copyPrivateText = (text: string) =>
+    invoke("copy_private_text", { text }).catch(() => navigator.clipboard.writeText(text));

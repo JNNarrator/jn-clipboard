@@ -30,6 +30,11 @@ pub static SERVER_HANDLE: Mutex<Option<JoinHandle<()>>> = Mutex::new(None);
 /// Aborting the server task only stops accepting; axum's per-connection tasks
 /// (open WebSockets) live on until told to close through this.
 static SERVER_SHUTDOWN: Mutex<Option<tokio::sync::watch::Sender<bool>>> = Mutex::new(None);
+/// Bumped on every start, so an idle watch never stops a later server.
+static SERVER_GENERATION: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+/// "Close automatically": how long the server may sit with no device
+/// connected and no request before it stops.
+const AUTO_CLOSE_IDLE: std::time::Duration = std::time::Duration::from_secs(5 * 60);
 /// Set while toggle_file_server is starting a server, so a concurrent start
 /// (UI toggle racing an auto-start) can't spawn a second, unstoppable one.
 static SERVER_STARTING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
@@ -121,6 +126,45 @@ fn clear_upload_sessions(app_handle: &AppHandle) {
     }
 }
 
+
+/// Stops the server once "close automatically" is on and it has had no
+/// connected device and no request for `AUTO_CLOSE_IDLE`. The setting was
+/// saved before but nothing acted on it.
+fn spawn_idle_watch(app_handle: AppHandle) {
+    let generation = SERVER_GENERATION.fetch_add(1, Ordering::SeqCst) + 1;
+    tokio::spawn(async move {
+        let mut tick = tokio::time::interval(std::time::Duration::from_secs(30));
+        loop {
+            tick.tick().await;
+            let running = SERVER_HANDLE.lock().map(|h| h.is_some()).unwrap_or(false);
+            if !running || SERVER_GENERATION.load(Ordering::SeqCst) != generation {
+                break;
+            }
+            let settings = app_handle.state::<crate::app_state::SettingsState>();
+            if !settings.file_server_auto_close.load(Ordering::Relaxed) {
+                continue;
+            }
+            let connected = app_handle
+                .state::<OnlineDevices>()
+                .0
+                .lock()
+                .map(|devices| !devices.is_empty())
+                .unwrap_or(true);
+            let idle = app_handle
+                .state::<ServerActivityState>()
+                .last_activity
+                .lock()
+                .ok()
+                .and_then(|last| *last)
+                .and_then(|last| last.elapsed().ok())
+                .unwrap_or_default();
+            if !connected && idle >= AUTO_CLOSE_IDLE {
+                let _ = toggle_file_server(app_handle.clone(), false, None).await;
+                break;
+            }
+        }
+    });
+}
 
 /// The pairing key as it goes into the QR code; empty while the server is off.
 fn lan_key_text(server_info: &ServerInfo) -> String {
@@ -545,6 +589,9 @@ pub async fn toggle_file_server(
         });
         let sweep_app = app_handle.clone();
         tokio::task::spawn_blocking(move || sweep_stale_transfer_files(&sweep_app));
+        // Idle time counts from the start, not from some earlier session.
+        utils::update_activity(&app_handle);
+        spawn_idle_watch(app_handle.clone());
         {
             let mut handle = SERVER_HANDLE.lock().unwrap();
             *handle = Some(h);
@@ -664,7 +711,9 @@ pub async fn run_server(listener: tokio::net::TcpListener, app_handle: AppHandle
         .layer(middleware::from_fn_with_state(
             state.clone(),
             handlers::require_session,
-        ));
+        ))
+        // Outermost, so preflights and auth failures carry it too.
+        .layer(middleware::from_fn(handlers::app_origin_cors));
 
     // A download token is an unguessable, path-scoped capability with its own expiry.
     // Keeping this route outside the session middleware lets native <img>/<video>

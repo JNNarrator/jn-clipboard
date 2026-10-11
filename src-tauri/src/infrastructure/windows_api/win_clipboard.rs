@@ -789,6 +789,38 @@ unsafe fn set_clipboard_text_and_html_inner(
 }
 
 /// Set Unicode text and CF_HTML, replacing existing clipboard formats.
+/// Text that clipboard history tools, Windows' own included, are asked not to
+/// record or sync: for secrets such as the LAN transfer pairing link.
+pub unsafe fn set_clipboard_text_private(text: &str) -> Result<(), String> {
+    use windows::Win32::System::DataExchange::RegisterClipboardFormatW;
+
+    if OpenClipboard(None).is_err() {
+        return Err("Cannot open clipboard".into());
+    }
+    let result = (|| {
+        let _ = EmptyClipboard();
+        let mut wide: Vec<u16> = text.encode_utf16().collect();
+        wide.push(0);
+        let bytes = std::slice::from_raw_parts(wide.as_ptr() as *const u8, wide.len() * 2);
+        set_named_clipboard_format_bytes(CF_UNICODETEXT, bytes)?;
+        let no = 0u32.to_le_bytes();
+        for (name, data) in [
+            ("ExcludeClipboardContentFromMonitorProcessing", &[][..]),
+            ("CanIncludeInClipboardHistory", &no[..]),
+            ("CanUploadToCloudClipboard", &no[..]),
+        ] {
+            let name_w: Vec<u16> = name.encode_utf16().chain(std::iter::once(0)).collect();
+            let format_id = RegisterClipboardFormatW(windows::core::PCWSTR(name_w.as_ptr()));
+            if format_id != 0 {
+                set_named_clipboard_format_bytes(format_id, data)?;
+            }
+        }
+        Ok(())
+    })();
+    let _ = CloseClipboard();
+    result
+}
+
 pub unsafe fn set_clipboard_text_and_html(text: &str, cf_html: &str) -> Result<(), String> {
     set_clipboard_text_and_html_inner(text, cf_html, true)
 }

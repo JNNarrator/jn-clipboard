@@ -59,6 +59,20 @@ Range support, and the URL carries no file name: message links look like
 `/download/<token>?name=…`, and clients rewrite them to `/s/download/<token>`
 and keep the name to themselves. `X-Tiez-Size` gives the plaintext size.
 
+## Around the protocol
+
+- The app sends the token as `Authorization: Bearer`, on the WebSocket
+  upgrade too; it never goes into a URL.
+- Copying a pairing link or a file download link from the desktop marks the
+  clipboard private (`org.nspasteboard.ConcealedType` on macOS;
+  `ExcludeClipboardContentFromMonitorProcessing`, `CanIncludeInClipboardHistory = 0`
+  and `CanUploadToCloudClipboard = 0` on Windows), so TieZ, Windows' clipboard
+  history and other well-behaved tools do not keep it.
+- Only TieZ's own window may call the server cross-origin (it shares dropped
+  files through `/share-chunk`); other origins get no CORS headers.
+- With "close automatically" on, the server stops after five minutes with no
+  connected device and no request.
+
 ## Compatibility
 
 The plaintext routes (`/poll`, `/send-text`, `/upload-chunk*`, `/download/…`,

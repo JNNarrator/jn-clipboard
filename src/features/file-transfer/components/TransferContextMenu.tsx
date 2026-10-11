@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { FileTransferContextMenu, FileTransferMessage } from "../types";
-import { isLocalTransferPath, resolveShareableDownloadUrl } from "../utils/transferHelpers";
+import { copyPrivateText, isLocalTransferPath, resolveShareableDownloadUrl } from "../utils/transferHelpers";
 import { withNativeDialog } from "../../../shared/lib/focus";
 
 interface TransferContextMenuProps {
@@ -321,7 +321,7 @@ export const TransferContextMenu = ({
                                     const link = resolveShareableDownloadUrl(
                                         selected.content || selected.filePath || ""
                                     );
-                                    if (link) await navigator.clipboard.writeText(link);
+                                    if (link) await copyPrivateText(link);
                                 }}
                             >
                                 <LinkIcon size={16} />
@@ -415,7 +415,7 @@ export const TransferContextMenu = ({
                                     const link = resolveShareableDownloadUrl(
                                         selected.content || selected.filePath || ""
                                     );
-                                    if (link) await navigator.clipboard.writeText(link);
+                                    if (link) await copyPrivateText(link);
                                 }}
                             >
                                 <LinkIcon size={16} />
@@ -481,7 +481,7 @@ export const TransferContextMenu = ({
                                 const link = resolveShareableDownloadUrl(
                                     selected.content || selected.filePath || ""
                                 );
-                                if (link) await navigator.clipboard.writeText(link);
+                                if (link) await copyPrivateText(link);
                             }}
                         >
                             <LinkIcon size={16} />

@@ -32,6 +32,7 @@ import {
     mediaFallbackKey,
     resolveShareableDownloadUrl,
     buildPairingUrl,
+    copyPrivateText,
 } from "../utils/transferHelpers";
 import {
     PendingTransferItem,
@@ -147,7 +148,8 @@ const FileTransferChatView = ({
 
     const handleCopyLink = async (url: string) => {
         try {
-            await navigator.clipboard.writeText(url);
+            // Token and key in one link: keep it out of clipboard history.
+            await copyPrivateText(url);
             setCopiedLink(true);
             setTimeout(() => setCopiedLink(false), 2000);
         } catch (e) {

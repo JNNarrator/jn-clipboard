@@ -157,6 +157,30 @@ pub fn restore_pasteboard(snapshot: &PasteboardSnapshot) -> Result<(), String> {
     }
 }
 
+/// Text that clipboard history apps, TieZ included, are asked not to record
+/// (the nspasteboard.org concealed type): for secrets such as the LAN
+/// transfer pairing link.
+pub fn set_private_text(text: &str) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    return autoreleasepool(|_| {
+        let pb = NSPasteboard::generalPasteboard();
+        pb.clearContents();
+        let written = pb.setString_forType(&NSString::from_str(text), unsafe { NSPasteboardTypeString })
+            && pb.setString_forType(&NSString::from_str(""), &NSString::from_str("org.nspasteboard.ConcealedType"));
+        if written {
+            Ok(())
+        } else {
+            Err("Failed to write the clipboard".to_string())
+        }
+    });
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = text;
+        Err("Not supported on this platform".to_string())
+    }
+}
+
 pub fn get_clipboard_text() -> Option<String> {
     #[cfg(target_os = "macos")]
     return autoreleasepool(|_| {

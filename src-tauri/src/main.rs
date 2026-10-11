@@ -137,6 +137,7 @@ fn main() -> AppResult<()> {
             app::hooks::set_recording_mode,
             services::content_handler::open_content,
             services::clipboard_ops::copy_to_clipboard,
+            services::clipboard_ops::copy_private_text,
             services::clipboard_ops::paste_text_directly,
             services::clipboard_ops::paste_content_transiently,
             services::clipboard_ops::paste_latest_rich,

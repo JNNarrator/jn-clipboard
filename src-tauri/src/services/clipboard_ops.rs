@@ -518,6 +518,23 @@ pub async fn paste_text_directly(app_handle: tauri::AppHandle, content: String) 
     Ok(())
 }
 
+/// Copies a secret, the LAN transfer pairing link, marked so that clipboard
+/// history tools (TieZ itself, Windows' history, password-manager-aware apps)
+/// leave it out.
+#[tauri::command]
+pub fn copy_private_text(text: String) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    return crate::infrastructure::macos_api::clipboard::set_private_text(&text);
+
+    #[cfg(target_os = "windows")]
+    return unsafe { crate::infrastructure::windows_api::win_clipboard::set_clipboard_text_private(&text) };
+
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    return Clipboard::new()
+        .and_then(|mut clipboard| clipboard.set_text(text))
+        .map_err(|e| e.to_string());
+}
+
 #[tauri::command]
 pub async fn copy_to_clipboard(
     app_handle: tauri::AppHandle,
