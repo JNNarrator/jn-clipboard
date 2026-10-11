@@ -1,6 +1,51 @@
 /* Retro Theme */
+/* Component adjustments for this theme, kept ahead of the theme's own rules
+   (they used to sit in the component stylesheets). */
+
+/* ---- From components/ai.css ---- */
+
+.theme-retro .ai-action-btn {
+  border: 2px solid var(--border-dark);
+  border-radius: 0;
+  box-shadow: 2px 2px 0 0 var(--shadow-color);
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.theme-retro .ai-action-btn:hover {
+  box-shadow: 3px 3px 0 0 var(--shadow-color);
+  transform: translate(-1px, -1px);
+}
+
+.theme-retro .ai-action-btn:active {
+  box-shadow: 0 0 0 0 var(--shadow-color);
+  transform: translate(2px, 2px);
+}
+
+/* ---- From components/compact-mode.css ---- */
+
+body.theme-retro .compact-action-menu,
+html.theme-retro .compact-action-menu {
+    background: var(--bg-element);
+    border: 2px solid var(--border-dark);
+    box-shadow: 4px 4px 0 0 var(--shadow-color);
+    border-radius: 0;
+}
+
+body.theme-retro .compact-action-menu-item,
+html.theme-retro .compact-action-menu-item {
+    border-radius: 0;
+}
+
+/* ---- From components/file-transfer.css ---- */
+
+.theme-retro .wt-chat-view {
+  --im-bubble-shadow: 2px 2px 0 var(--line-strong);
+}
+
 :root.theme-retro,
 body.theme-retro {
+  --retro-chip-text: #ffffff;
   --bg-body: #dcdcdc;
   --bg-window: #e8e8e8;
   --bg-content: #dcdcdc;
@@ -11,14 +56,13 @@ body.theme-retro {
   --bg-button: #e0e0e0;
 
   --text-primary: #373737;
-  --text-secondary: #707070;
-  --text-muted: #999999;
+  --text-secondary: #545454;
+  --text-muted: #5f5f5f;
 
   --accent-color: #487bdb;
   --accent-color-rgb: 72, 123, 219;
   --accent-hover: #3d69bc;
   --border-dark: #373737;
-  --border-light: #f3f3f3;
   --shadow-color: #373737;
 
   --line-soft: #373737;
@@ -117,8 +161,6 @@ body.theme-retro {
   --segmented-radius: 4px;
   --segmented-shadow: inset 2px 2px 4px rgba(0, 0, 0, 0.1);
   --segment-radius: 2px;
-  --segment-font-weight: 800;
-  --segment-text-transform: uppercase;
   --segment-active-background: var(--text-primary);
   --segment-active-color: var(--bg-window);
   --segment-active-shadow: 2px 2px 0 rgba(0, 0, 0, 0.2);
@@ -163,12 +205,9 @@ body.theme-retro {
   --scrollbar-size: 10px;
   --scrollbar-size-thin: 4px;
   --scrollbar-radius: 0;
-  --scrollbar-track-background: transparent;
-  --scrollbar-track-border-start: 2px solid var(--border-dark);
   --scrollbar-thumb-color: var(--text-secondary);
   --scrollbar-thumb-hover-color: var(--text-primary);
   --scrollbar-thumb-border: 3.5px solid transparent;
-  --scrollbar-chat-thumb-border: 2px solid var(--bg-body);
 
   --meta-text-transform: uppercase;
   --meta-letter-spacing: 0.5px;
@@ -177,20 +216,7 @@ body.theme-retro {
   --empty-state-font-family: var(--font-mono);
   --empty-state-text-transform: uppercase;
 
-  --queue-border: 3px solid var(--border-dark);
-  --queue-radius: 2px;
-  --queue-shadow: 8px 8px 0 var(--border-dark);
-  --queue-count-border: 2px solid var(--border-dark);
-  --queue-count-shadow: 2px 2px 0 var(--border-dark);
-  --queue-count-rotate: -3deg;
-  --queue-action-border: 2px solid var(--border-dark);
-  --queue-action-shadow: 2px 2px 0 var(--border-dark);
-  --queue-button-text-transform: uppercase;
 
-  --reset-button-border: 2px solid var(--border-dark);
-  --reset-button-radius: 0;
-  --reset-button-shadow: 4px 4px 0 var(--border-dark);
-  --reset-button-text-transform: uppercase;
 }
 
 .theme-retro .toggle {
@@ -233,20 +259,22 @@ body.theme-retro {
   border-bottom-width: 2px;
 }
 
+/* Chips are filled with the text color; their label takes the opposite. */
 .theme-retro .tag-chip {
-  color: #fff;
+  color: var(--retro-chip-text);
   background: var(--text-primary);
   border-bottom-width: 3px;
   border-right-width: 3px;
 }
 
 .theme-retro .drag-handle:hover {
-  background: rgba(0, 0, 0, 0.05);
+  background: rgba(var(--shadow-rgb), 0.05);
 }
 
 @media (prefers-color-scheme: dark) {
   :root.theme-retro:not(.light-mode),
   body.theme-retro:not(.light-mode) {
+    --retro-chip-text: #181818;
     --bg-body: #181818;
     --bg-window: #1f1f1f;
     --bg-content: #181818;
@@ -256,9 +284,9 @@ body.theme-retro {
     --bg-button: #383838;
     --bg-input: #202020;
     --text-primary: #ededed;
-    --text-secondary: #a0a0a0;
+    --text-secondary: #a3a3a3;
+    --text-muted: #999999;
     --border-dark: #000000;
-    --border-light: #333333;
     --shadow-color: #000000;
     --line-soft: #000000;
     --line-strong: #000000;
@@ -276,6 +304,7 @@ body.theme-retro {
 
 :root.dark-mode.theme-retro,
 body.dark-mode.theme-retro {
+  --retro-chip-text: #181818;
   --bg-body: #181818;
   --bg-window: #1f1f1f;
   --bg-content: #181818;
@@ -285,9 +314,9 @@ body.dark-mode.theme-retro {
   --bg-button: #383838;
   --bg-input: #202020;
   --text-primary: #ededed;
-  --text-secondary: #a0a0a0;
+  --text-secondary: #a3a3a3;
+  --text-muted: #999999;
   --border-dark: #000000;
-  --border-light: #333333;
   --shadow-color: #000000;
   --line-soft: #000000;
   --line-strong: #000000;
@@ -320,16 +349,16 @@ body.dark-mode.theme-retro {
   border-bottom: none;
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
-  box-shadow: inset 4px 4px 0 rgba(0, 0, 0, 0.1);
+  box-shadow: inset 4px 4px 0 rgba(var(--shadow-rgb), 0.1);
 }
 
 .theme-retro .tags-dropdown {
-  margin-top: 0 !important;
-  padding: 0 !important;
-  border-top: none !important;
-  border-radius: 0 !important;
-  background: var(--bg-input) !important;
-  box-shadow: var(--tags-shadow) !important;
+  margin-top: 0;
+  padding: 0;
+  border-top: none;
+  border-radius: 0;
+  background: var(--bg-input);
+  box-shadow: var(--tags-shadow);
 }
 
 .theme-retro .tags-dropdown .tags-list {
@@ -341,18 +370,18 @@ body.dark-mode.theme-retro {
 .theme-retro .tags-dropdown .tag-chip {
   width: 100%;
   justify-content: flex-start;
-  border-radius: 0 !important;
-  border-left: none !important;
-  border-right: none !important;
-  border-top: none !important;
-  border-bottom: 2px solid var(--border-dark) !important;
-  box-shadow: none !important;
-  padding: 6px 10px !important;
-  transform: none !important;
+  border-radius: 0;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+  border-bottom: 2px solid var(--border-dark);
+  box-shadow: none;
+  padding: 6px 10px;
+  transform: none;
 }
 
 .theme-retro .tags-dropdown .tag-chip:last-child {
-  border-bottom: none !important;
+  border-bottom: none;
 }
 
 .theme-retro .tags-dropdown .tag-chip::before {
@@ -364,7 +393,7 @@ body.dark-mode.theme-retro {
 
 .theme-retro .tags-dropdown .tag-chip:hover,
 .theme-retro .tags-dropdown .tag-chip:active {
-  filter: none !important;
-  transform: none !important;
-  box-shadow: none !important;
+  filter: none;
+  transform: none;
+  box-shadow: none;
 }

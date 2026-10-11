@@ -16,13 +16,13 @@
   min-width: 140px;
   max-width: 220px;
   padding: 4px;
-  background: var(--menu-background, var(--popover-background, var(--bg-panel)));
-  color: var(--popover-color, var(--text-primary));
-  border: var(--menu-border, var(--popover-border, 1px solid var(--line-soft)));
-  border-radius: var(--menu-radius, var(--radius-panel, 8px));
-  box-shadow: var(--menu-shadow, var(--popover-shadow, 0 8px 24px rgba(0, 0, 0, 0.25)));
-  backdrop-filter: var(--popover-backdrop-filter, blur(24px) saturate(180%));
-  -webkit-backdrop-filter: var(--popover-backdrop-filter, blur(24px) saturate(180%));
+  background: var(--menu-background);
+  color: var(--popover-color);
+  border: var(--menu-border);
+  border-radius: var(--menu-radius);
+  box-shadow: var(--menu-shadow);
+  backdrop-filter: var(--popover-backdrop-filter);
+  -webkit-backdrop-filter: var(--popover-backdrop-filter);
   max-height: 200px;
   overflow-y: auto;
   box-sizing: border-box;
@@ -32,10 +32,10 @@
 .ai-actions-group {
   padding: 0;
   margin: 0;
-  background: transparent !important;
-  border: none !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
@@ -62,15 +62,15 @@
   justify-content: center;
   gap: 4px;
   white-space: nowrap;
-  background: var(--bg-button, var(--btn-ghost-bg, rgba(128, 128, 128, 0.12)));
+  background: var(--bg-button);
   color: var(--text-primary);
-  border: var(--button-border, 1px solid var(--line-soft, rgba(128, 128, 128, 0.2)));
-  border-radius: var(--button-radius, var(--radius-control, 4px));
-  box-shadow: var(--button-shadow, none);
+  border: var(--button-border);
+  border-radius: var(--button-radius);
+  box-shadow: var(--button-shadow);
   cursor: pointer;
   -webkit-user-select: none;
   user-select: none;
-  transition: background 0.12s ease, color 0.12s ease, transform 0.1s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+  transition: background var(--duration-fast) ease, color var(--duration-fast) ease, transform var(--duration-fast) ease, border-color var(--duration-fast) ease, box-shadow var(--duration-fast) ease;
 }
 
 .ai-actions-group.compact .ai-action-btn {
@@ -82,79 +82,20 @@
 
 .ai-action-btn:hover {
   background: var(--accent-color);
-  color: var(--on-accent, #ffffff);
-  border-color: var(--button-hover-border-color, var(--accent-color));
-  transform: var(--button-hover-transform, translateY(-1px));
-  box-shadow: var(--button-hover-shadow, var(--button-shadow, none));
+  color: var(--on-accent);
+  border-color: var(--button-hover-border-color);
+  transform: var(--button-hover-transform);
+  box-shadow: var(--button-hover-shadow);
 }
 
 .ai-action-btn:active {
-  transform: var(--button-active-transform, translateY(1px));
-  box-shadow: var(--button-active-shadow, none);
+  transform: var(--button-active-transform);
+  box-shadow: var(--button-active-shadow);
 }
 
-/* =========================================================
- * Theme-Specific Adapters for AI Buttons Directly
- * ========================================================= */
-
-/* Retro 3D Theme: Bevel borders, uppercase label, retro drop shadow */
-.theme-retro .ai-action-btn {
-  border: 2px solid var(--border-dark);
-  border-radius: 0;
-  box-shadow: 2px 2px 0 0 var(--shadow-color);
-  text-transform: uppercase;
-  font-weight: 700;
-}
-
-.theme-retro .ai-action-btn:hover {
-  box-shadow: 3px 3px 0 0 var(--shadow-color);
-  transform: translate(-1px, -1px);
-}
-
-.theme-retro .ai-action-btn:active {
-  box-shadow: 0 0 0 0 var(--shadow-color);
-  transform: translate(2px, 2px);
-}
-
-/* Terminal Theme: Monospace, ANSI prompt colors, crisp borders */
-.theme-terminal .ai-action-btn {
-  border: 1px solid var(--term-border);
-  border-radius: 0;
-  background: var(--term-bg);
-  color: var(--term-fg);
-  font-family: var(--font-mono);
-}
-
-.theme-terminal .ai-action-btn:hover {
-  background: var(--term-prompt, #3fb950);
-  color: var(--term-bg, #0d1117);
-  border-color: var(--term-prompt, #3fb950);
-}
-
-/* Paper & Quill Theme: Hand-crafted borders, subtle paper tone */
-.theme-paper .ai-action-btn {
-  border: 1px solid var(--border-dark);
-  border-radius: 2px;
-  font-family: var(--font-serif, serif);
-}
-
-/* Receipt Theme: Thermal ticket border, monochrome */
-.theme-receipt .ai-action-btn {
-  border: 1px solid var(--border-dark);
-  border-radius: 0;
-}
-
-/* Sticky Note Theme: Casual sketch border */
-.theme-sticky-note .ai-action-btn {
-  border: 1.5px solid var(--border-dark);
-  border-radius: 4px;
-}
+/* Theme-specific AI buttons live in the theme files (themes/*.css). */
 
 /* Ink Wash Theme */
-.theme-ink .ai-action-btn {
-  border: 1px solid var(--border-dark);
-  border-radius: 3px;
-}
 
 .animate-spin {
   animation: spin 1s linear infinite;
@@ -170,10 +111,12 @@
   }
 }
 
-.ai-btn.active {
+/* Open menu, not an "on" state: outline only, unlike the filled .btn-icon.active
+   that themes restyle. Scoped to the toolbar so it outranks those. */
+.item-actions .btn-icon.ai-btn.active {
   color: var(--accent-color);
   border-color: var(--accent-color);
-  background: transparent !important;
+  background: transparent;
 }
 
 /* AI Profile Library: a plain list of rows that shares the settings row rhythm. */
@@ -265,7 +208,7 @@
 
 .ai-pending-hint {
   color: var(--text-secondary);
-  font-size: var(--font-size-xs, 11px);
+  font-size: var(--font-size-xs);
   line-height: 1.4;
 }
 
@@ -276,9 +219,9 @@
 
 .ai-pending-btn {
   min-height: 26px;
-  padding: 3px 10px;
+  padding: 4px 10px;
   border: 1px solid var(--line-soft);
-  border-radius: var(--button-radius, 7px);
+  border-radius: var(--button-radius);
   background: var(--bg-panel);
   color: var(--text-primary);
   font: inherit;
@@ -293,7 +236,7 @@
 .ai-pending-btn.is-primary {
   border-color: var(--accent-color);
   background: var(--accent-color);
-  color: var(--on-accent, #ffffff);
+  color: var(--on-accent);
 }
 
 .ai-pending-btn.is-primary:hover {
@@ -316,11 +259,11 @@
 .ai-skeleton-line {
   height: 14px;
   background: linear-gradient(90deg,
-      rgba(128, 128, 128, 0.1) 25%,
-      rgba(128, 128, 128, 0.2) 50%,
-      rgba(128, 128, 128, 0.1) 75%);
+      rgba(var(--neutral-rgb), 0.1) 25%,
+      rgba(var(--neutral-rgb), 0.2) 50%,
+      rgba(var(--neutral-rgb), 0.1) 75%);
   background-size: 200% 100%;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   animation: skeleton-shimmer 1.5s ease-in-out infinite;
   opacity: 0.6;
 }

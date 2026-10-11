@@ -78,7 +78,7 @@
   margin: 0;
   color: var(--text-primary);
   font-family: var(--font-main);
-  font-size: var(--clipboard-item-font-size, var(--font-size-base));
+  font-size: var(--clipboard-item-font-size);
   line-height: 1.65;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -130,9 +130,9 @@
 .detail-ai-copy,
 .detail-ai-submit {
   min-height: 32px;
-  padding: 5px 10px;
+  padding: 4px 10px;
   border: 1px solid var(--line-soft);
-  border-radius: var(--button-radius, 7px);
+  border-radius: var(--button-radius);
   background: var(--bg-panel);
   color: var(--text-primary);
   font: inherit;
@@ -160,7 +160,7 @@
   margin-bottom: 12px;
   padding: 8px 10px;
   border: 1px solid var(--line-soft);
-  border-radius: var(--button-radius, 7px);
+  border-radius: var(--button-radius);
 }
 
 .detail-ai-reasoning summary {
@@ -190,7 +190,7 @@
 .detail-ai-submit.is-primary {
   border-color: var(--accent-color);
   background: var(--accent-color);
-  color: var(--on-accent, #ffffff);
+  color: var(--on-accent);
 }
 
 .detail-ai-submit.is-primary:hover {
@@ -320,7 +320,7 @@
 
 .detail-note svg {
   flex: 0 0 auto;
-  margin-top: 3px;
+  margin-top: 4px;
   color: var(--text-muted);
 }
 
@@ -431,7 +431,7 @@
 
 .detail-tag-suggestions button {
   flex: 0 0 auto;
-  padding: 7px 8px;
+  padding: 8px 8px;
   border: 0;
   border-radius: var(--button-radius);
   background: transparent;
@@ -463,7 +463,7 @@
   width: 16px;
   height: 16px;
   flex: 0 0 auto;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
 }
 
 /* ---- Actions: per-row buttons move into the pane's action bar ---- */
@@ -471,22 +471,22 @@
 /* Must outrank `body.hide-unselected-item-actions … .item-actions`, which
    forces display:flex; this file loads after clipboard-item.css. */
 body.split-view-active .main-content.is-split .history-item .item-actions {
-  display: none !important;
+  display: none;
 }
 
 /* Compact rows hid the time slot on hover to make room for ···; with no
    actions in the row it stays put. */
 body.split-view-active .main-content.is-split .history-item.compact:hover .item-meta-right-info,
 body.split-view-active .main-content.is-split .history-item.compact.selected .item-meta-right-info {
-  opacity: 0.68 !important;
-  visibility: visible !important;
+  opacity: 0.68;
+  visibility: visible;
 }
 
 /* The row the pane (and its action bar) is showing, even after the pointer
    has moved over to the pane. */
 .main-content.is-split .history-item.detail-focused:not(.selected) {
   background: var(--card-selected-background);
-  border-color: var(--card-selected-border-color) !important;
+  border-color: var(--card-selected-border-color);
 }
 
 .detail-actions-wrap {
@@ -595,18 +595,18 @@ body.split-view-active .main-content.is-split .history-item.compact.selected .it
   overflow-y: auto;
   box-sizing: border-box;
   padding: 4px;
-  background: var(--menu-background, var(--bg-panel));
-  border: var(--menu-border, 1px solid var(--line-soft));
-  border-radius: var(--menu-radius, var(--radius-control));
-  box-shadow: var(--menu-shadow, var(--shadow-md));
-  backdrop-filter: var(--popover-backdrop-filter, blur(24px));
+  background: var(--menu-background);
+  border: var(--menu-border);
+  border-radius: var(--menu-radius);
+  box-shadow: var(--menu-shadow);
+  backdrop-filter: var(--popover-backdrop-filter);
 }
 
 .detail-action-popover button {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 9px 10px;
+  padding: 8px 10px;
   background: transparent;
   border: 0;
   border-radius: var(--button-radius);

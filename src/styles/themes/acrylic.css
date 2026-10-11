@@ -2,9 +2,9 @@
    translucent tint preserves its colours. Never let the tint become opaque. */
 :root.theme-acrylic,
 body.theme-acrylic {
-  background-color: transparent !important;
+  background-color: transparent;
   --acrylic-tint-rgb: 248, 250, 252;
-  --acrylic-tint-alpha: clamp(0.16, calc(0.16 + 0.14 * var(--surface-opacity-scale, 1)), 0.44);
+  --acrylic-tint-alpha: clamp(0.16, calc(0.16 + 0.14 * var(--surface-opacity-scale)), 0.44);
   --bg-window: rgba(var(--acrylic-tint-rgb), var(--acrylic-tint-alpha));
   --bg-content: transparent;
   --bg-toolbar: transparent;
@@ -13,11 +13,10 @@ body.theme-acrylic {
   --bg-element: rgba(255, 255, 255, 0.14);
   --bg-button: rgba(255, 255, 255, 0.46);
   --layout-item-background: rgba(255, 255, 255, 0.42);
-  --layout-item-hover-background: rgba(255, 255, 255, 0.65);
 
   --text-primary: #162234;
-  --text-secondary: #607188;
-  --text-muted: #8c97ab;
+  --text-secondary: #546378;
+  --text-muted: #666e7d;
 
   --accent-color: #4f7dff;
   --accent-color-rgb: 79, 125, 255;
@@ -57,7 +56,6 @@ body.theme-acrylic {
   --dialog-button-active-shadow: none;
   --keycap-shadow: none;
   --keycap-active-shadow: none;
-  --queue-action-shadow: none;
   --compact-action-backdrop-filter: none;
   --popover-background: rgba(255, 255, 255, 0.94);
   --modal-background: rgba(255, 255, 255, 0.96);
@@ -91,15 +89,10 @@ body.theme-acrylic {
   --scrollbar-size: 8px;
   --scrollbar-size-thin: 4px;
   --scrollbar-radius: 999px;
-  --scrollbar-track-background: transparent;
-  --scrollbar-track-border-start: none;
   --scrollbar-thumb-color: rgba(96, 113, 136, 0.55);
   --scrollbar-thumb-hover-color: rgba(79, 125, 255, 0.72);
   --scrollbar-thumb-border: 2px solid transparent;
-  --scrollbar-chat-thumb-border: 2px solid transparent;
 
-  --queue-border: 1px solid rgba(255, 255, 255, 0.3);
-  --queue-shadow: 0 20px 42px rgba(15, 23, 42, 0.16);
 }
 
 body.theme-acrylic {
@@ -152,20 +145,19 @@ body.theme-acrylic #root > * {
   :root.theme-acrylic:not(.light-mode),
   body.theme-acrylic:not(.light-mode) {
     --acrylic-tint-rgb: 20, 24, 30;
-    --acrylic-tint-alpha: clamp(0.20, calc(0.20 + 0.14 * var(--surface-opacity-scale, 1)), 0.48);
+    --acrylic-tint-alpha: clamp(0.20, calc(0.20 + 0.14 * var(--surface-opacity-scale)), 0.48);
     --bg-panel: rgba(20, 24, 30, 0.24);
     --bg-input: rgba(255, 255, 255, 0.16);
     --bg-element: rgba(20, 24, 30, 0.14);
     --bg-button: rgba(255, 255, 255, 0.12);
     --layout-item-background: rgba(255, 255, 255, 0.08);
-    --layout-item-hover-background: rgba(255, 255, 255, 0.14);
     --input-border: 1px solid rgba(255, 255, 255, 0.24);
     --button-border: 1px solid rgba(255, 255, 255, 0.18);
     --segment-active-background: rgba(255, 255, 255, 0.16);
 
     --text-primary: #e8e8e8;
-    --text-secondary: #b2b2b2;
-    --text-muted: #8f8f8f;
+    --text-secondary: #b8b8b8;
+    --text-muted: #a8a8a8;
 
     --line-soft: rgba(255, 255, 255, 0.14);
     --line-strong: rgba(255, 255, 255, 0.2);
@@ -187,9 +179,6 @@ body.theme-acrylic #root > * {
     --card-selected-shadow: none;
     --data-panel-border: 1px solid rgba(255, 255, 255, 0.14);
     --data-panel-hover-background: rgba(255, 255, 255, 0.08);
-    --queue-border: 1px solid rgba(255, 255, 255, 0.16);
-    --queue-count-border: 1px solid rgba(255, 255, 255, 0.14);
-    --queue-action-border: 1px solid rgba(255, 255, 255, 0.14);
 
     --popover-background: rgba(26, 31, 40, 0.95);
     --modal-background: rgba(24, 28, 36, 0.96);
@@ -203,20 +192,19 @@ body.theme-acrylic #root > * {
 :root.dark-mode.theme-acrylic,
 body.dark-mode.theme-acrylic {
   --acrylic-tint-rgb: 20, 24, 30;
-  --acrylic-tint-alpha: clamp(0.20, calc(0.20 + 0.14 * var(--surface-opacity-scale, 1)), 0.48);
+  --acrylic-tint-alpha: clamp(0.20, calc(0.20 + 0.14 * var(--surface-opacity-scale)), 0.48);
   --bg-panel: rgba(20, 24, 30, 0.24);
   --bg-input: rgba(255, 255, 255, 0.16);
   --bg-element: rgba(20, 24, 30, 0.14);
   --bg-button: rgba(255, 255, 255, 0.12);
   --layout-item-background: rgba(255, 255, 255, 0.08);
-  --layout-item-hover-background: rgba(255, 255, 255, 0.14);
   --input-border: 1px solid rgba(255, 255, 255, 0.24);
   --button-border: 1px solid rgba(255, 255, 255, 0.18);
   --segment-active-background: rgba(255, 255, 255, 0.16);
 
   --text-primary: #e8e8e8;
-  --text-secondary: #b2b2b2;
-  --text-muted: #8f8f8f;
+  --text-secondary: #b8b8b8;
+  --text-muted: #a8a8a8;
 
   --line-soft: rgba(255, 255, 255, 0.14);
   --line-strong: rgba(255, 255, 255, 0.2);
@@ -238,9 +226,6 @@ body.dark-mode.theme-acrylic {
   --card-selected-shadow: none;
   --data-panel-border: 1px solid rgba(255, 255, 255, 0.14);
   --data-panel-hover-background: rgba(255, 255, 255, 0.08);
-  --queue-border: 1px solid rgba(255, 255, 255, 0.16);
-  --queue-count-border: 1px solid rgba(255, 255, 255, 0.14);
-  --queue-action-border: 1px solid rgba(255, 255, 255, 0.14);
 
   --popover-background: rgba(26, 31, 40, 0.95);
   --modal-background: rgba(24, 28, 36, 0.96);
@@ -254,7 +239,7 @@ body.dark-mode.theme-acrylic {
 html.platform-macos.theme-acrylic,
 html.platform-macos body.theme-acrylic {
   --acrylic-tint-rgb: 248, 250, 252;
-  --acrylic-tint-alpha: clamp(0.14, calc(0.14 + 0.08 * var(--surface-opacity-scale, 1)), 0.32);
+  --acrylic-tint-alpha: clamp(0.14, calc(0.14 + 0.08 * var(--surface-opacity-scale)), 0.32);
   --bg-window: rgba(var(--acrylic-tint-rgb), var(--acrylic-tint-alpha));
   --shell-background: var(--bg-window);
   --shell-backdrop-filter: blur(24px) saturate(140%);
@@ -276,7 +261,7 @@ html.platform-macos body.theme-acrylic .tag-manager-body.is-split .tag-manager-e
 @media (prefers-color-scheme: dark) {
   html.platform-macos body.theme-acrylic:not(.light-mode) {
     --acrylic-tint-rgb: 20, 24, 30;
-    --acrylic-tint-alpha: clamp(0.20, calc(0.20 + 0.08 * var(--surface-opacity-scale, 1)), 0.40);
+    --acrylic-tint-alpha: clamp(0.20, calc(0.20 + 0.08 * var(--surface-opacity-scale)), 0.40);
     --bg-window: rgba(var(--acrylic-tint-rgb), var(--acrylic-tint-alpha));
     --shell-background: var(--bg-window);
     --shell-backdrop-filter: blur(24px) saturate(140%);
@@ -286,7 +271,7 @@ html.platform-macos body.theme-acrylic .tag-manager-body.is-split .tag-manager-e
 
 html.platform-macos body.dark-mode.theme-acrylic {
   --acrylic-tint-rgb: 20, 24, 30;
-  --acrylic-tint-alpha: clamp(0.20, calc(0.20 + 0.08 * var(--surface-opacity-scale, 1)), 0.40);
+  --acrylic-tint-alpha: clamp(0.20, calc(0.20 + 0.08 * var(--surface-opacity-scale)), 0.40);
   --bg-window: rgba(var(--acrylic-tint-rgb), var(--acrylic-tint-alpha));
   --shell-background: var(--bg-window);
   --shell-backdrop-filter: blur(24px) saturate(140%);
@@ -308,9 +293,9 @@ html.platform-macos body.has-custom-bg.theme-acrylic:not(.compact-preview) #root
 body.compact-preview.theme-acrylic #root,
 body.theme-acrylic.compact-preview #root,
 body.dark-mode.compact-preview.theme-acrylic #root {
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }

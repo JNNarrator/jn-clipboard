@@ -17,14 +17,8 @@ html.platform-windows {
   --scrollbar-size: 8px;
   --scrollbar-size-thin: 5px;
   --scrollbar-radius: 999px;
-  --scrollbar-track-background: transparent;
   --scrollbar-thumb-border: 2px solid transparent;
   --scrollbar-overlay-width: 0px;
-}
-
-html.platform-windows body.theme-sakura,
-body.platform-windows.theme-sakura {
-  --font-main: "Microsoft YaHei UI", "Microsoft YaHei", "Segoe UI", sans-serif;
 }
 
 html.platform-windows,

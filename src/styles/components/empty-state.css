@@ -18,7 +18,7 @@
 .empty-state svg {
   color: var(--text-muted);
   opacity: 0.35;
-  transition: transform 0.22s cubic-bezier(0.2, 0, 0, 1), opacity 0.22s ease;
+  transition: transform var(--duration-slow) cubic-bezier(0.2, 0, 0, 1), opacity var(--duration-slow) ease;
 }
 
 .empty-state:hover svg {

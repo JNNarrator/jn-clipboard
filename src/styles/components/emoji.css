@@ -4,7 +4,7 @@
   flex-direction: column;
   gap: 12px;
   height: 100%;
-  padding: 12px 14px 14px;
+  padding: 12px 12px 12px;
   background: transparent;
   position: relative;
 }
@@ -13,7 +13,7 @@
 .emoji-tabs {
   display: flex;
   background: var(--emoji-tabs-background);
-  padding: 3px;
+  padding: 4px;
   border-radius: var(--emoji-tabs-radius);
   border: var(--emoji-tabs-border);
   box-shadow: var(--emoji-tabs-shadow);
@@ -29,7 +29,7 @@
   cursor: pointer;
   position: relative;
   border-radius: var(--emoji-tab-radius);
-  transition: all 0.2s ease;
+  transition: all var(--duration-base) ease;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -41,7 +41,7 @@
   font-size: var(--font-size-sm);
   font-weight: 700;
   color: var(--text-secondary);
-  transition: color 0.2s ease;
+  transition: color var(--duration-base) ease;
 }
 
 .emoji-tab.active .emoji-tab-text {
@@ -118,7 +118,7 @@ html.platform-macos .emoji-fav-container::-webkit-scrollbar {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.1s ease;
+  transition: all var(--duration-fast) ease;
 }
 
 .emoji-btn:hover {
@@ -153,14 +153,12 @@ html.platform-macos .emoji-fav-container::-webkit-scrollbar {
   line-height: 1.45;
   color: var(--text-muted);
   text-align: center;
-  opacity: 0.72;
   max-width: 28ch;
 }
 
 .emoji-fav-hint {
   font-size: var(--font-size-base);
   font-weight: 500;
-  opacity: 0.55;
 }
 
 .emoji-fav-card {
@@ -171,7 +169,7 @@ html.platform-macos .emoji-fav-container::-webkit-scrollbar {
   border-radius: var(--emoji-card-radius);
   box-shadow: var(--emoji-card-shadow);
   padding: 6px;
-  transition: all 0.2s ease;
+  transition: all var(--duration-base) ease;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -220,7 +218,7 @@ html.platform-macos .emoji-fav-container::-webkit-scrollbar {
   border: var(--button-border);
   cursor: pointer;
   opacity: 0;
-  transition: all 0.15s ease;
+  transition: all var(--duration-base) ease;
   z-index: 10;
 }
 

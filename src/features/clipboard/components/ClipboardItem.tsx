@@ -2199,13 +2199,6 @@ const ClipboardItem = ({
                                 dragControls.start(e);
                             }}
                             onClick={(e) => e.stopPropagation()}
-                            style={{
-                                cursor: 'grab',
-                                opacity: 0.5,
-                                display: 'flex',
-                                alignItems: 'center',
-                                touchAction: 'none'
-                            }}
                         >
                             <GripVertical size={14} />
                         </div>

@@ -82,7 +82,7 @@ header {
   background-color: color-mix(
     in srgb,
     var(--brand-mark-color, var(--accent-color)) 88%,
-    #000 12%
+    rgb(var(--shadow-rgb)) 12%
   );
   -webkit-mask: url("../../assets/tiez-wordmark.svg") left center / contain no-repeat;
   mask: url("../../assets/tiez-wordmark.svg") left center / contain no-repeat;
@@ -92,17 +92,17 @@ header {
 }
 
 .header-actions .windows-close-btn:hover {
-  color: #fff;
-  background: #c42b1c;
-  border-color: #c42b1c;
-  box-shadow: 0 3px 10px rgba(196, 43, 28, 0.24);
+  color: var(--on-accent);
+  background: var(--window-close-background);
+  border-color: var(--window-close-background);
+  box-shadow: 0 3px 10px color-mix(in srgb, var(--window-close-background) 24%, transparent);
   transform: none;
 }
 
 .header-actions .windows-close-btn:active {
-  color: #fff;
-  background: #a52217;
-  border-color: #a52217;
+  color: var(--on-accent);
+  background: var(--window-close-background-pressed);
+  border-color: var(--window-close-background-pressed);
   box-shadow: none;
   transform: scale(0.96);
 }
@@ -120,17 +120,17 @@ header {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: all var(--duration-base) ease;
 }
 
 /* Emblems (symbols inside dots) - hidden by default */
 .traffic-light::before {
   content: '';
-  font-size: 8px;
+  font-size: 8px; /* design-ok: macOS traffic-light glyph size */
   font-weight: 700;
-  color: rgba(0, 0, 0, 0.5);
+  color: var(--traffic-glyph);
   opacity: 0;
-  transition: opacity 0.1s ease;
+  transition: opacity var(--duration-fast) ease;
   line-height: 1;
 }
 
@@ -144,8 +144,8 @@ header {
 
 /* Hover colors and emblems */
 .mac-traffic-lights:hover .traffic-light.red {
-  background-color: #ff5f56;
-  box-shadow: 0 0 2px rgba(255, 95, 86, 0.4);
+  background-color: var(--traffic-red);
+  box-shadow: 0 0 2px color-mix(in srgb, var(--traffic-red) 40%, transparent);
 }
 .mac-traffic-lights:hover .traffic-light.red::before {
   content: '×';
@@ -153,23 +153,23 @@ header {
 }
 
 .mac-traffic-lights:hover .traffic-light.yellow {
-  background-color: #ffbd2e;
-  box-shadow: 0 0 2px rgba(255, 189, 46, 0.4);
+  background-color: var(--traffic-yellow);
+  box-shadow: 0 0 2px color-mix(in srgb, var(--traffic-yellow) 40%, transparent);
 }
 .mac-traffic-lights:hover .traffic-light.yellow::before {
   content: '−';
-  font-size: 10px;
+  font-size: 10px; /* design-ok: macOS traffic-light glyph size */
   margin-top: -1px;
 }
 
 .mac-traffic-lights:hover .traffic-light.green {
-  background-color: #27c93f;
-  box-shadow: 0 0 2px rgba(39, 201, 63, 0.4);
+  background-color: var(--traffic-green);
+  box-shadow: 0 0 2px color-mix(in srgb, var(--traffic-green) 40%, transparent);
 }
 .mac-traffic-lights:hover .traffic-light.green::before {
   content: '+';
-  font-size: 9px;
-  margin-top: -0.5px;
+  font-size: 9px; /* design-ok: macOS traffic-light glyph size */
+  margin-top: -0.5px; /* design-ok: optical centring of the glyph */
 }
 
 .header-drag-region {
@@ -269,7 +269,7 @@ header {
     width: 24px;
     height: 24px;
     min-width: 24px;
-    padding: 3px;
+    padding: 4px;
     flex: 0 0 24px;
   }
 }
@@ -285,8 +285,8 @@ header {
   pointer-events: none;
   contain: layout style;
   transition:
-    grid-template-rows 0.2s cubic-bezier(0.32, 0.72, 0, 1),
-    opacity 0.16s cubic-bezier(0.32, 0.72, 0, 1);
+    grid-template-rows var(--duration-base) cubic-bezier(0.32, 0.72, 0, 1),
+    opacity var(--duration-base) cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .search-reveal.is-open {
@@ -299,8 +299,8 @@ header {
 
 .search-reveal:not(.is-open) {
   transition:
-    grid-template-rows 0.14s cubic-bezier(0.4, 0, 0.8, 0.2),
-    opacity 0.12s cubic-bezier(0.4, 0, 0.8, 0.2);
+    grid-template-rows var(--duration-base) cubic-bezier(0.4, 0, 0.8, 0.2),
+    opacity var(--duration-fast) cubic-bezier(0.4, 0, 0.8, 0.2);
 }
 
 .search-reveal-inner {
@@ -378,13 +378,13 @@ header {
   outline: none;
   box-shadow: var(--input-shadow);
   transition:
-    background 0.18s ease,
-    border-color 0.18s ease,
-    box-shadow 0.18s ease;
+    background var(--duration-base) ease,
+    border-color var(--duration-base) ease,
+    box-shadow var(--duration-base) ease;
 }
 
 .search-input.has-sort-control {
-  padding-right: 42px;
+  padding-right: 40px;
 }
 
 .clipboard-sort-anchor {
@@ -404,12 +404,12 @@ header {
   color: var(--text-secondary);
   background: transparent;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   transition:
-    color 0.14s ease,
-    background 0.14s ease,
-    transform 0.14s ease;
+    color var(--duration-base) ease,
+    background var(--duration-base) ease,
+    transform var(--duration-base) ease;
 }
 
 .clipboard-sort-trigger:hover,
@@ -437,15 +437,15 @@ header {
   max-width: 220px;
   padding: 4px;
   color: var(--popover-color);
-  background: var(--menu-background, var(--popover-background));
-  border: var(--menu-border, 1px solid var(--line-strong, rgba(128, 128, 128, 0.2)));
-  border-radius: var(--menu-radius, 8px);
-  box-shadow: var(--menu-shadow, 0 10px 30px rgba(0, 0, 0, 0.35));
-  backdrop-filter: var(--popover-backdrop-filter, blur(24px) saturate(180%));
-  -webkit-backdrop-filter: var(--popover-backdrop-filter, blur(24px) saturate(180%));
+  background: var(--menu-background);
+  border: var(--menu-border);
+  border-radius: var(--menu-radius);
+  box-shadow: var(--menu-shadow);
+  backdrop-filter: var(--popover-backdrop-filter);
+  -webkit-backdrop-filter: var(--popover-backdrop-filter);
   box-sizing: border-box;
   transform-origin: top right;
-  animation: clipboard-sort-menu-in 0.12s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: clipboard-sort-menu-in var(--duration-fast) cubic-bezier(0.16, 1, 0.3, 1);
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -461,7 +461,7 @@ header {
   font-weight: 600;
   letter-spacing: 0.04em;
   white-space: nowrap;
-  border-bottom: 1px solid var(--line-soft, rgba(128, 128, 128, 0.12));
+  border-bottom: 1px solid var(--line-soft);
   margin-bottom: 2px;
 }
 
@@ -476,13 +476,13 @@ header {
   color: var(--text-primary);
   background: transparent;
   border: 0;
-  border-radius: var(--compact-action-radius, 4px);
+  border-radius: var(--compact-action-radius);
   font: inherit;
   font-size: var(--font-size-sm);
   text-align: left;
   cursor: pointer;
   white-space: nowrap;
-  transition: background 0.12s ease, color 0.12s ease;
+  transition: background var(--duration-fast) ease, color var(--duration-fast) ease;
   box-sizing: border-box;
 }
 
@@ -493,8 +493,8 @@ header {
 
 .clipboard-sort-option:hover,
 .clipboard-sort-option:focus-visible {
-  color: var(--menu-item-hover-color, #ffffff) !important;
-  background: var(--menu-item-hover-background, var(--accent-color)) !important;
+  color: var(--menu-item-hover-color);
+  background: var(--menu-item-hover-background);
   outline: none;
 }
 
@@ -505,7 +505,7 @@ header {
 
 .clipboard-sort-option:hover svg,
 .clipboard-sort-option:focus-visible svg {
-  color: var(--menu-item-hover-color, #ffffff) !important;
+  color: var(--menu-item-hover-color);
 }
 
 .clipboard-sort-option.is-selected {
@@ -647,12 +647,12 @@ select.search-input option {
   touch-action: manipulation;
   opacity: 1;
   transition:
-    opacity 0.14s ease,
-    transform 0.14s ease,
-    background 0.14s ease,
-    color 0.14s ease,
-    border-color 0.14s ease,
-    box-shadow 0.14s ease;
+    opacity var(--duration-base) ease,
+    transform var(--duration-base) ease,
+    background var(--duration-base) ease,
+    color var(--duration-base) ease,
+    border-color var(--duration-base) ease,
+    box-shadow var(--duration-base) ease;
 }
 
 .history-list-container:has(.item-tags-container.tag-edit-active) > .btn-icon.scroll-top-button {
@@ -695,13 +695,13 @@ select.search-input option {
   cursor: pointer;
   box-shadow: var(--card-shadow);
   transition:
-    background 0.22s cubic-bezier(0.22, 1, 0.36, 1),
-    border-color 0.22s cubic-bezier(0.22, 1, 0.36, 1),
-    outline-color 0.22s cubic-bezier(0.22, 1, 0.36, 1),
-    outline-offset 0.22s cubic-bezier(0.22, 1, 0.36, 1),
-    outline-width 0.22s cubic-bezier(0.22, 1, 0.36, 1),
-    box-shadow 0.22s cubic-bezier(0.22, 1, 0.36, 1),
-    transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+    background var(--duration-slow) cubic-bezier(0.22, 1, 0.36, 1),
+    border-color var(--duration-slow) cubic-bezier(0.22, 1, 0.36, 1),
+    outline-color var(--duration-slow) cubic-bezier(0.22, 1, 0.36, 1),
+    outline-offset var(--duration-slow) cubic-bezier(0.22, 1, 0.36, 1),
+    outline-width var(--duration-slow) cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow var(--duration-slow) cubic-bezier(0.22, 1, 0.36, 1),
+    transform var(--duration-slow) cubic-bezier(0.22, 1, 0.36, 1);
   margin: 0 var(--layout-item-margin-x) var(--layout-item-margin-bottom) var(--layout-item-margin-x);
   height: auto;
   overflow: visible;
@@ -732,22 +732,25 @@ select.search-input option {
 }
 
 .drag-handle {
-  display: flex !important;
+  display: flex;
   align-items: center;
   justify-content: center;
   border-radius: var(--layout-drag-handle-radius);
-  transition: all 0.2s;
+  transition: all var(--duration-base);
   color: var(--text-secondary);
+  opacity: 0.5;
+  cursor: grab;
+  touch-action: none;
 }
 
 .drag-handle:hover {
-  opacity: 1 !important;
-  color: var(--accent-color) !important;
+  opacity: 1;
+  color: var(--accent-color);
   background: rgba(var(--accent-color-rgb), 0.08);
 }
 
 .drag-handle:active {
-  cursor: grabbing !important;
+  cursor: grabbing;
 }
 
 .history-item[data-reordering="true"] {
@@ -759,17 +762,17 @@ select.search-input option {
 
 /* Card Dragging Animation */
 .history-item.is-dragging {
-  opacity: 0.45 !important;
-  box-shadow: none !important;
+  opacity: 0.45;
+  box-shadow: none;
 }
 
 /* Smooth drag return animation */
 .history-item {
-  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
-              opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1),
-              border-color 0.2s ease,
-              background-color 0.2s ease,
-              box-shadow 0.2s ease;
+  transition: transform var(--duration-slow) cubic-bezier(0.16, 1, 0.3, 1),
+              opacity var(--duration-slow) cubic-bezier(0.16, 1, 0.3, 1),
+              border-color var(--duration-base) ease,
+              background-color var(--duration-base) ease,
+              box-shadow var(--duration-base) ease;
 }
 
 /* Custom drag ghost badge */

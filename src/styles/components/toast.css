@@ -13,8 +13,8 @@
 
 .toast-item {
   background: var(--toast-background);
-  backdrop-filter: var(--popover-backdrop-filter, none);
-  -webkit-backdrop-filter: var(--popover-backdrop-filter, none);
+  backdrop-filter: var(--popover-backdrop-filter);
+  -webkit-backdrop-filter: var(--popover-backdrop-filter);
   color: var(--toast-color);
   border: var(--toast-border);
   border-radius: var(--toast-radius);

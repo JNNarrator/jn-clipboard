@@ -6,7 +6,7 @@ body.compact-preview {
 
 /* Compact preview uses its own floating card.
    Reset the global app shell (#root) to avoid an extra outer layer. */
-body.compact-preview #root {
+body.compact-preview #root /* design-ok: the preview window stays transparent under any theme, installed ones included */ {
     width: auto !important;
     height: auto !important;
     display: inline-flex !important;
@@ -20,13 +20,13 @@ body.compact-preview #root {
     overflow: visible !important;
 }
 
-body.compact-preview #root::before {
+body.compact-preview #root::before /* design-ok: the preview window stays transparent under any theme, installed ones included */ {
     content: none !important;
     display: none !important;
     background: none !important;
 }
 
-body.compact-preview #root > * {
+body.compact-preview #root > * /* design-ok: the preview window stays transparent under any theme, installed ones included */ {
     position: static !important;
     z-index: auto !important;
 }
@@ -57,34 +57,34 @@ body.compact-preview #root > * {
     pointer-events: none;
     box-sizing: border-box;
     overflow: visible;
-    margin: 0 !important;
-    box-shadow: none !important;
-    filter: none !important;
+    margin: 0;
+    box-shadow: none;
+    filter: none;
 }
 
 body.compact-preview .compact-popover-portal,
 .compact-preview-root .compact-popover-portal.compact-preview-window {
     /* Shared popover defaults to 320px; drive width from JS instead. */
-    width: var(--preview-card-width, max-content) !important;
-    min-width: 0 !important;
-    max-width: min(540px, 80vw) !important;
+    width: var(--preview-card-width, max-content);
+    min-width: 0;
+    max-width: min(540px, 80vw);
 }
 
 /* Keep compact preview visually single-layer. */
 .compact-preview-root .compact-popover-portal.compact-preview-window .popover-meta,
 .compact-preview-root .compact-popover-portal.compact-preview-window .popover-content,
 .compact-preview-root .compact-popover-portal.compact-preview-window .popover-divider {
-    background: transparent !important;
-    box-shadow: none !important;
-    border-radius: 0 !important;
+    background: transparent;
+    box-shadow: none;
+    border-radius: 0;
 }
 
 .compact-preview-root .compact-popover-portal.compact-preview-image {
 }
 
 .compact-preview-root .compact-popover-portal.compact-preview-media {
-    min-width: 0 !important;
-    max-width: 540px !important;
+    min-width: 0;
+    max-width: 540px;
 }
 
 .compact-preview-root .compact-popover-portal.compact-preview-media .popover-content {
@@ -111,59 +111,59 @@ body.compact-preview .compact-popover-portal,
     height: auto;
     margin-inline: auto;
     object-fit: contain;
-    border-radius: 4px;
-    transition: opacity 0.16s ease-out, transform 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+    border-radius: var(--radius-xs);
+    transition: opacity var(--duration-base) ease-out, transform var(--duration-base) cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .compact-preview-root .popover-meta {
-    display: flex !important;
-    flex-direction: row !important;
-    align-items: center !important;
-    gap: 6px !important;
-    flex-wrap: nowrap !important;
-    width: max-content !important;
-    max-width: none !important;
-    overflow: visible !important;
-    white-space: nowrap !important;
-    font-size: var(--font-size-xs) !important;
-    margin-bottom: 8px !important;
-    -webkit-user-select: none !important;
-    user-select: none !important;
-    flex: 0 0 auto !important;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: nowrap;
+    width: max-content;
+    max-width: none;
+    overflow: visible;
+    white-space: nowrap;
+    font-size: var(--font-size-xs);
+    margin-bottom: 8px;
+    -webkit-user-select: none;
+    user-select: none;
+    flex: 0 0 auto;
 }
 
 .compact-preview-root .popover-meta .meta-row-source {
-    flex-shrink: 0 !important;
-    max-width: none !important;
+    flex-shrink: 0;
+    max-width: none;
 }
 
 .compact-preview-root .popover-meta .meta-row {
-    display: inline-flex !important;
-    align-items: center !important;
-    gap: 4px !important;
-    min-width: 0 !important;
-    flex-shrink: 0 !important;
-    overflow: visible !important;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    flex-shrink: 0;
+    overflow: visible;
 }
 
 .compact-preview-root .popover-meta .meta-row span {
-    overflow: visible !important;
-    text-overflow: clip !important;
-    white-space: nowrap !important;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: nowrap;
 }
 
 .compact-preview-root .popover-meta .source-app-icon {
-    width: 14px !important;
-    height: 14px !important;
-    object-fit: contain !important;
-    display: block !important;
-    border-radius: 3px !important;
-    flex-shrink: 0 !important;
+    width: 14px;
+    height: 14px;
+    object-fit: contain;
+    display: block;
+    border-radius: var(--radius-2xs);
+    flex-shrink: 0;
 }
 
 .compact-preview-root .popover-meta .meta-dot {
-    flex-shrink: 0 !important;
-    opacity: 0.35 !important;
+    flex-shrink: 0;
+    opacity: 0.35;
 }
 
 .compact-preview-root .popover-content.is-clipped {
@@ -180,7 +180,7 @@ body.compact-preview .compact-popover-portal,
     overflow-wrap: break-word;
     white-space: pre-wrap;
     line-height: 1.5;
-    font-size: var(--clipboard-item-font-size, 13px);
+    font-size: var(--clipboard-item-font-size);
 }
 
 .compact-preview-root .popover-content.is-short-text {
@@ -194,8 +194,8 @@ body.compact-preview .compact-popover-portal,
     tab-size: 4;
     font-size: var(--font-size-sm);
     line-height: 1.45;
-    background: rgba(0, 0, 0, 0.03);
-    border-radius: 4px;
+    background: rgba(var(--shadow-rgb), 0.03);
+    border-radius: var(--radius-xs);
     padding: 6px 8px;
     box-sizing: border-box;
 }
@@ -211,7 +211,7 @@ body.compact-preview .compact-popover-portal,
 .compact-preview-root .compact-preview-file-row {
     display: flex;
     align-items: center;
-    gap: 7px;
+    gap: 8px;
     min-width: 0;
 }
 
@@ -232,7 +232,7 @@ body.compact-preview .compact-popover-portal,
 }
 
 .compact-preview-root .compact-preview-file-more {
-    padding-left: 21px;
+    padding-left: 20px;
     color: var(--text-secondary);
     font-size: var(--font-size-xs);
 }

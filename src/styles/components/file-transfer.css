@@ -25,7 +25,7 @@
   --im-muted: var(--text-muted);
   --im-border: var(--line-soft);
   --im-strong-border: var(--line-strong);
-  --im-bubble-shadow: 0 1px 2px rgba(15, 35, 52, 0.08);
+  --im-bubble-shadow: 0 1px 2px rgba(var(--shadow-rgb), 0.08);
   --im-menu-shadow: var(--menu-shadow);
   /* Shapes follow the active theme's scale instead of a private one. */
   --im-bubble-radius: var(--card-radius);
@@ -55,7 +55,7 @@
   align-items: center;
   justify-content: space-between;
   min-height: 48px;
-  padding: 6px 14px;
+  padding: 6px 12px;
   border-bottom: 1px solid var(--im-border);
   background: var(--im-header);
   backdrop-filter: blur(18px) saturate(125%);
@@ -64,7 +64,7 @@
 .wt-header-status-group {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -73,17 +73,17 @@
   height: 8px;
   flex: 0 0 8px;
   border-radius: 50%;
-  transition: background 200ms ease, box-shadow 200ms ease;
+  transition: background var(--duration-base) ease, box-shadow var(--duration-base) ease;
 }
 
 .wt-status-dot.is-online {
-  background: #22c55e;
-  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
+  background: var(--status-success);
+  box-shadow: 0 0 0 3px rgba(var(--status-success-rgb), 0.15);
 }
 
 .wt-status-dot.is-waiting {
-  background: #f59e0b;
-  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.18);
+  background: var(--status-warning);
+  box-shadow: 0 0 0 3px rgba(var(--status-warning-rgb), 0.18);
 }
 
 .wt-header-status-copy {
@@ -125,8 +125,8 @@
   color: var(--im-text);
   background: color-mix(in srgb, var(--im-surface) 75%, transparent);
   cursor: pointer;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
-  transition: color 140ms ease, background 140ms ease, border-color 140ms ease, transform 140ms ease, box-shadow 140ms ease;
+  box-shadow: 0 1px 2px rgba(var(--shadow-rgb), 0.03);
+  transition: color var(--duration-base) ease, background var(--duration-base) ease, border-color var(--duration-base) ease, transform var(--duration-base) ease, box-shadow var(--duration-base) ease;
 }
 
 .wt-header-action:hover {
@@ -150,7 +150,7 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
 }
 
 /* "···" More Menu */
@@ -165,15 +165,15 @@
   border: var(--menu-border);
   border-radius: var(--menu-radius);
   color: var(--text-primary);
-  background: var(--menu-background, var(--popover-background));
+  background: var(--menu-background);
   box-shadow: var(--menu-shadow);
-  backdrop-filter: var(--popover-backdrop-filter, blur(28px) saturate(180%));
-  -webkit-backdrop-filter: var(--popover-backdrop-filter, blur(28px) saturate(180%));
+  backdrop-filter: var(--popover-backdrop-filter);
+  -webkit-backdrop-filter: var(--popover-backdrop-filter);
   display: flex;
   flex-direction: column;
   gap: 2px;
   transform-origin: top right;
-  animation: wt-menu-in 150ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: wt-menu-in var(--duration-base) cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 @keyframes wt-menu-in {
@@ -193,9 +193,9 @@
   gap: 10px;
   width: 100%;
   min-height: 34px;
-  padding: 7px 11px;
+  padding: 8px 12px;
   border: 0;
-  border-radius: var(--compact-action-radius, 4px);
+  border-radius: var(--compact-action-radius);
   background: transparent;
   color: var(--text-primary);
   font-size: var(--font-size-base);
@@ -203,7 +203,7 @@
   line-height: 1.4;
   text-align: left;
   cursor: pointer;
-  transition: background 120ms ease, color 120ms ease, transform 100ms ease;
+  transition: background var(--duration-fast) ease, color var(--duration-fast) ease, transform var(--duration-fast) ease;
   -webkit-user-select: none;
   user-select: none;
 }
@@ -211,7 +211,7 @@
 .wt-more-menu-item svg {
   flex-shrink: 0;
   color: var(--text-secondary);
-  transition: color 120ms ease;
+  transition: color var(--duration-fast) ease;
 }
 
 .wt-more-menu-item span {
@@ -268,13 +268,13 @@
 
 .wt-more-menu-divider {
   height: 1px;
-  margin: 5px 6px;
+  margin: 4px 6px;
   background: var(--im-border);
   opacity: 0.85;
 }
 
 .wt-more-menu-section-label {
-  padding: 7px 11px 3px;
+  padding: 8px 12px 4px;
   color: var(--text-secondary);
   font-size: var(--font-size-xs);
   font-weight: 600;
@@ -311,7 +311,7 @@
   gap: 2px;
   overflow-x: hidden;
   overflow-y: auto;
-  padding: 14px clamp(12px, 3.5vw, 30px) 20px;
+  padding: 12px clamp(12px, 3.5vw, 28px) 20px;
   background-color: transparent;
   background-image:
     linear-gradient(var(--im-canvas-shade), var(--im-canvas-shade)),
@@ -339,7 +339,7 @@ html.platform-macos .wt-chat-box::-webkit-scrollbar-track {
 
 html.platform-macos .wt-chat-box::-webkit-scrollbar-thumb {
   border: 2px solid transparent;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: transparent;
   background-clip: padding-box;
 }
@@ -358,12 +358,12 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
 }
 
 .wt-day-separator span {
-  padding: 3px 8px;
+  padding: 4px 8px;
   border: 1px solid color-mix(in srgb, var(--im-border) 76%, transparent);
   border-radius: var(--radius-pill);
   color: var(--im-muted);
   background: color-mix(in srgb, var(--im-surface) 78%, transparent);
-  box-shadow: 0 1px 2px rgba(15, 35, 52, 0.04);
+  box-shadow: 0 1px 2px rgba(var(--shadow-rgb), 0.04);
   font-size: var(--font-size-2xs);
   line-height: 1.25;
   backdrop-filter: blur(8px);
@@ -373,7 +373,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   display: grid;
   max-width: 320px;
   margin: auto;
-  padding: 28px 18px 42px;
+  padding: 28px 16px 40px;
   justify-items: center;
   text-align: center;
 }
@@ -384,7 +384,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   width: 46px;
   height: 46px;
   place-items: center;
-  margin-bottom: 11px;
+  margin-bottom: 12px;
   border-radius: 50%;
   color: var(--im-accent);
   background: color-mix(in srgb, var(--im-surface) 88%, var(--im-accent) 12%);
@@ -441,7 +441,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   width: 100%;
   text-align: center;
 }
@@ -452,10 +452,10 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   padding: 8px;
   border-radius: var(--im-panel-radius);
   /* Light pad keeps QR contrast in dark themes. */
-  background: #ffffff;
+  background: var(--qr-backdrop);
   border: 1px solid var(--im-border);
-  box-shadow: 0 2px 10px color-mix(in srgb, var(--shadow-color, rgba(0, 0, 0, 0.35)) 35%, transparent);
-  margin-bottom: 3px;
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--shadow-color) 35%, transparent);
+  margin-bottom: 4px;
 }
 
 .wt-pairing-title {
@@ -477,7 +477,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   align-items: center;
   gap: 6px;
   margin-top: 4px;
-  padding: 3px 8px;
+  padding: 4px 8px;
   border: 1px solid var(--im-border);
   border-radius: var(--im-control-radius);
   background: rgba(var(--im-accent-rgb), 0.05);
@@ -492,7 +492,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
 }
 
 .wt-pairing-copy-btn {
-  padding: 1.5px 6px;
+  padding: 2px 6px;
   border: 0;
   border-radius: var(--button-radius);
   background: rgba(var(--im-accent-rgb), 0.12);
@@ -501,7 +501,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   font-weight: 600;
   cursor: pointer;
   flex-shrink: 0;
-  transition: background 140ms ease;
+  transition: background var(--duration-base) ease;
 }
 
 .wt-pairing-copy-btn:hover {
@@ -514,9 +514,9 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   max-width: min(78%, 540px);
   align-items: flex-end;
   align-self: flex-start;
-  gap: 7px;
+  gap: 8px;
   margin: 1px 0 4px;
-  animation: wt-message-in 180ms cubic-bezier(0.2, 0.75, 0.3, 1) both;
+  animation: wt-message-in var(--duration-base) cubic-bezier(0.2, 0.75, 0.3, 1) both;
 }
 
 .wt-message.sent {
@@ -529,7 +529,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
 }
 
 .wt-message.is-group-end {
-  margin-bottom: 7px;
+  margin-bottom: 8px;
 }
 
 .wt-avatar,
@@ -549,7 +549,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   color: var(--on-accent);
   box-shadow:
     0 0 0 1px rgba(var(--im-accent-rgb), 0.22),
-    0 2px 6px rgba(15, 35, 52, 0.1);
+    0 2px 6px rgba(var(--shadow-rgb), 0.1);
   font-size: var(--font-size-2xs);
   font-weight: 720;
   letter-spacing: -0.02em;
@@ -576,7 +576,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   position: relative;
   min-width: 46px;
   max-width: 100%;
-  padding: 7px 10px;
+  padding: 8px 10px;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--im-border) 78%, transparent);
   border-radius: var(--im-bubble-radius);
@@ -653,11 +653,11 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   border-radius: var(--button-radius);
   background: var(--im-surface);
   color: var(--im-muted);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 6px rgba(var(--shadow-rgb), 0.08);
   opacity: 0;
   pointer-events: none;
   transform: scale(0.85);
-  transition: opacity 140ms ease, transform 140ms ease, color 140ms ease, background 140ms ease;
+  transition: opacity var(--duration-base) ease, transform var(--duration-base) ease, color var(--duration-base) ease, background var(--duration-base) ease;
   cursor: pointer;
   z-index: 5;
 }
@@ -677,8 +677,8 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   opacity: 1;
   pointer-events: auto;
   transform: scale(1);
-  color: #2fbf71;
-  border-color: #2fbf71;
+  color: var(--status-success);
+  border-color: var(--status-success);
 }
 
 .wt-copy-check {
@@ -691,8 +691,8 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   min-height: 12px;
   align-items: center;
   align-self: flex-end;
-  gap: 3px;
-  margin: 2px 5px 0;
+  gap: 4px;
+  margin: 2px 4px 0;
   color: var(--im-muted);
   font: var(--font-size-2xs)/1 var(--font-mono);
   pointer-events: none;
@@ -727,15 +727,15 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   max-width: min(320px, 54vw);
   max-height: 360px;
   border-radius: calc(var(--im-bubble-radius) - 4px);
-  background: #111;
+  background: var(--media-backdrop);
   object-fit: cover;
 }
 
 .wt-media-footer {
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 5px 5px 2px;
+  gap: 4px;
+  padding: 4px 4px 2px;
   color: var(--im-muted);
   font-size: var(--font-size-2xs);
 }
@@ -774,15 +774,15 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   place-items: center;
 }
 
-.wt-file-fallback-icon.is-pdf { color: #e05252; }
-.wt-file-fallback-icon.is-archive { color: #a469d1; }
-.wt-file-fallback-icon.is-audio { color: #d66b9b; }
-.wt-file-fallback-icon.is-executable { color: #62758a; }
-.wt-file-fallback-icon.is-spreadsheet { color: #2fa36b; }
-.wt-file-fallback-icon.is-presentation { color: #e47d3c; }
-.wt-file-fallback-icon.is-code { color: #4e82d8; }
-.wt-file-fallback-icon.is-image { color: #4a9f82; }
-.wt-file-fallback-icon.is-video { color: #8a69d5; }
+.wt-file-fallback-icon.is-pdf { color: var(--file-tint-pdf); }
+.wt-file-fallback-icon.is-archive { color: var(--file-tint-archive); }
+.wt-file-fallback-icon.is-audio { color: var(--file-tint-audio); }
+.wt-file-fallback-icon.is-executable { color: var(--file-tint-executable); }
+.wt-file-fallback-icon.is-spreadsheet { color: var(--file-tint-spreadsheet); }
+.wt-file-fallback-icon.is-presentation { color: var(--file-tint-presentation); }
+.wt-file-fallback-icon.is-code { color: var(--file-tint-code); }
+.wt-file-fallback-icon.is-image { color: var(--file-tint-image); }
+.wt-file-fallback-icon.is-video { color: var(--file-tint-video); }
 
 .wt-file-info {
   min-width: 0;
@@ -799,14 +799,14 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
 }
 
 .wt-file-status {
-  margin-top: 3px;
+  margin-top: 4px;
   color: var(--im-muted);
   font-size: var(--font-size-2xs);
   line-height: 1.3;
 }
 
 .progress-wrapper {
-  margin-top: 7px;
+  margin-top: 8px;
   padding-top: 6px;
   border-top: 1px solid var(--im-border);
 }
@@ -822,7 +822,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   height: 100%;
   border-radius: inherit;
   background: var(--im-accent);
-  transition: width 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  transition: width var(--duration-base) cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .progress-bar.is-indeterminate {
@@ -839,7 +839,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 5px;
+  margin-top: 4px;
   color: var(--im-muted);
   font-size: var(--font-size-2xs);
   line-height: 1.25;
@@ -867,14 +867,14 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   margin-top: 6px;
   padding: 4px 8px;
   border-radius: var(--im-control-radius);
-  background: rgba(239, 68, 68, 0.08);
-  border: 1px solid rgba(239, 68, 68, 0.2);
+  background: rgba(var(--status-danger-rgb), 0.08);
+  border: 1px solid rgba(var(--status-danger-rgb), 0.2);
 }
 
 .wt-transfer-error-text {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   color: var(--status-danger);
   font-size: var(--font-size-2xs);
   overflow: hidden;
@@ -886,16 +886,16 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 7px;
+  padding: 2px 8px;
   border: 0;
   border-radius: var(--button-radius);
   background: var(--status-danger);
-  color: #fff;
+  color: var(--on-accent);
   font-size: var(--font-size-2xs);
   font-weight: 500;
   cursor: pointer;
   flex-shrink: 0;
-  transition: opacity 140ms ease, transform 140ms ease;
+  transition: opacity var(--duration-base) ease, transform var(--duration-base) ease;
 }
 
 .wt-transfer-retry-btn:hover {
@@ -914,7 +914,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   align-items: center;
   flex: 0 0 auto;
   min-height: 54px;
-  padding: 9px 12px;
+  padding: 8px 12px;
   border-top: 1px solid var(--im-border);
   background: var(--im-header);
   backdrop-filter: blur(18px) saturate(125%);
@@ -935,28 +935,13 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   display: flex;
   flex: 0 0 auto;
   align-items: stretch;
-  height: 36px !important;
-  min-height: 36px !important;
-  max-height: 36px !important;
+  height: 36px;
+  min-height: 36px;
+  max-height: 36px;
   border: 1px solid var(--im-border);
   border-radius: var(--im-control-radius);
   background: var(--im-input);
   box-shadow: none;
-  box-sizing: border-box;
-}
-
-.wt-file-send-main {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 100%;
-  padding: 0;
-  border: 0 !important;
-  border-right: 1px solid var(--im-border) !important;
-  border-radius: var(--im-control-radius) 0 0 var(--im-control-radius) !important;
-  color: var(--im-muted) !important;
-  background: transparent !important;
   box-sizing: border-box;
 }
 
@@ -978,8 +963,8 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
 .wt-file-send-main:hover:not(:disabled),
 .wt-file-send-toggle:hover,
 .wt-file-send-toggle[aria-expanded="true"] {
-  color: var(--im-accent) !important;
-  background: color-mix(in srgb, var(--im-accent) 8%, transparent) !important;
+  color: var(--im-accent);
+  background: color-mix(in srgb, var(--im-accent) 8%, transparent);
 }
 
 .wt-file-send-toggle:disabled {
@@ -994,14 +979,14 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   left: 0;
   display: grid;
   width: 244px;
-  gap: 3px;
-  padding: 5px;
+  gap: 4px;
+  padding: 4px;
   border: var(--menu-border);
   border-radius: var(--menu-radius);
-  background: var(--menu-background, var(--popover-background));
+  background: var(--menu-background);
   box-shadow: var(--im-menu-shadow);
-  backdrop-filter: var(--popover-backdrop-filter, blur(28px) saturate(180%));
-  -webkit-backdrop-filter: var(--popover-backdrop-filter, blur(28px) saturate(180%));
+  backdrop-filter: var(--popover-backdrop-filter);
+  -webkit-backdrop-filter: var(--popover-backdrop-filter);
 }
 
 .wt-file-send-options button {
@@ -1012,7 +997,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   width: 100%;
   padding: 8px;
   border: 0;
-  border-radius: var(--compact-action-radius, 4px);
+  border-radius: var(--compact-action-radius);
   color: var(--im-text);
   background: transparent;
   text-align: left;
@@ -1077,7 +1062,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   border-radius: var(--im-control-radius);
   background: var(--im-input);
   box-sizing: border-box;
-  transition: border-color 140ms ease, box-shadow 140ms ease;
+  transition: border-color var(--duration-base) ease, box-shadow var(--duration-base) ease;
 }
 
 .wt-input-wrap.is-multiline {
@@ -1098,14 +1083,14 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   height: 22px;
   min-height: 22px;
   flex: 1;
-  margin: 0 !important;
-  padding: 0 !important;
+  margin: 0;
+  padding: 0;
   overflow-y: hidden;
-  border: 0 !important;
-  outline: 0 !important;
-  color: var(--im-text) !important;
-  background: transparent !important;
-  box-shadow: none !important;
+  border: 0;
+  outline: 0;
+  color: var(--im-text);
+  background: transparent;
+  box-shadow: none;
   font-family: var(--font-main);
   font-size: var(--font-size-base);
   line-height: 22px;
@@ -1133,7 +1118,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   background: var(--im-input);
   font-family: var(--font-main);
   cursor: pointer;
-  transition: color 140ms ease, background 140ms ease, transform 140ms ease;
+  transition: color var(--duration-base) ease, background var(--duration-base) ease, transform var(--duration-base) ease;
 }
 
 .wt-btn-icon,
@@ -1159,25 +1144,42 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   background: rgba(var(--im-accent-rgb), 0.09);
 }
 
+/* The file button is also a .wt-btn-icon; as the left half of the send
+   control it must come after the generic icon-button rules above. */
+.wt-file-send-main {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-right: 1px solid var(--im-border);
+  border-radius: var(--im-control-radius) 0 0 var(--im-control-radius);
+  color: var(--im-muted);
+  background: transparent;
+  box-sizing: border-box;
+}
+
 .wt-btn {
   min-height: 34px;
-  padding: 0 15px;
+  padding: 0 16px;
   border-radius: var(--radius-pill);
   font-size: var(--font-size-xs);
   font-weight: 650;
 }
 
 .wt-btn.send {
-  width: 36px !important;
-  height: 36px !important;
-  min-width: 36px !important;
-  min-height: 36px !important;
-  max-width: 36px !important;
-  max-height: 36px !important;
-  flex: 0 0 36px !important;
-  padding: 0 !important;
-  border: 0 !important;
-  border-radius: var(--radius-pill) !important;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  max-width: 36px;
+  max-height: 36px;
+  flex: 0 0 36px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-pill);
   color: var(--on-accent);
   background: var(--im-accent);
   display: inline-flex;
@@ -1225,9 +1227,9 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   overflow: hidden;
   border: 1px solid var(--im-strong-border);
   border-radius: var(--im-panel-radius);
-  background: var(--modal-background, var(--bg-input));
-  backdrop-filter: var(--popover-backdrop-filter, none);
-  -webkit-backdrop-filter: var(--popover-backdrop-filter, none);
+  background: var(--modal-background);
+  backdrop-filter: var(--popover-backdrop-filter);
+  -webkit-backdrop-filter: var(--popover-backdrop-filter);
   box-shadow: var(--im-menu-shadow);
 }
 
@@ -1268,7 +1270,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
 .wt-fullscreen-textarea {
   min-height: 0;
   flex: 1;
-  padding: 18px;
+  padding: 16px;
   border: 0;
   outline: 0;
   color: var(--im-text);
@@ -1293,13 +1295,13 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   min-width: 220px;
   place-items: center;
   gap: 12px;
-  padding: 34px 42px;
+  padding: 32px 40px;
   border: 2px dashed var(--im-accent);
   border-radius: var(--im-panel-radius);
   color: var(--im-accent);
-  background: var(--modal-background, var(--bg-input));
-  backdrop-filter: var(--popover-backdrop-filter, none);
-  -webkit-backdrop-filter: var(--popover-backdrop-filter, none);
+  background: var(--modal-background);
+  backdrop-filter: var(--popover-backdrop-filter);
+  -webkit-backdrop-filter: var(--popover-backdrop-filter);
   box-shadow: var(--im-menu-shadow);
 }
 
@@ -1315,14 +1317,14 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   display: grid;
   min-width: 176px;
   max-width: min(260px, calc(100vw - 16px));
-  padding: 5px;
+  padding: 4px;
   overflow: hidden;
   border: var(--menu-border);
   border-radius: var(--menu-radius);
-  background: var(--menu-background, var(--popover-background));
+  background: var(--menu-background);
   box-shadow: var(--im-menu-shadow);
-  backdrop-filter: var(--popover-backdrop-filter, blur(28px) saturate(180%));
-  -webkit-backdrop-filter: var(--popover-backdrop-filter, blur(28px) saturate(180%));
+  backdrop-filter: var(--popover-backdrop-filter);
+  -webkit-backdrop-filter: var(--popover-backdrop-filter);
   transform-origin: top left;
 }
 
@@ -1336,9 +1338,9 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   min-height: 34px;
   align-items: center;
   gap: 10px;
-  padding: 6px 9px;
+  padding: 6px 8px;
   border: 0;
-  border-radius: var(--compact-action-radius, 4px);
+  border-radius: var(--compact-action-radius);
   color: var(--im-text);
   background: transparent;
   font: var(--font-size-xs)/1.3 var(--font-main);
@@ -1364,7 +1366,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
 
 .wt-context-separator {
   height: 1px;
-  margin: 4px 7px;
+  margin: 4px 8px;
   background: var(--im-border);
 }
 
@@ -1385,7 +1387,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   width: 100%;
   align-items: center;
   gap: 10px;
-  padding: 7px;
+  padding: 8px;
   border: 0;
   border-radius: var(--im-control-radius);
   color: var(--im-text);
@@ -1414,7 +1416,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   min-width: 0;
   flex: 1;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
 }
 
 .wt-batch-summary strong,
@@ -1435,8 +1437,8 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
 .wt-batch-files {
   display: flex;
   max-height: 220px;
-  margin: 5px 4px 7px;
-  padding: 5px 0;
+  margin: 4px 4px 8px;
+  padding: 4px 0;
   flex-direction: column;
   overflow-y: auto;
   border-top: 1px solid var(--im-border);
@@ -1448,8 +1450,8 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   width: 100%;
   min-height: 40px;
   align-items: center;
-  gap: 9px;
-  padding: 5px 7px;
+  gap: 8px;
+  padding: 4px 8px;
   border: 0;
   border-radius: var(--im-control-radius);
   background: transparent;
@@ -1488,14 +1490,14 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 2px 5px 0;
+  padding: 2px 4px 0;
 }
 
 .wt-batch-actions button {
   display: inline-flex;
   min-height: 27px;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   padding: 4px 8px;
   border: 1px solid var(--im-border);
   border-radius: var(--im-control-radius);
@@ -1514,64 +1516,17 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   opacity: 0.5;
 }
 
-/* Theme token adapters: colors only. Shapes already follow each theme's
-   radius tokens through the --im-*-radius defaults above. */
-.theme-mica .wt-chat-view,
-.theme-acrylic .wt-chat-view,
-.theme-macos .wt-chat-view {
-  /* Let the native glass show through exactly as it does behind the main list. */
-  --im-canvas: transparent;
-  --im-canvas-shade: transparent;
-  --im-canvas-pattern: none;
-  --im-header: color-mix(in srgb, var(--bg-toolbar) 78%, transparent);
-  --im-surface: color-mix(in srgb, var(--bg-input) 86%, transparent);
-  --im-input: color-mix(in srgb, var(--bg-input) 92%, transparent);
-  --im-incoming: color-mix(in srgb, var(--bg-input) 88%, var(--bg-panel) 12%);
-  --im-outgoing: color-mix(in srgb, var(--accent-color) 22%, var(--bg-input) 78%);
-}
-
-.theme-sakura .wt-chat-view {
-  --im-canvas: color-mix(in srgb, var(--bg-window) 86%, #ffdce6 14%);
-  --im-canvas-shade: color-mix(in srgb, var(--im-canvas) 78%, transparent);
-  --im-incoming: color-mix(in srgb, var(--bg-panel) 94%, #fff 6%);
-  --im-outgoing: color-mix(in srgb, var(--accent-color) 16%, var(--bg-panel) 84%);
-}
-
-.theme-sticky-note .wt-chat-view {
-  --im-canvas: color-mix(in srgb, var(--bg-window) 92%, #f7d36b 8%);
-  --im-canvas-shade: color-mix(in srgb, var(--im-canvas) 84%, transparent);
-  --im-incoming: color-mix(in srgb, var(--bg-element) 94%, #fff 6%);
-  --im-outgoing: color-mix(in srgb, var(--accent-color) 14%, var(--bg-element) 86%);
-}
-
-.theme-terminal .wt-chat-view {
-  --im-canvas: var(--bg-window);
-  --im-canvas-shade: color-mix(in srgb, var(--bg-window) 90%, transparent);
-  --im-incoming: var(--bg-element);
-  --im-outgoing: color-mix(in srgb, var(--accent-color) 14%, var(--bg-element) 86%);
-}
-
-.theme-paper .wt-chat-view,
-.theme-receipt .wt-chat-view,
-.theme-ink .wt-chat-view {
-  --im-canvas: var(--bg-window);
-  --im-canvas-shade: color-mix(in srgb, var(--bg-window) 88%, transparent);
-  --im-incoming: var(--bg-element);
-  --im-outgoing: color-mix(in srgb, var(--accent-color) 12%, var(--bg-element) 88%);
-}
-
-.theme-retro .wt-chat-view {
-  --im-bubble-shadow: 2px 2px 0 var(--line-strong);
-}
+/* Each theme adapts the --im-* colors in its own file (themes/*.css); shapes
+   already follow its radius tokens through the --im-*-radius defaults above. */
 
 /* Dark defaults only. :where() keeps this at the specificity of the base rule so
-   the theme adapters above still win in dark mode (glass stays transparent). */
+   the theme adapters still win in dark mode (glass stays transparent). */
 :where(:root.dark-mode) .wt-chat-view {
   --im-canvas: color-mix(in srgb, var(--bg-window) 92%, var(--accent-color) 8%);
   --im-canvas-shade: color-mix(in srgb, var(--im-canvas) 78%, transparent);
   --im-incoming: color-mix(in srgb, var(--bg-panel) 95%, var(--accent-color) 5%);
   --im-outgoing: color-mix(in srgb, var(--bg-panel) 76%, var(--accent-color) 24%);
-  --im-bubble-shadow: 0 1px 2px rgba(0, 0, 0, 0.24);
+  --im-bubble-shadow: 0 1px 2px rgba(var(--shadow-rgb), 0.24);
 }
 
 @keyframes wt-message-in {
@@ -1594,7 +1549,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
 }
 
 @media (max-width: 560px) {
-  .wt-header { padding-inline: 11px 8px; }
+  .wt-header { padding-inline: 12px 8px; }
   .wt-header.is-onboarding { min-height: 64px; }
   
   
@@ -1640,7 +1595,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 8px 14px;
+  padding: 8px 12px;
 }
 
 .wt-filter-pills {
@@ -1650,7 +1605,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
 }
 
 .wt-filter-pill {
-  padding: 3px 9px;
+  padding: 4px 8px;
   border: 1px solid transparent;
   border-radius: var(--button-radius);
   font-size: var(--font-size-xs);
@@ -1658,7 +1613,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   color: var(--im-muted);
   background: transparent;
   cursor: pointer;
-  transition: all 140ms ease;
+  transition: all var(--duration-base) ease;
   line-height: 1.4;
 }
 
@@ -1692,7 +1647,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   border: 1px solid var(--im-border);
   border-radius: var(--input-radius);
   padding: 0 6px;
-  transition: border-color 140ms ease, box-shadow 140ms ease;
+  transition: border-color var(--duration-base) ease, box-shadow var(--duration-base) ease;
 }
 
 .wt-search-input-box:focus-within {
@@ -1734,7 +1689,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   background: rgba(var(--im-accent-rgb), 0.1);
   cursor: pointer;
   flex-shrink: 0;
-  transition: all 120ms ease;
+  transition: all var(--duration-fast) ease;
 }
 
 .wt-search-clear-btn:hover {
@@ -1754,7 +1709,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
 
 .wt-clear-filter-btn {
   margin-top: 12px;
-  padding: 6px 14px;
+  padding: 6px 12px;
   border: 1px solid rgba(var(--im-accent-rgb), 0.25);
   border-radius: var(--button-radius);
   background: rgba(var(--im-accent-rgb), 0.08);
@@ -1762,7 +1717,7 @@ html.platform-macos .wt-chat-box:focus-within::-webkit-scrollbar-thumb {
   font-size: var(--font-size-xs);
   font-weight: 600;
   cursor: pointer;
-  transition: all 140ms ease;
+  transition: all var(--duration-base) ease;
 }
 
 .wt-clear-filter-btn:hover {

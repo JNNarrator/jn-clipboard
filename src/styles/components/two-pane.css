@@ -110,7 +110,7 @@
   width: 1px;
   transform: translateX(-50%);
   background: transparent;
-  transition: background 0.15s ease;
+  transition: background var(--duration-base) ease;
 }
 
 .pane-divider.is-overlay::before {
@@ -125,10 +125,10 @@
   width: 3px;
   height: 36px;
   transform: translate(-50%, -50%);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: rgba(var(--accent-color-rgb), 0.45);
   opacity: 0;
-  transition: opacity 0.15s ease;
+  transition: opacity var(--duration-base) ease;
 }
 
 .pane-divider.is-overlay .pane-divider-handle {
@@ -149,9 +149,9 @@
 
 body.is-pane-resizing,
 body.is-pane-resizing * {
-  cursor: col-resize !important;
-  -webkit-user-select: none !important;
-  user-select: none !important;
+  cursor: col-resize;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 /* ---- Content: the window background, like the settings content pane ---- */

@@ -1,6 +1,90 @@
 /* Paper & Quill Theme (纸质书感) */
+/* Component adjustments for this theme, kept ahead of the theme's own rules
+   (they used to sit in the component stylesheets). */
+
+/* ---- From components/Announcement.css ---- */
+
+.theme-paper .announcement-ticker {
+    background: var(--bg-toolbar);
+    border-bottom: 2px solid var(--text-primary);
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.theme-paper .ticker-icon,
+.theme-paper .ticker-count,
+.theme-paper .ticker-fixed-close {
+    border-color: var(--text-primary);
+    border-width: 2px;
+    background: transparent;
+}
+
+.theme-paper .ticker-tag {
+    border-radius: 0;
+    border: 1px solid currentColor;
+    background: transparent;
+    color: inherit;
+    box-shadow: none;
+}
+
+.theme-paper .ticker-tag.info { color: var(--status-info);
+}
+
+.theme-paper .ticker-tag.warning { color: color-mix(in srgb, var(--status-warning) 70%, var(--text-primary));
+}
+
+.theme-paper .ticker-tag.update { color: color-mix(in srgb, var(--status-success) 70%, var(--text-primary));
+}
+
+@media (prefers-color-scheme: dark) {
+  .theme-paper:not(.light-mode) .ticker-icon,
+  .theme-paper:not(.light-mode) .ticker-count,
+  .theme-paper:not(.light-mode) .ticker-fixed-close {
+          border-color: var(--line-soft);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .theme-paper:not(.light-mode) .announcement-ticker {
+          border-bottom-color: var(--line-strong);
+  }
+}
+
+.dark-mode .theme-paper .ticker-icon,
+.dark-mode .theme-paper .ticker-count,
+.dark-mode .theme-paper .ticker-fixed-close {
+    border-color: var(--line-soft);
+}
+
+.dark-mode .theme-paper .announcement-ticker {
+    border-bottom-color: var(--line-strong);
+}
+
+/* ---- From components/ai.css ---- */
+
+.theme-paper .ai-action-btn {
+  border: 1px solid var(--border-dark);
+  border-radius: var(--radius-2xs);
+  font-family: var(--font-serif, serif);
+}
+
+/* ---- From components/file-transfer.css ---- */
+
+.theme-paper .wt-chat-view {
+  --im-canvas: var(--bg-window);
+  --im-canvas-shade: color-mix(in srgb, var(--bg-window) 88%, transparent);
+  --im-incoming: var(--bg-element);
+  --im-outgoing: color-mix(in srgb, var(--accent-color) 12%, var(--bg-element) 88%);
+}
+
 :root.theme-paper,
 body.theme-paper {
+  /* Ruled-paper cards keep the same padding in compact mode. */
+  --layout-item-padding: 12px;
+  --layout-item-padding-compact: 12px;
+  --paper-rule: #d5c4a1;
+  --paper-selected: #fbf1c7;
   --bg-body: #f4ecd8;
   --bg-window: #fdf6e3;
   --bg-content: #fdf6e3;
@@ -11,14 +95,13 @@ body.theme-paper {
   --bg-button: rgba(139, 90, 43, 0.08);
 
   --text-primary: #3c3836;
-  --text-secondary: #7c6f64;
-  --text-muted: #a89984;
+  --text-secondary: #6b5f56;
+  --text-muted: #6c6153;
 
   --accent-color: #8b5a2b;
   --accent-color-rgb: 139, 90, 43;
   --accent-hover: #6d451e;
   --border-dark: #d5c4a1;
-  --border-light: rgba(213, 196, 161, 0.4);
   --shadow-color: rgba(60, 56, 54, 0.12);
 
   --line-soft: rgba(139, 90, 43, 0.12);
@@ -110,7 +193,6 @@ body.theme-paper {
   --scrollbar-size: 10px;
   --scrollbar-radius: 0px;
   --scrollbar-thumb-color: #d5c4a1;
-  --scrollbar-track-background: transparent;
 
   --content-font-family: var(--font-main);
   --content-line-height: 1.6;
@@ -145,28 +227,22 @@ body.theme-paper::before {
 }
 
 .theme-paper .history-item {
-  background-color: transparent !important;
+  background-color: transparent;
   background-image: linear-gradient(var(--line-soft) 1px, transparent 1px);
   background-size: 100% 1.6em;
   background-attachment: local;
-  padding: 12px !important;
-  border-bottom: 2px solid #d5c4a1 !important;
+  border-bottom: 2px solid var(--paper-rule);
   position: relative;
 }
 
 .theme-paper .history-item.selected {
-  background-color: #fbf1c7 !important;
-}
-
-body.dark-mode.theme-paper .history-item.selected,
-:root.dark-mode.theme-paper .history-item.selected,
-.theme-paper.dark-mode .history-item.selected {
-  background-color: rgba(215, 153, 33, 0.15) !important;
+  background-color: var(--paper-selected);
 }
 
 @media (prefers-color-scheme: dark) {
   :root.theme-paper:not(.light-mode),
   body.theme-paper:not(.light-mode) {
+    --paper-selected: rgba(215, 153, 33, 0.15);
     --bg-body: #282828;
     --bg-window: #32302f;
     --bg-content: #32302f;
@@ -177,14 +253,13 @@ body.dark-mode.theme-paper .history-item.selected,
     --bg-button: rgba(213, 196, 161, 0.1);
 
     --text-primary: #ebdbb2;
-    --text-secondary: #a89984;
-    --text-muted: #928374;
+    --text-secondary: #bdb1a2;
+    --text-muted: #ada297;
 
     --accent-color: #d79921;
     --accent-color-rgb: 215, 153, 33;
     --button-active-filled-color: #1d2021;
     --border-dark: #504945;
-    --border-light: rgba(80, 73, 69, 0.4);
     --shadow-color: rgba(0, 0, 0, 0.3);
 
     --line-soft: rgba(213, 196, 161, 0.08);
@@ -206,6 +281,7 @@ body.dark-mode.theme-paper .history-item.selected,
 
 :root.dark-mode.theme-paper,
 body.dark-mode.theme-paper {
+  --paper-selected: rgba(215, 153, 33, 0.15);
   --bg-body: #282828;
   --bg-window: #32302f;
   --bg-content: #32302f;
@@ -216,14 +292,13 @@ body.dark-mode.theme-paper {
   --bg-button: rgba(213, 196, 161, 0.1);
 
   --text-primary: #ebdbb2;
-  --text-secondary: #a89984;
-  --text-muted: #928374;
+  --text-secondary: #bdb1a2;
+  --text-muted: #ada297;
 
   --accent-color: #d79921;
   --accent-color-rgb: 215, 153, 33;
   --button-active-filled-color: #1d2021;
   --border-dark: #504945;
-  --border-light: rgba(80, 73, 69, 0.4);
   --shadow-color: rgba(0, 0, 0, 0.3);
 
   --line-soft: rgba(213, 196, 161, 0.08);
@@ -254,17 +329,17 @@ body.dark-mode.theme-paper {
 .theme-paper .search-input.dropdown-open {
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
-  border-bottom-color: #d5c4a1;
+  border-bottom-color: var(--paper-rule);
 }
 
 .theme-paper .tags-dropdown {
-  margin-top: 0 !important;
-  padding: 4px 0 6px !important;
-  border-top: none !important;
-  border-radius: 0 0 2px 2px !important;
-  background: var(--bg-input) !important;
-  border-color: #d5c4a1 !important;
-  box-shadow: var(--tags-shadow) !important;
+  margin-top: 0;
+  padding: 4px 0 6px;
+  border-top: none;
+  border-radius: 0 0 2px 2px;
+  background: var(--bg-input);
+  border-color: var(--paper-rule);
+  box-shadow: var(--tags-shadow);
 }
 
 .theme-paper .tags-dropdown .tags-list {
@@ -282,6 +357,6 @@ body.dark-mode.theme-paper {
 }
 
 .theme-paper .tags-dropdown .tag-chip:hover {
-  filter: brightness(1.04) !important;
-  transform: none !important;
+  filter: brightness(1.04);
+  transform: none;
 }

@@ -46,7 +46,7 @@ html.platform-macos .tag-manager-body:not(.is-split) .tag-manager-chip-row::-web
 
 html.platform-macos .tag-manager-body:not(.is-split) .tag-manager-chip-row::-webkit-scrollbar-thumb {
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
 .tag-manager-chip {
@@ -57,7 +57,7 @@ html.platform-macos .tag-manager-body:not(.is-split) .tag-manager-chip-row::-web
   min-height: 26px;
   padding: 0 8px;
   border: 1px solid transparent;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--bg-element);
   color: var(--text-primary);
   font-size: var(--font-size-sm);
@@ -120,7 +120,7 @@ html.platform-macos .tag-manager-body:not(.is-split) .tag-manager-chip-row::-web
   cursor: pointer;
   padding: 0;
   border: 0;
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(var(--shadow-rgb), 0.08);
 }
 
 .tag-color-dot:hover {
@@ -152,9 +152,9 @@ html.platform-macos .tag-manager-body:not(.is-split) .tag-manager-chip-row::-web
   padding: 4px;
   border: var(--menu-border);
   border-radius: var(--button-radius);
-  background: var(--menu-background, var(--popover-background));
-  backdrop-filter: var(--popover-backdrop-filter, blur(28px) saturate(180%));
-  -webkit-backdrop-filter: var(--popover-backdrop-filter, blur(28px) saturate(180%));
+  background: var(--menu-background);
+  backdrop-filter: var(--popover-backdrop-filter);
+  -webkit-backdrop-filter: var(--popover-backdrop-filter);
   box-shadow: var(--menu-shadow);
 }
 
@@ -422,12 +422,12 @@ html.platform-macos .tag-manager-body:not(.is-split) .tag-manager-chip-row::-web
   padding: 8px 10px;
   cursor: pointer;
   position: relative;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color var(--duration-base) ease, box-shadow var(--duration-base) ease;
 }
 
 .tag-manager-card:hover {
   border-color: rgba(var(--accent-color-rgb), 0.18);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 4px 14px rgba(var(--shadow-rgb), 0.04);
 }
 
 .tag-manager-card.selected {
@@ -477,7 +477,7 @@ html.platform-macos .tag-manager-body:not(.is-split) .tag-manager-chip-row::-web
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+  transition: background-color var(--duration-base) ease, border-color var(--duration-base) ease, color var(--duration-base) ease;
 }
 
 .tag-manager-card .card-action-btn svg,
@@ -515,7 +515,7 @@ html.platform-macos .tag-manager-body:not(.is-split) .tag-manager-chip-row::-web
 .tag-manager-card .card-media img {
   max-width: 100%;
   max-height: 88px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   object-fit: contain;
 }
 
@@ -529,7 +529,7 @@ html.platform-macos .tag-manager-body:not(.is-split) .tag-manager-chip-row::-web
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   margin: 0;
-  padding-right: 18px;
+  padding-right: 16px;
 }
 
 .tag-manager-card .card-note {
@@ -540,7 +540,7 @@ html.platform-macos .tag-manager-body:not(.is-split) .tag-manager-chip-row::-web
 .tag-manager-card .card-note-text {
   display: flex;
   align-items: flex-start;
-  gap: 5px;
+  gap: 4px;
   width: 100%;
   margin: 0;
   padding: 0;
@@ -552,7 +552,6 @@ html.platform-macos .tag-manager-body:not(.is-split) .tag-manager-chip-row::-web
   line-height: 1.3;
   text-align: left;
   cursor: pointer;
-  opacity: 0.9;
 }
 
 .tag-manager-card .card-note-text span {
@@ -580,10 +579,10 @@ html.platform-macos .tag-manager-body:not(.is-split) .tag-manager-chip-row::-web
   min-height: 36px;
   max-height: 96px;
   margin: 0;
-  padding: 5px 7px;
-  border: 1px solid var(--border-color, rgba(0, 0, 0, 0.12));
-  border-radius: 8px;
-  background: var(--bg-input, var(--bg-element));
+  padding: 4px 8px;
+  border: 1px solid var(--border-color, rgba(var(--shadow-rgb), 0.12));
+  border-radius: var(--radius-md);
+  background: var(--bg-input);
   color: var(--text-primary);
   font: inherit;
   font-size: var(--font-size-sm);
@@ -592,8 +591,8 @@ html.platform-macos .tag-manager-body:not(.is-split) .tag-manager-chip-row::-web
 }
 
 .tag-manager-card .card-note-input:focus {
-  border-color: var(--input-focus-border-color, var(--accent-color));
-  box-shadow: var(--input-focus-shadow, 0 0 0 2px color-mix(in srgb, var(--accent-color) 18%, transparent));
+  border-color: var(--input-focus-border-color);
+  box-shadow: var(--input-focus-shadow);
 }
 
 .tag-manager-card .card-divider {
@@ -623,7 +622,7 @@ html.platform-macos .tag-manager-body:not(.is-split) .tag-manager-chip-row::-web
   width: 16px;
   height: 16px;
   border: 1px solid var(--panel-divider-color);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   position: relative;
 }
 
@@ -687,7 +686,7 @@ html.platform-macos .tag-manager-body:not(.is-split) .tag-manager-chip-row::-web
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
-  padding-right: 7px;
+  padding-right: 8px;
   padding-bottom: 0;
 }
 

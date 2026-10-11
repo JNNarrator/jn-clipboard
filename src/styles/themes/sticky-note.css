@@ -1,6 +1,81 @@
 /* Sticky Note Theme */
+/* Component adjustments for this theme, kept ahead of the theme's own rules
+   (they used to sit in the component stylesheets). */
+
+/* ---- From components/Announcement.css ---- */
+
+.theme-sticky-note .announcement-ticker {
+    background: var(--bg-toolbar);
+    border-bottom: 2px dashed var(--border-dark);
+    font-family: var(--font-main);
+    color: var(--text-primary);
+    height: 40px;
+}
+
+.theme-sticky-note .ticker-icon,
+.theme-sticky-note .ticker-count,
+.theme-sticky-note .ticker-fixed-close {
+    border-color: var(--border-dark);
+    background: transparent;
+}
+
+.theme-sticky-note .ticker-tag {
+    border-radius: var(--radius-2xs);
+    transform: rotate(-2deg);
+    box-shadow: 2px 2px 0 var(--shadow-color);
+}
+
+.theme-sticky-note .ticker-link {
+    font-family: var(--font-main);
+    text-decoration: none;
+    border-bottom: 1px solid var(--accent-color);
+}
+
+@media (prefers-color-scheme: dark) {
+  .theme-sticky-note:not(.light-mode) .announcement-ticker {
+          border-bottom-color: rgba(var(--accent-color-rgb), 0.25);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .theme-sticky-note:not(.light-mode) .ticker-icon,
+  .theme-sticky-note:not(.light-mode) .ticker-count,
+  .theme-sticky-note:not(.light-mode) .ticker-fixed-close {
+          border-color: var(--line-soft);
+  }
+}
+
+.dark-mode .theme-sticky-note .announcement-ticker {
+    border-bottom-color: rgba(var(--accent-color-rgb), 0.25);
+}
+
+.dark-mode .theme-sticky-note .ticker-icon,
+.dark-mode .theme-sticky-note .ticker-count,
+.dark-mode .theme-sticky-note .ticker-fixed-close {
+    border-color: var(--line-soft);
+}
+
+/* ---- From components/ai.css ---- */
+
+.theme-sticky-note .ai-action-btn {
+  border: 1.5px solid var(--border-dark);
+  border-radius: var(--radius-xs);
+}
+
+/* ---- From components/file-transfer.css ---- */
+
+.theme-sticky-note .wt-chat-view {
+  --im-canvas: color-mix(in srgb, var(--bg-window) 92%, var(--accent-color) 8%);
+  --im-canvas-shade: color-mix(in srgb, var(--im-canvas) 84%, transparent);
+  --im-incoming: color-mix(in srgb, var(--bg-element) 94%, rgb(var(--highlight-rgb)) 6%);
+  --im-outgoing: color-mix(in srgb, var(--accent-color) 14%, var(--bg-element) 86%);
+}
+
 :root.theme-sticky-note,
 body.theme-sticky-note {
+  --layout-item-background: #fffde7;
+  --sticky-glow: rgba(255, 243, 188, 0.22);
+  --sticky-tape-rgb: 199, 163, 93;
   --bg-body: #fff4b8;
   --bg-window: #fff8c9;
   --bg-content: linear-gradient(180deg, #fff9cf 0%, #fff3b0 100%);
@@ -12,14 +87,13 @@ body.theme-sticky-note {
 
   --text-primary: #5d4037;
   --text-secondary: #7a5c50;
-  --text-muted: #957364;
+  --text-muted: #86685a;
 
   --accent-color: #f0a70b;
   --accent-color-rgb: 240, 167, 11;
   --brand-mark-color: var(--text-primary);
   --accent-hover: #df9100;
   --border-dark: #c7a35d;
-  --border-light: rgba(255, 255, 255, 0.6);
   --shadow-color: rgba(93, 64, 55, 0.16);
 
   --line-soft: rgba(122, 92, 80, 0.16);
@@ -111,37 +185,25 @@ body.theme-sticky-note {
   --scrollbar-size: 8px;
   --scrollbar-size-thin: 4px;
   --scrollbar-radius: 999px;
-  --scrollbar-track-background: transparent;
-  --scrollbar-track-border-start: none;
   --scrollbar-thumb-color: rgba(122, 92, 80, 0.5);
   --scrollbar-thumb-hover-color: rgba(240, 167, 11, 0.8);
   --scrollbar-thumb-border: 2px solid transparent;
-  --scrollbar-chat-thumb-border: 2px solid rgba(255, 248, 201, 0.35);
 
   --content-font-family: var(--font-main);
   --content-line-height: 1.4;
   --meta-text-transform: none;
 
-  --queue-border: 1px solid rgba(199, 163, 93, 0.45);
-  --queue-shadow: 0 16px 32px rgba(93, 64, 55, 0.14);
-  --queue-count-shadow: 0 6px 14px rgba(93, 64, 55, 0.1);
 
-  --reset-button-border: 1px solid rgba(240, 167, 11, 0.5);
-  --reset-button-shadow: none;
 }
 
 body.theme-sticky-note {
   background-color: var(--bg-body);
-  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.4), rgba(255, 243, 188, 0.22));
+  background-image: linear-gradient(180deg, rgba(var(--highlight-rgb), 0.4), var(--sticky-glow));
   background-size: 100% 100%;
 }
 
 .theme-sticky-note .header-title {
   color: var(--text-primary);
-}
-
-.theme-sticky-note .history-item {
-  background: #fffde7;
 }
 
 .theme-sticky-note .search-input {
@@ -181,6 +243,7 @@ body.theme-sticky-note {
 @media (prefers-color-scheme: dark) {
   :root.theme-sticky-note:not(.light-mode),
   body.theme-sticky-note:not(.light-mode) {
+    --layout-item-background: #3a3a3c;
     --bg-body: #242427;
     --bg-window: #2d2d31;
     --bg-content: linear-gradient(180deg, #303035 0%, #26262a 100%);
@@ -192,7 +255,7 @@ body.theme-sticky-note {
 
     --text-primary: #f2eee3;
     --text-secondary: #d0c7b5;
-    --text-muted: #a79d90;
+    --text-muted: #b0a79b;
 
     --accent-color: #ffd44d;
     --accent-color-rgb: 255, 212, 77;
@@ -229,14 +292,11 @@ body.theme-sticky-note {
     --data-panel-border: 1px solid rgba(255, 255, 255, 0.12);
     --data-panel-hover-background: rgba(255, 255, 255, 0.06);
   }
-
-  .theme-sticky-note:not(.light-mode) .history-item {
-    background: #3a3a3c;
-  }
 }
 
 :root.dark-mode.theme-sticky-note,
 body.dark-mode.theme-sticky-note {
+  --layout-item-background: #3a3a3c;
   --bg-body: #242427;
   --bg-window: #2d2d31;
   --bg-content: linear-gradient(180deg, #303035 0%, #26262a 100%);
@@ -248,7 +308,7 @@ body.dark-mode.theme-sticky-note {
 
   --text-primary: #f2eee3;
   --text-secondary: #d0c7b5;
-  --text-muted: #a79d90;
+  --text-muted: #b0a79b;
 
   --accent-color: #ffd44d;
   --accent-color-rgb: 255, 212, 77;
@@ -292,10 +352,6 @@ body.dark-mode.theme-sticky-note {
   --popover-backdrop-filter: none;
 }
 
-body.dark-mode.theme-sticky-note .history-item {
-  background: #3a3a3c;
-}
-
 body.dark-mode.theme-sticky-note .history-item.selected {
   background: var(--card-selected-background);
 }
@@ -306,17 +362,17 @@ body.dark-mode.theme-sticky-note .history-item.selected {
 .theme-sticky-note .search-input.dropdown-open {
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
-  border-bottom-color: rgba(199, 163, 93, 0.45);
+  border-bottom-color: rgba(var(--sticky-tape-rgb), 0.45);
 }
 
 .theme-sticky-note .tags-dropdown {
-  margin-top: 0 !important;
-  padding: 8px 10px 10px !important;
-  border-top: none !important;
-  border-radius: 0 0 10px 10px !important;
-  background: var(--bg-input) !important;
-  border-color: rgba(199, 163, 93, 0.58) !important;
-  box-shadow: var(--tags-shadow) !important;
+  margin-top: 0;
+  padding: 8px 10px 10px;
+  border-top: none;
+  border-radius: 0 0 10px 10px;
+  background: var(--bg-input);
+  border-color: rgba(var(--sticky-tape-rgb), 0.58);
+  box-shadow: var(--tags-shadow);
 }
 
 .theme-sticky-note .tags-dropdown .tags-list {
@@ -331,5 +387,5 @@ body.dark-mode.theme-sticky-note .history-item.selected {
 }
 
 .theme-sticky-note .tags-dropdown .tag-chip:hover {
-  transform: none !important;
+  transform: none;
 }

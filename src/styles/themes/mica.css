@@ -1,8 +1,8 @@
 /* Mica Theme */
 :root.theme-mica,
 body.theme-mica {
-  background-color: transparent !important;
-  --bg-window: rgba(248, 248, 248, calc(0.94 * var(--surface-opacity-scale, 1)));
+  background-color: transparent;
+  --bg-window: rgba(248, 248, 248, calc(0.94 * var(--surface-opacity-scale)));
   --bg-content: transparent;
   --bg-toolbar: transparent;
   --bg-panel: rgba(255, 255, 255, 0.62);
@@ -12,7 +12,7 @@ body.theme-mica {
 
   --text-primary: #1a1a1a;
   --text-secondary: #5d5d5d;
-  --text-muted: #8a8a8a;
+  --text-muted: #707070;
 
   --accent-color: #0078d4;
   --accent-color-rgb: 0, 120, 212;
@@ -26,7 +26,7 @@ body.theme-mica {
   --shadow-lg: 0 20px 48px rgba(15, 23, 42, 0.12);
   --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.52);
 
-  --shell-background: rgba(248, 248, 248, calc(0.94 * var(--surface-opacity-scale, 1)));
+  --shell-background: rgba(248, 248, 248, calc(0.94 * var(--surface-opacity-scale)));
   --shell-border: 1px solid rgba(0, 0, 0, 0.08);
   --shell-shadow: 0 12px 30px rgba(0, 0, 0, 0.1);
   --shell-radius: 8px;
@@ -73,7 +73,6 @@ body.theme-mica {
   --card-selected-outline: 2px solid var(--card-selected-border-color);
 
   --layout-item-background: rgba(255, 255, 255, 0.72);
-  --layout-item-hover-background: rgba(255, 255, 255, 0.9);
   --layout-item-margin-bottom: 6px;
 
   --panel-border: 1px solid rgba(0, 0, 0, 0.08);
@@ -90,19 +89,11 @@ body.theme-mica {
   --scrollbar-size: 8px;
   --scrollbar-size-thin: 4px;
   --scrollbar-radius: 999px;
-  --scrollbar-track-background: transparent;
-  --scrollbar-track-border-start: none;
   --scrollbar-thumb-color: rgba(96, 113, 136, 0.55);
   --scrollbar-thumb-hover-color: rgba(0, 120, 212, 0.72);
   --scrollbar-thumb-border: 2px solid transparent;
-  --scrollbar-chat-thumb-border: 2px solid transparent;
 
-  --queue-border: 1px solid rgba(255, 255, 255, 0.38);
-  --queue-shadow: 0 18px 42px rgba(15, 23, 42, 0.12);
-  --queue-count-shadow: none;
-  --queue-action-shadow: none;
 
-  --reset-button-border: 1px solid rgba(255, 99, 99, 0.2);
 }
 
 body.theme-mica {
@@ -149,7 +140,7 @@ body.has-custom-bg.theme-mica #root::after {
 }
 
 body.theme-mica:not(.has-custom-bg)::before {
-  background-image: linear-gradient(160deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.04) 100%);
+  background-image: linear-gradient(160deg, rgba(var(--highlight-rgb), 0.12) 0%, rgba(var(--highlight-rgb), 0.04) 100%);
   opacity: 0.1;
 }
 
@@ -169,15 +160,15 @@ body.theme-mica #root > * {
 @media (prefers-color-scheme: dark) {
   :root.theme-mica:not(.light-mode),
   body.theme-mica:not(.light-mode) {
-    --bg-window: rgba(24, 24, 24, calc(0.88 * var(--surface-opacity-scale, 1)));
+    --bg-window: rgba(24, 24, 24, calc(0.88 * var(--surface-opacity-scale)));
     --bg-panel: rgba(36, 36, 36, 0.66);
     --bg-input: rgba(255, 255, 255, 0.12);
     --bg-element: rgba(45, 45, 45, 0.65);
     --bg-button: rgba(255, 255, 255, 0.09);
 
     --text-primary: #e8e8e8;
-    --text-secondary: #a8a8a8;
-    --text-muted: #8b8b8b;
+    --text-secondary: #acacac;
+    --text-muted: #9e9e9e;
 
     --line-soft: rgba(255, 255, 255, 0.1);
     --line-strong: rgba(255, 255, 255, 0.16);
@@ -187,7 +178,7 @@ body.theme-mica #root > * {
     --shadow-lg: 0 22px 44px rgba(0, 0, 0, 0.28);
     --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 
-    --shell-background: rgba(24, 24, 24, calc(0.88 * var(--surface-opacity-scale, 1)));
+    --shell-background: rgba(24, 24, 24, calc(0.88 * var(--surface-opacity-scale)));
     --shell-border: 1px solid rgba(255, 255, 255, 0.08);
     --shell-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
     --shell-backdrop-filter: blur(7px) saturate(110%);
@@ -206,32 +197,27 @@ body.theme-mica #root > * {
     --data-panel-hover-background: rgba(255, 255, 255, 0.06);
     --segment-active-background: rgba(255, 255, 255, 0.12);
     --layout-item-background: rgba(255, 255, 255, 0.05);
-    --layout-item-hover-background: rgba(255, 255, 255, 0.08);
-    --queue-border: 1px solid rgba(255, 255, 255, 0.14);
-    --queue-count-border: 1px solid rgba(255, 255, 255, 0.12);
-    --queue-action-border: 1px solid rgba(255, 255, 255, 0.12);
-    --reset-button-border: 1px solid rgba(255, 99, 99, 0.32);
     --scrollbar-thumb-color: rgba(255, 255, 255, 0.28);
     --scrollbar-thumb-hover-color: rgba(0, 120, 212, 0.72);
   }
 
   body.theme-mica:not(.light-mode):not(.has-custom-bg)::before {
-    background-image: linear-gradient(150deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.015) 100%);
+    background-image: linear-gradient(150deg, rgba(var(--highlight-rgb), 0.06) 0%, rgba(var(--highlight-rgb), 0.015) 100%);
     opacity: 0.16;
   }
 }
 
 :root.dark-mode.theme-mica,
 body.dark-mode.theme-mica {
-  --bg-window: rgba(24, 24, 24, calc(0.88 * var(--surface-opacity-scale, 1)));
+  --bg-window: rgba(24, 24, 24, calc(0.88 * var(--surface-opacity-scale)));
   --bg-panel: rgba(36, 36, 36, 0.66);
   --bg-input: rgba(255, 255, 255, 0.12);
   --bg-element: rgba(45, 45, 45, 0.65);
   --bg-button: rgba(255, 255, 255, 0.09);
 
   --text-primary: #e8e8e8;
-  --text-secondary: #a8a8a8;
-  --text-muted: #8b8b8b;
+  --text-secondary: #acacac;
+  --text-muted: #9e9e9e;
 
   --line-soft: rgba(255, 255, 255, 0.1);
   --line-strong: rgba(255, 255, 255, 0.16);
@@ -241,7 +227,7 @@ body.dark-mode.theme-mica {
   --shadow-lg: 0 22px 44px rgba(0, 0, 0, 0.28);
   --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 
-  --shell-background: rgba(24, 24, 24, calc(0.88 * var(--surface-opacity-scale, 1)));
+  --shell-background: rgba(24, 24, 24, calc(0.88 * var(--surface-opacity-scale)));
   --shell-border: 1px solid rgba(255, 255, 255, 0.08);
   --shell-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
   --shell-backdrop-filter: blur(7px) saturate(110%);
@@ -260,11 +246,6 @@ body.dark-mode.theme-mica {
   --data-panel-hover-background: rgba(255, 255, 255, 0.06);
   --segment-active-background: rgba(255, 255, 255, 0.12);
   --layout-item-background: rgba(255, 255, 255, 0.05);
-  --layout-item-hover-background: rgba(255, 255, 255, 0.08);
-  --queue-border: 1px solid rgba(255, 255, 255, 0.14);
-  --queue-count-border: 1px solid rgba(255, 255, 255, 0.12);
-  --queue-action-border: 1px solid rgba(255, 255, 255, 0.12);
-  --reset-button-border: 1px solid rgba(255, 99, 99, 0.32);
   --scrollbar-thumb-color: rgba(255, 255, 255, 0.28);
   --scrollbar-thumb-hover-color: rgba(0, 120, 212, 0.72);
 
@@ -278,9 +259,9 @@ body.dark-mode.theme-mica {
 body.compact-preview.theme-mica #root,
 body.theme-mica.compact-preview #root,
 body.dark-mode.compact-preview.theme-mica #root {
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 
 .theme-mica .history-item:hover:not(.selected) {

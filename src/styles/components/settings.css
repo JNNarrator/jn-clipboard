@@ -55,7 +55,7 @@
   flex-direction: column;
   gap: 4px;
   min-height: 0;
-  animation: settings-page-enter 160ms ease-out;
+  animation: settings-page-enter var(--duration-base) ease-out;
 }
 
 @keyframes settings-page-enter {
@@ -84,45 +84,45 @@
 .settings-view:has(.advanced-workbench),
 .settings-view:has(.settings-wide),
 .settings-view:has(.tag-manager-page) {
-  max-width: 100% !important;
-  height: 100% !important;
-  display: flex !important;
-  flex-direction: column !important;
-  overflow: hidden !important;
-  flex: 1 !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  min-height: 0 !important;
+  max-width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex: 1;
+  padding: 0;
+  margin: 0;
+  min-height: 0;
 }
 
 .settings-group {
   border: var(--panel-border);
   background: var(--bg-panel);
-  margin: 3px 0;
+  margin: 4px 0;
   box-shadow: var(--panel-shadow);
   border-radius: var(--panel-radius);
-  overflow: visible !important;
+  overflow: visible;
   position: relative;
   backdrop-filter: saturate(120%);
 }
 
 .group-header {
-  display: flex !important;
-  flex-direction: row !important;
-  justify-content: space-between !important;
-  align-items: center !important;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
   cursor: pointer;
   width: 100%;
   border: 0;
   color: inherit;
   font: inherit;
   text-align: left;
-  transition: background 0.2s ease, border-color 0.2s ease;
+  transition: background var(--duration-base) ease, border-color var(--duration-base) ease;
   border-radius: inherit; /* Inherit rounded corners from .settings-group */
 }
 
 .group-header:hover {
-  background: color-mix(in srgb, var(--panel-header-background) 70%, var(--bg-input)) !important;
+  background: color-mix(in srgb, var(--panel-header-background) 70%, var(--bg-input));
 }
 
 .group-header:focus-visible {
@@ -150,12 +150,12 @@
 
 .settings-group:not(.collapsed) .group-header:not(:last-child) {
   border-bottom: none;
-  border-bottom-left-radius: 0 !important;
-  border-bottom-right-radius: 0 !important;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
 }
 
 .settings-group h3 {
-  transition: all 0.2s ease;
+  transition: all var(--duration-base) ease;
 }
 
 .settings-group.collapsed h3,
@@ -181,7 +181,7 @@
   position: relative;
   padding: 10px 12px 12px;
   background: transparent;
-  animation: settings-group-reveal 0.18s ease-out;
+  animation: settings-group-reveal var(--duration-base) ease-out;
   border-bottom-left-radius: inherit;
   border-bottom-right-radius: inherit;
 }
@@ -228,7 +228,7 @@
   display: inline-flex;
   align-items: center;
   padding: 2px 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: var(--font-size-2xs);
   font-weight: 500;
   letter-spacing: 0.04em;
@@ -236,8 +236,8 @@
 }
 
 .settings-version-badge.beta {
-  color: #7c3aed;
-  background: rgba(124, 58, 237, 0.12);
+  color: var(--tint-purple);
+  background: rgba(var(--tint-purple-rgb), 0.12);
 }
 
 .settings-version-badge.portable {
@@ -309,7 +309,7 @@
 
 .secure-transfer-ack input {
   flex: 0 0 auto;
-  margin: 3px 0 0;
+  margin: 4px 0 0;
   accent-color: var(--accent-color);
 }
 
@@ -430,14 +430,14 @@
   padding: 0;
   background: transparent;
   border: none;
-  border-radius: 4px;
-  box-shadow: none !important;
+  border-radius: var(--radius-xs);
+  box-shadow: none;
   color: var(--text-muted);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: color 0.15s ease, background 0.15s ease;
+  transition: color var(--duration-base) ease, background var(--duration-base) ease;
 }
 
 .hint-icon-btn:hover,
@@ -447,7 +447,7 @@
 }
 
 .setting-item.no-border {
-  border-bottom: none !important;
+  border-bottom: none;
 }
 
 .item-label-group {
@@ -569,7 +569,7 @@
   margin-left: -4px;
   padding: 0;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
@@ -622,7 +622,7 @@
   height: auto;
   margin-left: 20px;
   width: calc(100% - 20px);
-  padding: 8px 10px !important;
+  padding: 8px 10px;
   resize: vertical;
   font-family: var(--font-mono);
   line-height: 1.5;
@@ -652,10 +652,10 @@
 .data-panel {
   background: var(--bg-input);
   color: var(--text-secondary);
-  font-family: var(--font-mono) !important;
+  font-family: var(--font-mono);
   font-weight: 400;
   min-height: var(--st-control-height);
-  padding: 5px 10px;
+  padding: 4px 10px;
   border: var(--data-panel-border);
   border-radius: var(--data-panel-radius);
   box-shadow: var(--data-panel-shadow);
@@ -717,7 +717,7 @@
   min-width: 0;
   height: var(--st-control-height);
   padding: 0 8px 0 10px;
-  border: var(--input-border, 1px solid var(--line-soft));
+  border: var(--input-border);
   border-radius: var(--st-control-radius);
   background: var(--bg-input);
   color: var(--text-primary);
@@ -728,7 +728,7 @@
 }
 
 .settings-picker-button:hover {
-  border-color: var(--button-hover-border-color, var(--line-strong));
+  border-color: var(--button-hover-border-color);
 }
 
 .settings-picker-button:focus-visible {
@@ -809,7 +809,7 @@
 }
 
 .clipboard-import-setting {
-  padding-top: 8px !important;
+  padding-top: 8px;
 }
 
 .clipboard-import-entry {
@@ -823,7 +823,7 @@
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
 }
 
 .clipboard-import-entry-description {
@@ -887,8 +887,8 @@
   font-weight: 500;
   white-space: nowrap;
   transition:
-    background 0.15s ease,
-    border-color 0.15s ease;
+    background var(--duration-base) ease,
+    border-color var(--duration-base) ease;
 }
 
 .settings-action-button:hover:not(:disabled) {
@@ -995,8 +995,8 @@
 
 .settings-badge {
   padding: 1px 6px;
-  border-radius: 4px;
-  background: var(--st-hover, rgba(127, 127, 127, 0.12));
+  border-radius: var(--radius-xs);
+  background: var(--st-hover, rgba(var(--neutral-rgb), 0.12));
   color: var(--text-secondary);
   font-size: var(--font-size-xs);
   font-weight: 500;
@@ -1006,7 +1006,7 @@
 .settings-view .file-transfer-panel {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   margin: 2px 0 0;
   padding: 12px;
   background: color-mix(in srgb, var(--bg-element) 60%, transparent);
@@ -1035,17 +1035,17 @@
 }
 
 .settings-view .config-share-panel .qr-container canvas {
-  width: 72px !important;
-  height: 72px !important;
+  width: 72px;
+  height: 72px;
   padding: 4px;
 }
 
 .settings-view .config-share-qr-placeholder {
   width: 72px;
   height: 72px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background:
-    linear-gradient(135deg, rgba(15, 23, 42, 0.06), rgba(15, 23, 42, 0.02));
+    linear-gradient(135deg, rgba(var(--shadow-rgb), 0.06), rgba(var(--shadow-rgb), 0.02));
   border: 1px dashed var(--line-soft);
 }
 
@@ -1053,7 +1053,7 @@
   padding: 4px;
   color: var(--text-primary);
   font: inherit;
-  font-size: var(--font-size-xs, 11px);
+  font-size: var(--font-size-xs);
   line-height: 1.3;
   cursor: pointer;
 }
@@ -1088,12 +1088,12 @@
 
 .settings-view .qr-container canvas {
   display: block;
-  width: 90px !important;
-  height: 90px !important;
-  padding: 5px;
+  width: 90px;
+  height: 90px;
+  padding: 4px;
   /* Keep a light pad so dark-theme QR modules stay scannable. */
-  background: #ffffff;
-  border-radius: 8px;
+  background: var(--qr-backdrop);
+  border-radius: var(--radius-md);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--line-strong) 70%, transparent);
 }
 
@@ -1125,7 +1125,7 @@
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   font-family: var(--font-mono);
   font-size: var(--font-size-xs);
   line-height: 1.2;
@@ -1167,7 +1167,7 @@
   font-weight: 500;
   line-height: 1;
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: background var(--duration-base) ease;
 }
 
 .settings-view .open-browser-btn:hover {
@@ -1192,8 +1192,8 @@
   }
 
   .settings-view .qr-container canvas {
-    width: 72px !important;
-    height: 72px !important;
+    width: 72px;
+    height: 72px;
   }
 }
 
@@ -1248,7 +1248,7 @@
   box-shadow: none;
   color: var(--text-secondary);
   transform: none;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition: background var(--duration-base) ease, color var(--duration-base) ease;
 }
 
 .settings-view .settings-inline-choice-btn:hover {
@@ -1265,8 +1265,8 @@
 .settings-view .settings-inline-choice-btn.primary {
   background: var(--segment-active-background);
   border-color: var(--line-soft);
-  box-shadow: var(--segment-active-shadow, none);
-  color: var(--segment-active-color, var(--text-primary));
+  box-shadow: var(--segment-active-shadow);
+  color: var(--segment-active-color);
   font-weight: 500;
 }
 
@@ -1279,7 +1279,7 @@
 .settings-nav-card {
   width: 100%;
   border: none;
-  box-shadow: none !important;
+  box-shadow: none;
   border-radius: inherit; /* Inherit from .settings-group */
 }
 
@@ -1293,14 +1293,14 @@
 .advanced-workbench {
   display: flex;
   flex-direction: column;
-  flex: 1 !important;
-  min-height: 0 !important;
-  height: 100% !important;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
   border: none;
   background: var(--advanced-surface-background);
   border-radius: 0;
   box-shadow: none;
-  overflow: hidden !important;
+  overflow: hidden;
 }
 
 .advanced-sidebar {
@@ -1335,7 +1335,7 @@
 
 .advanced-search-result-item {
   width: 100%;
-  padding: 7px 8px;
+  padding: 8px 8px;
   border-radius: var(--button-radius);
   border: 1px solid transparent;
   background: transparent;
@@ -1345,7 +1345,7 @@
   justify-content: space-between;
   gap: 8px;
   cursor: pointer;
-  transition: background 0.16s ease, border-color 0.16s ease;
+  transition: background var(--duration-base) ease, border-color var(--duration-base) ease;
 }
 
 .advanced-search-result-item:hover {
@@ -1390,19 +1390,19 @@
 }
 
 html.platform-macos .advanced-target-list::-webkit-scrollbar {
-  height: var(--scrollbar-size-thin) !important;
-  width: var(--scrollbar-size-thin) !important;
+  height: var(--scrollbar-size-thin);
+  width: var(--scrollbar-size-thin);
 }
 
 html.platform-macos .advanced-target-list:hover::-webkit-scrollbar-thumb,
 html.platform-macos .advanced-target-list:focus-within::-webkit-scrollbar-thumb,
 html.platform-macos .advanced-target-list:active::-webkit-scrollbar-thumb {
-  background-color: var(--scrollbar-thumb-color) !important;
+  background-color: var(--scrollbar-thumb-color);
 }
 
 html.platform-macos .advanced-target-list:hover::-webkit-scrollbar-thumb:hover,
 html.platform-macos .advanced-target-list:focus-within::-webkit-scrollbar-thumb:hover {
-  background-color: var(--scrollbar-thumb-hover-color) !important;
+  background-color: var(--scrollbar-thumb-hover-color);
 }
 
 .advanced-target-item {
@@ -1410,7 +1410,7 @@ html.platform-macos .advanced-target-list:focus-within::-webkit-scrollbar-thumb:
   width: auto;
   min-height: 26px;
   padding: 0 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid transparent;
   background: var(--bg-element);
   color: var(--text-primary);
@@ -1421,9 +1421,9 @@ html.platform-macos .advanced-target-list:focus-within::-webkit-scrollbar-thumb:
   flex-shrink: 0;
   cursor: pointer;
   transition:
-    background 0.16s ease,
-    border-color 0.16s ease,
-    box-shadow 0.16s ease;
+    background var(--duration-base) ease,
+    border-color var(--duration-base) ease,
+    box-shadow var(--duration-base) ease;
 }
 
 .advanced-target-item:hover {
@@ -1492,8 +1492,8 @@ html.platform-macos .advanced-target-list:focus-within::-webkit-scrollbar-thumb:
 }
 
 .advanced-target-delete:hover {
-  background: var(--bg-input) !important;
-  color: var(--status-danger) !important;
+  background: var(--bg-input);
+  color: var(--status-danger);
 }
 
 .advanced-editor {
@@ -1547,7 +1547,7 @@ html.platform-macos .advanced-target-list:focus-within::-webkit-scrollbar-thumb:
 
 .advanced-rule-list {
   flex: 1;
-  overflow-y: auto !important;
+  overflow-y: auto;
   min-height: 0;
   width: 100%;
   padding: 8px 10px 16px;
@@ -1564,28 +1564,28 @@ html.platform-macos .advanced-target-list:focus-within::-webkit-scrollbar-thumb:
 }
 
 html.platform-macos .advanced-rule-list::-webkit-scrollbar {
-  width: var(--scrollbar-size) !important;
+  width: var(--scrollbar-size);
 }
 
 html.platform-macos .advanced-rule-list.custom-scrollbar::-webkit-scrollbar {
-  width: var(--scrollbar-size-thin) !important;
+  width: var(--scrollbar-size-thin);
 }
 
 html.platform-macos .advanced-rule-list:hover::-webkit-scrollbar-thumb,
 html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb,
 html.platform-macos .advanced-rule-list:active::-webkit-scrollbar-thumb {
-  background-color: var(--scrollbar-thumb-color) !important;
+  background-color: var(--scrollbar-thumb-color);
 }
 
 html.platform-macos .advanced-rule-list:hover::-webkit-scrollbar-thumb:hover,
 html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:hover {
-  background-color: var(--scrollbar-thumb-hover-color) !important;
+  background-color: var(--scrollbar-thumb-hover-color);
 }
 
 .advanced-empty-state {
   width: 100%;
   max-width: 420px;
-  padding: 16px 14px;
+  padding: 16px 12px;
   text-align: center;
 }
 
@@ -1612,7 +1612,7 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
   border-radius: var(--advanced-card-radius);
   background: var(--advanced-card-background);
   overflow: hidden;
-  transition: border-color 0.2s ease;
+  transition: border-color var(--duration-base) ease;
 }
 
 .advanced-rule-card:hover {
@@ -1630,7 +1630,7 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
   justify-content: space-between;
   cursor: pointer;
   text-align: left;
-  transition: background 0.2s ease;
+  transition: background var(--duration-base) ease;
 }
 
 .advanced-rule-header:hover {
@@ -1659,7 +1659,6 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
   font-size: var(--font-size-xs);
   font-weight: 500;
   color: var(--text-secondary);
-  opacity: 0.85;
 }
 
 .advanced-rule-body .settings-inline-choice-row {
@@ -1677,19 +1676,19 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
 .advanced-rule-textarea {
   width: 100%;
   box-sizing: border-box;
-  background: var(--advanced-input-background) !important;
+  background: var(--advanced-input-background);
   color: var(--text-primary);
-  border: var(--advanced-input-border) !important;
-  border-radius: var(--advanced-input-radius) !important;
-  padding: 8px 10px !important;
+  border: var(--advanced-input-border);
+  border-radius: var(--advanced-input-radius);
+  padding: 8px 10px;
   font-size: var(--font-size-sm);
-  transition: all 0.2s ease;
+  transition: all var(--duration-base) ease;
 }
 
 .advanced-rule-input:focus,
 .advanced-rule-textarea:focus {
-  border-color: var(--input-focus-border-color) !important;
-  background: var(--bg-input) !important;
+  border-color: var(--input-focus-border-color);
+  background: var(--bg-input);
   box-shadow: var(--input-focus-shadow);
   outline: none;
 }
@@ -1708,13 +1707,13 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
 
 .advanced-delete-btn,
 .advanced-add-rule-btn {
-  box-shadow: var(--button-shadow) !important;
+  box-shadow: var(--button-shadow);
 }
 
 .advanced-add-rule-btn {
   min-height: 26px;
   height: 26px;
-  padding: 0 8px !important;
+  padding: 0 8px;
   gap: 4px;
   font-size: var(--font-size-xs);
 }
@@ -1722,7 +1721,7 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
 .advanced-rule-actions .advanced-delete-btn {
   min-height: 28px;
   height: 28px;
-  padding: 0 10px !important;
+  padding: 0 10px;
   font-size: var(--font-size-sm);
   font-weight: 500;
 }
@@ -1818,7 +1817,7 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
   border: var(--range-thumb-border);
   border-radius: var(--range-thumb-radius);
   box-shadow: var(--range-thumb-shadow);
-  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  transition: transform var(--duration-fast) ease, box-shadow var(--duration-fast) ease;
 }
 
 .settings-view input[type="range"]:active::-webkit-slider-thumb {
@@ -1847,7 +1846,7 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
   border: var(--range-thumb-border);
   border-radius: var(--range-thumb-radius);
   box-shadow: var(--range-thumb-shadow);
-  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  transition: transform var(--duration-fast) ease, box-shadow var(--duration-fast) ease;
 }
 
 .settings-view input[type="range"]::-moz-range-thumb:active {
@@ -1924,7 +1923,7 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
 }
 
 .installed-theme-choice .theme-choice-btn {
-  padding-right: 30px;
+  padding-right: 28px;
 }
 
 .installed-theme-remove {
@@ -1948,15 +1947,15 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
 .settings-view select.search-input,
 .settings-view input.search-input,
 .settings-view textarea.search-input {
-  background: var(--bg-input) !important;
-  color: var(--text-primary) !important;
-  border: var(--input-border) !important;
-  border-radius: var(--input-radius) !important;
-  box-shadow: none !important;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: var(--input-border);
+  border-radius: var(--input-radius);
+  box-shadow: none;
   height: var(--st-control-height);
   min-height: var(--st-control-height);
-  padding: 0 10px !important;
-  font-size: var(--st-control-size) !important;
+  padding: 0 10px;
+  font-size: var(--st-control-size);
   font-weight: 400;
   line-height: 20px;
 }
@@ -1964,14 +1963,14 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
 .settings-view textarea.search-input {
   height: auto;
   min-height: 80px;
-  padding: 6px 10px !important;
+  padding: 6px 10px;
 }
 
 .settings-view input.search-input:focus,
 .settings-view select.search-input:focus,
 .settings-view textarea.search-input:focus {
-  border-color: var(--input-focus-border-color) !important;
-  box-shadow: var(--input-focus-shadow) !important;
+  border-color: var(--input-focus-border-color);
+  box-shadow: var(--input-focus-shadow);
 }
 
 .settings-view .search-input:disabled {
@@ -1982,19 +1981,19 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
 .settings-view select.search-input {
   appearance: none;
   -webkit-appearance: none;
-  padding-right: 28px !important;
+  padding-right: 28px;
   background-image:
     linear-gradient(45deg, transparent 50%, var(--text-secondary) 50%),
-    linear-gradient(135deg, var(--text-secondary) 50%, transparent 50%) !important;
+    linear-gradient(135deg, var(--text-secondary) 50%, transparent 50%);
   background-position:
     calc(100% - 15px) calc(50% - 2px),
-    calc(100% - 10px) calc(50% - 2px) !important;
-  background-size: 5px 5px, 5px 5px !important;
-  background-repeat: no-repeat !important;
+    calc(100% - 10px) calc(50% - 2px);
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
 }
 
 .settings-view select.search-input option {
-  background: var(--popover-background, var(--bg-window));
+  background: var(--popover-background);
   color: var(--text-primary);
 }
 
@@ -2050,7 +2049,7 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
   border: var(--switch-track-border);
   border-radius: var(--switch-track-radius);
   box-shadow: var(--switch-track-shadow);
-  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: background var(--duration-base) ease, border-color var(--duration-base) ease, box-shadow var(--duration-base) ease;
   overflow: hidden;
 }
 
@@ -2065,7 +2064,7 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
   border: var(--switch-thumb-border);
   border-radius: var(--radius-pill);
   box-shadow: var(--switch-thumb-shadow);
-  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+  transition: transform var(--duration-base) ease, background var(--duration-base) ease, border-color var(--duration-base) ease;
 }
 
 .toggle > .left,
@@ -2086,7 +2085,7 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
   transform-origin: right;
   transform: rotateX(10deg);
   transform-style: preserve-3d;
-  transition: all 150ms;
+  transition: all var(--duration-base);
   font-size: 0.65em;
   font-weight: 900;
 }
@@ -2125,7 +2124,7 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
   transform-origin: left;
   transform: rotateX(10deg) rotateY(-45deg);
   transform-style: preserve-3d;
-  transition: all 150ms;
+  transition: all var(--duration-base);
   font-size: 0.65em;
   font-weight: 900;
 }
@@ -2166,7 +2165,7 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
   cursor: pointer;
   padding: 2px;
   border-radius: var(--st-control-radius, 6px);
-  transition: background 0.15s;
+  transition: background var(--duration-base);
 }
 
 .key-group:hover {
@@ -2198,7 +2197,7 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
   border: var(--keycap-border);
   border-radius: var(--keycap-radius);
   box-shadow: var(--keycap-shadow);
-  transition: all 0.1s;
+  transition: all var(--duration-fast);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -2219,8 +2218,9 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
   opacity: 0.5;
 }
 
-.hotkey-hint {
-  display: flex !important;
+/* Recording prompts stack their lines; beats `.setting-item .hint` (block). */
+.setting-item .hotkey-hint {
+  display: flex;
   flex-direction: column;
   gap: 2px;
 }
@@ -2327,13 +2327,13 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
   line-height: 18px;
   text-align: left;
   cursor: pointer;
-  transition: background 0.12s ease, color 0.12s ease;
+  transition: background var(--duration-fast) ease, color var(--duration-fast) ease;
 }
 
 .settings-nav-icon {
   flex: 0 0 16px;
   color: var(--text-secondary);
-  transition: color 0.12s ease;
+  transition: color var(--duration-fast) ease;
 }
 
 .settings-nav-label {
@@ -2377,7 +2377,7 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
   /* Container queries inside groups measure this pane, not the whole view. */
   container-type: inline-size;
   container-name: settings;
-  animation: settings-page-enter 160ms ease-out;
+  animation: settings-page-enter var(--duration-base) ease-out;
 }
 
 .settings-wide-inner {
@@ -2389,32 +2389,32 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
    its header becomes the page title. Themes style .settings-group as a card,
    so this has to win over them. */
 .settings-wide-inner > .settings-group {
-  margin: 0 !important;
-  padding: 0 !important;
-  background: transparent !important;
-  border: none !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
-  backdrop-filter: none !important;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  backdrop-filter: none;
 }
 
 .settings-wide-inner > .settings-group > .group-header {
-  padding: 0 0 var(--st-space-4) !important;
-  background: transparent !important;
-  border: none !important;
-  border-radius: 0 !important;
-  justify-content: flex-start !important;
+  padding: 0 0 var(--st-space-4);
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  justify-content: flex-start;
   gap: var(--st-space-2);
 }
 
 .settings-wide-inner > .settings-group > .group-header h3 {
   font-size: var(--st-title-size);
   font-weight: var(--st-title-weight);
-  line-height: 26px !important;
+  line-height: 26px;
 }
 
 .settings-wide-inner > .settings-group > .group-content {
-  padding: 0 !important;
+  padding: 0;
   animation: none;
 }
 
@@ -2445,14 +2445,14 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
   width: 48px;
   height: 48px;
   flex: 0 0 auto;
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   object-fit: contain;
 }
 
 .settings-about-header h2 {
   margin: 0 0 2px;
   color: var(--text-primary);
-  font-size: 20px;
+  font-size: var(--font-size-2xl);
   font-weight: 600;
   line-height: 28px;
 }
@@ -2641,7 +2641,7 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
 }
 
 .settings-wide-content .settings-group > .group-header:hover {
-  background: transparent !important;
+  background: transparent;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2704,7 +2704,7 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
 }
 
 .settings-narrow-group-items .settings-group > .group-header {
-  padding-left: 38px !important;
+  padding-left: 36px;
 }
 
 .settings-section-icon {
@@ -2717,7 +2717,7 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
 }
 
 .settings-view .e2e-fingerprint {
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-family: var(--font-mono);
   font-size: var(--font-size-sm);
   letter-spacing: 0.04em;
   color: var(--text-primary);
@@ -2727,9 +2727,9 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
   display: block;
   padding: 6px 8px;
   border: 1px solid var(--line-soft);
-  border-radius: 6px;
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-  font-size: var(--font-size-xs, 11px);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
   overflow-wrap: anywhere;
   -webkit-user-select: all;
   user-select: all;

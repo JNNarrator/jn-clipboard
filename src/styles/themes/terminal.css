@@ -2,6 +2,34 @@
  * Terminal Theme — zsh / iTerm-style session
  * Near-black scrollback, ANSI accents, prompt chrome, no soft “app” chrome.
  */
+/* Component adjustments for this theme, kept ahead of the theme's own rules
+   (they used to sit in the component stylesheets). */
+
+/* ---- From components/ai.css ---- */
+
+.theme-terminal .ai-action-btn {
+  border: 1px solid var(--term-border);
+  border-radius: 0;
+  background: var(--term-bg);
+  color: var(--term-fg);
+  font-family: var(--font-mono);
+}
+
+.theme-terminal .ai-action-btn:hover {
+  background: var(--term-prompt);
+  color: var(--term-bg);
+  border-color: var(--term-prompt);
+}
+
+/* ---- From components/file-transfer.css ---- */
+
+.theme-terminal .wt-chat-view {
+  --im-canvas: var(--bg-window);
+  --im-canvas-shade: color-mix(in srgb, var(--bg-window) 90%, transparent);
+  --im-incoming: var(--bg-element);
+  --im-outgoing: color-mix(in srgb, var(--accent-color) 14%, var(--bg-element) 86%);
+}
+
 
 :root.theme-terminal,
 body.theme-terminal {
@@ -42,9 +70,6 @@ body.theme-terminal {
   --layout-header-inner-x: 10px;
   --layout-header-inner-gap: 4px;
   --layout-header-actions-gap: 2px;
-  --layout-header-btn-shadow: none;
-  --layout-header-btn-shadow-hover: none;
-  --layout-header-btn-shadow-active: none;
   --layout-search-margin-top: 0;
   --layout-search-padding-x: 10px;
   --layout-search-input-padding: 4px 8px 4px 36px;
@@ -59,9 +84,7 @@ body.theme-terminal {
   /* Keep the terminal toolbar aligned with the other themes; its visual
      treatment remains terminal-like, but the top inset is shared. */
   --layout-item-padding: 10px 12px 5px 12px;
-  --layout-item-padding-compact: 4px 10px 3px 10px;
   --layout-item-background: transparent;
-  --layout-item-hover-background: rgba(63, 185, 80, 0.06);
   --layout-item-divider: 1px solid rgba(255, 255, 255, 0.035);
   --layout-drag-handle-radius: 0;
   --layout-btn-icon-padding: 4px;
@@ -82,13 +105,11 @@ body.theme-terminal {
   --term-bg-input: #0d1117;
   --term-fg: #e6edf3;
   --term-fg-dim: #8b949e;
-  --term-fg-muted: #6e7681;
+  --term-fg-muted: #777e89;
   --term-green: #3fb950;
+  --term-tint-rgb: 63, 185, 80;
   --term-cyan: #39d353;
   --term-blue: #58a6ff;
-  --term-yellow: #d29922;
-  --term-magenta: #d2a8ff;
-  --term-red: #ff7b72;
   --term-border: #30363d;
   --term-border-subtle: #21262d;
   --term-selection: rgba(56, 139, 253, 0.22);
@@ -152,9 +173,6 @@ body.theme-terminal {
   --button-active-filled-color: var(--term-green);
   --button-active-filled-border-color: rgba(63, 185, 80, 0.4);
   --button-active-filled-shadow: none;
-  --button-text-transform: none;
-  --button-font-weight: 500;
-  --button-letter-spacing: 0;
 
   --card-border: none;
   --card-radius: 0;
@@ -186,8 +204,6 @@ body.theme-terminal {
   --segmented-radius: 0;
   --segmented-shadow: none;
   --segment-radius: 0;
-  --segment-font-weight: 500;
-  --segment-text-transform: none;
   --segment-active-background: rgba(63, 185, 80, 0.12);
   --segment-active-color: var(--term-green);
   --segment-active-shadow: none;
@@ -227,25 +243,16 @@ body.theme-terminal {
   --scrollbar-size: 6px;
   --scrollbar-size-thin: 3px;
   --scrollbar-radius: 0;
-  --scrollbar-track-background: var(--term-bg);
   --scrollbar-thumb-color: #484f58;
   --scrollbar-thumb-hover-color: var(--term-green);
 
-  --queue-border: 1px solid var(--term-border);
-  --queue-radius: 0;
-  --queue-shadow: 0 12px 28px rgba(0, 0, 0, 0.55);
-  --queue-count-rotate: 0deg;
-  --queue-button-text-transform: none;
 
-  --reset-button-border: 1px solid rgba(255, 123, 114, 0.4);
-  --reset-button-radius: 0;
-  --reset-button-shadow: none;
 }
 
 body.theme-terminal #root {
-  background: var(--shell-background) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
+  background: var(--shell-background);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   border-radius: var(--shell-radius);
   overflow: hidden;
   background-clip: border-box;
@@ -253,7 +260,7 @@ body.theme-terminal #root {
 
 html.theme-terminal,
 body.theme-terminal {
-  background-color: transparent !important;
+  background-color: transparent;
 }
 
 body.theme-terminal .app-container {
@@ -267,7 +274,7 @@ body.theme-terminal .app-container {
 
 body.theme-terminal #root::before,
 body.theme-terminal::after {
-  display: none !important;
+  display: none;
 }
 
 /* Light “Basic” terminal */
@@ -277,14 +284,11 @@ body.light-mode.theme-terminal {
   --term-bg-elevated: #f6f8fa;
   --term-bg-input: #ffffff;
   --term-fg: #1f2328;
-  --term-fg-dim: #656d76;
-  --term-fg-muted: #8c959f;
+  --term-fg-dim: #5e656e;
+  --term-fg-muted: #6a7179;
   --term-green: #1a7f37;
   --term-cyan: #0550ae;
   --term-blue: #0969da;
-  --term-yellow: #9a6700;
-  --term-magenta: #8250df;
-  --term-red: #cf222e;
   --term-border: #d0d7de;
   --term-border-subtle: #eaeef2;
   --term-selection: rgba(9, 105, 218, 0.14);
@@ -296,7 +300,6 @@ body.light-mode.theme-terminal {
   --menu-background: #ffffff;
   --popover-backdrop-filter: none;
 
-  --layout-item-hover-background: rgba(26, 127, 55, 0.06);
   --layout-item-divider: 1px solid rgba(0, 0, 0, 0.05);
 
   --shell-border: 1px solid #d0d7de;
@@ -343,8 +346,8 @@ body.theme-terminal .tag-manager-page {
 }
 
 .theme-terminal .search-input:focus {
-  background: transparent !important;
-  box-shadow: none !important;
+  background: transparent;
+  box-shadow: none;
 }
 
 .theme-terminal .search-input::placeholder {
@@ -367,8 +370,8 @@ body.theme-terminal .tag-manager-page {
 }
 
 .theme-terminal .history-item:hover {
-  transform: none !important;
-  box-shadow: none !important;
+  transform: none;
+  box-shadow: none;
 }
 
 .theme-terminal .history-item.selected {
@@ -437,7 +440,7 @@ body.theme-terminal .tag-manager-page {
 .theme-terminal .btn-icon:hover,
 .theme-terminal .btn-icon.active {
   color: var(--term-green);
-  background: rgba(63, 185, 80, 0.1);
+  background: rgba(var(--term-tint-rgb), 0.1);
 }
 
 .theme-terminal .settings-choice-grid {
@@ -466,7 +469,7 @@ body.theme-terminal .tag-manager-page {
 .theme-terminal .settings-group,
 .theme-terminal .modal-panel,
 .theme-terminal .tags-dropdown {
-  border-radius: 0 !important;
+  border-radius: 0;
 }
 
 .theme-terminal .tag-manager-card {
@@ -476,7 +479,7 @@ body.theme-terminal .tag-manager-page {
 }
 
 .theme-terminal .tag-manager-card:hover {
-  border-color: rgba(63, 185, 80, 0.35);
+  border-color: rgba(var(--term-tint-rgb), 0.35);
   box-shadow: none;
 }
 
@@ -510,14 +513,14 @@ body.theme-terminal .tag-manager-page {
 }
 
 .theme-terminal .tags-dropdown {
-  margin-top: 0 !important;
-  padding: 0 !important;
-  gap: 0 !important;
-  border: 1px solid var(--term-border, var(--line-strong)) !important;
-  border-top: none !important;
-  border-radius: 0 !important;
-  background: var(--term-bg-elevated, var(--bg-panel)) !important;
-  box-shadow: none !important;
+  margin-top: 0;
+  padding: 0;
+  gap: 0;
+  border: 1px solid var(--term-border, var(--line-strong));
+  border-top: none;
+  border-radius: 0;
+  background: var(--term-bg-elevated, var(--bg-panel));
+  box-shadow: none;
   max-height: min(220px, 42vh);
 }
 
@@ -530,11 +533,11 @@ body.theme-terminal .tag-manager-page {
 
 .theme-terminal .tags-dropdown .tag-chip {
   width: 100%;
-  border: none !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
-  filter: none !important;
-  padding: 5px 10px !important;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  filter: none;
+  padding: 5px 10px;
   justify-content: flex-start;
   font-family: var(--font-main);
   font-size: var(--font-size-xs);
@@ -559,29 +562,29 @@ body.theme-terminal .tag-manager-page {
 }
 
 .theme-terminal .tags-dropdown .tag-chip:hover {
-  filter: none !important;
-  transform: none !important;
-  box-shadow: none !important;
+  filter: none;
+  transform: none;
+  box-shadow: none;
 }
 
 .theme-terminal .tag-chip {
   font-weight: 600;
   text-transform: lowercase;
   letter-spacing: 0.02em;
-  box-shadow: none !important;
-  filter: none !important;
-  border-radius: 0 !important;
-  border: 1px solid var(--term-border-subtle, rgba(210, 168, 255, 0.22)) !important;
+  box-shadow: none;
+  filter: none;
+  border-radius: 0;
+  border: 1px solid var(--term-border-subtle);
 }
 
 .theme-terminal .tag-chip:hover,
 .theme-terminal .tag-chip:active {
-  box-shadow: none !important;
-  filter: none !important;
+  box-shadow: none;
+  filter: none;
 }
 
 .theme-terminal .item-tags-container.overlay .tag-chip {
-  box-shadow: none !important;
+  box-shadow: none;
 }
 
 .theme-terminal .tag-chip::before {
@@ -599,7 +602,7 @@ body.theme-terminal .tag-manager-page {
   content: none;
 }
 
-body.light-mode.theme-terminal .tag-chip {  border-color: var(--term-border-subtle, rgba(130, 80, 223, 0.22)) !important;
+body.light-mode.theme-terminal .tag-chip {  border-color: var(--term-border-subtle);
 }
 
 body.light-mode.theme-terminal .tag-chip::before {

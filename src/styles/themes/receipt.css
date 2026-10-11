@@ -2,6 +2,25 @@
  * Receipt Theme — thermal printer ticket
  * Narrow rows, monospace, dashed tear lines, faded ink.
  */
+/* Component adjustments for this theme, kept ahead of the theme's own rules
+   (they used to sit in the component stylesheets). */
+
+/* ---- From components/ai.css ---- */
+
+.theme-receipt .ai-action-btn {
+  border: 1px solid var(--border-dark);
+  border-radius: 0;
+}
+
+/* ---- From components/file-transfer.css ---- */
+
+.theme-receipt .wt-chat-view {
+  --im-canvas: var(--bg-window);
+  --im-canvas-shade: color-mix(in srgb, var(--bg-window) 88%, transparent);
+  --im-incoming: var(--bg-element);
+  --im-outgoing: color-mix(in srgb, var(--accent-color) 12%, var(--bg-element) 88%);
+}
+
 
 :root.theme-receipt,
 body.theme-receipt {
@@ -43,9 +62,6 @@ body.theme-receipt {
   --layout-header-inner-x: 16px;
   --layout-header-inner-gap: 4px;
   --layout-header-actions-gap: 3px;
-  --layout-header-btn-shadow: none;
-  --layout-header-btn-shadow-hover: none;
-  --layout-header-btn-shadow-active: none;
   --layout-search-margin-top: 0;
   --layout-search-padding-x: 16px;
   --layout-search-input-padding: 6px 8px 6px 26px;
@@ -60,9 +76,7 @@ body.theme-receipt {
   /* The shared meta toolbar is optically lifted by 6px. Preserve the
      receipt rhythm while keeping a stable inset above the controls. */
   --layout-item-padding: 10px 4px 8px 4px;
-  --layout-item-padding-compact: 4px 4px 6px 4px;
   --layout-item-background: transparent;
-  --layout-item-hover-background: rgba(0, 0, 0, 0.03);
   --layout-item-divider: 1px dashed rgba(0, 0, 0, 0.14);
   --layout-drag-handle-radius: 0;
   --layout-btn-icon-padding: 4px;
@@ -80,8 +94,8 @@ body.theme-receipt {
   --rc-bg: #faf8f3;
   --rc-paper: #fffef9;
   --rc-ink: #1e1e1e;
-  --rc-ink-fade: #6a6a6a;
-  --rc-ink-ghost: #a8a8a8;
+  --rc-ink-fade: #686868;
+  --rc-ink-ghost: #747474;
   --rc-line: rgba(0, 0, 0, 0.16);
   --rc-accent: #2a2a2a;
 
@@ -141,9 +155,6 @@ body.theme-receipt {
   --button-active-filled-color: var(--rc-ink);
   --button-active-filled-border-color: var(--rc-ink);
   --button-active-filled-shadow: inset 0 0 0 1px var(--rc-ink);
-  --button-text-transform: uppercase;
-  --button-font-weight: 700;
-  --button-letter-spacing: 0.05em;
 
   --segment-active-background: rgba(0, 0, 0, 0.06);
   --segment-active-color: var(--rc-ink);
@@ -187,15 +198,15 @@ body.theme-receipt {
 }
 
 body.theme-receipt #root {
-  background: var(--rc-paper) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
+  background: var(--rc-paper);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   overflow: hidden;
 }
 
 body.theme-receipt #root::after {
   content: "";
-  display: block !important;
+  display: block;
   position: absolute;
   left: 0;
   right: 0;
@@ -205,15 +216,15 @@ body.theme-receipt #root::after {
   background:
     linear-gradient(135deg, var(--rc-paper) 33.33%, transparent 33.33%) -8px 0,
     linear-gradient(225deg, var(--rc-paper) 33.33%, transparent 33.33%) -8px 0,
-    linear-gradient(45deg, rgba(0, 0, 0, 0.06) 33.33%, transparent 33.33%),
-    linear-gradient(-45deg, rgba(0, 0, 0, 0.06) 33.33%, transparent 33.33%);
+    linear-gradient(45deg, rgba(var(--shadow-rgb), 0.06) 33.33%, transparent 33.33%),
+    linear-gradient(-45deg, rgba(var(--shadow-rgb), 0.06) 33.33%, transparent 33.33%);
   background-size: 16px 6px;
   z-index: 20;
 }
 
 html.theme-receipt,
 body.theme-receipt {
-  background-color: transparent !important;
+  background-color: transparent;
 }
 
 body.theme-receipt .app-container {
@@ -230,7 +241,7 @@ body.dark-mode.theme-receipt {
   --rc-paper: #242424;
   --rc-ink: #e8e8e8;
   --rc-ink-fade: #a0a0a0;
-  --rc-ink-ghost: #707070;
+  --rc-ink-ghost: #8d8d8d;
   --rc-line: rgba(255, 255, 255, 0.14);
   --rc-accent: #e8e8e8;
 
@@ -252,7 +263,6 @@ body.dark-mode.theme-receipt {
   --on-accent: #1c1c1c;
   --line-strong: rgba(255, 255, 255, 0.26);
 
-  --layout-item-hover-background: rgba(255, 255, 255, 0.04);
   --layout-item-divider: 1px dashed rgba(255, 255, 255, 0.12);
 
   --shell-border: 1px solid rgba(255, 255, 255, 0.1);
@@ -283,8 +293,8 @@ body.dark-mode.theme-receipt #root::after {
   background:
     linear-gradient(135deg, var(--rc-paper) 33.33%, transparent 33.33%) -8px 0,
     linear-gradient(225deg, var(--rc-paper) 33.33%, transparent 33.33%) -8px 0,
-    linear-gradient(45deg, rgba(255, 255, 255, 0.08) 33.33%, transparent 33.33%),
-    linear-gradient(-45deg, rgba(255, 255, 255, 0.08) 33.33%, transparent 33.33%);
+    linear-gradient(45deg, rgba(var(--highlight-rgb), 0.08) 33.33%, transparent 33.33%),
+    linear-gradient(-45deg, rgba(var(--highlight-rgb), 0.08) 33.33%, transparent 33.33%);
   background-size: 16px 6px;
 }
 
@@ -360,13 +370,13 @@ body.theme-receipt .settings-group {
 }
 
 .theme-receipt .tags-dropdown {
-  margin-top: 0 !important;
-  padding: 4px 0 !important;
-  gap: 0 !important;
-  border-top: 1px dashed var(--rc-line, var(--line-soft)) !important;
-  border-radius: 0 !important;
-  background: var(--rc-paper, var(--bg-input)) !important;
-  box-shadow: none !important;
+  margin-top: 0;
+  padding: 4px 0;
+  gap: 0;
+  border-top: 1px dashed var(--rc-line, var(--line-soft));
+  border-radius: 0;
+  background: var(--rc-paper, var(--bg-input));
+  box-shadow: none;
 }
 
 .theme-receipt .tags-dropdown .tags-list {
@@ -376,12 +386,12 @@ body.theme-receipt .settings-group {
 
 .theme-receipt .tags-dropdown .tag-chip {
   width: 100%;
-  border: none !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
-  padding: 4px 8px !important;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 4px 8px;
   justify-content: flex-start;
-  border-bottom: 1px dashed rgba(0, 0, 0, 0.08) !important;
+  border-bottom: 1px dashed rgba(var(--shadow-rgb), 0.08);
 }
 
 .theme-receipt .tags-dropdown .tag-chip::before {
@@ -395,14 +405,14 @@ body.theme-receipt .settings-group {
 }
 
 .theme-receipt .tag-chip {
-  border-style: dashed !important;
-  box-shadow: none !important;
-  filter: none !important;
-  border-color: rgba(0, 0, 0, 0.16) !important;
+  border-style: dashed;
+  box-shadow: none;
+  filter: none;
+  border-color: rgba(var(--shadow-rgb), 0.16);
 }
 
-.theme-receipt .tags-dropdown .tag-chip {  border: none !important;
-  border-bottom: 1px dashed rgba(0, 0, 0, 0.08) !important;
+.theme-receipt .tags-dropdown .tag-chip {  border: none;
+  border-bottom: 1px dashed rgba(var(--shadow-rgb), 0.08);
 }
 
 .theme-receipt .tag-chip::before {
@@ -420,16 +430,16 @@ body.theme-receipt .settings-group {
 .theme-receipt .tag-chip:hover,
 .theme-receipt .tag-chip:active,
 .theme-receipt .tags-dropdown .tag-chip:hover {
-  filter: none !important;
-  transform: none !important;
-  box-shadow: none !important;
+  filter: none;
+  transform: none;
+  box-shadow: none;
 }
 
-body.dark-mode.theme-receipt .tag-chip {  border-color: rgba(255, 255, 255, 0.14) !important;
+body.dark-mode.theme-receipt .tag-chip {  border-color: rgba(var(--highlight-rgb), 0.14);
 }
 
 body.dark-mode.theme-receipt .tags-dropdown .tag-chip {
-  border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+  border-bottom-color: rgba(var(--highlight-rgb), 0.08);
 }
 
 /* --- Receipt: tighten input + dropdown seam --- */

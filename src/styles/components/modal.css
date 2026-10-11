@@ -2,7 +2,7 @@
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(var(--shadow-rgb), 0.45);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   display: flex;
@@ -22,7 +22,7 @@ body:has(> .modal-overlay) #root {
 }
 
 body:has(.modal-overlay) #root {
-  border-color: transparent !important;
+  border-color: transparent;
 }
 
 .modal-panel {
@@ -30,9 +30,9 @@ body:has(.modal-overlay) #root {
   max-width: 400px;
   max-height: min(90vh, 720px);
   overflow: auto;
-  background: var(--modal-background, var(--popover-background));
-  backdrop-filter: var(--popover-backdrop-filter, none);
-  -webkit-backdrop-filter: var(--popover-backdrop-filter, none);
+  background: var(--modal-background);
+  backdrop-filter: var(--popover-backdrop-filter);
+  -webkit-backdrop-filter: var(--popover-backdrop-filter);
   padding: 24px;
   border: var(--modal-border);
   border-radius: var(--modal-radius);
@@ -49,9 +49,9 @@ body:has(.modal-overlay) #root {
   flex-direction: column;
   gap: 12px;
   padding: 16px;
-  background: var(--modal-background, var(--popover-background));
-  backdrop-filter: var(--popover-backdrop-filter, none);
-  -webkit-backdrop-filter: var(--popover-backdrop-filter, none);
+  background: var(--modal-background);
+  backdrop-filter: var(--popover-backdrop-filter);
+  -webkit-backdrop-filter: var(--popover-backdrop-filter);
 }
 
 /* Shared compact form surface for add/edit/configuration dialogs. Feature
@@ -60,10 +60,10 @@ body:has(.modal-overlay) #root {
 .modal-form-dialog {
   width: min(380px, calc(100vw - 32px));
   max-width: 380px;
-  padding: 18px;
-  background: var(--modal-background, var(--popover-background));
-  backdrop-filter: var(--popover-backdrop-filter, none);
-  -webkit-backdrop-filter: var(--popover-backdrop-filter, none);
+  padding: 16px;
+  background: var(--modal-background);
+  backdrop-filter: var(--popover-backdrop-filter);
+  -webkit-backdrop-filter: var(--popover-backdrop-filter);
   overflow: auto;
 }
 
@@ -103,7 +103,7 @@ body:has(.modal-overlay) #root {
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
 }
 
 .modal-form-dialog .modal-field-label {
@@ -121,7 +121,7 @@ body:has(.modal-overlay) #root {
   box-sizing: border-box;
   width: 100%;
   min-height: 38px;
-  padding: 8px 11px;
+  padding: 8px 12px;
   border: var(--input-border);
   border-radius: min(10px, var(--input-radius));
   outline: none;
@@ -131,7 +131,7 @@ body:has(.modal-overlay) #root {
   font-size: var(--font-size-base);
   line-height: 1.45;
   box-shadow: none;
-  transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
+  transition: border-color var(--duration-base) ease, background var(--duration-base) ease, box-shadow var(--duration-base) ease;
 }
 
 .modal-form-dialog textarea.modal-form-control {
@@ -145,9 +145,9 @@ body:has(.modal-overlay) #root {
 
 .modal-form-control:focus,
 .modal-form-control:focus-visible {
-  border-color: var(--input-focus-border-color, var(--accent-color));
+  border-color: var(--input-focus-border-color);
   background: var(--bg-input);
-  box-shadow: var(--input-focus-shadow, 0 0 0 2px rgba(var(--accent-color-rgb), 0.12));
+  box-shadow: var(--input-focus-shadow);
 }
 
 .modal-form-toggle-row {
@@ -167,8 +167,8 @@ body:has(.modal-overlay) #root {
 .modal-form-dialog .modal-panel-actions {
   display: flex;
   gap: 8px;
-  margin-top: 14px;
-  padding-top: 14px;
+  margin-top: 12px;
+  padding-top: 12px;
   border-top: 1px solid var(--panel-divider-color);
 }
 
@@ -180,7 +180,7 @@ body:has(.modal-overlay) #root {
 .modal-form-actions .modal-button,
 .modal-form-dialog .modal-panel-actions .modal-button {
   min-height: 34px;
-  padding: 0 14px;
+  padding: 0 12px;
   border-radius: min(8px, var(--dialog-button-radius));
   font-size: var(--font-size-sm);
   font-weight: 600;
@@ -315,7 +315,7 @@ body:has(.modal-overlay) #root {
 .app-selector-search input {
   width: 100%;
   min-height: 36px;
-  padding: 0 12px 0 34px;
+  padding: 0 12px 0 32px;
   border: var(--input-border);
   border-radius: var(--input-radius);
   outline: none;
@@ -361,7 +361,7 @@ body:has(.modal-overlay) #root {
 
 .dark-mode .app-selector-list,
 .dark-mode .app-selector-section-label {
-  background: color-mix(in srgb, var(--bg-window) 78%, #000 22%);
+  background: color-mix(in srgb, var(--bg-window) 78%, rgb(var(--shadow-rgb)) 22%);
 }
 
 .app-selector-option {
@@ -394,9 +394,9 @@ body:has(.modal-overlay) #root {
 .confirm-dialog,
 .modal-panel.confirm-dialog {
   padding: 24px;
-  background: var(--modal-background, var(--popover-background));
-  backdrop-filter: var(--popover-backdrop-filter, none);
-  -webkit-backdrop-filter: var(--popover-backdrop-filter, none);
+  background: var(--modal-background);
+  backdrop-filter: var(--popover-backdrop-filter);
+  -webkit-backdrop-filter: var(--popover-backdrop-filter);
 }
 
 .confirm-dialog-title {
@@ -439,7 +439,7 @@ body:has(.modal-overlay) #root {
   justify-content: center;
   gap: 8px;
   min-height: 38px;
-  padding: 0 18px;
+  padding: 0 16px;
   font-size: var(--font-size-base);
   font-weight: 600;
   cursor: pointer;
@@ -448,10 +448,10 @@ body:has(.modal-overlay) #root {
   background: var(--bg-button);
   color: var(--text-primary);
   transition:
-    background 0.14s ease,
-    border-color 0.14s ease,
-    transform 0.14s ease,
-    box-shadow 0.14s ease;
+    background var(--duration-base) ease,
+    border-color var(--duration-base) ease,
+    transform var(--duration-base) ease,
+    box-shadow var(--duration-base) ease;
   box-shadow: var(--dialog-button-shadow);
 }
 
@@ -517,7 +517,7 @@ body:has(.modal-overlay) #root {
 }
 
 .modal-update-header {
-  padding: 12px 18px 8px;
+  padding: 12px 16px 8px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -547,24 +547,24 @@ body:has(.modal-overlay) #root {
   display: inline-flex;
   align-items: center;
   padding: 2px 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: var(--font-size-2xs);
   font-weight: 800;
   letter-spacing: 0.04em;
 }
 
 .modal-update-badge.beta {
-  color: #7c3aed;
-  background: rgba(124, 58, 237, 0.12);
+  color: var(--tint-purple);
+  background: rgba(var(--tint-purple-rgb), 0.12);
 }
 
 .modal-update-badge.important {
-  color: #b45309;
-  background: rgba(245, 158, 11, 0.14);
+  color: color-mix(in srgb, var(--status-warning) 60%, var(--text-primary));
+  background: rgba(var(--status-warning-rgb), 0.14);
 }
 
 .modal-update-content {
-  padding: 12px 18px 18px;
+  padding: 12px 16px 16px;
 }
 
 .modal-update-notes {
@@ -594,14 +594,14 @@ body:has(.modal-overlay) #root {
   height: 3px;
   width: 100%;
   background: var(--bg-input);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   overflow: hidden;
 }
 
 .modal-update-progress-bar {
   height: 100%;
   background: var(--accent-color);
-  transition: width 0.3s ease;
+  transition: width var(--duration-slow) ease;
 }
 
 .modal-update-progress-bar.indeterminate {
@@ -649,7 +649,7 @@ body:has(.modal-overlay) #root {
 .modal-button.danger {
   background: var(--status-danger);
   border-color: var(--status-danger);
-  color: #ffffff;
+  color: var(--on-accent);
   box-shadow: var(--button-shadow);
 }
 
@@ -683,7 +683,7 @@ body:has(.modal-overlay) #root {
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  padding: 18px 20px 15px;
+  padding: 16px 20px 16px;
   border-bottom: 1px solid var(--panel-divider-color);
 }
 
@@ -698,18 +698,18 @@ body:has(.modal-overlay) #root {
 }
 
 .clipboard-import-modal-header p {
-  margin: 3px 0 0;
+  margin: 4px 0 0;
   color: var(--text-secondary);
   font-size: var(--font-size-xs);
   line-height: 1.45;
 }
 
 .clipboard-import-modal-body {
-  padding: 18px 20px;
+  padding: 16px 20px;
 }
 
 .clipboard-import-modal-intro {
-  margin-bottom: 9px;
+  margin-bottom: 8px;
   color: var(--text-secondary);
   font-size: var(--font-size-xs);
   font-weight: 650;
@@ -725,7 +725,7 @@ body:has(.modal-overlay) #root {
   width: 100%;
   min-width: 0;
   align-items: center;
-  gap: 11px;
+  gap: 12px;
   padding: 12px;
   color: var(--text-primary);
   background: var(--bg-input);
@@ -735,7 +735,7 @@ body:has(.modal-overlay) #root {
   cursor: pointer;
   font: inherit;
   text-align: left;
-  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+  transition: border-color var(--duration-base) ease, background var(--duration-base) ease, transform var(--duration-base) ease;
 }
 
 .clipboard-import-app-option:hover {
@@ -760,13 +760,13 @@ body:has(.modal-overlay) #root {
   min-width: 0;
   flex: 1;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
 }
 
 .clipboard-import-app-heading {
   display: flex;
   align-items: baseline;
-  gap: 7px;
+  gap: 8px;
 }
 
 .clipboard-import-app-heading strong {
@@ -805,7 +805,7 @@ body:has(.modal-overlay) #root {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
 .clipboard-import-selected-app > span:last-child {
@@ -824,7 +824,7 @@ body:has(.modal-overlay) #root {
 }
 
 .clipboard-import-reminder {
-  padding: 12px 13px;
+  padding: 12px 12px;
   background: rgba(var(--accent-color-rgb), 0.06);
   border: 1px solid rgba(var(--accent-color-rgb), 0.16);
   border-radius: var(--panel-radius);
@@ -833,7 +833,7 @@ body:has(.modal-overlay) #root {
 .clipboard-import-reminder-title {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   color: var(--text-primary);
   font-size: var(--font-size-sm);
   font-weight: 700;
@@ -854,7 +854,7 @@ body:has(.modal-overlay) #root {
 }
 
 .clipboard-import-source {
-  margin-top: 14px;
+  margin-top: 12px;
 }
 
 .clipboard-import-source-label {
@@ -868,7 +868,7 @@ body:has(.modal-overlay) #root {
   display: flex;
   min-width: 0;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   padding: 8px 10px;
   color: var(--text-primary);
   background: var(--bg-input);
@@ -897,8 +897,8 @@ body:has(.modal-overlay) #root {
 .clipboard-import-text-button {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  margin-top: 7px;
+  gap: 4px;
+  margin-top: 8px;
   padding: 2px 0;
   color: var(--accent-color);
   background: transparent;
@@ -959,7 +959,7 @@ body:has(.modal-overlay) #root {
 .clipboard-import-progress > p,
 .clipboard-import-result > p {
   max-width: 42ch;
-  margin: 5px 0 0;
+  margin: 4px 0 0;
   color: var(--text-secondary);
   font-size: var(--font-size-xs);
   line-height: 1.5;
@@ -968,10 +968,10 @@ body:has(.modal-overlay) #root {
 .clipboard-import-progress-track {
   width: min(360px, 100%);
   height: 5px;
-  margin-top: 18px;
+  margin-top: 16px;
   overflow: hidden;
   background: var(--bg-input);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
 .clipboard-import-progress-track span {
@@ -984,7 +984,7 @@ body:has(.modal-overlay) #root {
 }
 
 .clipboard-import-progress-count {
-  margin-top: 7px;
+  margin-top: 8px;
   color: var(--text-secondary);
   font-size: var(--font-size-2xs);
   font-weight: 650;
@@ -1008,7 +1008,7 @@ body:has(.modal-overlay) #root {
   display: grid;
   width: 100%;
   grid-template-columns: repeat(4, 1fr);
-  gap: 7px;
+  gap: 8px;
   margin-top: 16px;
 }
 
@@ -1055,7 +1055,7 @@ body:has(.modal-overlay) #root {
 
 .clipboard-import-warnings ul {
   margin: 6px 0 0;
-  padding-left: 18px;
+  padding-left: 16px;
   line-height: 1.45;
 }
 

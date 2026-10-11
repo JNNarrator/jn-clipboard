@@ -11,11 +11,11 @@
   align-items: center;
   justify-content: center;
   transition:
-    background 0.18s ease,
-    border-color 0.18s ease,
-    box-shadow 0.18s ease,
-    transform 0.18s ease,
-    color 0.18s ease;
+    background var(--duration-base) ease,
+    border-color var(--duration-base) ease,
+    box-shadow var(--duration-base) ease,
+    transform var(--duration-base) ease,
+    color var(--duration-base) ease;
 }
 
 .btn-icon:hover {
@@ -35,16 +35,4 @@
   color: var(--button-active-filled-color);
   border-color: var(--button-active-filled-border-color);
   box-shadow: var(--button-active-filled-shadow);
-}
-
-/* A pinned window is a persistent state, not a primary action. Keep its
-   header indicator quiet in translucent themes instead of emitting a blue
-   active glow every time the window is shown. */
-body.theme-mica .header-pin-btn.active,
-body.theme-acrylic .header-pin-btn.active,
-body.theme-macos .header-pin-btn.active {
-  background: var(--bg-input);
-  color: var(--text-primary);
-  border-color: var(--line-strong);
-  box-shadow: none;
 }

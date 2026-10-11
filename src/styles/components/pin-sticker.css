@@ -9,7 +9,7 @@ html.pin-sticker body #root,
 body.window-pin-sticker #root,
 body.pin-sticker #root,
 :root.window-pin-sticker #root,
-:root.pin-sticker #root {
+:root.pin-sticker #root /* design-ok: the sticker window stays transparent under any theme, installed ones included */ {
   margin: 0 !important;
   padding: 0 !important;
   background: transparent !important;
@@ -24,7 +24,7 @@ body.pin-sticker #root,
 }
 
 body.window-pin-sticker #root,
-body.pin-sticker #root {
+body.pin-sticker #root /* design-ok: the sticker window stays transparent under any theme, installed ones included */ {
   width: 100vw !important;
   height: 100vh !important;
   display: block !important;
@@ -49,7 +49,7 @@ body.pin-sticker::after,
 body.window-pin-sticker #root::before,
 body.window-pin-sticker #root::after,
 body.pin-sticker #root::before,
-body.pin-sticker #root::after {
+body.pin-sticker #root::after /* design-ok: the sticker window stays transparent under any theme, installed ones included */ {
   content: none !important;
   display: none !important;
   visibility: hidden !important;
@@ -67,7 +67,7 @@ body.pin-sticker #root::after {
   margin: 0;
   padding: 10px;
   overflow: visible;
-  background: transparent !important;
+  background: transparent;
   -webkit-user-select: none;
   user-select: none;
   display: flex;
@@ -84,11 +84,11 @@ body.pin-sticker #root::after {
   align-items: center;
   justify-content: center;
   overflow: visible;
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
+  background: transparent;
+  border: none;
+  box-shadow: none;
   cursor: grab;
-  transition: opacity 0.15s ease;
+  transition: opacity var(--duration-base) ease;
 }
 
 .pin-sticker-shell:active {
@@ -103,34 +103,34 @@ body.pin-sticker #root::after {
   justify-content: center;
   overflow: hidden;
   pointer-events: auto;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   box-sizing: border-box;
-  background: transparent !important;
+  background: transparent;
   /* Crisp 1px boundary ring + subtle ambient light GPU shadow */
-  box-shadow: 0 0 0 1px rgba(128, 128, 128, 0.18), 0 3px 12px rgba(0, 0, 0, 0.06);
-  transition: box-shadow 0.15s ease;
+  box-shadow: 0 0 0 1px rgba(var(--neutral-rgb), 0.18), 0 3px 12px rgba(var(--shadow-rgb), 0.06);
+  transition: box-shadow var(--duration-base) ease;
 }
 
 html.light-mode .pin-sticker-image-wrapper,
 body.light-mode .pin-sticker-image-wrapper {
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08), 0 3px 12px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 0 0 1px rgba(var(--shadow-rgb), 0.08), 0 3px 12px rgba(var(--shadow-rgb), 0.06);
 }
 
 html.dark-mode .pin-sticker-image-wrapper,
 body.dark-mode .pin-sticker-image-wrapper {
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12), 0 4px 16px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 0 0 1px rgba(var(--highlight-rgb), 0.12), 0 4px 16px rgba(var(--shadow-rgb), 0.25);
 }
 
 .pin-sticker-shell:hover .pin-sticker-image-wrapper {
-  box-shadow: 0 0 0 1px rgba(128, 128, 128, 0.28), 0 4px 16px rgba(0, 0, 0, 0.10);
+  box-shadow: 0 0 0 1px rgba(var(--neutral-rgb), 0.28), 0 4px 16px rgba(var(--shadow-rgb), 0.10);
 }
 
 html.light-mode .pin-sticker-shell:hover .pin-sticker-image-wrapper {
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.14), 0 4px 16px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 0 0 1px rgba(var(--shadow-rgb), 0.14), 0 4px 16px rgba(var(--shadow-rgb), 0.08);
 }
 
 html.dark-mode .pin-sticker-shell:hover .pin-sticker-image-wrapper {
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.22), 0 5px 20px rgba(0, 0, 0, 0.32);
+  box-shadow: 0 0 0 1px rgba(var(--highlight-rgb), 0.22), 0 5px 20px rgba(var(--shadow-rgb), 0.32);
 }
 
 .pin-sticker-img {
@@ -138,14 +138,14 @@ html.dark-mode .pin-sticker-shell:hover .pin-sticker-image-wrapper {
   height: 100%;
   object-fit: fill;
   transform-origin: center center;
-  transition: transform 0.12s ease-out;
+  transition: transform var(--duration-fast) ease-out;
   pointer-events: auto;
   -webkit-user-drag: none;
   -webkit-user-select: none;
   user-select: none;
   border-radius: 0;
-  filter: none !important;
-  outline: none !important;
+  filter: none;
+  outline: none;
 }
 
 /* Floating Action Toolbar on BOTTOM Center of Image (Theme-Integrated) */
@@ -159,16 +159,16 @@ html.dark-mode .pin-sticker-shell:hover .pin-sticker-image-wrapper {
   align-items: center;
   gap: 4px;
   padding: 4px 8px;
-  background: var(--popover-background, var(--bg-panel, rgba(20, 24, 33, 0.85)));
-  color: var(--popover-color, var(--text-primary, #ffffff));
-  backdrop-filter: var(--popover-backdrop-filter, blur(24px) saturate(180%));
-  -webkit-backdrop-filter: var(--popover-backdrop-filter, blur(24px) saturate(180%));
-  border: var(--popover-border, 1px solid rgba(255, 255, 255, 0.2));
-  border-radius: var(--popover-radius, var(--radius-panel, 12px));
-  box-shadow: var(--popover-shadow, 0 8px 32px rgba(0, 0, 0, 0.35));
+  background: var(--popover-background);
+  color: var(--popover-color);
+  backdrop-filter: var(--popover-backdrop-filter);
+  -webkit-backdrop-filter: var(--popover-backdrop-filter);
+  border: var(--popover-border);
+  border-radius: var(--popover-radius);
+  box-shadow: var(--popover-shadow);
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.2s cubic-bezier(0.2, 0, 0, 1), transform 0.2s cubic-bezier(0.2, 0, 0, 1);
+  transition: opacity var(--duration-base) cubic-bezier(0.2, 0, 0, 1), transform var(--duration-base) cubic-bezier(0.2, 0, 0, 1);
   z-index: var(--z-overlay);
 }
 
@@ -185,17 +185,17 @@ html.dark-mode .pin-sticker-shell:hover .pin-sticker-image-wrapper {
   width: 26px;
   height: 26px;
   padding: 0;
-  border-radius: max(calc(var(--popover-radius, var(--radius-panel, 12px)) - 4px), 4px);
+  border-radius: max(calc(var(--popover-radius) - var(--radius-xs)), var(--radius-xs));
   border: 1px solid transparent;
   background: transparent;
-  color: var(--popover-color, var(--text-primary, #ffffff));
+  color: var(--popover-color);
   opacity: 0.85;
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, opacity 0.15s ease, transform 0.12s ease, border-color 0.15s ease;
+  transition: background var(--duration-base) ease, color var(--duration-base) ease, opacity var(--duration-base) ease, transform var(--duration-fast) ease, border-color var(--duration-base) ease;
 }
 
 .pin-sticker-btn:hover {
-  background: var(--bg-button, var(--btn-ghost-hover-bg, rgba(128, 128, 128, 0.18)));
+  background: var(--bg-button);
   opacity: 1;
   transform: scale(1.05);
 }
@@ -205,21 +205,21 @@ html.dark-mode .pin-sticker-shell:hover .pin-sticker-image-wrapper {
 }
 
 .pin-sticker-btn.active {
-  background: var(--accent-color, #3b82f6);
-  color: var(--on-accent, #ffffff);
+  background: var(--accent-color);
+  color: var(--on-accent);
   opacity: 1;
 }
 
 .pin-sticker-btn.danger:hover {
-  background: var(--status-danger, #ef4444);
-  color: #ffffff;
+  background: var(--status-danger);
+  color: var(--on-accent);
   opacity: 1;
 }
 
 .pin-sticker-divider {
   width: 1px;
   height: 14px;
-  background: var(--line-soft, rgba(255, 255, 255, 0.2));
+  background: var(--line-soft);
   margin: 0 2px;
 }
 
@@ -230,18 +230,18 @@ html.dark-mode .pin-sticker-shell:hover .pin-sticker-image-wrapper {
   left: 50%;
   transform: translateX(-50%);
   padding: 4px 10px;
-  background: var(--popover-background, var(--bg-panel, rgba(0, 0, 0, 0.75)));
-  color: var(--popover-color, var(--text-primary, #ffffff));
-  backdrop-filter: var(--popover-backdrop-filter, blur(16px));
-  -webkit-backdrop-filter: var(--popover-backdrop-filter, blur(16px));
-  border: var(--popover-border, 1px solid rgba(255, 255, 255, 0.15));
-  border-radius: var(--popover-radius, var(--radius-panel, 8px));
+  background: var(--popover-background);
+  color: var(--popover-color);
+  backdrop-filter: var(--popover-backdrop-filter);
+  -webkit-backdrop-filter: var(--popover-backdrop-filter);
+  border: var(--popover-border);
+  border-radius: var(--popover-radius);
   font-size: var(--font-size-xs);
   font-weight: 600;
   pointer-events: none;
   z-index: var(--z-toast);
-  animation: fadeInOut 1.2s ease forwards;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  animation: fadeInOut 1.2s ease forwards; /* design-ok: how long the hint stays, not a transition */
+  box-shadow: 0 4px 12px rgba(var(--shadow-rgb), 0.25);
   letter-spacing: 0.5px;
 }
 

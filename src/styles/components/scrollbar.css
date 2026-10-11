@@ -56,7 +56,7 @@ html.platform-macos ::-webkit-scrollbar-thumb {
   border: var(--scrollbar-thumb-border);
   background-clip: padding-box;
   border-radius: var(--scrollbar-radius);
-  transition: background-color 0.18s ease;
+  transition: background-color var(--duration-base) ease;
 }
 
 html.platform-macos *:hover::-webkit-scrollbar-thumb,

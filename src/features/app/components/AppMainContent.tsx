@@ -203,12 +203,7 @@ const AppMainContent = ({
     }
 
     return (
-      <div
-        className="settings-view"
-        style={{
-          maxWidth: settingsPanelProps.settingsSubpage === "advanced" ? "min(1120px, 100%)" : undefined
-        }}
-      >
+      <div className="settings-view">
         <SettingsPanel {...settingsPanelProps} />
       </div>
     );
