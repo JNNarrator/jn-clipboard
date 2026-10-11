@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "lint": "eslint src",
+    "lint:styles": "node scripts/lint-styles.mjs",
     "apply-version": "node scripts/apply-app-version.mjs",
     "apply-version:mac": "node scripts/apply-app-version.mjs macos",
     "apply-version:win": "node scripts/apply-app-version.mjs windows",

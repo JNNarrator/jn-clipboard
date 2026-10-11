@@ -28,6 +28,8 @@ jobs:
         run: npm test
       - name: Lint (hooks and correctness)
         run: npm run lint
+      - name: Style rules (docs/DESIGN-SYSTEM.md)
+        run: npm run lint:styles
 
   rust:
     name: Rust (${{ matrix.os }})
