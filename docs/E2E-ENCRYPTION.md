@@ -1,6 +1,9 @@
 # End-to-end encryption (v1)
 
-Optional. When a key is set, MQTT messages and WebDAV sync files are encrypted
+Optional, and not offered to new setups: the settings pages (desktop and
+mobile) show it only on a device that already has a key, so it can be turned
+off. TieZ relies on TLS to the broker and the WebDAV server and trusts the
+server the user picked. When a key is set, MQTT messages and WebDAV sync files are encrypted
 on the sending device and only devices holding the same key can read them. The
 broker and the WebDAV server see ciphertext. Implemented by the desktop app
 (`src-tauri/src/services/e2e.rs`) and the mobile app (`tiez-mobile/src/lib/e2e.ts`);

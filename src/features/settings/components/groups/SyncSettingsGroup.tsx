@@ -228,8 +228,10 @@ const SyncSettingsGroup = ({
                                 placeholder="tiez/my_device"
                             />
                         </div>
-                        {/* Above the QR code, which carries the key once one is set. */}
-                        <E2eKeyPanel t={t} e2eKey={e2eKey} saveE2eKey={saveE2eKey} hintPrefix="mqtt" />
+                        {/* Encryption is not offered to new setups; a device that already
+                            has a key still sees it, so it can be turned off. Above the
+                            QR code, which carries the key while one is set. */}
+                        {e2eKey && <E2eKeyPanel t={t} e2eKey={e2eKey} saveE2eKey={saveE2eKey} hintPrefix="mqtt" />}
                         {(() => {
                             const mqttQr = buildMqttConfigQrPayload({
                                 server: mqttServer,
