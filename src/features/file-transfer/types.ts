@@ -45,6 +45,7 @@ export type FileTransferDragPayload = string[] | { paths: string[] };
 export interface FileTransferDevice {
   id?: string;
   name?: string;
+  encrypted?: boolean;
   [key: string]: unknown;
 }
 

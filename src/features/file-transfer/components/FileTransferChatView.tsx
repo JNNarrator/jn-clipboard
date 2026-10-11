@@ -99,6 +99,9 @@ const FileTransferChatView = ({
     const searchInputRef = useRef<HTMLInputElement>(null);
 
     const hasOnlineDevices = onlineDevices.length > 0;
+    const unencryptedDevices = onlineDevices
+        .filter((device) => device.encrypted === false)
+        .map((device) => device.name || "?");
     const primaryDeviceName =
         typeof onlineDevices[0]?.name === "string" && onlineDevices[0].name.trim()
             ? onlineDevices[0].name.trim()
@@ -1178,6 +1181,7 @@ const FileTransferChatView = ({
                     hasOnlineDevices={hasOnlineDevices}
                     conversationTitle={conversationTitle}
                     onlineDevicesCount={onlineDevices.length}
+                    unencryptedDevices={unencryptedDevices}
                     connectionUrl={connectionUrl}
                     activeIp={activeIp}
                     actualPort={actualPort}

@@ -142,6 +142,25 @@ mod tests {
         assert!(split_upload(&[0, 0]).is_none());
     }
 
+    /// Sealed by the TieZ app (tiez-mobile/src/lib/lanSealCore.ts) with key
+    /// 0..=31 and nonce a0..=ab; scripts/lan-vectors.test.mts there holds the
+    /// vectors going the other way.
+    const APP_UPLOAD: &str = "545a4c31a0a1a2a3a4a5a6a7a8a9aaabe6187cae3ee977cf0e0ae6b75813a4fc4a8e2f75f1866040be6d4ef311c02a68bc1222878d1863117de86bbc6816dc9a2f6e282311f2204f6d7c6d37c815daded5d1e04d0a8702697f0463a2a1bab4ceef2789d7a0affd1f9c2a57fe93a06ff9ada809d866c0ebfeec846831e8edcf12060009c1b050b9100dbbb1d0d539ad3eac6bd55de977fd7f523592e4ee9672a107ad481a4dbe75091406d7d5";
+
+    #[test]
+    fn opens_what_the_app_seals() {
+        let key: LanKey = std::array::from_fn(|i| i as u8);
+        let boxed: Vec<u8> = (0..APP_UPLOAD.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&APP_UPLOAD[i..i + 2], 16).unwrap())
+            .collect();
+        let plain = open(&key, "upload", &boxed).expect("opens");
+        let (meta, data) = split_upload(&plain).unwrap();
+        let meta: serde_json::Value = serde_json::from_slice(meta).unwrap();
+        assert_eq!(meta["file_name"], "手机.txt");
+        assert_eq!(data, b"hello");
+    }
+
     #[test]
     fn keys_are_url_safe() {
         let key = generate_key().unwrap();

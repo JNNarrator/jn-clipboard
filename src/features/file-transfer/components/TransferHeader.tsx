@@ -14,6 +14,8 @@ export interface TransferHeaderProps {
     hasOnlineDevices: boolean;
     conversationTitle: string;
     onlineDevicesCount: number;
+    /** Names of connected TieZ apps that predate encryption. */
+    unencryptedDevices: string[];
     activeIp?: string;
     actualPort?: string;
     selectedIp: string;
@@ -37,6 +39,7 @@ export const TransferHeader = ({
     hasOnlineDevices,
     conversationTitle,
     onlineDevicesCount,
+    unencryptedDevices,
     selectedIp,
     interfaces,
     onSwitchIp,
@@ -76,7 +79,11 @@ export const TransferHeader = ({
                             ? (conversationTitle || t("ft_device_ready"))
                             : t("ft_waiting_device")}
                     </span>
-                    {hasOnlineDevices && (
+                    {hasOnlineDevices && unencryptedDevices.length > 0 ? (
+                        <span className="wt-status-secondary wt-status-warning" title={t("ft_unencrypted_hint")}>
+                            {t("ft_unencrypted_device").replace("{name}", unencryptedDevices.join("、"))}
+                        </span>
+                    ) : hasOnlineDevices && (
                         <span className="wt-status-secondary">
                             {onlineDevicesCount === 1 ? t("ft_lan_transferring") : t("ft_devices_online").replace("{n}", String(onlineDevicesCount))}
                         </span>

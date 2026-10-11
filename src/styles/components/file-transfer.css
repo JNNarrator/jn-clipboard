@@ -86,6 +86,12 @@
   box-shadow: 0 0 0 3px rgba(var(--status-warning-rgb), 0.18);
 }
 
+/* A connected app that predates encryption. Warning hue, darkened for small text. */
+.wt-status-secondary.wt-status-warning {
+  color: color-mix(in srgb, var(--status-warning) 60%, var(--text-primary));
+  font-weight: 600;
+}
+
 .wt-header-status-copy {
   display: flex;
   flex-direction: column;

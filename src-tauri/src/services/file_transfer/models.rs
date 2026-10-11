@@ -76,6 +76,10 @@ pub struct DeviceInfo {
     pub id: String,
     pub name: String,
     pub last_seen: i64,
+    /// Connected through `/ws?s=1`. False for TieZ apps that predate
+    /// encryption; the desktop asks the user to update them.
+    #[serde(default)]
+    pub encrypted: bool,
 }
 
 pub struct OnlineDevices(pub Mutex<HashMap<String, DeviceInfo>>);
