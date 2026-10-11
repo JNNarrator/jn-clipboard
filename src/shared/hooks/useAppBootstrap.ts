@@ -15,6 +15,7 @@ interface UseAppBootstrapOptions {
   setFileServerEnabled: Dispatch<SetStateAction<boolean>>;
   setActualPort: Dispatch<SetStateAction<string>>;
   setFileTransferAccessToken: Dispatch<SetStateAction<string>>;
+  setFileTransferLanKey: Dispatch<SetStateAction<string>>;
   setLocalIp: Dispatch<SetStateAction<string>>;
   setAvailableIps: Dispatch<SetStateAction<string[]>>;
   setWinClipboardDisabled: Dispatch<SetStateAction<boolean>>;
@@ -25,6 +26,7 @@ interface FileServerStatusPayload {
   port: number;
   ip: string;
   access_token: string;
+  lan_key?: string;
 }
 
 export const useAppBootstrap = ({
@@ -37,6 +39,7 @@ export const useAppBootstrap = ({
   setFileServerEnabled,
   setActualPort,
   setFileTransferAccessToken,
+  setFileTransferLanKey,
   setLocalIp,
   setAvailableIps,
   setWinClipboardDisabled: _setWinClipboardDisabled
@@ -87,6 +90,7 @@ export const useAppBootstrap = ({
         setActualPort(payload.port === 0 ? "" : payload.port.toString());
         setLocalIp(payload.ip);
         setFileTransferAccessToken(payload.access_token || "");
+        setFileTransferLanKey(payload.lan_key || "");
       })
       .then((unlisten) => {
         if (disposed) {
@@ -103,6 +107,7 @@ export const useAppBootstrap = ({
         setActualPort(status.port === 0 ? "" : status.port.toString());
         setLocalIp(status.ip);
         setFileTransferAccessToken(status.access_token || "");
+        setFileTransferLanKey(status.lan_key || "");
       })
       .catch(console.error);
 
@@ -126,6 +131,7 @@ export const useAppBootstrap = ({
     setDefaultApps,
     setFileServerEnabled,
     setFileTransferAccessToken,
+    setFileTransferLanKey,
     setInstalledApps,
     setLocalIp,
   ]);

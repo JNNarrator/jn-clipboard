@@ -29,6 +29,7 @@ interface AppMainContentProps {
   localIp: string;
   actualPort: string;
   fileTransferAccessToken: string;
+  fileTransferLanKey: string;
   settingsPanelProps: SettingsPanelProps;
   emojiFavorites: string[];
   setEmojiFavorites: (val: string[] | ((prev: string[]) => string[])) => void;
@@ -107,6 +108,7 @@ const AppMainContent = ({
   localIp,
   actualPort,
   fileTransferAccessToken,
+  fileTransferLanKey,
   settingsPanelProps,
   emojiFavorites,
   setEmojiFavorites,
@@ -197,6 +199,7 @@ const AppMainContent = ({
             localIp={localIp}
             actualPort={actualPort}
             accessToken={fileTransferAccessToken}
+            lanKey={fileTransferLanKey}
           />
         </motion.div>
       );

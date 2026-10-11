@@ -31,6 +31,7 @@ import {
     resolveDesktopDownloadUrl,
     mediaFallbackKey,
     resolveShareableDownloadUrl,
+    buildPairingUrl,
 } from "../utils/transferHelpers";
 import {
     PendingTransferItem,
@@ -53,13 +54,14 @@ const FileTransferChatView = ({
     localIp,
     actualPort,
     accessToken,
+    lanKey,
 }: FileTransferChatViewProps) => {
     const [interfaces, setInterfaces] = useState<NetworkInterfaceInfo[]>([]);
     const [selectedIp, setSelectedIp] = useState<string>(localIp);
     const [copiedMessageId, setCopiedMessageId] = useState<number | null>(null);
     const [copiedLink, setCopiedLink] = useState(false);
     const activeIp = selectedIp || localIp;
-    const connectionUrl = `http://${activeIp}:${actualPort}/?auth=${encodeURIComponent(accessToken)}`;
+    const connectionUrl = buildPairingUrl(activeIp, actualPort, accessToken, lanKey);
     const [messages, setMessages] = useState<FileTransferMessage[]>([]);
     const [mediaFallbackSources, setMediaFallbackSources] = useState<Record<string, string>>({});
     const [input, setInput] = useState("");

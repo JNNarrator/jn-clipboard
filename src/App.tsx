@@ -342,6 +342,8 @@ const App = () => {
     setActualPort,
     fileTransferAccessToken,
     setFileTransferAccessToken,
+    fileTransferLanKey,
+    setFileTransferLanKey,
     setFileTransferPath,
     setFileTransferAutoOpen,
     setFileTransferAutoCopy,
@@ -827,6 +829,7 @@ const App = () => {
     setFileServerEnabled,
     setActualPort,
     setFileTransferAccessToken,
+    setFileTransferLanKey,
     setLocalIp,
     setAvailableIps,
     setWinClipboardDisabled
@@ -1320,6 +1323,7 @@ const App = () => {
             localIp={localIp}
             actualPort={actualPort}
             fileTransferAccessToken={fileTransferAccessToken}
+            fileTransferLanKey={fileTransferLanKey}
             settingsPanelProps={settingsPanelProps}
             emojiFavorites={emojiFavorites}
             setEmojiFavorites={setEmojiFavorites}

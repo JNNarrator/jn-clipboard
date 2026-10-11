@@ -604,6 +604,10 @@ fn file_transfer_theme_css(theme: &str, color_mode: &str) -> String {
     format!(":root {{{light}}}\n{dark_css}\n{extra}")
 }
 
+/// AES-256-GCM for the page, which is served over plain HTTP where WebCrypto
+/// is unavailable (assets/lan-crypto.js, sealed.rs).
+const LAN_CRYPTO: &str = include_str!("assets/lan-crypto.js");
+
 pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String {
     let theme_css = file_transfer_theme_css(theme, color_mode);
     let mode_class = match color_mode {
@@ -1124,11 +1128,127 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
         <img id="overlay-img" style="max-width:95%; max-height:90%; object-fit:contain; border-radius:4px; box-shadow:0 0 20px rgba(0,0,0,0.5);">
     </div>
 
+    <script>{lan_crypto}</script>
     <script>
+        // ---- Encryption (docs/LAN-TRANSFER-ENCRYPTION.md) ----
+        // The QR code's #k= fragment holds this session's key. Fragments never
+        // leave the phone; sessionStorage keeps the key across reloads.
+        const LAN_KEY_STORE = 'tiez.lan-key';
+        const lanKeyText = new URLSearchParams(window.location.hash.slice(1)).get('k')
+            || sessionStorage.getItem(LAN_KEY_STORE) || '';
+        function b64urlToBytes(text) {{
+            const b64 = text.replace(/-/g, '+').replace(/_/g, '/');
+            const bin = atob(b64 + '='.repeat((4 - b64.length % 4) % 4));
+            return Uint8Array.from(bin, c => c.charCodeAt(0));
+        }}
+        let lanKey = null;
+        try {{ lanKey = lanKeyText ? b64urlToBytes(lanKeyText) : null; }} catch (_) {{ lanKey = null; }}
+        if (lanKey && lanKey.length === 32) sessionStorage.setItem(LAN_KEY_STORE, lanKeyText);
+        else lanKey = null;
         // The one-time QR credential is persisted as an HttpOnly session cookie by
-        // the server. Remove it from the visible URL and browser history immediately.
-        if (window.location.search.includes('auth=')) {{
+        // the server. Remove it, and the key, from the visible URL and history.
+        if (window.location.search.includes('auth=') || window.location.hash) {{
             window.history.replaceState(null, '', window.location.pathname);
+        }}
+        if (!lanKey) {{
+            // Without the key nothing can be read or sent; never fall back to plain text.
+            document.body.innerHTML = '<div style="padding:48px 24px;text-align:center;font:15px/1.6 system-ui;color:var(--text-primary)">'
+                + '请用电脑上 TieZ「局域网互传」的二维码重新打开此页面。<br><span style="opacity:.7">链接里缺少加密密钥。</span></div>';
+            throw new Error('missing transfer key');
+        }}
+        const textEncoder = new TextEncoder();
+        const textDecoder = new TextDecoder();
+        function seal(kind, plain) {{
+            const nonce = crypto.getRandomValues(new Uint8Array(12));
+            const body = TiezLanCrypto.gcm(lanKey, nonce, textEncoder.encode('tiez-lan-v1/' + kind)).encrypt(plain);
+            const out = new Uint8Array(16 + body.length);
+            out.set(textEncoder.encode('TZL1'), 0);
+            out.set(nonce, 4);
+            out.set(body, 16);
+            return out;
+        }}
+        function open(kind, boxed) {{
+            const bytes = boxed instanceof Uint8Array ? boxed : new Uint8Array(boxed);
+            if (bytes.length < 32 || textDecoder.decode(bytes.subarray(0, 4)) !== 'TZL1') throw new Error('not sealed');
+            return TiezLanCrypto.gcm(lanKey, bytes.subarray(4, 16), textEncoder.encode('tiez-lan-v1/' + kind)).decrypt(bytes.subarray(16));
+        }}
+        const sealJson = (kind, value) => seal(kind, textEncoder.encode(JSON.stringify(value)));
+        const openJson = (kind, buffer) => JSON.parse(textDecoder.decode(open(kind, buffer)));
+        // Messages link to /download/<token>?name=; read the sealed stream
+        // instead, and keep the file name off the wire.
+        const sealedPath = (url) => url.replace(/^\/download\//, '/s/download/').split('?')[0];
+        async function fetchSealedFile(url) {{
+            const response = await fetch(sealedPath(url), {{ cache: 'no-store' }});
+            if (!response.ok || !response.body) throw new Error('HTTP ' + response.status);
+            const reader = response.body.getReader();
+            const parts = [];
+            let pending = new Uint8Array(0);
+            let index = 0;
+            let done = false;
+            let sawLast = false;
+            while (!sawLast) {{
+                if (!done) {{
+                    const step = await reader.read();
+                    if (step.done) done = true;
+                    else {{
+                        const merged = new Uint8Array(pending.length + step.value.length);
+                        merged.set(pending, 0);
+                        merged.set(step.value, pending.length);
+                        pending = merged;
+                    }}
+                }}
+                // A frame is the last one when nothing follows it and the stream
+                // has ended; its AAD says so, which also catches truncation.
+                while (pending.length >= 4) {{
+                    const len = new DataView(pending.buffer, pending.byteOffset, 4).getUint32(0);
+                    if (pending.length < 4 + len) break;
+                    const isLast = done && pending.length === 4 + len;
+                    if (!isLast && pending.length === 4 + len) break;
+                    parts.push(open('download/' + index + '/' + (isLast ? 1 : 0), pending.subarray(4, 4 + len)));
+                    pending = pending.subarray(4 + len);
+                    index++;
+                    if (isLast) {{ sawLast = true; break; }}
+                }}
+                // Ended without a frame sealed as last: cut off, or tampered with.
+                if (done && !sawLast) throw new Error('truncated download');
+            }}
+            return new Blob(parts);
+        }}
+        function plainFileName(name) {{
+            const base = (name || '').split('/').pop().split('\\').pop();
+            const m = base.match(/^\d{{8,}}_(.+)$/);
+            return m ? m[1] : (base || 'download');
+        }}
+        async function downloadSealed(url, name) {{
+            try {{
+                const href = URL.createObjectURL(await fetchSealedFile(url));
+                const a = document.createElement('a');
+                a.href = href;
+                a.download = plainFileName(name);
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                setTimeout(() => URL.revokeObjectURL(href), 60000);
+            }} catch (error) {{
+                console.error(error);
+                alert('下载失败，请重试。');
+            }}
+        }}
+        function bindSealedDownload(el, url, name) {{
+            el.style.cursor = 'pointer';
+            el.onclick = (event) => {{ event.preventDefault(); downloadSealed(url, name); }};
+        }}
+        // <img>/<video> cannot read sealed streams: decrypt, then show a blob URL.
+        const sealedMediaCache = new Map();
+        function hydrateSealedMedia(root) {{
+            root.querySelectorAll('[data-sealed-src]').forEach(el => {{
+                const url = el.getAttribute('data-sealed-src');
+                el.removeAttribute('data-sealed-src');
+                if (!sealedMediaCache.has(url)) {{
+                    sealedMediaCache.set(url, fetchSealedFile(url).then(blob => URL.createObjectURL(blob)));
+                }}
+                sealedMediaCache.get(url).then(src => {{ el.src = src; }}).catch(error => console.error(error));
+            }});
         }}
         const fileInput = document.getElementById('file-input');
         const textInput = document.getElementById('text-input');
@@ -1276,7 +1396,7 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
                 const response = await fetch('/download-batch/' + encodeURIComponent(batchId), {{ method: 'POST' }});
                 if (!response.ok) throw new Error(await response.text());
                 const result = await response.json();
-                window.location.href = result.url;
+                await downloadSealed(result.url, result.name);
                 button.textContent = '已开始下载';
             }} catch (error) {{
                 console.error(error);
@@ -1338,11 +1458,11 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
             const fileName = normalizeFileName(rawName || `文件 ${{index + 1}}`);
             const url = msg.content && msg.content.startsWith('/download/') ? msg.content : '';
             if (!row) {{
-                row = document.createElement(url ? 'a' : 'div');
+                row = document.createElement('div');
                 row.className = 'batch-file-row';
                 row.dataset.batchIndex = String(index);
                 if (msg.id) row.setAttribute('data-msg-id', String(msg.id));
-                if (url) row.href = url;
+                if (url) bindSealedDownload(row, url, rawName);
                 row.innerHTML = `
                     <span class="batch-file-icon">📄</span>
                     <span class="batch-file-copy">
@@ -1353,13 +1473,7 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
                 entry.indices.add(index);
             }} else {{
                 if (msg.id) row.setAttribute('data-msg-id', String(msg.id));
-                if (url) {{
-                    if (row.tagName === 'A') row.href = url;
-                    else {{
-                        row.style.cursor = 'pointer';
-                        row.onclick = () => window.location.href = url;
-                    }}
-                }}
+                if (url) bindSealedDownload(row, url, rawName);
                 row.querySelector('.batch-file-name').textContent = fileName;
                 row.querySelector('.batch-file-status').textContent = formatBytes(msg.file_size) || '已完成';
             }}
@@ -1375,11 +1489,15 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
             if (msgType === 'image' || (content.match(/\.(jpg|jpeg|png|gif|webp)$/i) && file_path)) {{
                 const useContent = content.startsWith('data:') || content.startsWith('/download/') || content.startsWith('http');
                 const src = escapeHTML(useContent ? content : (file_path || content));
-                bubbleContent = `<img src="${{src}}" class="img-preview" onclick="openOverlay(this.src)">`;
+                bubbleContent = content.startsWith('/download/')
+                    ? `<img data-sealed-src="${{src}}" class="img-preview" alt="" onclick="openOverlay(this.src)">`
+                    : `<img src="${{src}}" class="img-preview" onclick="openOverlay(this.src)">`;
             }} else if (msgType === 'video') {{
                 const useContent = content.startsWith('/download/') || content.startsWith('http');
                 const src = escapeHTML(useContent ? content : (file_path || content));
-                bubbleContent = `<video class="video-preview" controls src="${{src}}"></video>`;
+                bubbleContent = content.startsWith('/download/')
+                    ? `<video class="video-preview" controls data-sealed-src="${{src}}"></video>`
+                    : `<video class="video-preview" controls src="${{src}}"></video>`;
             }} else if (msgType === 'file' || file_path) {{
                  const rawName = extractNameFromContent(content, file_path);
                  const fileName = normalizeFileName(rawName);
@@ -1411,11 +1529,10 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
                 </div>
             `;
             
-            const downloadUrl = content.startsWith('/download/') ? content : file_path;
-            if (downloadUrl && msgType !== 'image' && msgType !== 'video') {{
-                div.querySelector('.bubble').style.cursor = 'pointer';
-                div.querySelector('.bubble').onclick = () => window.location.href = downloadUrl;
+            if (content.startsWith('/download/') && msgType !== 'image' && msgType !== 'video') {{
+                bindSealedDownload(div.querySelector('.bubble'), content, extractNameFromContent(content, file_path));
             }}
+            hydrateSealedMedia(div);
             
             return div;
         }}
@@ -1533,9 +1650,9 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
             if (isSyncing) return;
             isSyncing = true;
             try {{
-                const res = await fetch(`/poll?last_id=${{lastId}}`);
+                const res = await fetch(`/s/poll?last_id=${{lastId}}`);
                 if (res.ok) {{
-                    const list = await res.json();
+                    const list = openJson('poll', await res.arrayBuffer());
                     if (Array.isArray(list) && list.length > 0) {{
                         for (const m of list) {{
                             handleIncomingMessage(m);
@@ -1564,16 +1681,17 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
             }}
             updateConnectionStatus('connecting');
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            socket = new WebSocket(`${{protocol}}//${{window.location.host}}/ws`);
+            socket = new WebSocket(`${{protocol}}//${{window.location.host}}/ws?s=1`);
+            socket.binaryType = 'arraybuffer';
             
             socket.onopen = () => {{
                 updateConnectionStatus('connected');
-                socket.send(JSON.stringify({{ type: 'identity', device_id: deviceId, device_name: deviceName }}));
+                socket.send(sealJson('ws', {{ type: 'identity', device_id: deviceId, device_name: deviceName }}));
                 console.log('WS Connected');
                 clearInterval(pingTimer);
                 pingTimer = setInterval(() => {{
                     if (socket && socket.readyState === WebSocket.OPEN) {{
-                        socket.send(JSON.stringify({{ type: 'ping' }}));
+                        socket.send(sealJson('ws', {{ type: 'ping' }}));
                     }}
                 }}, 20000);
                 syncMissedMessages();
@@ -1581,7 +1699,7 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
             
             socket.onmessage = (e) => {{
                 try {{
-                    const msg = JSON.parse(e.data);
+                    const msg = openJson('ws', e.data);
                     handleIncomingMessage(msg);
                     scrollToBottom();
                 }} catch (err) {{
@@ -1634,10 +1752,10 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
             document.getElementById('expand-btn').style.display = 'none';
 
             try {{
-                await fetch('/send-text', {{
+                await fetch('/s/send-text', {{
                     method: 'POST',
-                    headers: {{ 'Content-Type': 'application/json' }},
-                    body: JSON.stringify({{ content: text, sender_id: deviceId, sender_name: deviceName }})
+                    headers: {{ 'Content-Type': 'application/octet-stream' }},
+                    body: sealJson('text', {{ content: text, sender_id: deviceId, sender_name: deviceName }})
                 }});
             }} catch(e) {{ alert('Send failed'); }}
         }};
@@ -1722,9 +1840,8 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
                 const end = Math.min(file.size, start + CHUNK_SIZE);
                 const chunk = file.slice(start, end);
 
-                const formData = new FormData();
-                formData.append('file', chunk);
-                formData.append('metadata', JSON.stringify({{
+                // Sealed as one box: u32 metadata length, metadata JSON, chunk bytes.
+                const metaBytes = textEncoder.encode(JSON.stringify({{
                     upload_id: uploadId,
                     chunk_index: i,
                     total_chunks: totalChunks,
@@ -1739,13 +1856,23 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
                     batch_total: batch?.total,
                     batch_size: batch?.totalSize
                 }}));
+                const chunkBytes = new Uint8Array(await chunk.arrayBuffer());
+                const payload = new Uint8Array(4 + metaBytes.length + chunkBytes.length);
+                new DataView(payload.buffer).setUint32(0, metaBytes.length);
+                payload.set(metaBytes, 4);
+                payload.set(chunkBytes, 4 + metaBytes.length);
+                const sealedChunk = seal('upload', payload);
 
                 try {{
                     let res = null;
                     let lastError = null;
                     for (let attempt = 0; attempt < 3; attempt++) {{
                         try {{
-                            res = await fetch('/upload-chunk', {{ method: 'POST', body: formData }});
+                            res = await fetch('/s/upload-chunk', {{
+                                method: 'POST',
+                                headers: {{ 'Content-Type': 'application/octet-stream' }},
+                                body: sealedChunk
+                            }});
                             if (res.ok) break;
                             const detail = await res.text().catch(() => '');
                             lastError = new Error(detail || `HTTP ${{res.status}}`);
@@ -1830,7 +1957,8 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
         theme = theme,
         mode_class = mode_class,
         theme_css = theme_css,
-        logo_base64 = logo_base64
+        logo_base64 = logo_base64,
+        lan_crypto = LAN_CRYPTO
     )
 }
 
@@ -1962,6 +2090,25 @@ mod tests {
         "receipt",
         "ink",
     ];
+
+    #[test]
+    fn page_only_talks_through_sealed_routes() {
+        let page = render_index("macos", "light", "");
+        assert!(page.contains("TiezLanCrypto"), "the AES-GCM bundle is inlined");
+        for sealed in ["/s/poll", "/s/send-text", "/s/upload-chunk", "/ws?s=1", "/s/download/"] {
+            assert!(page.contains(sealed), "uses {sealed}");
+        }
+        for plain in [
+            "fetch(`/poll",
+            "fetch('/send-text'",
+            "fetch('/upload-chunk'",
+            "new FormData()",
+            "window.location.href = url",
+            "window.location.href = result.url",
+        ] {
+            assert!(!page.contains(plain), "must not use plaintext route: {plain}");
+        }
+    }
 
     #[test]
     fn native_palette_follows_the_desktop_without_affecting_other_themes() {

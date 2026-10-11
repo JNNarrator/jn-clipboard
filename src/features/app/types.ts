@@ -274,6 +274,8 @@ export interface AppState {
   setActualPort: StateSetter<string>;
   fileTransferAccessToken: string;
   setFileTransferAccessToken: StateSetter<string>;
+  fileTransferLanKey: string;
+  setFileTransferLanKey: StateSetter<string>;
   fileTransferPath: string;
   setFileTransferPath: StateSetter<string>;
   fileTransferAutoOpen: boolean;

@@ -1,5 +1,6 @@
 pub mod handlers;
 pub mod models;
+pub mod sealed;
 pub mod utils;
 pub mod web_ui;
 
@@ -120,6 +121,18 @@ fn clear_upload_sessions(app_handle: &AppHandle) {
     }
 }
 
+
+/// The pairing key as it goes into the QR code; empty while the server is off.
+fn lan_key_text(server_info: &ServerInfo) -> String {
+    server_info
+        .lan_key
+        .lock()
+        .unwrap()
+        .as_ref()
+        .map(sealed::encode_key)
+        .unwrap_or_default()
+}
+
 #[tauri::command]
 pub fn get_local_ip_addr(app_handle: AppHandle) -> String {
     let server_info = app_handle.state::<ServerInfo>();
@@ -154,6 +167,7 @@ pub fn set_display_ip(app_handle: AppHandle, ip: String) {
             port,
             ip,
             access_token: server_info.access_token.lock().unwrap().clone(),
+            lan_key: lan_key_text(&server_info),
         },
     );
 }
@@ -512,6 +526,10 @@ pub async fn toggle_file_server(
         let actual_ip = get_local_ip_addr(app_handle.clone());
         let server_info = app_handle.state::<ServerInfo>();
         let access_token = uuid::Uuid::new_v4().to_string();
+        let Some(lan_key) = sealed::generate_key() else {
+            return Err("Failed to create the transfer key".to_string());
+        };
+        *server_info.lan_key.lock().unwrap() = Some(lan_key);
         server_info.port.store(actual_port, Ordering::SeqCst);
         {
             let mut ip_guard = server_info.ip.lock().unwrap();
@@ -542,6 +560,7 @@ pub async fn toggle_file_server(
                     actual_ip
                 },
                 access_token,
+                lan_key: sealed::encode_key(&lan_key),
             },
         );
         let db_state = app_handle.state::<DbState>();
@@ -574,6 +593,7 @@ pub async fn toggle_file_server(
                 let mut token_guard = server_info.access_token.lock().unwrap();
                 *token_guard = String::new();
             }
+            *server_info.lan_key.lock().unwrap() = None;
             clear_shared_files(&app_handle);
             clear_upload_sessions(&app_handle);
             let _ = app_handle.emit(
@@ -583,6 +603,7 @@ pub async fn toggle_file_server(
                     port: 0,
                     ip: String::new(),
                     access_token: String::new(),
+                    lan_key: String::new(),
                 },
             );
             Ok("Server stopped".to_string())
@@ -602,10 +623,18 @@ pub async fn run_server(listener: tokio::net::TcpListener, app_handle: AppHandle
     }
     let (shutdown_tx, shutdown) = tokio::sync::watch::channel(false);
     *SERVER_SHUTDOWN.lock().unwrap() = Some(shutdown_tx);
+    let lan_key = app_handle
+        .state::<ServerInfo>()
+        .lan_key
+        .lock()
+        .unwrap()
+        .or_else(sealed::generate_key)
+        .unwrap_or([0u8; sealed::KEY_LEN]);
     let state = Arc::new(AppState {
         app_handle: app_handle.clone(),
         ws_tx: ws_tx.clone(),
         shutdown,
+        lan_key,
     });
     let protected_routes = Router::new()
         .route("/", get(handlers::index))
@@ -626,6 +655,12 @@ pub async fn run_server(listener: tokio::net::TcpListener, app_handle: AppHandle
             "/download-batch/{batch_id}",
             post(handlers::prepare_batch_download),
         )
+        // Encrypted counterparts (sealed.rs). Downloads here also need the
+        // session: they are fetched by script, not by native <img>/<video>.
+        .route("/s/poll", get(handlers::sealed_poll))
+        .route("/s/send-text", post(handlers::sealed_text))
+        .route("/s/upload-chunk", post(handlers::sealed_upload_chunk))
+        .route("/s/download/{token}", get(handlers::sealed_download))
         .layer(middleware::from_fn_with_state(
             state.clone(),
             handlers::require_session,
@@ -662,6 +697,7 @@ pub async fn run_server(listener: tokio::net::TcpListener, app_handle: AppHandle
         let mut token_guard = server_info.access_token.lock().unwrap();
         *token_guard = String::new();
     }
+    *server_info.lan_key.lock().unwrap() = None;
     clear_shared_files(&app_handle);
     clear_upload_sessions(&app_handle);
     let _ = app_handle.emit(
@@ -671,6 +707,7 @@ pub async fn run_server(listener: tokio::net::TcpListener, app_handle: AppHandle
             port: 0,
             ip: String::new(),
             access_token: String::new(),
+            lan_key: String::new(),
         },
     );
 }
@@ -906,6 +943,7 @@ pub fn get_file_server_status(app_handle: AppHandle) -> StatusPayload {
         port,
         ip,
         access_token,
+        lan_key: lan_key_text(&server_info),
     }
 }
 

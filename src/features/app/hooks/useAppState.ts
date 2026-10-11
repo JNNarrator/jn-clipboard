@@ -150,6 +150,7 @@ export const useAppState = (): AppState => {
   const [availableIps, setAvailableIps] = useState<string[]>([]);
   const [actualPort, setActualPort] = useState("");
   const [fileTransferAccessToken, setFileTransferAccessToken] = useState("");
+  const [fileTransferLanKey, setFileTransferLanKey] = useState("");
   const [fileTransferPath, setFileTransferPath] = useState("");
   const [fileTransferAutoOpen, setFileTransferAutoOpen] = useState(false);
   const [fileTransferAutoCopy, setFileTransferAutoCopy] = useState(false);
@@ -434,6 +435,8 @@ export const useAppState = (): AppState => {
     setActualPort,
     fileTransferAccessToken,
     setFileTransferAccessToken,
+    fileTransferLanKey,
+    setFileTransferLanKey,
     fileTransferPath,
     setFileTransferPath,
     fileTransferAutoOpen,

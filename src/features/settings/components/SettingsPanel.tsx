@@ -183,6 +183,7 @@ interface SettingsPanelProps {
     setLocalIp?: (val: string) => void;
     actualPort: string;
     fileTransferAccessToken: string;
+    fileTransferLanKey: string;
     fileTransferAutoOpen: boolean;
     showAutoCloseHint: boolean;
     fileServerAutoClose: boolean;
@@ -337,7 +338,7 @@ const SettingsPanel = (props: SettingsPanelProps) => {
         surfaceOpacity, setSurfaceOpacity,
         mqttEnabled, mqttServer, mqttPort, mqttUser, mqttPass, mqttTopic, mqttProtocol, mqttWsPath, mqttNotificationEnabled,
         cloudSyncEnabled, cloudSyncAuto, cloudSyncIntervalSec, cloudSyncSnapshotIntervalMin, cloudSyncWebdavUrl, cloudSyncWebdavUsername, cloudSyncWebdavPassword, cloudSyncWebdavBasePath, cloudSyncContentPrefs,
-        fileServerEnabled, fileServerPort, localIp, availableIps, setLocalIp, actualPort, fileTransferAccessToken, fileTransferAutoOpen, showAutoCloseHint, fileServerAutoClose, fileTransferAutoCopy, fileTransferPath,
+        fileServerEnabled, fileServerPort, localIp, availableIps, setLocalIp, actualPort, fileTransferAccessToken, fileTransferLanKey, fileTransferAutoOpen, showAutoCloseHint, fileServerAutoClose, fileTransferAutoCopy, fileTransferPath,
         installedApps, appSettings, defaultApps, showAppSelector, dataPath,
 
         toggleGroup, setSettingsSubpage, setAutoStart, setElevatedAutostart, setSilentStart, setPersistent, setPersistentLimitEnabled, setPersistentLimit, setDeduplicate, setCaptureFiles, setCaptureRichText, setRichTextSnapshotPreview, setDeleteAfterPaste, setMoveToTopAfterPaste, setClickCopyOnly, saveAppSetting,
@@ -816,6 +817,7 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                     setLocalIp={setLocalIp}
                     actualPort={actualPort}
                     accessToken={fileTransferAccessToken}
+                    lanKey={fileTransferLanKey}
                     fileTransferAutoOpen={fileTransferAutoOpen}
                     setFileTransferAutoOpen={setFileTransferAutoOpen}
                     showAutoCloseHint={showAutoCloseHint}

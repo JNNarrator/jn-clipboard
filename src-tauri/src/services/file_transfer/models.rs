@@ -10,6 +10,8 @@ pub struct AppState {
     pub ws_tx: broadcast::Sender<String>,
     /// Flips to true when the server is turned off, closing open WebSockets.
     pub shutdown: tokio::sync::watch::Receiver<bool>,
+    /// Seals the `/s/*` routes and `?s=1` WebSockets (sealed.rs).
+    pub lan_key: super::sealed::LanKey,
 }
 
 #[derive(Default)]
@@ -65,6 +67,8 @@ pub struct StatusPayload {
     pub port: u16,
     pub ip: String,
     pub access_token: String,
+    /// base64url key for the pairing QR's `#k=` fragment; empty when off.
+    pub lan_key: String,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -172,4 +176,5 @@ pub struct ServerInfo {
     pub port: std::sync::atomic::AtomicU16,
     pub ip: Mutex<String>,
     pub access_token: Mutex<String>,
+    pub lan_key: Mutex<Option<super::sealed::LanKey>>,
 }

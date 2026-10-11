@@ -6,6 +6,9 @@ broker and the WebDAV server see ciphertext. Implemented by the desktop app
 (`src-tauri/src/services/e2e.rs`) and the mobile app (`tiez-mobile/src/lib/e2e.ts`);
 both must follow this document byte for byte.
 
+LAN transfer has its own per-session key and protocol: see
+[LAN-TRANSFER-ENCRYPTION.md](LAN-TRANSFER-ENCRYPTION.md).
+
 ## Key
 
 - 32 random bytes, written as **base64url without padding** (43 characters).

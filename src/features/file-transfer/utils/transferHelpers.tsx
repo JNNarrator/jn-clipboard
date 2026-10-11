@@ -299,3 +299,12 @@ export const renderTextWithLinks = (text: string) => {
 
 export type MultiFileSendMode = 'package' | 'separate';
 export const MULTI_FILE_SEND_MODE_KEY = 'tiez.file-transfer.multi-file-send-mode';
+
+/**
+ * The pairing link behind the QR code. The session token rides in the query
+ * (the server trades it for a cookie); the encryption key rides in the
+ * fragment, which browsers never send over the network
+ * (docs/LAN-TRANSFER-ENCRYPTION.md).
+ */
+export const buildPairingUrl = (ip: string, port: string, token: string, lanKey: string) =>
+    `http://${ip}:${port}/?auth=${encodeURIComponent(token)}${lanKey ? `#k=${lanKey}` : ""}`;

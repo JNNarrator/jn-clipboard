@@ -585,6 +585,7 @@ fn setup_state(
         port: std::sync::atomic::AtomicU16::new(0),
         ip: std::sync::Mutex::new(String::new()),
         access_token: std::sync::Mutex::new(String::new()),
+        lan_key: std::sync::Mutex::new(None),
     });
     app.manage(crate::services::file_transfer::UploadSessions::default());
     app.manage(crate::services::file_transfer::ServerActivityState::default());

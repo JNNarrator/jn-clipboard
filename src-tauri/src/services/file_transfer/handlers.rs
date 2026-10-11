@@ -26,6 +26,7 @@ use crate::infrastructure::repository::clipboard_repo::ClipboardRepository;
 use crate::infrastructure::repository::settings_repo::SettingsRepository;
 
 use super::models::*;
+use super::sealed;
 use super::utils::*;
 use super::web_ui::render_index_with_palette;
 use super::{
@@ -369,14 +370,23 @@ pub async fn index(State(state): State<Arc<AppState>>) -> Html<String> {
     ))
 }
 
+fn last_id_param(params: &HashMap<String, String>) -> u64 {
+    params
+        .get("last_id")
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(0)
+}
+
 pub async fn poll_messages(
     Query(params): Query<HashMap<String, String>>,
     State(state): State<Arc<AppState>>,
 ) -> Json<Vec<Message>> {
-    let last_id = params
-        .get("last_id")
-        .and_then(|v| v.parse::<u64>().ok())
-        .unwrap_or(0);
+    Json(collect_messages(&state, last_id_param(&params)))
+}
+
+/// Chat messages after `last_id`, with local file paths swapped for download
+/// links (`/download/<token>?name=`).
+fn collect_messages(state: &AppState, last_id: u64) -> Vec<Message> {
     let chat_state = state.app_handle.state::<ChatState>();
 
     let msgs_result = {
@@ -424,14 +434,18 @@ pub async fn poll_messages(
         }
     };
 
-    Json(msgs_result)
+    msgs_result
 }
 
 pub async fn ws_handler(
     ws: WebSocketUpgrade,
+    Query(params): Query<HashMap<String, String>>,
     State(state): State<Arc<AppState>>,
 ) -> impl IntoResponse {
-    ws.on_upgrade(|socket| handle_socket(socket, state))
+    // `?s=1`: every frame is a sealed box (sealed.rs). Without it the socket
+    // speaks plain JSON for TieZ apps that predate encryption.
+    let sealed_mode = params.get("s").is_some_and(|v| v == "1");
+    ws.on_upgrade(move |socket| handle_socket(socket, state, sealed_mode))
 }
 
 #[derive(serde::Deserialize)]
@@ -448,15 +462,24 @@ enum WsIncoming {
     Unknown,
 }
 
-pub async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
+pub async fn handle_socket(socket: WebSocket, state: Arc<AppState>, sealed_mode: bool) {
     let (mut sender, mut receiver) = socket.split();
     let mut rx = state.ws_tx.subscribe();
     let mut shutdown = state.shutdown.clone();
     let mut current_device_id: Option<String> = None;
+    let key = state.lan_key;
 
     let mut send_task = tokio::spawn(async move {
         while let Ok(msg) = rx.recv().await {
-            if sender.send(WsMessage::Text(msg.into())).await.is_err() {
+            let frame = if sealed_mode {
+                match sealed::seal(&key, "ws", msg.as_bytes()) {
+                    Some(boxed) => WsMessage::Binary(boxed.into()),
+                    None => break,
+                }
+            } else {
+                WsMessage::Text(msg.into())
+            };
+            if sender.send(frame).await.is_err() {
                 break;
             }
         }
@@ -465,7 +488,13 @@ pub async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
     let state_inner = state.clone();
     let mut recv_task = tokio::spawn(async move {
         while let Some(Ok(msg)) = receiver.next().await {
-            if let WsMessage::Text(text) = msg {
+            let text = match (sealed_mode, msg) {
+                (true, WsMessage::Binary(boxed)) => sealed::open(&key, "ws", &boxed)
+                    .and_then(|plain| String::from_utf8(plain).ok()),
+                (false, WsMessage::Text(text)) => Some(text.to_string()),
+                _ => None,
+            };
+            if let Some(text) = text {
                 if let Ok(incoming) = serde_json::from_str::<WsIncoming>(&text) {
                     match incoming {
                         WsIncoming::Ping => {
@@ -547,6 +576,10 @@ pub async fn handle_text(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<ReceiveText>,
 ) -> axum::response::Response {
+    receive_text(state, payload).await
+}
+
+async fn receive_text(state: Arc<AppState>, payload: ReceiveText) -> axum::response::Response {
     let db_state = state.app_handle.state::<DbState>();
     update_activity(&state.app_handle);
 
@@ -1645,4 +1678,121 @@ fn release_upload_lock(upload_id: &str) {
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner())
         .remove(upload_id);
+}
+
+// ---- Sealed routes: the same operations with encrypted bodies (sealed.rs) ----
+
+fn sealed_body(key: &sealed::LanKey, kind: &str, plain: &[u8]) -> Response {
+    match sealed::seal(key, kind, plain) {
+        Some(body) => (
+            [
+                (header::CONTENT_TYPE, "application/octet-stream"),
+                (header::CACHE_CONTROL, "no-store"),
+            ],
+            body,
+        )
+            .into_response(),
+        None => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
+}
+
+fn open_body(key: &sealed::LanKey, kind: &str, body: &[u8]) -> Result<Vec<u8>, Response> {
+    sealed::open(key, kind, body)
+        .ok_or_else(|| (StatusCode::BAD_REQUEST, "Unreadable sealed body").into_response())
+}
+
+pub async fn sealed_poll(
+    Query(params): Query<HashMap<String, String>>,
+    State(state): State<Arc<AppState>>,
+) -> Response {
+    let messages = collect_messages(&state, last_id_param(&params));
+    let json = serde_json::to_vec(&messages).unwrap_or_else(|_| b"[]".to_vec());
+    sealed_body(&state.lan_key, "poll", &json)
+}
+
+pub async fn sealed_text(State(state): State<Arc<AppState>>, body: axum::body::Bytes) -> Response {
+    let plain = match open_body(&state.lan_key, "text", &body) {
+        Ok(plain) => plain,
+        Err(response) => return response,
+    };
+    match serde_json::from_slice::<ReceiveText>(&plain) {
+        Ok(payload) => receive_text(state, payload).await,
+        Err(_) => (StatusCode::BAD_REQUEST, "Invalid text payload").into_response(),
+    }
+}
+
+pub async fn sealed_upload_chunk(
+    State(state): State<Arc<AppState>>,
+    body: axum::body::Bytes,
+) -> Response {
+    let plain = match open_body(&state.lan_key, "upload", &body) {
+        Ok(plain) => plain,
+        Err(response) => return response,
+    };
+    let Some((meta, data)) = sealed::split_upload(&plain) else {
+        return (StatusCode::BAD_REQUEST, "Invalid upload payload").into_response();
+    };
+    match serde_json::from_slice::<ChunkMetadata>(meta) {
+        Ok(meta) => process_upload_chunk(state, meta, data.to_vec()).await,
+        Err(_) => (StatusCode::BAD_REQUEST, "Invalid chunk metadata").into_response(),
+    }
+}
+
+/// The file as `u32 BE length || box` frames of `sealed::DOWNLOAD_CHUNK`
+/// plaintext bytes. No Range support and no file name in the URL: the client
+/// keeps the name from the (sealed) message that linked here.
+pub async fn sealed_download(
+    Path(token): Path<String>,
+    State(state): State<Arc<AppState>>,
+) -> Response {
+    update_activity(&state.app_handle);
+    let shared_state = state.app_handle.state::<SharedFileState>();
+    let file_path = shared_state.0.lock().ok().and_then(|mut guard| {
+        guard.retain(|_, entry| !entry.is_expired());
+        guard.get(&token).map(|entry| entry.path.clone())
+    });
+    let Some(path) = file_path else {
+        return (StatusCode::NOT_FOUND, "File not found").into_response();
+    };
+    let Ok(file) = File::open(&path).await else {
+        return (StatusCode::NOT_FOUND, "File not found").into_response();
+    };
+    let total = match file.metadata().await {
+        Ok(meta) => meta.len(),
+        Err(_) => return (StatusCode::INTERNAL_SERVER_ERROR, "Metadata failed").into_response(),
+    };
+    let chunk = sealed::DOWNLOAD_CHUNK as u64;
+    let frames = total.div_ceil(chunk).max(1);
+    let key = state.lan_key;
+
+    let stream = futures::stream::unfold((file, 0u64), move |(mut file, index)| async move {
+        if index >= frames {
+            return None;
+        }
+        let mut buf = vec![0u8; sealed::DOWNLOAD_CHUNK];
+        let mut filled = 0;
+        while filled < buf.len() {
+            match file.read(&mut buf[filled..]).await {
+                Ok(0) => break,
+                Ok(n) => filled += n,
+                Err(err) => return Some((Err(err), (file, frames))),
+            }
+        }
+        buf.truncate(filled);
+        let last = index + 1 == frames;
+        let Some(frame) = sealed::download_frame(&key, index, last, &buf) else {
+            return Some((Err(std::io::Error::other("seal failed")), (file, frames)));
+        };
+        Some((Ok(axum::body::Bytes::from(frame)), (file, index + 1)))
+    });
+
+    (
+        [
+            (header::CONTENT_TYPE, "application/octet-stream".to_string()),
+            (header::CACHE_CONTROL, "no-store".to_string()),
+            (header::HeaderName::from_static("x-tiez-size"), total.to_string()),
+        ],
+        Body::from_stream(stream),
+    )
+        .into_response()
 }

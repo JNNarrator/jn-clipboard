@@ -4,6 +4,7 @@ import { withNativeDialog } from "../../../../shared/lib/focus";
 import { ChevronDown, ChevronRight, HelpCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import { QRCodeCanvas } from "qrcode.react";
+import { buildPairingUrl } from "../../../file-transfer/utils/transferHelpers";
 
 interface FileTransferSettingsGroupProps {
     t: (key: string) => string;
@@ -19,6 +20,7 @@ interface FileTransferSettingsGroupProps {
     setLocalIp?: (val: string) => void;
     actualPort: string;
     accessToken: string;
+    lanKey: string;
     fileTransferAutoOpen: boolean;
     setFileTransferAutoOpen: (val: boolean) => void;
     showAutoCloseHint: boolean;
@@ -47,6 +49,7 @@ const FileTransferSettingsGroup = ({
     setLocalIp,
     actualPort,
     accessToken,
+    lanKey,
     fileTransferAutoOpen,
     setFileTransferAutoOpen,
     showAutoCloseHint,
@@ -212,7 +215,7 @@ const FileTransferSettingsGroup = ({
                                 <div className="file-transfer-panel">
                                     <div className="qr-container">
                                         <QRCodeCanvas
-                                            value={`http://${localIp}:${actualPort}/?auth=${encodeURIComponent(accessToken)}`}
+                                            value={buildPairingUrl(localIp, actualPort, accessToken, lanKey)}
                                             size={90}
                                         />
                                         <div className="qr-label">{t('scan_me')}</div>

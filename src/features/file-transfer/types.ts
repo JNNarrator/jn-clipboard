@@ -3,6 +3,7 @@ export interface FileTransferChatViewProps {
   localIp: string;
   actualPort: string;
   accessToken: string;
+  lanKey: string;
 }
 
 export interface NetworkInterfaceInfo {
