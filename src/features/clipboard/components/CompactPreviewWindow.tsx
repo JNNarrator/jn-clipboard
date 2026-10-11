@@ -25,11 +25,23 @@ import {
 import { getConciseTime } from "../../../shared/lib/utils";
 import { getSourceAppIcon, peekSourceAppIcon } from "../../../shared/lib/sourceAppIcon";
 import type { Locale } from "../../../shared/types";
+import { translations } from "../../../locales";
 import { toTauriLocalImageSrc } from "../../../shared/lib/localImageSrc";
 import { stripRichStorageMarkers } from "../../../shared/lib/repairHtmlFragment";
 import { getRichTextSnapshotDataUrl } from "../../../shared/lib/richTextSnapshot";
 import { ensureInstalledThemeStyle } from "../../../shared/lib/themePackages";
 import { preferRichImageFallback } from "../lib/richPreview";
+
+const TYPE_LABEL_KEYS: Record<string, string> = {
+    code: "type_code", link: "type_url", url: "type_url", file: "type_file",
+    image: "type_image", video: "type_video", rich_text: "type_rich_text"
+};
+
+/** The content type in the user's language; it showed the raw id ("rich_text"). */
+const typeLabel = (type: string, language: Locale = "zh") => {
+    const key = (TYPE_LABEL_KEYS[type] ?? "type_text") as keyof typeof translations["zh"];
+    return translations[language]?.[key] || translations.zh[key];
+};
 
 type PreviewPayload = {
     requestId: number;
@@ -905,7 +917,7 @@ const calculateStandardCardDimensions = (
                 <div ref={metaRef} className="popover-meta">
                     <div className="meta-row">
                         {getIcon(payload?.contentType || "text")}
-                        <span>{payload?.contentType || "text"}</span>
+                        <span>{typeLabel(payload?.contentType || "text", payload?.language)}</span>
                     </div>
                     <div className="meta-dot">•</div>
                     <div className="meta-row meta-row-source">
