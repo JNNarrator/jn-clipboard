@@ -104,9 +104,10 @@ export const useSearchScroll = ({
     const isAtTop = () => listScrollTopRef.current <= AT_TOP_EPSILON;
 
     const onWheel = (e: WheelEvent) => {
-      // If the scroll happened inside the header, search container, or category filter tabs, ignore it
+      // Only the list drives search: ignore the header, the search UI, the
+      // category tabs, and the split view's detail pane, which scrolls itself.
       const target = e.target as HTMLElement | null;
-      if (target?.closest("header, .search-reveal, .search-container, .search-type-filters, .tags-dropdown")) {
+      if (target?.closest("header, .search-reveal, .search-container, .search-type-filters, .tags-dropdown, .main-split-detail")) {
         return;
       }
 
