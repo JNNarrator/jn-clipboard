@@ -15,7 +15,6 @@ import {
     Palette,
     Settings2,
     ShieldCheck,
-    KeyRound,
     Sparkles,
     Wifi,
     type LucideIcon
@@ -33,7 +32,6 @@ import AdvancedSettingsGroup from "./groups/AdvancedSettingsGroup";
 import AppearanceSettingsGroup from "./groups/AppearanceSettingsGroup";
 import SyncSettingsGroup from "./groups/SyncSettingsGroup";
 import CloudSyncSettingsGroup, { type CloudSyncStatusPayload } from "./groups/CloudSyncSettingsGroup";
-import E2eSettingsGroup from "./groups/E2eSettingsGroup";
 import { useE2eKey } from "../hooks/useE2eKey";
 import DefaultAppsSettingsGroup from "./groups/DefaultAppsSettingsGroup";
 import DataSettingsGroup from "./groups/DataSettingsGroup";
@@ -308,7 +306,6 @@ const SECTION_ICONS: Record<string, LucideIcon> = {
     ai: Sparkles,
     sync: MessageSquareText,
     cloud_sync: Cloud,
-    e2e: KeyRound,
     file_transfer: Wifi,
     secure_transfer: ShieldCheck,
     data: Database
@@ -317,7 +314,7 @@ const SECTION_ICONS: Record<string, LucideIcon> = {
 const NAV_GROUPS: { labelKey: string; ids: string[] }[] = [
     { labelKey: "settings_nav_group_basic", ids: ["general", "appearance"] },
     { labelKey: "settings_nav_group_clipboard", ids: ["clipboard", ADVANCED_ENTRY, "default_apps", "ai"] },
-    { labelKey: "settings_nav_group_sync", ids: ["sync", "cloud_sync", "e2e", "file_transfer"] },
+    { labelKey: "settings_nav_group_sync", ids: ["sync", "cloud_sync", "file_transfer"] },
     { labelKey: "settings_nav_group_data", ids: ["secure_transfer", "data"] }
 ];
 
@@ -734,6 +731,7 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                     mqttNotificationEnabled={mqttNotificationEnabled}
                     setMqttNotificationEnabled={setMqttNotificationEnabled}
                     e2eKey={e2eKey}
+                    saveE2eKey={saveE2eKey}
                 />
             )
         },
@@ -769,22 +767,11 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                         syncingNow={cloudSyncNowRunning}
                         onSyncNow={handleCloudSyncNow}
                         e2eKey={e2eKey}
+                        saveE2eKey={saveE2eKey}
                     />
                 )
             }]
             : []),
-        {
-            id: "e2e",
-            label: t("e2e_settings"),
-            node: (
-                <E2eSettingsGroup
-                    t={t}
-                    {...groupState('e2e')}
-                    e2eKey={e2eKey}
-                    saveE2eKey={saveE2eKey}
-                />
-            )
-        },
         {
             id: "ai",
             label: t("ai_settings"),

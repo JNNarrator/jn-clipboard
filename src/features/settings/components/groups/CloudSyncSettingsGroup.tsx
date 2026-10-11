@@ -9,6 +9,7 @@ import {
     isWebdavConfigQrReady,
 } from "../../utils/configQr";
 import { formatError } from "../../../../shared/lib/errorMessage";
+import E2eKeyPanel from "./E2eKeyPanel";
 
 export interface CloudSyncStatusPayload {
     state: string;
@@ -53,6 +54,7 @@ interface CloudSyncSettingsGroupProps {
     syncingNow: boolean;
     onSyncNow: () => void;
     e2eKey: string;
+    saveE2eKey: (value: string) => Promise<void>;
 }
 
 const statusTone = (state: string) => {
@@ -96,7 +98,8 @@ const CloudSyncSettingsGroup = ({
     status,
     syncingNow,
     onSyncNow,
-    e2eKey
+    e2eKey,
+    saveE2eKey
 }: CloudSyncSettingsGroupProps) => {
     const normalizeInterval = (raw: string) => {
         const parsed = Number.parseInt(raw, 10);
@@ -282,6 +285,8 @@ const CloudSyncSettingsGroup = ({
                         />
                     </div>
 
+                    {/* Above the QR code, which carries the key once one is set. */}
+                    <E2eKeyPanel t={t} e2eKey={e2eKey} saveE2eKey={saveE2eKey} hintPrefix="webdav" />
                     {(() => {
                         const webdavQr = buildWebdavConfigQrPayload({
                             url: cloudSyncWebdavUrl,

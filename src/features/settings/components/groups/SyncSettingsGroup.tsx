@@ -7,6 +7,7 @@ import {
     buildMqttConfigQrPayload,
     isMqttConfigQrReady,
 } from "../../utils/configQr";
+import E2eKeyPanel from "./E2eKeyPanel";
 
 interface LabelWithHintProps {
     label: string;
@@ -40,6 +41,7 @@ interface SyncSettingsGroupProps {
     mqttNotificationEnabled: boolean;
     setMqttNotificationEnabled: (val: boolean) => void;
     e2eKey: string;
+    saveE2eKey: (value: string) => Promise<void>;
 }
 
 const SyncSettingsGroup = ({
@@ -67,7 +69,8 @@ const SyncSettingsGroup = ({
     setMqttTopic,
     mqttNotificationEnabled,
     setMqttNotificationEnabled,
-    e2eKey
+    e2eKey,
+    saveE2eKey
 }: SyncSettingsGroupProps) => (
     <div className={`settings-group ${collapsed ? 'collapsed' : ''}`}>
         <button type="button" className="group-header" aria-expanded={!collapsed} onClick={onToggle}>
@@ -225,6 +228,8 @@ const SyncSettingsGroup = ({
                                 placeholder="tiez/my_device"
                             />
                         </div>
+                        {/* Above the QR code, which carries the key once one is set. */}
+                        <E2eKeyPanel t={t} e2eKey={e2eKey} saveE2eKey={saveE2eKey} hintPrefix="mqtt" />
                         {(() => {
                             const mqttQr = buildMqttConfigQrPayload({
                                 server: mqttServer,
