@@ -483,11 +483,7 @@ pub fn is_main_window_shown(app: &AppHandle) -> bool {
 /// Light mode destroyed the UI: rebuild it and show it once it has rendered.
 /// Skipped if another summon already showed the window in the meantime.
 fn rebuild_then_toggle(app: &AppHandle) {
-    if let Err(err) = crate::app::light_mode::ensure_main_window(app) {
-        eprintln!("[light-mode] recreate before toggle failed: {err}");
-        return;
-    }
-    crate::app::light_mode::show_when_ready(app, |app| {
+    crate::app::light_mode::rebuild_then(app, |app| {
         if !is_main_window_shown(app) {
             toggle_window(app);
         }
@@ -971,8 +967,7 @@ pub fn toggle_window_cmd(app_handle: AppHandle) -> Result<(), String> {
 pub fn focus_clipboard_window(app_handle: AppHandle) -> Result<(), String> {
     if crate::app::light_mode::needs_rebuild(&app_handle) {
         // Rebuilt after light mode: focus (idempotent) once the UI has rendered.
-        crate::app::light_mode::ensure_main_window(&app_handle)?;
-        crate::app::light_mode::show_when_ready(&app_handle, |app| {
+        crate::app::light_mode::rebuild_then(&app_handle, |app| {
             let _ = focus_clipboard_window(app.clone());
         });
         return Ok(());

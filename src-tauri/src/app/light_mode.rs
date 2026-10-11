@@ -52,15 +52,32 @@ pub fn mark_ui_ready() {
     UI_READY.store(true, Ordering::SeqCst);
 }
 
-/// Show a rebuilt window only once its UI has rendered (or after a short
-/// timeout), so a summon after light mode never flashes an empty shell.
-/// `show` re-runs the caller's normal show path off the calling thread.
-pub fn show_when_ready<F>(app: &AppHandle, show: F)
+/// A rebuild is under way; further summons wait for it instead of starting
+/// another (two would show the window and then toggle it shut).
+static REBUILDING: AtomicBool = AtomicBool::new(false);
+
+/// Rebuild (or reload) the main UI, then run `show` once it has rendered or
+/// after a short timeout, so a summon never flashes an empty shell.
+///
+/// Always off the calling thread: hotkeys, the tray and sync commands call in
+/// on the main thread, and on Windows creating the WebView2 there waits on the
+/// event loop it is blocking, which froze the app on the first summon after
+/// light mode (wry#583).
+pub fn rebuild_then<F>(app: &AppHandle, show: F)
 where
     F: FnOnce(&AppHandle) + Send + 'static,
 {
+    if REBUILDING.swap(true, Ordering::SeqCst) {
+        eprintln!("[light-mode] rebuild already under way; summon dropped");
+        return;
+    }
     let app = app.clone();
     std::thread::spawn(move || {
+        if let Err(err) = ensure_main_window(&app) {
+            REBUILDING.store(false, Ordering::SeqCst);
+            eprintln!("[light-mode] rebuild failed: {err}");
+            return;
+        }
         let started = Instant::now();
         while !UI_READY.load(Ordering::SeqCst) && started.elapsed() < UI_READY_TIMEOUT {
             std::thread::sleep(Duration::from_millis(15));
@@ -70,6 +87,7 @@ where
             started.elapsed().as_millis(),
             if UI_READY.load(Ordering::SeqCst) { "UI ready" } else { "timed out" }
         );
+        REBUILDING.store(false, Ordering::SeqCst);
         show(&app);
     });
 }
@@ -218,8 +236,9 @@ fn apply_post_create(app: &AppHandle, window: &WebviewWindow) {
     crate::app::window_manager::maybe_open_devtools(window);
 }
 
-/// Ensure the main WebView exists (recreate after light-mode destroy).
-pub fn ensure_main_window(app: &AppHandle) -> Result<WebviewWindow, String> {
+/// Ensure the main WebView exists (recreate after light-mode destroy). Runs on
+/// rebuild_then's thread, never the main one.
+fn ensure_main_window(app: &AppHandle) -> Result<WebviewWindow, String> {
     if let Some(window) = app.get_webview_window("main") {
         if PAGE_UNLOADED.load(Ordering::SeqCst) {
             reload_page(&window)?;
@@ -237,8 +256,6 @@ pub fn ensure_main_window(app: &AppHandle) -> Result<WebviewWindow, String> {
         .cloned()
         .ok_or_else(|| "main window config missing".to_string())?;
 
-    // from_config must not run on a sync WebView2 command path; callers should
-    // already be off the webview IPC stack (hotkey / tray / idle thread).
     UI_READY.store(false, Ordering::SeqCst);
     let builder = WebviewWindowBuilder::from_config(app, &cfg).map_err(|e| e.to_string())?;
     let window = builder
@@ -246,9 +263,20 @@ pub fn ensure_main_window(app: &AppHandle) -> Result<WebviewWindow, String> {
         .build()
         .map_err(|e| e.to_string())?;
 
-    #[cfg(target_os = "windows")]
-    crate::app::hooks::remember_main_hwnd(&window);
-    apply_post_create(app, &window);
+    // Window, WebView2 and OLE drag-and-drop setup belong to the UI thread.
+    // It is free (this thread is not it), so waiting for it cannot deadlock.
+    let (done, wait) = std::sync::mpsc::channel();
+    let (post_app, post_window) = (app.clone(), window.clone());
+    app.run_on_main_thread(move || {
+        #[cfg(target_os = "windows")]
+        crate::app::hooks::remember_main_hwnd(&post_window);
+        apply_post_create(&post_app, &post_window);
+        let _ = done.send(());
+    })
+    .map_err(|e| e.to_string())?;
+    if wait.recv_timeout(Duration::from_secs(3)).is_err() {
+        eprintln!("[light-mode] window setup on the main thread timed out");
+    }
     PAGE_UNLOADED.store(false, Ordering::SeqCst);
     WEBVIEW_LIGHT_MODE.store(false, Ordering::SeqCst);
     on_window_shown();
