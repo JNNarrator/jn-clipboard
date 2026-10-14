@@ -184,16 +184,17 @@ fn native_app_boots_isolated_and_captures_clipboard() {
     fx.launch();
     let db = fx.wait_for("database creation", BOOT_TIMEOUT, || find_file(&home, "clipboard.db"));
     let persistent = fx.wait_for("default settings", BOOT_TIMEOUT, || setting(&db, "app.persistent"));
-    assert_eq!(persistent, "false", "history persistence should be off by default");
+    assert_eq!(persistent, "true", "new installs keep history across restarts");
+    // Debug builds never add a login item; the pending flag stays put.
+    assert_eq!(
+        setting(&db, "app.autostart_pending").as_deref(),
+        Some("true"),
+        "fresh install should be marked for launch at login"
+    );
     fx.assert_alive("first boot idle");
     fx.stop();
 
-    // 2. Turn on persistence (default is memory-only history) and restart: the
-    //    app must pick the saved setting up and still boot cleanly.
-    open_db(&db)
-        .expect("open db")
-        .execute("UPDATE settings SET value = 'true' WHERE key = 'app.persistent'", [])
-        .expect("enable app.persistent");
+    // 2. Restart: the app must reopen the existing database and boot cleanly.
     fx.launch();
     let baseline = fx.wait_for("second boot", BOOT_TIMEOUT, || history_count(&db));
 

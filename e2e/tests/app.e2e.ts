@@ -156,8 +156,8 @@ test('详情侧栏：开启 AI 助手后出现 AI 按钮', async ({ app, screen 
   await expect(screen.getByRole('complementary').getByRole('button', 'AI 助手')).toBeVisible();
 });
 
-test('键盘：方向键选择默认关闭，↓ + Enter 不会粘贴', async ({ app, screen, browser }) => {
-  await app.open('/');
+test('键盘：关闭方向键选择后，↓ + Enter 不会粘贴', async ({ app, screen, browser }) => {
+  await app.open('/?set=app.arrow_key_selection:false');
   await expect(screen.getByRole('main').getByText(SAMPLE.chat.text)).toBeVisible();
   await resetCalls(browser);
   await browser.keyboard.press('ArrowDown');
@@ -167,8 +167,8 @@ test('键盘：方向键选择默认关闭，↓ + Enter 不会粘贴', async ({
   expect(await callsTo(browser, 'copy_to_clipboard')).toEqual([]);
 });
 
-test('键盘：开启方向键选择后，↓↓ 选到第二条，Enter 粘贴它', async ({ app, screen, browser }) => {
-  await app.open('/?set=app.arrow_key_selection:true');
+test('键盘：方向键选择默认开启，↓↓ 选到第二条，Enter 粘贴它', async ({ app, screen, browser }) => {
+  await app.open('/');
   // Only macOS handles arrow selection in the page; on Windows the native
   // (Rust) keyboard hook does it (usesNativeNavigation), which the browser
   // harness does not have. CI runs on Linux, which takes the Windows path.

@@ -240,7 +240,42 @@ pub fn save_image_to_file(data_url: &str, data_dir: &std::path::Path) -> Option<
 
 // delete_entry_db, delete_entry, enforce_storage_limit, clear_history removed (migrated to repository)
 
+/// Defaults that changed after release: (key, new installs, existing installs).
+/// Upgraders keep what they had, including keys they never saved, whose
+/// behaviour was the old default (e.g. the window followed the mouse).
+pub(crate) const CHANGED_DEFAULTS: &[(&str, &str, &str)] = &[
+    ("app.persistent", "true", "false"),
+    ("app.arrow_key_selection", "true", "false"),
+    ("app.move_to_top_after_paste", "false", "true"),
+    ("app.privacy_protection", "false", "true"),
+    ("app.follow_mouse", "false", "true"),
+];
+
+/// Set on a fresh database; startup turns on launch at login once, then
+/// removes it (app/setup.rs). Existing installs keep their login item as is.
+pub const AUTOSTART_PENDING_KEY: &str = "app.autostart_pending";
+
 pub fn seed_defaults(conn: &Connection) -> Result<()> {
+    // Every release has seeded app.hotkey, so only a new (or reset) database
+    // lacks it. (Migrations may already have written other keys.)
+    let fresh: bool = conn.query_row(
+        "SELECT NOT EXISTS (SELECT 1 FROM settings WHERE key = 'app.hotkey')",
+        [],
+        |r| r.get(0),
+    )?;
+    for (key, new_install, existing) in CHANGED_DEFAULTS {
+        conn.execute(
+            "INSERT OR IGNORE INTO settings (key, value) VALUES (?1, ?2)",
+            [*key, if fresh { *new_install } else { *existing }],
+        )?;
+    }
+    if fresh {
+        conn.execute(
+            "INSERT OR IGNORE INTO settings (key, value) VALUES (?1, 'true')",
+            [AUTOSTART_PENDING_KEY],
+        )?;
+    }
+
     // App settings
     let _ = conn.execute(
         "INSERT OR IGNORE INTO settings (key, value) VALUES ('app.theme', ?1)",
@@ -252,10 +287,6 @@ pub fn seed_defaults(conn: &Connection) -> Result<()> {
     );
     let _ = conn.execute(
         "INSERT OR IGNORE INTO settings (key, value) VALUES ('app.show_app_border', 'true')",
-        [],
-    );
-    let _ = conn.execute(
-        "INSERT OR IGNORE INTO settings (key, value) VALUES ('app.persistent', 'false')",
         [],
     );
     let _ = conn.execute(
@@ -280,14 +311,6 @@ pub fn seed_defaults(conn: &Connection) -> Result<()> {
     );
     let _ = conn.execute(
         "INSERT OR IGNORE INTO settings (key, value) VALUES ('app.delete_after_paste', 'false')",
-        [],
-    );
-    let _ = conn.execute(
-        "INSERT OR IGNORE INTO settings (key, value) VALUES ('app.move_to_top_after_paste', 'true')",
-        [],
-    );
-    let _ = conn.execute(
-        "INSERT OR IGNORE INTO settings (key, value) VALUES ('app.privacy_protection', 'true')",
         [],
     );
     let _ = conn.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('app.privacy_protection_kinds', 'phone,idcard,email,secret')", []);
@@ -350,10 +373,6 @@ pub fn seed_defaults(conn: &Connection) -> Result<()> {
         [],
     );
     let _ = conn.execute(
-        "INSERT OR IGNORE INTO settings (key, value) VALUES ('app.arrow_key_selection', 'false')",
-        [],
-    );
-    let _ = conn.execute(
         "INSERT OR IGNORE INTO settings (key, value) VALUES ('app.light_mode_enabled', 'false')",
         [],
     );
@@ -367,10 +386,6 @@ pub fn seed_defaults(conn: &Connection) -> Result<()> {
     );
     let _ = conn.execute(
         "INSERT OR IGNORE INTO settings (key, value) VALUES ('app.hotkey', 'Alt+C')",
-        [],
-    );
-    let _ = conn.execute(
-        "INSERT OR IGNORE INTO settings (key, value) VALUES ('app.autostart', 'true')",
         [],
     );
 

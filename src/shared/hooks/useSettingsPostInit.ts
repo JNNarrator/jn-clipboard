@@ -298,7 +298,7 @@ export const useSettingsPostInit = ({
     setCaptureFiles(settings["app.capture_files"] !== "false");
     setCaptureRichText(settings["app.capture_rich_text"] === "true");
     setRichTextSnapshotPreview(settings["app.rich_text_snapshot_preview"] === "true");
-    setPrivacyProtection(settings["app.privacy_protection"] !== "false");
+    setPrivacyProtection(settings["app.privacy_protection"] === "true");
     if (settings["app.privacy_protection_kinds"]) {
       const list = settings["app.privacy_protection_kinds"]
         .split(",")
@@ -360,7 +360,7 @@ export const useSettingsPostInit = ({
 
     // These have false as default, so check for 'true'
     setDeleteAfterPaste(settings["app.delete_after_paste"] === "true");
-    setMoveToTopAfterPaste(settings["app.move_to_top_after_paste"] !== "false");
+    setMoveToTopAfterPaste(settings["app.move_to_top_after_paste"] === "true");
     setClickCopyOnly(settings["app.click_copy_only"] === "true");
     setHideTrayIcon(settings["app.hide_tray_icon"] === "true");
     setHideDockIcon(settings["app.hide_dock_icon"] === "true");

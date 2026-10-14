@@ -1985,8 +1985,8 @@ fn handle_post_paste_actions(
                 .get("app.move_to_top_after_paste")
                 .ok()
                 .flatten()
-                .map(|v| v != "false")
-                .unwrap_or(true),
+                .map(|v| v == "true")
+                .unwrap_or(false),
         };
 
         if should_move_to_top {

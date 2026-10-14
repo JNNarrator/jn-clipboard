@@ -54,7 +54,7 @@ fn register_macos_wake_hotkey_refresh(app_handle: AppHandle) {
                 match crate::app::commands::sync_registered_hotkeys(&main_thread_handle) {
                     Ok(()) => info!(">>> [HOTKEY] Re-registered shortcuts after macOS wake"),
                     Err(error) => {
-                        eprintln!(">>> [HOTKEY] Wake re-registration failed: {error}")
+                        crate::error!(">>> [HOTKEY] Wake re-registration failed: {error}")
                     }
                 }
             });
@@ -382,9 +382,9 @@ fn load_settings(repo: &impl SettingsRepository) -> StartupSettings {
             .unwrap_or(false),
         privacy_protection: repo
             .get("app.privacy_protection")
-            .unwrap_or(Some("true".to_string()))
+            .unwrap_or(Some("false".to_string()))
             .map(|v| v == "true")
-            .unwrap_or(true),
+            .unwrap_or(false),
         privacy_kinds: repo
             .get("app.privacy_protection_kinds")
             .unwrap_or(Some("phone,idcard,email,secret".to_string()))
@@ -449,9 +449,9 @@ fn load_settings(repo: &impl SettingsRepository) -> StartupSettings {
             .unwrap_or(false),
         follow_mouse: repo
             .get("app.follow_mouse")
-            .unwrap_or(Some("true".to_string()))
+            .unwrap_or(Some("false".to_string()))
             .map(|v| v == "true")
-            .unwrap_or(true),
+            .unwrap_or(false),
         edge_docking: repo
             .get("app.edge_docking")
             .unwrap_or(Some("false".to_string()))
@@ -482,9 +482,9 @@ fn load_settings(repo: &impl SettingsRepository) -> StartupSettings {
             .unwrap_or("Alt+C".to_string()),
         arrow_key_selection: repo
             .get("app.arrow_key_selection")
-            .unwrap_or(Some("false".to_string()))
+            .unwrap_or(Some("true".to_string()))
             .map(|v| v == "true")
-            .unwrap_or(false),
+            .unwrap_or(true),
         light_mode_enabled: repo
             .get("app.light_mode_enabled")
             .unwrap_or(Some("false".to_string()))
@@ -967,6 +967,42 @@ fn setup_main_window(app: &App, s: &StartupSettings) {
     let _ = restore_dock;
 }
 
+/// New installs launch at login. Runs once, on the first start of a fresh
+/// database (see `database::AUTOSTART_PENDING_KEY`); upgrades never touch the
+/// user's login items.
+fn enable_autostart_on_first_run(app_handle: &AppHandle, db_state: &DbState) {
+    if db_state.settings_repo.get(database::AUTOSTART_PENDING_KEY).ok().flatten().is_none() {
+        return;
+    }
+    let done = || {
+        if let Ok(conn) = db_state.conn.lock() {
+            let _ = conn.execute("DELETE FROM settings WHERE key = ?1", [database::AUTOSTART_PENDING_KEY]);
+        }
+    };
+    // Dev builds and the portable exe move around; a login item would point
+    // at a stale path.
+    if cfg!(debug_assertions) || cfg!(feature = "portable") {
+        return;
+    }
+    // Run from the mounted DMG or a quarantine copy (App Translocation): the
+    // path is temporary, so wait for a start from the installed location.
+    #[cfg(target_os = "macos")]
+    if let Ok(exe) = std::env::current_exe() {
+        let path = exe.to_string_lossy();
+        if path.starts_with("/Volumes/") || path.contains("/AppTranslocation/") {
+            return;
+        }
+    }
+    use crate::app::commands::system_cmd::{is_autostart_enabled, toggle_autostart};
+    // toggle_autostart ignores the launcher's error on macOS; check the result.
+    let _ = toggle_autostart(app_handle.clone(), true);
+    if is_autostart_enabled(app_handle.clone()).unwrap_or(false) {
+        done();
+    } else {
+        eprintln!(">>> [STARTUP] enabling launch at login failed; retrying next start");
+    }
+}
+
 fn start_services(app: &App, s: &StartupSettings, app_handle: AppHandle) {
     #[cfg(target_os = "macos")]
     crate::infrastructure::macos_api::window_tracker::start_window_tracking(app_handle.clone());
@@ -986,6 +1022,7 @@ fn start_services(app: &App, s: &StartupSettings, app_handle: AppHandle) {
     crate::app::light_mode::seed_hidden_if_needed(&app_handle);
 
     let db_state = app.state::<DbState>();
+    enable_autostart_on_first_run(&app_handle, &db_state);
     if db_state
         .settings_repo
         .get("file_server_enabled")
@@ -1014,7 +1051,7 @@ fn start_services(app: &App, s: &StartupSettings, app_handle: AppHandle) {
         *guard = hotkey_str.clone();
     }
     if let Err(error) = crate::app::commands::sync_registered_hotkeys(&app_handle) {
-        eprintln!(">>> [HOTKEY] Initial registration failed: {error}");
+        crate::error!(">>> [HOTKEY] Initial registration failed: {error}");
     }
 
     #[cfg(target_os = "windows")]

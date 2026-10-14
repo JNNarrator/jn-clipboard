@@ -200,6 +200,15 @@ fn check_upgrade(release: &str, migrate: Migrate, settings_sql: &str) {
             assert_eq!(settings.get(key).unwrap().as_deref(), Some(old.as_str()), "{}", ctx(&format!("{key} keeps the old default")));
         }
     }
+    for (key, _, existing) in database::CHANGED_DEFAULTS {
+        if USER_SETTINGS.iter().any(|(k, _)| k == key) {
+            continue;
+        }
+        // Saved (seeded by that release) or never stored: the old behaviour either way.
+        let expected = legacy_default(settings_sql, key).unwrap_or_else(|| existing.to_string());
+        assert_eq!(settings.get(key).unwrap(), Some(expected), "{}", ctx(&format!("{key} keeps the old default")));
+    }
+    assert_eq!(settings.get(database::AUTOSTART_PENDING_KEY).unwrap(), None, "{}", ctx("login item left alone"));
 
     // A backup was taken before rewriting secrets.
     let backup = PathBuf::from(format!("{}.pre-encryption-v1.bak", path.display()));
@@ -213,6 +222,32 @@ fn check_upgrade(release: &str, migrate: Migrate, settings_sql: &str) {
     let count: i64 = conn.query_row("SELECT COUNT(*) FROM clipboard_history", [], |r| r.get(0)).unwrap();
     assert_eq!(count, SAMPLES.len() as i64, "{}", ctx("second startup keeps records"));
 
+    let _ = std::fs::remove_dir_all(path.parent().unwrap());
+}
+
+#[test]
+fn new_install_gets_new_defaults_and_launches_at_login() {
+    let path = temp_db("fresh");
+    let conn = upgrade(&path);
+    let get = |key: &str| -> Option<String> {
+        conn.query_row("SELECT value FROM settings WHERE key = ?1", [key], |r| r.get(0)).ok()
+    };
+    for (key, new_install, _) in database::CHANGED_DEFAULTS {
+        assert_eq!(get(key).as_deref(), Some(*new_install), "{key}");
+    }
+    assert_eq!(get(database::AUTOSTART_PENDING_KEY).as_deref(), Some("true"));
+    assert_eq!(get("file_server_port").as_deref(), Some("28462"));
+    assert_eq!(get("cloud_sync_snapshot_interval_min").as_deref(), Some("720"));
+    // Restarting is not a new install.
+    drop(conn);
+    let conn = upgrade(&path);
+    conn.execute("DELETE FROM settings WHERE key = ?1", [database::AUTOSTART_PENDING_KEY]).unwrap();
+    drop(conn);
+    let conn = upgrade(&path);
+    let pending: Option<String> = conn
+        .query_row("SELECT value FROM settings WHERE key = ?1", [database::AUTOSTART_PENDING_KEY], |r| r.get(0))
+        .ok();
+    assert_eq!(pending, None, "autostart is only turned on once");
     let _ = std::fs::remove_dir_all(path.parent().unwrap());
 }
 

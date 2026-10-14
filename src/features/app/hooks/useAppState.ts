@@ -60,9 +60,9 @@ export const useAppState = (): AppState => {
   const [isRecordingPlain, setIsRecordingPlain] = useState(false);
   const [isRecordingSearch, setIsRecordingSearch] = useState(false);
   const [deleteAfterPaste, setDeleteAfterPaste] = useState(false);
-  const [moveToTopAfterPaste, setMoveToTopAfterPaste] = useState(true);
+  const [moveToTopAfterPaste, setMoveToTopAfterPaste] = useState(false);
   const [clickCopyOnly, setClickCopyOnly] = useState(false);
-  const [privacyProtection, setPrivacyProtection] = useState(true);
+  const [privacyProtection, setPrivacyProtection] = useState(false);
   const [privacyProtectionKinds, setPrivacyProtectionKinds] = useState<string[]>([
     "phone",
     "idcard",

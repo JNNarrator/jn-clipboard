@@ -11,11 +11,13 @@ const here = (file) => fileURLToPath(new URL(file, import.meta.url));
 
 // First-run settings defaults, read from the Rust source so the preview starts
 // exactly like a fresh install (see mock-backend.ts).
-const defaultSettings = Object.fromEntries(
-  [...readFileSync(here('../../src-tauri/src/database.rs'), 'utf8')
-    .matchAll(/INSERT OR IGNORE INTO settings \(key, value\) VALUES \('([^']+)', '([^']*)'\)/g)]
+const databaseRs = readFileSync(here('../../src-tauri/src/database.rs'), 'utf8');
+const defaultSettings = Object.fromEntries([
+  ...[...databaseRs.matchAll(/INSERT OR IGNORE INTO settings \(key, value\) VALUES \('([^']+)', '([^']*)'\)/g)]
     .map((m) => [m[1], m[2]]),
-);
+  // CHANGED_DEFAULTS: ("key", "new installs", "existing installs").
+  ...[...databaseRs.matchAll(/\("([a-z0-9_.]+)", "([^"]*)", "[^"]*"\),/g)].map((m) => [m[1], m[2]]),
+]);
 
 export default defineConfig({
   root: here('../../'),
