@@ -10,9 +10,12 @@ interface UseAppBootstrapOptions {
   setDataPath: Dispatch<SetStateAction<string>>;
   setInstalledApps: Dispatch<SetStateAction<InstalledAppOption[]>>;
   setAutoStart: Dispatch<SetStateAction<boolean>>;
+  setElevatedAutostart: Dispatch<SetStateAction<boolean>>;
   setDefaultApps: Dispatch<SetStateAction<DefaultAppsMap>>;
   setFileServerEnabled: Dispatch<SetStateAction<boolean>>;
   setActualPort: Dispatch<SetStateAction<string>>;
+  setFileTransferAccessToken: Dispatch<SetStateAction<string>>;
+  setFileTransferLanKey: Dispatch<SetStateAction<string>>;
   setLocalIp: Dispatch<SetStateAction<string>>;
   setAvailableIps: Dispatch<SetStateAction<string[]>>;
   setWinClipboardDisabled: Dispatch<SetStateAction<boolean>>;
@@ -22,6 +25,8 @@ interface FileServerStatusPayload {
   enabled: boolean;
   port: number;
   ip: string;
+  access_token: string;
+  lan_key?: string;
 }
 
 export const useAppBootstrap = ({
@@ -29,9 +34,12 @@ export const useAppBootstrap = ({
   setDataPath,
   setInstalledApps,
   setAutoStart,
+  setElevatedAutostart,
   setDefaultApps,
   setFileServerEnabled,
   setActualPort,
+  setFileTransferAccessToken,
+  setFileTransferLanKey,
   setLocalIp,
   setAvailableIps,
   setWinClipboardDisabled: _setWinClipboardDisabled
@@ -60,7 +68,9 @@ export const useAppBootstrap = ({
       });
 
     invoke<boolean>("is_autostart_enabled").then(setAutoStart).catch(console.error);
-
+    invoke<boolean>("is_elevated_autostart_enabled")
+      .then(setElevatedAutostart)
+      .catch(console.error);
 
     const types = ["text", "rich_text", "image", "video", "code", "url"];
     types.forEach(async (type) => {
@@ -72,26 +82,32 @@ export const useAppBootstrap = ({
       }
     });
 
-    const setupServerListener = async () => {
-      const unlisten = await listen<FileServerStatusPayload>("file-server-status-changed", (event) => {
+    let disposed = false;
+    let unlistenServer: (() => void) | undefined;
+    listen<FileServerStatusPayload>("file-server-status-changed", (event) => {
         const payload = event.payload;
         setFileServerEnabled(payload.enabled);
         setActualPort(payload.port === 0 ? "" : payload.port.toString());
         setLocalIp(payload.ip);
-      });
-      return unlisten;
-    };
-
-    let unlistenServer: (() => void) | undefined;
-    setupServerListener().then((u) => {
-      unlistenServer = u;
-    });
+        setFileTransferAccessToken(payload.access_token || "");
+        setFileTransferLanKey(payload.lan_key || "");
+      })
+      .then((unlisten) => {
+        if (disposed) {
+          unlisten();
+          return;
+        }
+        unlistenServer = unlisten;
+      })
+      .catch(console.error);
 
     invoke<FileServerStatusPayload>("get_file_server_status")
       .then((status) => {
         setFileServerEnabled(status.enabled);
         setActualPort(status.port === 0 ? "" : status.port.toString());
         setLocalIp(status.ip);
+        setFileTransferAccessToken(status.access_token || "");
+        setFileTransferLanKey(status.lan_key || "");
       })
       .catch(console.error);
 
@@ -102,16 +118,20 @@ export const useAppBootstrap = ({
       .catch(console.error);
 
     return () => {
+      disposed = true;
       if (unlistenServer) unlistenServer();
     };
   }, [
     fetchEffectiveTransferPath,
     setActualPort,
     setAutoStart,
+    setElevatedAutostart,
     setAvailableIps,
     setDataPath,
     setDefaultApps,
     setFileServerEnabled,
+    setFileTransferAccessToken,
+    setFileTransferLanKey,
     setInstalledApps,
     setLocalIp,
   ]);

@@ -1,15 +1,29 @@
-// Content handler module for opening various content types
+// Content handler module for opening various content types.
 use crate::database::DbState;
 use crate::error::AppError;
 use crate::infrastructure::repository::clipboard_repo::ClipboardRepository;
 use crate::infrastructure::repository::settings_repo::SettingsRepository;
+#[cfg(target_os = "windows")]
 use crate::infrastructure::windows_api::apps::launch_uwp_with_file;
 use base64::{engine::general_purpose, Engine as _};
+use std::collections::HashMap;
 use std::io::Read;
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
 use std::process::Command;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, LazyLock, Mutex};
+use std::time::Instant;
 use tauri::{Emitter, Manager, State};
+
+struct WatchedEntryInfo {
+    path: std::path::PathBuf,
+    cancel: Arc<AtomicBool>,
+    last_activity: Arc<Mutex<Instant>>,
+}
+
+static WATCHED_PREVIEW_ENTRIES: LazyLock<Mutex<HashMap<i64, WatchedEntryInfo>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 
 #[tauri::command]
 pub async fn open_content(
@@ -19,21 +33,16 @@ pub async fn open_content(
     mut content: String,
     content_type: String,
 ) -> Result<(), AppError> {
-    let mut html_content: Option<String> = None;
-
+    let mut html_content = None;
     // 0. Resolve full content if ID is provided and content is placeholder/truncated
     if id != 0 {
         if id > 0 {
             // Fetch from Database
-            if content_type == "rich_text" {
-                if let Ok(Some((full_content, _, html))) =
-                    state.repo.get_entry_content_with_html(id)
-                {
-                    content = full_content;
-                    html_content = html;
-                }
-            } else if let Ok(Some(full_content)) = state.repo.get_entry_content(id) {
+            if let Ok(Some((full_content, _, full_html))) =
+                state.repo.get_entry_content_with_html(id)
+            {
                 content = full_content;
+                html_content = full_html;
             }
         } else {
             // Fetch from Session
@@ -53,7 +62,21 @@ pub async fn open_content(
 
     let app_path = get_app_path_for_content_type(&state, &content_type)?;
     let mut temp_path = std::env::temp_dir();
-    let filename = format!("TieZ_Clip_{}", chrono::Utc::now().format("%Y%m%d-%H%M%S"));
+    let filename = if id != 0 {
+        if id > 0 {
+            format!("TieZ_Clip_entry_{}", id)
+        } else {
+            format!("TieZ_Clip_session_{}", id.abs())
+        }
+    } else {
+        static TEMP_FILE_COUNTER: AtomicU64 = AtomicU64::new(1);
+        let count = TEMP_FILE_COUNTER.fetch_add(1, Ordering::Relaxed);
+        format!(
+            "TieZ_Clip_temp_{}_{:x}",
+            chrono::Utc::now().format("%Y%m%d-%H%M%S"),
+            count
+        )
+    };
     let mut use_direct_path = false;
 
     // Handle links/URLs
@@ -61,23 +84,42 @@ pub async fn open_content(
         return handle_url_content(&app_path, &content).await;
     }
 
+    // Several copied files open together, as a Finder or Explorer selection does.
+    // Only the first one used to open.
+    if content_type == "file" {
+        let paths = existing_file_paths(&content);
+        if paths.len() > 1 {
+            launch_files_with_app(&app_path, &paths).await?;
+            return Ok(());
+        }
+    }
+
     // Check if content points to existing file(s)
     if is_file_type(&content_type) && !content.starts_with("data:image") {
         if let Some(path) = get_existing_file_path(&content) {
-            temp_path = path;
-            use_direct_path = true;
+            // TieZ's own image files are named by their content and may be
+            // shared by several entries: edit a copy. Editing them in place
+            // changed what other entries (and later copies of the original
+            // image) show. Saved edits come back as a new image for this entry.
+            if content_type == "image" && is_managed_attachment(&app_handle, &path) {
+                let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("image.png");
+                let copy = std::env::temp_dir().join(format!("TieZ_Clip_edit_{}", name));
+                if std::fs::copy(&path, &copy).is_ok() {
+                    temp_path = copy;
+                } else {
+                    temp_path = path;
+                    use_direct_path = true;
+                }
+            } else {
+                temp_path = path;
+                use_direct_path = true;
+            }
         }
     }
 
     // Create temp file if needed
     if !use_direct_path {
-        temp_path = create_temp_file(
-            &content,
-            &content_type,
-            html_content.as_deref(),
-            &filename,
-            temp_path,
-        )?;
+        temp_path = create_temp_file(&content, &html_content, &content_type, &filename, temp_path)?;
     }
 
     let path_str = temp_path.to_str().unwrap().to_string();
@@ -93,12 +135,116 @@ pub async fn open_content(
     )
     .await?;
 
-    // Start background watcher ONLY if we created a temp file
-    if !use_direct_path && content_type != "rich_text" {
-        start_file_watcher(app_handle, file_path_clone, content_type, id);
+    // Watch temp files and external originals so list previews stay in sync (#117).
+    if id != 0 && content_type != "rich_text" {
+        register_file_preview_watch(
+            app_handle,
+            id,
+            file_path_clone,
+            content_type,
+            use_direct_path,
+        );
     }
 
     Ok(())
+}
+
+/// Watch an on-disk file and refresh list previews when it changes.
+pub fn register_file_preview_watch(
+    app_handle: tauri::AppHandle,
+    id: i64,
+    file_path: std::path::PathBuf,
+    content_type: String,
+    keep_path_on_change: bool,
+) {
+    if id == 0 {
+        return;
+    }
+
+    let (cancel_token, last_activity) = {
+        let mut watched = WATCHED_PREVIEW_ENTRIES.lock().unwrap();
+        if let Some(existing) = watched.get_mut(&id) {
+            if existing.path == file_path {
+                // Stable reuse of the same entry file: refresh activity timer and continue existing watch
+                *existing.last_activity.lock().unwrap() = Instant::now();
+                return;
+            } else {
+                // Path changed: signal cancellation to previous watcher and spawn new watcher
+                existing.cancel.store(true, Ordering::Relaxed);
+                let cancel = Arc::new(AtomicBool::new(false));
+                let last_act = Arc::new(Mutex::new(Instant::now()));
+                *existing = WatchedEntryInfo {
+                    path: file_path.clone(),
+                    cancel: cancel.clone(),
+                    last_activity: last_act.clone(),
+                };
+                (cancel, last_act)
+            }
+        } else {
+            let cancel = Arc::new(AtomicBool::new(false));
+            let last_act = Arc::new(Mutex::new(Instant::now()));
+            watched.insert(
+                id,
+                WatchedEntryInfo {
+                    path: file_path.clone(),
+                    cancel: cancel.clone(),
+                    last_activity: last_act.clone(),
+                },
+            );
+            (cancel, last_act)
+        }
+    };
+
+    std::thread::spawn(move || {
+        let mut last_mtime = std::fs::metadata(&file_path)
+            .ok()
+            .and_then(|m| m.modified().ok());
+
+        loop {
+            std::thread::sleep(std::time::Duration::from_secs(2));
+
+            if cancel_token.load(Ordering::Relaxed) {
+                break;
+            }
+
+            let elapsed = last_activity.lock().unwrap().elapsed().as_secs();
+            if elapsed >= 3600 {
+                break;
+            }
+
+            if !file_path.exists() {
+                break;
+            }
+
+            let current_mtime = std::fs::metadata(&file_path)
+                .ok()
+                .and_then(|m| m.modified().ok());
+
+            if current_mtime != last_mtime {
+                last_mtime = current_mtime;
+                println!("File changed detected: {:?}", file_path);
+
+                if keep_path_on_change {
+                    touch_external_file_preview(&app_handle, id);
+                } else if let Some((new_content, preview)) =
+                    read_changed_file(&file_path, &content_type)
+                {
+                    let new_content = store_edited_image(&app_handle, id, &content_type, new_content);
+                    update_database_with_changes(&app_handle, id, &new_content, &preview);
+                }
+            }
+        }
+
+        let mut watched = WATCHED_PREVIEW_ENTRIES.lock().unwrap();
+        if let Some(existing) = watched.get(&id) {
+            if existing.cancel.load(Ordering::Relaxed)
+                || existing.last_activity.lock().unwrap().elapsed().as_secs() >= 3600
+                || !file_path.exists()
+            {
+                watched.remove(&id);
+            }
+        }
+    });
 }
 
 fn get_app_path_for_content_type(
@@ -125,76 +271,63 @@ fn get_app_path_for_content_type(
 
 async fn handle_url_content(app_path: &Option<String>, content: &str) -> Result<(), AppError> {
     if let Some(app) = app_path {
-        if std::path::Path::new(app).exists() {
-            Command::new(app)
-                .arg(content)
-                .spawn()
-                .map_err(|e| AppError::Internal(format!("启动程序失败: {}", e)))?;
-            return Ok(());
-        } else {
-            // Check for macOS-style paths on Windows to avoid invalid Start-Process calls
-            #[cfg(target_os = "windows")]
-            if app.starts_with("/Applications/") || app.contains(".app") {
-                return launch_default_handler(content).await;
-            }
+        #[cfg(target_os = "windows")]
+        {
+            return launch_windows_url_with_app(app, content);
+        }
 
-            println!("Attempting to launch URL handler: {}", app);
-            let ps_script = format!(
-                "Start-Process -FilePath 'shell:AppsFolder\\{}' -ArgumentList '{}'",
-                app,
-                content.replace("'", "''")
-            );
-
-            #[cfg(target_os = "windows")]
-            {
-                let mut cmd = Command::new("powershell");
-                cmd.args(["-NoProfile", "-Command", &ps_script])
-                    .creation_flags(0x08000000);
-
-                match cmd.spawn() {
-                    Ok(_) => return Ok(()),
-                    Err(e) => {
-                        println!(
-                            "Failed to launch via powershell: {}, falling back to default",
-                            e
-                        );
-                        return launch_default_handler(content).await;
-                    }
-                }
-            }
-
-            #[cfg(not(target_os = "windows"))]
-            {
-                return launch_default_handler(content).await;
-            }
+        #[cfg(not(target_os = "windows"))]
+        {
+            launch_target_with_app(app, content).await?;
         }
     } else {
-        return launch_default_handler(content).await;
-    }
-}
-
-async fn launch_default_handler(content: &str) -> Result<(), AppError> {
-    #[cfg(target_os = "windows")]
-    {
-        let mut cmd = Command::new("cmd");
-        cmd.args(["/C", "start", "", content])
-            .creation_flags(0x08000000);
-        cmd.spawn()
-            .map_err(|e| AppError::Internal(format!("启动默认浏览器失败: {}", e)))?;
-    }
-
-    #[cfg(not(target_os = "windows"))]
-    {
-        Command::new("open")
-            .arg(content)
-            .spawn()
-            .map_err(|e| AppError::Internal(format!("启动默认浏览器失败: {}", e)))?;
+        launch_with_default_app(content, "url", false)?;
     }
     Ok(())
 }
 
+#[cfg(target_os = "windows")]
+fn launch_windows_url_with_app(app: &str, content: &str) -> Result<(), AppError> {
+    let app_path = std::path::Path::new(app);
+    if app_path.exists() {
+        let mut command = Command::new(app);
+        command.arg(content).creation_flags(0x08000000);
+        command
+            .spawn()
+            .map_err(|e| AppError::Internal(format!("无法打开应用。\n详情：{}", e)))?;
+        return Ok(());
+    }
+
+    // A macOS application choice can arrive through synced settings. It is not a
+    // valid Windows application identifier, so use the system handler instead.
+    if app.starts_with("/Applications/") || app.to_ascii_lowercase().contains(".app") {
+        return launch_with_default_app(content, "url", false);
+    }
+
+    let escaped_app = app.replace('\'', "''");
+    let escaped_content = content.replace('\'', "''");
+    let script = format!(
+        "Start-Process -FilePath 'shell:AppsFolder\\{}' -ArgumentList '{}'",
+        escaped_app, escaped_content
+    );
+    let mut command = Command::new("powershell");
+    command
+        .args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", &script])
+        .creation_flags(0x08000000);
+
+    if command.spawn().is_ok() {
+        Ok(())
+    } else {
+        launch_with_default_app(content, "url", false)
+    }
+}
+
 fn is_file_type(content_type: &str) -> bool {
     matches!(content_type, "file" | "video" | "image")
+}
+
+pub(crate) fn existing_file_path_from_content(content: &str) -> Option<std::path::PathBuf> {
+    get_existing_file_path(content)
 }
 
 fn get_existing_file_path(content: &str) -> Option<std::path::PathBuf> {
@@ -207,10 +340,36 @@ fn get_existing_file_path(content: &str) -> Option<std::path::PathBuf> {
     }
 }
 
+/// Every line of a file entry that names a file still on disk.
+fn existing_file_paths(content: &str) -> Vec<std::path::PathBuf> {
+    content
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .map(std::path::PathBuf::from)
+        .filter(|path| path.exists())
+        .collect()
+}
+
+/// Opens each file; one that fails does not stop the rest.
+async fn launch_files_with_app(
+    app_path: &Option<String>,
+    paths: &[std::path::PathBuf],
+) -> Result<(), AppError> {
+    let mut first_error = None;
+    for path in paths {
+        let path_str = path.to_string_lossy();
+        if let Err(e) = launch_file_with_app(app_path, path, &path_str, "file", true).await {
+            first_error.get_or_insert(e);
+        }
+    }
+    first_error.map_or(Ok(()), Err)
+}
+
 fn create_temp_file(
     content: &str,
+    html_content: &Option<String>,
     content_type: &str,
-    html_content: Option<&str>,
     filename: &str,
     mut temp_path: std::path::PathBuf,
 ) -> Result<std::path::PathBuf, AppError> {
@@ -239,19 +398,19 @@ fn create_temp_file(
             }
         }
         "rich_text" => {
-            if let Some(html) = html_content.filter(|value| !value.trim().is_empty()) {
-                temp_path.push(format!("{}.html", filename));
-                let mut file = std::fs::File::create(&temp_path).map_err(AppError::from)?;
-                use std::io::Write;
-                file.write_all(html.as_bytes())
-                    .map_err(|e| AppError::IO(e.to_string()))?;
-            } else {
-                temp_path.push(format!("{}.txt", filename));
-                let mut file = std::fs::File::create(&temp_path).map_err(AppError::from)?;
-                use std::io::Write;
-                file.write_all(content.as_bytes())
-                    .map_err(|e| AppError::IO(e.to_string()))?;
-            }
+            temp_path.push(format!("{}.html", filename));
+            let mut file = std::fs::File::create(&temp_path).map_err(AppError::from)?;
+            use std::io::Write;
+            let final_content = html_content.as_deref().unwrap_or(content);
+            file.write_all(final_content.as_bytes())
+                .map_err(|e| AppError::IO(e.to_string()))?;
+        }
+        "url" | "link" => {
+            temp_path.push(format!("{}.html", filename));
+            let mut file = std::fs::File::create(&temp_path).map_err(AppError::from)?;
+            use std::io::Write;
+            file.write_all(content.as_bytes())
+                .map_err(|e| AppError::IO(e.to_string()))?;
         }
         _ => {
             temp_path.push(format!("{}.txt", filename));
@@ -272,56 +431,86 @@ async fn launch_file_with_app(
     use_direct_path: bool,
 ) -> Result<(), AppError> {
     if let Some(app) = app_path {
-        if std::path::Path::new(app).exists() {
-            Command::new(app)
-                .arg(temp_path)
-                .spawn()
-                .map_err(|e| format!("启动程序失败: {}", e))?;
-        } else {
-            // Check for macOS-style paths on Windows to avoid invalid WinRT/Start-Process calls
-            #[cfg(target_os = "windows")]
-            if app.starts_with("/Applications/") || app.contains(".app") {
-                return launch_with_default_app(path_str, content_type, use_direct_path);
-            }
-
-            println!(
-                "Attempting to launch UWP app: {} for file: {}",
-                app, path_str
-            );
-            if let Err(e) = launch_uwp_with_file(app, path_str).await {
-                println!("WinRT launch failed: {}, falling back to old method", e);
-                let safe_path = path_str.replace("'", "''");
-                let ps_script = format!(
-                    "Start-Process -FilePath 'shell:AppsFolder\\{}' -ArgumentList '{}'",
-                    app, safe_path
-                );
-                #[cfg(target_os = "windows")]
-                {
-                    let mut cmd = Command::new("powershell");
-                    cmd.args(["-NoProfile", "-Command", &ps_script])
-                        .creation_flags(0x08000000);
-                    match cmd.spawn() {
-                        Ok(_) => return Ok(()),
-                        Err(err) => {
-                            println!("Fallback launch failed: {}, using system default", err);
-                            return launch_with_default_app(
-                                path_str,
-                                content_type,
-                                use_direct_path,
-                            );
-                        }
-                    }
-                }
-
-                #[cfg(not(target_os = "windows"))]
-                Command::new("open").arg(safe_path).spawn().map_err(|e| {
-                    AppError::Internal(format!("启动 UWP 程序失败 (Fallback): {}", e))
-                })?;
-            }
-        }
+        let target = temp_path.to_string_lossy().to_string();
+        launch_target_with_app(app, &target).await?;
     } else {
         launch_with_default_app(path_str, content_type, use_direct_path)?;
     }
+    Ok(())
+}
+
+async fn launch_target_with_app(app: &str, target: &str) -> Result<(), AppError> {
+    #[cfg(target_os = "windows")]
+    {
+        let app_path = std::path::Path::new(app);
+        if app_path.exists() {
+            let mut command = Command::new(app);
+            command.arg(target).creation_flags(0x08000000);
+            command
+                .spawn()
+                .map_err(|e| AppError::Internal(format!("无法打开应用。\n详情：{}", e)))?;
+            return Ok(());
+        }
+
+        if app.starts_with("/Applications/") || app.to_ascii_lowercase().contains(".app") {
+            return launch_with_default_app(target, "file", true);
+        }
+
+        if launch_uwp_with_file(app, target).await.is_ok() {
+            return Ok(());
+        }
+
+        let escaped_app = app.replace('\'', "''");
+        let escaped_target = target.replace('\'', "''");
+        let script = format!(
+            "Start-Process -FilePath 'shell:AppsFolder\\{}' -ArgumentList '{}'",
+            escaped_app, escaped_target
+        );
+        let mut command = Command::new("powershell");
+        command
+            .args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", &script])
+            .creation_flags(0x08000000);
+        if command.spawn().is_ok() {
+            return Ok(());
+        }
+
+        return launch_with_default_app(target, "file", true);
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        let path = std::path::Path::new(app);
+        let is_app_bundle = path
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .map(|ext| ext.eq_ignore_ascii_case("app"))
+            .unwrap_or(false);
+
+        if is_app_bundle || !path.exists() {
+            Command::new("open")
+                .args(["-a", app, target])
+                .spawn()
+                .map_err(|e| AppError::Internal(format!("无法打开应用。\n详情：{}", e)))?;
+            return Ok(());
+        }
+
+        Command::new(app)
+            .arg(target)
+            .spawn()
+            .map_err(|e| AppError::Internal(format!("无法打开应用。\n详情：{}", e)))?;
+        return Ok(());
+    }
+
+    #[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
+    {
+        Command::new(app)
+            .arg(target)
+            .spawn()
+            .map_err(|e| AppError::Internal(format!("无法打开应用。\n详情：{}", e)))?;
+        return Ok(());
+    }
+
+    #[allow(unreachable_code)]
     Ok(())
 }
 
@@ -334,75 +523,69 @@ fn launch_with_default_app(
     {
         use windows::core::{HSTRING, PCWSTR};
         use windows::Win32::UI::Shell::ShellExecuteW;
-        use windows::Win32::UI::WindowsAndMessaging::SW_SHOW;
+        use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
 
         let operation = HSTRING::from("open");
-        let file = HSTRING::from(path_str);
-
-        let ret = unsafe {
+        let target = HSTRING::from(path_str);
+        let result = unsafe {
             ShellExecuteW(
                 None,
                 PCWSTR::from_raw(operation.as_ptr()),
-                PCWSTR::from_raw(file.as_ptr()),
+                PCWSTR::from_raw(target.as_ptr()),
                 None,
                 None,
-                SW_SHOW,
+                SW_SHOWNORMAL,
             )
         };
-
-        if (ret.0 as isize) <= 32 {
+        if result.0 as isize <= 32 {
             return Err(AppError::Internal(format!(
-                "Failed to open file (ShellExecute error code: {})",
-                ret.0 as isize
+                "Failed to open target (ShellExecute error code: {})",
+                result.0 as isize
             )));
         }
     }
 
-    #[cfg(not(target_os = "windows"))]
-    {
-        Command::new("open")
-            .arg(path_str)
-            .spawn()
-            .map_err(|e| AppError::Internal(format!("Failed to open file: {}", e)))?;
-    }
+    #[cfg(target_os = "macos")]
+    Command::new("open")
+        .arg(path_str)
+        .spawn()
+        .map_err(|e| AppError::Internal(format!("Failed to open file: {}", e)))?;
+
+    #[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
+    Command::new("xdg-open")
+        .arg(path_str)
+        .spawn()
+        .map_err(|e| AppError::Internal(format!("Failed to open file: {}", e)))?;
 
     Ok(())
 }
 
-fn start_file_watcher(
-    app_handle: tauri::AppHandle,
-    file_path: std::path::PathBuf,
-    content_type: String,
-    id: i64,
-) {
-    std::thread::spawn(move || {
-        let mut last_mtime = std::fs::metadata(&file_path)
-            .ok()
-            .and_then(|m| m.modified().ok());
-        let start_time = std::time::Instant::now();
+fn touch_external_file_preview(app_handle: &tauri::AppHandle, id: i64) {
+    let state = app_handle.state::<DbState>();
+    let now = chrono::Utc::now().timestamp_millis();
+    let mut updated_entry = None;
 
-        // Monitor for 1 hour or until file deleted
-        while start_time.elapsed().as_secs() < 3600 {
-            std::thread::sleep(std::time::Duration::from_secs(2));
-
-            if !file_path.exists() {
-                break;
-            }
-
-            let current_mtime = std::fs::metadata(&file_path)
-                .ok()
-                .and_then(|m| m.modified().ok());
-
-            if current_mtime != last_mtime {
-                last_mtime = current_mtime;
-                println!("File changed detected: {:?}", file_path);
-
-                if let Some((new_content, preview)) = read_changed_file(&file_path, &content_type) {
-                    update_database_with_changes(&app_handle, id, &new_content, &preview);
-                }
+    if id > 0 {
+        if state.repo.touch_entry(id, now).is_err() {
+            return;
+        }
+        if let Ok(Some(entry)) = state.repo.get_entry_by_id(id) {
+            updated_entry = Some(entry);
+        }
+    } else {
+        use crate::app_state::SessionHistory;
+        if let Some(session) = app_handle.try_state::<SessionHistory>() {
+            let mut history = session.0.lock().unwrap();
+            if let Some(item) = history.iter_mut().find(|i| i.id == id) {
+                item.timestamp = now;
+                updated_entry = Some(item.clone());
             }
         }
-    });
+    }
+
+    if let Some(entry) = updated_entry {
+        let _ = app_handle.emit("clipboard-updated", entry);
+    }
 }
 
 fn read_changed_file(file_path: &std::path::Path, content_type: &str) -> Option<(String, String)> {
@@ -482,9 +665,23 @@ fn update_database_with_changes(
     new_content: &str,
     preview: &str,
 ) {
-    use crate::app_state::SessionHistory;
+    let state = app_handle.state::<DbState>();
+    let mut updated_entry = None;
 
-    if id < 0 {
+    if id > 0 {
+        if state
+            .repo
+            .update_entry_content(id, new_content, preview)
+            .is_err()
+        {
+            return;
+        }
+
+        if let Ok(Some(entry)) = state.repo.get_entry_by_id(id) {
+            updated_entry = Some(entry);
+        }
+    } else {
+        use crate::app_state::SessionHistory;
         if let Some(session) = app_handle.try_state::<SessionHistory>() {
             let mut history = session.0.lock().unwrap();
             if let Some(item) = history.iter_mut().find(|i| i.id == id) {
@@ -494,48 +691,76 @@ fn update_database_with_changes(
                 if item.content_type == "rich_text" {
                     item.content_type = "text".to_string();
                 }
-                let _ = app_handle.emit("clipboard-updated", item.clone());
-                println!(
-                    "Session item updated and clipboard-updated event emitted for id: {}",
-                    id
-                );
-                return;
+                updated_entry = Some(item.clone());
             }
         }
-        let _ = app_handle.emit("clipboard-changed", id);
-        return;
     }
 
-    let state = app_handle.state::<DbState>();
+    if let Some(entry) = updated_entry {
+        let _ = app_handle.emit("clipboard-updated", entry);
+        println!(
+            "Clipboard entry updated and clipboard-updated event emitted for id: {}",
+            id
+        );
+        crate::services::cloud_sync::request_cloud_sync(app_handle.clone());
+    } else {
+        let _ = app_handle.emit("clipboard-changed", id);
+        crate::services::cloud_sync::request_cloud_sync(app_handle.clone());
+    }
+}
 
-    if state
-        .repo
-        .update_entry_content(id, new_content, preview)
-        .is_ok()
-    {
-        if let Some(session) = app_handle.try_state::<SessionHistory>() {
-            let mut history = session.0.lock().unwrap();
-            if let Some(item) = history.iter_mut().find(|i| i.id == id) {
-                item.content = new_content.to_string();
-                item.preview = preview.to_string();
-                item.html_content = None;
-                if item.content_type == "rich_text" {
-                    item.content_type = "text".to_string();
-                }
-            }
-        }
+/// A file in TieZ's data folder (attachments, session images).
+fn is_managed_attachment(app_handle: &tauri::AppHandle, path: &std::path::Path) -> bool {
+    let Some(data_dir) = app_handle
+        .try_state::<crate::app_state::AppDataDir>()
+        .map(|dir| dir.0.lock().unwrap().clone())
+    else {
+        return false;
+    };
+    path.starts_with(&data_dir)
+}
 
-        if let Ok(Some(updated_entry)) = state.repo.get_entry_by_id(id) {
-            let _ = app_handle.emit("clipboard-updated", updated_entry);
-            println!(
-                "Database updated and clipboard-updated event emitted for id: {}",
-                id
-            );
-            crate::services::cloud_sync::request_cloud_sync(app_handle.clone());
-        } else {
-            let _ = app_handle.emit("clipboard-changed", id);
-            println!("Database updated for id: {}", id);
-            crate::services::cloud_sync::request_cloud_sync(app_handle.clone());
-        }
+/// An edited image arrives as a data URL; keep it as an attachment file
+/// rather than a large data URL in the database.
+fn store_edited_image(
+    app_handle: &tauri::AppHandle,
+    id: i64,
+    content_type: &str,
+    content: String,
+) -> String {
+    if content_type != "image" || !content.starts_with("data:") {
+        return content;
+    }
+    let Some(data_dir) = app_handle
+        .try_state::<crate::app_state::AppDataDir>()
+        .map(|dir| dir.0.lock().unwrap().clone())
+    else {
+        return content;
+    };
+    // Database entries (id > 0, e.g. pinned while persistence is off) keep
+    // their files in attachments/; only session entries use session/, which
+    // is swept once no session entry shows the file.
+    let root = if id > 0 { data_dir.clone() } else { data_dir.join("session") };
+    crate::database::save_image_to_file(&content, &root).unwrap_or(content)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::existing_file_paths;
+
+    #[test]
+    fn existing_file_paths_keeps_every_file_still_on_disk() {
+        let dir = std::env::temp_dir().join(format!("tiez-open-files-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let a = dir.join("a.html");
+        let b = dir.join("b.html");
+        std::fs::write(&a, "a").unwrap();
+        std::fs::write(&b, "b").unwrap();
+        let missing = dir.join("gone.html");
+
+        let content = format!("{}\n\n  {}  \n{}", a.display(), missing.display(), b.display());
+        assert_eq!(existing_file_paths(&content), vec![a, b]);
+
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 }

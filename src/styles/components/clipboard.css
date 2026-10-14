@@ -1,14 +1,23 @@
-/* Clipboard Item Selection */
+/* Clipboard Item Selection (Keyboard Focus & Active Target) */
 .history-item.selected {
-  outline: var(--card-selected-outline) !important;
-  outline-offset: var(--card-selected-outline-offset) !important;
-  border-color: var(--card-selected-border-color) !important;
-  box-shadow: var(--card-selected-shadow) !important;
+  outline: var(--card-selected-outline);
+  outline-offset: var(--card-selected-outline-offset);
+  border-color: var(--card-selected-border-color);
+  box-shadow: var(--card-selected-shadow);
+  background: var(--card-selected-background);
+  color: inherit;
+  transform: none;
   z-index: 10;
 }
 
-.history-item.selected {
-  background: var(--card-selected-background);
+/* Hover is only a theme-accent frame, not a filled selection or raised card.
+   An inset outline works even in borderless themes without changing layout. */
+.history-item:hover:not(.selected) {
+  outline: 1px solid var(--accent-color);
+  outline-offset: -1px;
+  border-color: var(--accent-color);
+  box-shadow: var(--card-shadow);
   color: inherit;
-  transform: none !important;
+  transform: none;
+  z-index: 5;
 }

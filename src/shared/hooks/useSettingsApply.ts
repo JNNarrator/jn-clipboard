@@ -1,13 +1,19 @@
+import { getNativePaletteStyle, normalizeNativePalette } from "../config/nativePalettes";
 import { useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { applyThemeClasses, normalizeThemeId } from "../config/themes";
+import { applyNativePalette, applyThemeClasses, normalizeThemeId } from "../config/themes";
+import { DEFAULT_THEME } from "../config/themes";
+import { ensureInstalledThemeStyle } from "../lib/themePackages";
 
 interface UseSettingsApplyOptions {
   theme: string;
   colorMode: string;
+  nativePalette: string;
 
   compactMode: boolean;
+  compactShowTime: boolean;
+  hideUnselectedItemActions: boolean;
   settingsLoaded: boolean;
   clipboardItemFontSize: number;
   clipboardTagFontSize: number;
@@ -18,13 +24,16 @@ interface UseSettingsApplyOptions {
 export const useSettingsApply = ({
   theme,
   colorMode,
+  nativePalette,
 
   compactMode,
+  compactShowTime,
+  hideUnselectedItemActions,
   settingsLoaded,
   clipboardItemFontSize,
   clipboardTagFontSize,
   surfaceOpacity,
-  showAppBorder: _showAppBorder
+  showAppBorder
 }: UseSettingsApplyOptions) => {
   useEffect(() => {
     if (!settingsLoaded) return;
@@ -61,13 +70,29 @@ export const useSettingsApply = ({
       }
     };
 
-    applyThemeClasses(normalizedTheme, root, body);
+    const applySelectedTheme = async () => {
+      const installedThemeReady = await ensureInstalledThemeStyle(normalizedTheme);
+      if (disposed) return;
+      const effectiveTheme = installedThemeReady ? normalizedTheme : DEFAULT_THEME;
+      applyThemeClasses(effectiveTheme, root, body);
+      invoke("set_theme", {
+        theme: effectiveTheme,
+        colorMode,
+        showAppBorder,
+      }).catch(console.error);
+    };
+
+    void applySelectedTheme();
 
     if (compactMode) {
       body.classList.add("compact-mode");
     } else {
       body.classList.remove("compact-mode");
     }
+
+    body.classList.toggle("hide-unselected-item-actions", hideUnselectedItemActions);
+    body.classList.toggle("compact-show-time", compactShowTime);
+    root.classList.toggle("compact-show-time", compactShowTime);
 
     if (colorMode === "light") {
       applyExplicitMode("light");
@@ -76,11 +101,6 @@ export const useSettingsApply = ({
     } else {
       applySystemMode();
     }
-
-    invoke("set_theme", {
-      theme: normalizedTheme,
-      color_mode: colorMode,
-    }).catch(console.error);
 
     let unlisten: (() => void) | null = null;
     let cleanupMedia: (() => void) | null = null;
@@ -91,10 +111,7 @@ export const useSettingsApply = ({
           if (disposed) return;
           const next = event?.payload === "dark" ? "dark" : "light";
           applyExplicitMode(next);
-          invoke("set_theme", {
-            theme: normalizedTheme,
-            color_mode: "system",
-          }).catch(console.error);
+          void applySelectedTheme();
         })
         .then((f) => {
           if (disposed) {
@@ -122,14 +139,27 @@ export const useSettingsApply = ({
       if (unlisten) unlisten();
       if (cleanupMedia) cleanupMedia();
     };
-  }, [theme, colorMode, settingsLoaded, compactMode]);
+  }, [theme, colorMode, showAppBorder, settingsLoaded, compactMode, compactShowTime, hideUnselectedItemActions]);
+
+  useEffect(() => {
+    if (!settingsLoaded) return;
+    applyNativePalette(theme, nativePalette, document.documentElement, document.body);
+    try {
+      localStorage.setItem("tiez_native_palette_tokens", JSON.stringify({
+        palette: normalizeNativePalette(nativePalette), styles: getNativePaletteStyle(nativePalette)
+      }));
+    } catch { /* The database remains authoritative if the startup cache is unavailable. */ }
+  }, [theme, nativePalette, settingsLoaded]);
 
   useEffect(() => {
     if (!settingsLoaded) return;
     const root = document.documentElement;
     root.style.setProperty("--clipboard-item-font-size", `${clipboardItemFontSize}px`);
     root.style.setProperty("--clipboard-tag-font-size", `${clipboardTagFontSize}px`);
-    const scale = Math.min(2, Math.max(0, surfaceOpacity / 50));
+    const safeSurfaceOpacity = Number.isFinite(surfaceOpacity)
+      ? Math.min(100, Math.max(0, surfaceOpacity))
+      : 50;
+    const scale = Math.min(2, Math.max(0, safeSurfaceOpacity / 50));
     root.style.setProperty("--surface-opacity-scale", scale.toString());
   }, [clipboardItemFontSize, clipboardTagFontSize, surfaceOpacity, settingsLoaded]);
 };

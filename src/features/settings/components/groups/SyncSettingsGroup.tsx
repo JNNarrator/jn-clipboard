@@ -1,6 +1,13 @@
 import type { ComponentType, ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { ChevronDown, ChevronRight } from "lucide-react";
+import ConfigShareQr from "../ConfigShareQr";
+import { SettingSwitch } from "../SettingControls";
+import {
+    buildMqttConfigQrPayload,
+    isMqttConfigQrReady,
+} from "../../utils/configQr";
+import E2eKeyPanel from "./E2eKeyPanel";
 
 interface LabelWithHintProps {
     label: string;
@@ -33,6 +40,8 @@ interface SyncSettingsGroupProps {
     setMqttTopic: (val: string) => void;
     mqttNotificationEnabled: boolean;
     setMqttNotificationEnabled: (val: boolean) => void;
+    e2eKey: string;
+    saveE2eKey: (value: string) => Promise<void>;
 }
 
 const SyncSettingsGroup = ({
@@ -59,45 +68,30 @@ const SyncSettingsGroup = ({
     mqttTopic,
     setMqttTopic,
     mqttNotificationEnabled,
-    setMqttNotificationEnabled
+    setMqttNotificationEnabled,
+    e2eKey,
+    saveE2eKey
 }: SyncSettingsGroupProps) => (
     <div className={`settings-group ${collapsed ? 'collapsed' : ''}`}>
-        <div className="group-header" onClick={onToggle}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <h3 style={{ margin: 0 }}>{t('sync_settings')}</h3>
+        <button type="button" className="group-header" aria-expanded={!collapsed} onClick={onToggle}>
+            <div className="group-header-title">
+                <h3>{t('sync_settings')}</h3>
                 {mqttEnabled && (
                     <span
-                        style={{
-                            width: '8px',
-                            height: '8px',
-                            borderRadius: '50%',
-                            backgroundColor: mqttStatus === 'connected' ? '#4CAF50' : mqttStatus === 'connecting' ? '#FF9800' : '#F44336',
-                            display: 'inline-block'
-                        }}
+                        className={`settings-status-dot is-${mqttStatus}`}
                         title={mqttStatus === 'connected' ? "Connected" : mqttStatus === 'connecting' ? "Connecting..." : "Disconnected"}
                     />
                 )}
             </div>
             {collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
-        </div>
+        </button>
         {!collapsed && (
             <div className="group-content">
-                <div style={{
-                    marginBottom: '12px',
-                    padding: '8px 12px',
-                    background: 'rgba(72, 123, 219, 0.1)',
-                    border: '1px solid rgba(72, 123, 219, 0.2)',
-                    borderRadius: '4px',
-                    display: 'flex',
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    gap: '12px'
-                }}>
-                    <span style={{ fontSize: '12px', color: 'var(--text-primary)' }}>{t('mqtt_tutorial_hint')}</span>
+                <div className="settings-notice settings-notice--action">
+                    <span>{t('mqtt_tutorial_hint')}</span>
                     <button
-                        className="btn-icon"
-                        style={{ fontSize: '11px', padding: '4px 12px', height: '24px', width: 'auto', flexShrink: 0 }}
+                        type="button"
+                        className="settings-action-button settings-action-button--small"
                         onClick={() => {
                             invoke("open_content", {
                                 id: 0,
@@ -113,31 +107,42 @@ const SyncSettingsGroup = ({
                     <div className="item-label-group">
                         <span className="item-label">{t('enable_sync')}</span>
                     </div>
-                    <label className="switch">
-                        <input
-                            className="cb"
-                            type="checkbox"
-                            checked={mqttEnabled}
-                            onChange={(e) => {
-                                const val = e.target.checked;
-                                setMqttEnabled(val);
-                                saveMqtt('mqtt_enabled', String(val));
-                            }}
-                        />
-                        <div className="toggle"><div className="left" /><div className="right" /></div>
-                    </label>
+                    <SettingSwitch
+                        checked={mqttEnabled}
+                        onChange={(e) => {
+                            const val = e.target.checked;
+                            setMqttEnabled(val);
+                            saveMqtt('mqtt_enabled', String(val));
+                        }}
+                    />
                 </div>
                 {mqttEnabled && (
                     <>
+                        <div className="setting-item is-child">
+                            <LabelWithHint
+                                label={t('mqtt_notification_enabled')}
+                                hint={t('mqtt_notification_enabled_hint')}
+                                hintKey="mqtt_notification_enabled"
+                            />
+                            <SettingSwitch
+                                checked={mqttNotificationEnabled}
+                                onChange={(e) => {
+                                    const val = e.target.checked;
+                                    setMqttNotificationEnabled(val);
+                                    saveMqtt('mqtt_notification_enabled', String(val));
+                                }}
+                            />
+                        </div>
+
+                        <h4 className="settings-section-title">{t('settings_section_connection')}</h4>
                         <div className="setting-item">
                             <LabelWithHint
-                                label={t('mqtt_protocol') || 'Protocol'}
-                                hint={t('mqtt_protocol_hint') || 'mqtt:// = standard (1883), mqtts:// = SSL/TLS (8883), ws:// = WebSocket (8083), wss:// = Secure WebSocket (8084)'}
+                                label={t('mqtt_protocol')}
+                                hint={t('mqtt_protocol_hint')}
                                 hintKey="mqtt_protocol"
                             />
                             <select
-                                className="search-input"
-                                style={{ borderRadius: '0', padding: '6px', width: '100px', background: 'var(--bg-input)', border: '2px solid var(--border-dark)', color: 'var(--text-primary)', fontSize: '12px' }}
+                                className="search-input settings-field"
                                 value={mqttProtocol}
                                 onChange={e => {
                                     const protocol = e.target.value;
@@ -164,24 +169,24 @@ const SyncSettingsGroup = ({
                         </div>
                         {(mqttProtocol === 'ws://' || mqttProtocol === 'wss://') && (
                             <div className="setting-item">
-                                <div className="item-label-group"><span className="item-label">{t('mqtt_ws_path') || 'WS Path'}</span></div>
+                                <div className="item-label-group"><span className="item-label">{t('mqtt_ws_path')}</span></div>
                                 <input
-                                    className="search-input"
-                                    style={{ borderRadius: '4px', padding: '8px', width: '140px' }}
+                                    className="search-input settings-field"
                                     value={mqttWsPath}
-                                    onFocus={() => invoke("focus_clipboard_window").catch(console.error)}
                                     onChange={e => { setMqttWsPath(e.target.value); saveMqtt('mqtt_ws_path', e.target.value); }}
                                     placeholder="/mqtt"
                                 />
                             </div>
                         )}
                         <div className="setting-item">
-                            <div className="item-label-group"><span className="item-label">{t('mqtt_host')}</span></div>
+                            <div className="item-label-group">
+                                <span className="item-label">{t('mqtt_host')}</span>
+                                {/* Messages are not end-to-end encrypted; the broker's access rules are the only protection. */}
+                                <span className="item-desc">{t('mqtt_host_privacy_hint')}</span>
+                            </div>
                             <input
-                                className="search-input"
-                                style={{ borderRadius: '4px', padding: '8px', width: '140px' }}
+                                className="search-input settings-field"
                                 value={mqttServer}
-                                onFocus={() => invoke("focus_clipboard_window").catch(console.error)}
                                 onChange={e => { setMqttServer(e.target.value); saveMqtt('mqtt_server', e.target.value); }}
                                 placeholder="mqtt.example.com"
                             />
@@ -189,10 +194,8 @@ const SyncSettingsGroup = ({
                         <div className="setting-item">
                             <div className="item-label-group"><span className="item-label">{t('mqtt_port')}</span></div>
                             <input
-                                className="search-input"
-                                style={{ borderRadius: '4px', padding: '8px', width: '140px' }}
+                                className="search-input settings-field"
                                 value={mqttPort}
-                                onFocus={() => invoke("focus_clipboard_window").catch(console.error)}
                                 onChange={e => { setMqttPort(e.target.value); saveMqtt('mqtt_port', e.target.value); }}
                                 placeholder="1883"
                             />
@@ -200,10 +203,8 @@ const SyncSettingsGroup = ({
                         <div className="setting-item">
                             <div className="item-label-group"><span className="item-label">{t('mqtt_user')}</span></div>
                             <input
-                                className="search-input"
-                                style={{ borderRadius: '4px', padding: '8px', width: '140px' }}
+                                className="search-input settings-field"
                                 value={mqttUser}
-                                onFocus={() => invoke("focus_clipboard_window").catch(console.error)}
                                 onChange={e => { setMqttUser(e.target.value); saveMqtt('mqtt_username', e.target.value); }}
                                 placeholder="Optional"
                             />
@@ -211,51 +212,50 @@ const SyncSettingsGroup = ({
                         <div className="setting-item">
                             <div className="item-label-group"><span className="item-label">{t('mqtt_password')}</span></div>
                             <input
-                                className="search-input"
-                                style={{ borderRadius: '4px', padding: '8px', width: '140px' }}
+                                className="search-input settings-field"
                                 type="password"
                                 value={mqttPass}
-                                onFocus={() => invoke("focus_clipboard_window").catch(console.error)}
                                 onChange={e => { setMqttPass(e.target.value); saveMqtt('mqtt_password', e.target.value); }}
                                 placeholder="Optional"
                             />
                         </div>
-                        <div className="setting-item no-border">
-                            <>
-                                <div className="item-label-group"><span className="item-label">{t('mqtt_topic')}</span></div>
-                                <input
-                                    className="search-input"
-                                    style={{ borderRadius: '4px', padding: '8px', width: '140px' }}
-                                    value={mqttTopic}
-                                    onFocus={() => invoke("focus_clipboard_window").catch(console.error)}
-                                    onChange={e => { setMqttTopic(e.target.value); saveMqtt('mqtt_topic', e.target.value); }}
-                                    placeholder="tiez/my_device"
-                                />
-                            </>
-                        </div>
                         <div className="setting-item">
-                            <LabelWithHint
-                                label={t('mqtt_notification_enabled')}
-                                hint={t('mqtt_notification_enabled_hint')}
-                                hintKey="mqtt_notification_enabled"
+                            <div className="item-label-group"><span className="item-label">{t('mqtt_topic')}</span></div>
+                            <input
+                                className="search-input settings-field"
+                                value={mqttTopic}
+                                onChange={e => { setMqttTopic(e.target.value); saveMqtt('mqtt_topic', e.target.value); }}
+                                placeholder="tiez/my_device"
                             />
-                            <label className="switch">
-                                <input
-                                    className="cb"
-                                    type="checkbox"
-                                    checked={mqttNotificationEnabled}
-                                    onChange={(e) => {
-                                        const val = e.target.checked;
-                                        setMqttNotificationEnabled(val);
-                                        saveMqtt('mqtt_notification_enabled', String(val));
-                                    }}
+                        </div>
+                        {/* Encryption is not offered to new setups; a device that already
+                            has a key still sees it, so it can be turned off. Above the
+                            QR code, which carries the key while one is set. */}
+                        {e2eKey && <E2eKeyPanel t={t} e2eKey={e2eKey} saveE2eKey={saveE2eKey} hintPrefix="mqtt" />}
+                        {(() => {
+                            const mqttQr = buildMqttConfigQrPayload({
+                                server: mqttServer,
+                                port: mqttPort,
+                                protocol: mqttProtocol,
+                                wsPath: mqttWsPath,
+                                username: mqttUser,
+                                password: mqttPass,
+                                topic: mqttTopic,
+                                e2eKey,
+                            });
+                            const mqttQrReady = isMqttConfigQrReady(mqttQr);
+                            return (
+                                <ConfigShareQr
+                                    value={JSON.stringify(mqttQr)}
+                                    ready={mqttQrReady}
+                                    title={t('mqtt_share_qr_title')}
+                                    hint={t('mqtt_share_qr_hint')}
+                                    emptyHint={t('mqtt_share_qr_empty')}
+                                revealLabel={t('config_qr_reveal')}
+                                revealHint={t('config_qr_reveal_hint')}
                                 />
-                                <div className="toggle"><div className="left" /><div className="right" /></div>
-                            </label>
-                        </div>
-                        <div style={{ padding: '0 8px 8px', fontSize: '11px', color: 'var(--text-secondary)', opacity: 0.8 }}>
-                            {t('mqtt_restart_hint')}
-                        </div>
+                            );
+                        })()}
                     </>
                 )}
             </div>

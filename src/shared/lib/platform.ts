@@ -6,3 +6,18 @@ export const isMacPlatform = (): boolean => {
     /Mac/i.test(navigator.platform)
   );
 };
+
+export const isWindowsPlatform = (): boolean => {
+  if (typeof navigator === "undefined") return false;
+
+  return (
+    /Windows|Win32|Win64/i.test(navigator.userAgent) ||
+    /Win/i.test(navigator.platform)
+  );
+};
+
+export const getNotePlaceholder = (t: (key: string) => string): string => {
+  return isMacPlatform()
+    ? t("note_placeholder_mac")
+    : t("note_placeholder_win");
+};

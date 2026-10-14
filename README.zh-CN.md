@@ -5,6 +5,8 @@
 
 ---
 
+> 维护者发布正式版或群测试版时，请参阅 [客户端发布流程](docs/RELEASES.md)。
+
 <div align="center">
   <img src="docs/images/logo.png" alt="TieZ Hero Logo" width="300" />
 
@@ -12,7 +14,7 @@
 
   | STARS | VERSION | LICENSE | PLATFORM |
   | :--- | :--- | :--- | :--- |
-  | [![Stars](https://img.shields.io/github/stars/jimuzhe/tiez-clipboard?label=STARS&style=for-the-badge&color=4CAF50)](https://github.com/jimuzhe/tiez-clipboard/stargazers) | [![Version](https://img.shields.io/github/v/release/jimuzhe/tiez-clipboard?label=VERSION&style=for-the-badge&color=2196F3)](https://github.com/jimuzhe/tiez-clipboard/releases) | [![License](https://img.shields.io/badge/LICENSE-GPL--3.0-FF9800?style=for-the-badge)](https://www.gnu.org/licenses/gpl-3.0) | [![Platform](https://img.shields.io/badge/PLATFORM-WIN%20%2F%20MAC-f44336?style=for-the-badge)](https://github.com/jimuzhe/tiez-clipboard/releases) |
+  | [![Stars](https://img.shields.io/github/stars/jimuzhe/tiez-clipboard?label=STARS&style=for-the-badge&color=4CAF50)](https://github.com/jimuzhe/tiez-clipboard/stargazers) | [![Version](https://img.shields.io/github/v/release/jimuzhe/tiez-clipboard?label=VERSION&style=for-the-badge&color=2196F3)](https://github.com/jimuzhe/tiez-clipboard/releases) | [![License](https://img.shields.io/badge/LICENSE-GPL--3.0-FF9800?style=for-the-badge)](https://www.gnu.org/licenses/gpl-3.0) | [![Platform](https://img.shields.io/badge/PLATFORM-macOS-f44336?style=for-the-badge)](https://github.com/jimuzhe/tiez-clipboard/releases) |
 
   [English](./README.md) | [简体中文](./README.zh-CN.md)
 </div>
@@ -23,14 +25,14 @@
 
 ## 主题展示 (Theme Gallery)
 
-探索为各种工作场景和效率场景精心设计的 4 款优雅主题样式。
+内置 8 款主题，下面是其中 4 款。
 
   <table>
     <tr>
-      <td align="center"><b>极简毛玻璃</b><br><img src="docs/images/毛玻璃.png" width="220" /></td>
-      <td align="center"><b>笔记本风格</b><br><img src="docs/images/书.png" width="220" /></td>
-      <td align="center"><b>便利贴风格</b><br><img src="docs/images/便利贴.png" width="220" /></td>
-      <td align="center"><b>3D 动感</b><br><img src="docs/images/3d.png" width="220" /></td>
+      <td align="center"><b>磨砂</b><br><img src="docs/images/毛玻璃.png" width="220" /></td>
+      <td align="center"><b>纸张</b><br><img src="docs/images/书.png" width="220" /></td>
+      <td align="center"><b>便签</b><br><img src="docs/images/便利贴.png" width="220" /></td>
+      <td align="center"><b>复古</b><br><img src="docs/images/3d.png" width="220" /></td>
     </tr>
   </table>
 </div>
@@ -77,9 +79,7 @@
 ### 平台支持
 | 平台 | 运行环境要求 | 获取格式 |
 | :--- | :--- | :--- |
-| **Windows** | Windows 10/11 (x86/x64)<br>*(推荐使用 Win11)* | `.exe` / **`.zip` (便携版)** |
-| **macOS** | Sierra 10.15+ <br>(Apple Silicon / Intel) | `.dmg` |
-| **Linux** | 即将支持 | 敬请期待 |
+| **macOS** | macOS 10.15+ <br>(Apple Silicon / Intel) | `.dmg` / `.app` |
 
 [**前往 Releases 下载最新版本 →**](https://github.com/jimuzhe/tiez-clipboard/releases)
 

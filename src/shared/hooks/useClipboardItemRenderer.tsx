@@ -4,17 +4,25 @@ const EMPTY_TAG_SUGGESTIONS: string[] = [];
 import type { Dispatch, SetStateAction, MouseEvent, ReactNode } from "react";
 import type { DragControls } from "framer-motion";
 import ClipboardItem from "../../features/clipboard/components/ClipboardItem";
+import { isKeyboardSelectedItem } from "../../features/clipboard/lib/itemInteraction";
 import type { QuickPasteHint } from "../../features/clipboard/types";
 import type { ClipboardEntry } from "../types";
 import type { Locale } from "../types";
+import type { AiDetail } from "./useAiActions";
 
 interface UseClipboardItemRendererOptions {
   privacyProtection: boolean;
   revealedIds: Set<number>;
   isKeyboardMode: boolean;
-  selectedIndex: number;
+  selectedItemId: number | null;
+  /** Entry shown in the wide layout's detail pane, if any. */
+  detailFocusedId: number | null;
+  splitActive: boolean;
+  noteDraft: string | undefined;
+  setNoteDraft: (note: string) => void;
   isWindowPinned: boolean;
   editingTagsId: number | null;
+  editingNoteId: number | null;
   tagInput: string;
   allTags: string[];
   tagColors: Record<string, string>;
@@ -40,15 +48,21 @@ interface UseClipboardItemRendererOptions {
     isPinned?: boolean,
     tags?: string[]
   ) => Promise<void>;
-  setSelectedIndex: Dispatch<SetStateAction<number>>;
+  selectItemByIndex: (index: number) => void;
   setRevealedIds: Dispatch<SetStateAction<Set<number>>>;
   openContent: (item: ClipboardEntry) => void;
   togglePin: (event: MouseEvent, id: number, isPinned: boolean) => void;
   deleteEntry: (event: MouseEvent, id: number) => void;
   setEditingTagsId: Dispatch<SetStateAction<number | null>>;
+  setEditingNoteId: Dispatch<SetStateAction<number | null>>;
   setTagInput: Dispatch<SetStateAction<string>>;
   handleUpdateTags: (id: number, tags: string[]) => void;
+  handleUpdateNote: (id: number, note: string) => void;
   handleAIAction: (id: number, content: string, actionType: string) => void;
+  handleAISupplement: (id: number, input: string) => void;
+  aiDetails: Record<number, AiDetail>;
+  applyAIResult: (id: number) => Promise<void>;
+  discardAIResult: (id: number) => void;
 }
 
 type RenderItemContent = (
@@ -62,9 +76,14 @@ export const useClipboardItemRenderer = ({
   privacyProtection,
   revealedIds,
   isKeyboardMode,
-  selectedIndex,
+  selectedItemId,
+  detailFocusedId,
+  splitActive,
+  noteDraft,
+  setNoteDraft,
   isWindowPinned,
   editingTagsId,
+  editingNoteId,
   tagInput,
   allTags,
   tagColors,
@@ -83,15 +102,21 @@ export const useClipboardItemRenderer = ({
   aiOptionsOpenId,
   setAiOptionsOpenId,
   copyToClipboard,
-  setSelectedIndex,
+  selectItemByIndex,
   setRevealedIds,
   openContent,
   togglePin,
   deleteEntry,
   setEditingTagsId,
+  setEditingNoteId,
   setTagInput,
   handleUpdateTags,
-  handleAIAction
+  handleUpdateNote,
+  handleAIAction,
+  handleAISupplement,
+  aiDetails,
+  applyAIResult,
+  discardAIResult
 }: UseClipboardItemRendererOptions): { renderItemContent: RenderItemContent } => {
   const renderItemContent = useCallback(
     (item: ClipboardEntry, index: number, dragControls?: DragControls, disableLayout?: boolean) => {
@@ -101,18 +126,27 @@ export const useClipboardItemRenderer = ({
           item.tags?.includes("密码") ||
           item.tags?.includes("password")) &&
         !revealedIds.has(item.id);
-      const isEditingTags = editingTagsId === item.id;
+      const isEditingTags = !splitActive && editingTagsId === item.id;
+      const isEditingNote = !splitActive && editingNoteId === item.id;
+      // The detail pane offers the same choice for the entry it shows.
+      const aiDetail = splitActive && detailFocusedId === item.id ? undefined : aiDetails[item.id];
+      const aiIdle = aiDetail && !aiDetail.processing && !isSensitiveHidden;
 
       return (
         <ClipboardItem
           id={`clipboard-item-${item.id}`}
           key={item.id}
           item={item}
-          isSelected={isKeyboardMode && index === selectedIndex}
+          navigationIndex={index}
+          isSelected={isKeyboardSelectedItem(item.id, selectedItemId, isKeyboardMode)}
+          isDetailFocused={detailFocusedId === item.id}
           windowPinned={isWindowPinned}
           isSensitiveHidden={!!isSensitiveHidden}
           isRevealed={revealedIds.has(item.id)}
           isEditingTags={isEditingTags}
+          isEditingNote={isEditingNote}
+          noteDraft={isEditingNote ? noteDraft : undefined}
+          onNoteDraftChange={setNoteDraft}
           tagInput={isEditingTags ? tagInput : ""}
           tagSuggestions={isEditingTags ? allTags : EMPTY_TAG_SUGGESTIONS}
           tagColors={tagColors}
@@ -126,7 +160,7 @@ export const useClipboardItemRenderer = ({
           sensitiveMaskSuffixVisible={sensitiveMaskSuffixVisible}
           sensitiveMaskEmailDomain={sensitiveMaskEmailDomain}
           quickPasteHint={quickPasteHintsById[item.id]}
-          onSelect={() => setSelectedIndex(index)}
+          onSelect={() => selectItemByIndex(index)}
           onCopy={(withFormat) =>
             copyToClipboard(item.id, item.content, item.content_type, withFormat, item.is_pinned, item.tags || [])
           }
@@ -147,6 +181,7 @@ export const useClipboardItemRenderer = ({
           onDelete={(e) => deleteEntry(e, item.id)}
           onToggleTagEditor={(e) => {
             e.stopPropagation();
+            setEditingNoteId(null);
             if (editingTagsId === item.id) {
               setEditingTagsId(null);
             } else {
@@ -154,6 +189,21 @@ export const useClipboardItemRenderer = ({
               setTagInput("");
             }
           }}
+          onToggleNoteEditor={(e) => {
+            e.stopPropagation();
+            setEditingTagsId(null);
+            setTagInput("");
+            if (editingNoteId === item.id) {
+              setEditingNoteId(null);
+            } else {
+              setEditingNoteId(item.id);
+            }
+          }}
+          onNoteSave={(note) => {
+            handleUpdateNote(item.id, note);
+            setEditingNoteId(null);
+          }}
+          onNoteEditCancel={() => setEditingNoteId(null)}
           onTagInput={setTagInput}
           onTagAdd={() => {
             const newTag = tagInput.trim();
@@ -177,20 +227,20 @@ export const useClipboardItemRenderer = ({
           onTagDelete={(tag) => {
             handleUpdateTags(item.id, item.tags ? item.tags.filter((t) => t !== tag) : []);
           }}
-          isAIProcessing={processingAiId === item.id}
+          // Per-item state, so a second request elsewhere keeps this spinner.
+          isAIProcessing={aiDetail?.processing ?? processingAiId === item.id}
           aiEnabled={aiEnabled}
           aiOptionsOpen={aiOptionsOpenId === item.id}
           onAIOptionsToggle={() =>
             setAiOptionsOpenId((prev) => (prev === item.id ? null : item.id))
           }
           onAIAction={(actionType) => handleAIAction(item.id, item.content, actionType)}
-          onInputSubmit={(input) =>
-            handleAIAction(
-              item.id,
-              `这是我之前的原始意图：\n"${item.content}"\n\n这是我补充的信息：\n"${input}"\n\n请结合以上信息完成任务。`,
-              "task"
-            )
-          }
+          onInputSubmit={(input) => handleAISupplement(item.id, input)}
+          aiQuestion={aiIdle ? aiDetail.question : undefined}
+          aiPendingResult={aiIdle ? aiDetail.response : undefined}
+          // A result from a cut-down long entry can only be copied, not applied.
+          onAIApply={aiDetail?.truncated ? undefined : () => void applyAIResult(item.id)}
+          onAIDiscard={() => discardAIResult(item.id)}
           dragControls={dragControls}
           disableLayout={disableLayout}
         />
@@ -199,10 +249,15 @@ export const useClipboardItemRenderer = ({
     [
       privacyProtection,
       revealedIds,
+      selectedItemId,
+      detailFocusedId,
+      splitActive,
+      noteDraft,
+      setNoteDraft,
       isKeyboardMode,
-      selectedIndex,
       isWindowPinned,
       editingTagsId,
+      editingNoteId,
       tagInput,
       allTags,
       tagColors,
@@ -221,15 +276,21 @@ export const useClipboardItemRenderer = ({
       aiOptionsOpenId,
       setAiOptionsOpenId,
       copyToClipboard,
-      setSelectedIndex,
+      selectItemByIndex,
       setRevealedIds,
       openContent,
       togglePin,
       deleteEntry,
       setEditingTagsId,
+      setEditingNoteId,
       setTagInput,
       handleUpdateTags,
-      handleAIAction
+      handleUpdateNote,
+      handleAIAction,
+      handleAISupplement,
+      aiDetails,
+      applyAIResult,
+      discardAIResult
     ]
   );
 

@@ -1,8 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
+import { withNativeDialog } from "../../../../shared/lib/focus";
 import { ChevronDown, ChevronRight, HelpCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import { QRCodeCanvas } from "qrcode.react";
+import { buildPairingUrl } from "../../../file-transfer/utils/transferHelpers";
 
 interface FileTransferSettingsGroupProps {
     t: (key: string) => string;
@@ -17,6 +19,8 @@ interface FileTransferSettingsGroupProps {
     availableIps?: string[];
     setLocalIp?: (val: string) => void;
     actualPort: string;
+    accessToken: string;
+    lanKey: string;
     fileTransferAutoOpen: boolean;
     setFileTransferAutoOpen: (val: boolean) => void;
     showAutoCloseHint: boolean;
@@ -44,6 +48,8 @@ const FileTransferSettingsGroup = ({
     availableIps,
     setLocalIp,
     actualPort,
+    accessToken,
+    lanKey,
     fileTransferAutoOpen,
     setFileTransferAutoOpen,
     showAutoCloseHint,
@@ -58,10 +64,10 @@ const FileTransferSettingsGroup = ({
     fetchEffectiveTransferPath
 }: FileTransferSettingsGroupProps) => (
     <div className={`settings-group ${collapsed ? 'collapsed' : ''}`}>
-        <div className="group-header" onClick={onToggle}>
-            <h3 style={{ margin: 0 }}>{t('file_transfer')}</h3>
+        <button type="button" className="group-header" aria-expanded={!collapsed} onClick={onToggle}>
+            <h3>{t('file_transfer')}</h3>
             {collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
-        </div>
+        </button>
         {!collapsed && (
             <div className="group-content">
                 <div className="setting-item">
@@ -77,7 +83,13 @@ const FileTransferSettingsGroup = ({
                                 const val = e.target.checked;
                                 setFileServerEnabled(val);
                                 const port = Number(fileServerPort);
-                                invoke("toggle_file_server", { enabled: val, port: Number.isInteger(port) ? port : undefined });
+                                invoke("toggle_file_server", {
+                                    enabled: val,
+                                    port: Number.isInteger(port) ? port : undefined
+                                }).catch((error) => {
+                                    setFileServerEnabled(!val);
+                                    console.error("Failed to toggle file server:", error);
+                                });
                             }}
                         />
                         <div className="toggle"><div className="left" /><div className="right" /></div>
@@ -89,10 +101,8 @@ const FileTransferSettingsGroup = ({
                         <div className="setting-item">
                             <div className="item-label-group"><span className="item-label">{t('file_server_port')}</span></div>
                             <input
-                                className="search-input"
-                                style={{ borderRadius: '4px', padding: '8px', width: '80px' }}
+                                className="search-input settings-field settings-field--sm settings-field--numeric"
                                 value={fileServerPort}
-                                onFocus={() => invoke("focus_clipboard_window").catch(console.error)}
                                 onChange={e => { setFileServerPort(e.target.value); }}
                                 onBlur={() => applyFileServerPort(fileServerPort)}
                                 onKeyDown={(e) => {
@@ -104,23 +114,12 @@ const FileTransferSettingsGroup = ({
                                 placeholder="18888"
                             />
                         </div>
-                        <div className="setting-item no-border">
-                            <div className="item-label-group"><span className="item-label">Local IP</span></div>
-                            <div className="data-panel" style={{ minWidth: '160px', justifyContent: 'flex-start', padding: '6px 10px', height: 'auto' }}>
+                        <div className="setting-item">
+                            <div className="item-label-group"><span className="item-label">{t('local_ip')}</span></div>
+                            <div className="data-panel settings-address-panel">
                                 {availableIps && availableIps.length > 1 && setLocalIp ? (
                                     <select
-                                        className="search-input"
-                                        style={{
-                                            border: 'none',
-                                            background: 'transparent',
-                                            padding: 0,
-                                            margin: 0,
-                                            fontSize: '11px',
-                                            height: 'auto',
-                                            width: 'auto',
-                                            minWidth: '0',
-                                            boxShadow: 'none'
-                                        }}
+                                        className="settings-address-select"
                                         value={localIp}
                                         onChange={(e) => {
                                             const newIp = e.target.value;
@@ -133,13 +132,15 @@ const FileTransferSettingsGroup = ({
                                         ))}
                                     </select>
                                 ) : (
-                                    <span style={{ fontSize: '11px' }}>{localIp}</span>
+                                    <span>{localIp}</span>
                                 )}
-                                <span style={{ fontSize: '11px', opacity: 0.7 }}>:{Number(actualPort) > 0 ? actualPort : fileServerPort}</span>
                             </div>
                         </div>
                         <div className="setting-item">
-                            <div className="item-label-group"><span className="item-label">{t('file_transfer_auto_open')}</span></div>
+                            <div className="item-label-group">
+                                <span className="item-label">{t('file_transfer_auto_open')}</span>
+                                <span className="hint">{t('file_transfer_auto_open_hint')}</span>
+                            </div>
                             <label className="switch">
                                 <input
                                     className="cb"
@@ -155,17 +156,24 @@ const FileTransferSettingsGroup = ({
                         </div>
                         <div className="setting-item">
                             <div className="item-label-group">
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <div className="item-label-row">
                                     <span className="item-label">{t('file_server_auto_close')}</span>
                                     <button
+                                        type="button"
                                         onClick={() => setShowAutoCloseHint(!showAutoCloseHint)}
                                         className="hint-icon-btn"
-                                        style={{ background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', opacity: showAutoCloseHint ? 1 : 0.6 }}
+                                        aria-expanded={showAutoCloseHint}
+                                        aria-label={t('auto_close_hint')}
                                     >
-                                        <HelpCircle size={12} />
+                                        <HelpCircle size={13} />
                                     </button>
                                 </div>
                             </div>
+                            {showAutoCloseHint && (
+                                <div className="setting-hint-panel">
+                                    <span className="hint">{t('auto_close_hint')}</span>
+                                </div>
+                            )}
                             <label className="switch">
                                 <input
                                     className="cb"
@@ -179,14 +187,11 @@ const FileTransferSettingsGroup = ({
                                 <div className="toggle"><div className="left" /><div className="right" /></div>
                             </label>
                         </div>
-
-                        {showAutoCloseHint && (
-                            <div style={{ margin: '4px 8px 12px', padding: '10px 14px', background: 'rgba(72, 123, 219, 0.08)', border: '1px solid rgba(72, 123, 219, 0.2)', borderRadius: '8px', fontSize: '11px', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
-                                {t('auto_close_hint')}
-                            </div>
-                        )}
                         <div className="setting-item">
-                            <div className="item-label-group"><span className="item-label">{t('file_transfer_auto_copy')}</span></div>
+                            <div className="item-label-group">
+                                <span className="item-label">{t('file_transfer_auto_copy')}</span>
+                                <span className="hint">{t('file_transfer_auto_copy_hint')}</span>
+                            </div>
                             <label className="switch">
                                 <input
                                     className="cb"
@@ -201,7 +206,7 @@ const FileTransferSettingsGroup = ({
                             </label>
                         </div>
 
-                        {localIp && actualPort && (
+                        {localIp && actualPort && accessToken && (
                             <motion.div
                                 initial={{ height: 0, opacity: 0 }}
                                 animate={{ height: 'auto', opacity: 1 }}
@@ -209,42 +214,56 @@ const FileTransferSettingsGroup = ({
                             >
                                 <div className="file-transfer-panel">
                                     <div className="qr-container">
-                                        <QRCodeCanvas value={`http://${localIp}:${actualPort}`} size={90} />
-                                        <div className="qr-label">SCAN ME</div>
+                                        <QRCodeCanvas
+                                            value={buildPairingUrl(localIp, actualPort, accessToken, lanKey)}
+                                            size={90}
+                                        />
+                                        <div className="qr-label">{t('scan_me')}</div>
                                     </div>
                                     <div className="transfer-info">
-                                        <div className="scan-title">{t('scan_to_send')}</div>
-                                        <div className="info-row">
-                                            <span className="info-label">STATUS</span>
-                                            <span className="status-online">ONLINE</span>
+                                        <div className="transfer-info-head">
+                                            <div className="scan-title">{t('scan_to_send')}</div>
+                                            <button
+                                                type="button"
+                                                className="open-browser-btn"
+                                                onClick={() => {
+                                                    if (onOpenChat) onOpenChat();
+                                                }}
+                                            >
+                                                {t('open_page')}
+                                            </button>
                                         </div>
                                         <div className="info-row">
-                                            <span className="info-label">HOST</span>
+                                            <span className="info-label">{t('status')}</span>
+                                            <span className="status-online">{t('online')}</span>
+                                        </div>
+                                        <div className="info-row">
+                                            <span className="info-label">{t('host')}</span>
                                             <span className="info-value">{localIp}</span>
                                         </div>
                                         <div className="info-row">
-                                            <span className="info-label">PORT</span>
+                                            <span className="info-label">{t('port')}</span>
                                             <span className="info-value">{actualPort}</span>
-                                        </div>
-                                        <div className="open-browser-btn" onClick={() => {
-                                            if (onOpenChat) onOpenChat();
-                                        }}>
-                                            {t('open_page')}
                                         </div>
                                     </div>
                                 </div>
                             </motion.div>
                         )}
 
-                        <div className="setting-item column no-border">
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                                <span className="item-label">{t('custom_save_path')}</span>
+                        <div className="setting-item column">
+                            <div className="setting-item-heading">
+                                <div className="item-label-group">
+                                    <span className="item-label">{t('custom_save_path')}</span>
+                                </div>
                                 <button
-                                    className="btn-icon"
-                                    style={{ width: 'auto', fontSize: '10px', height: '24px', padding: '0 8px' }}
+                                    type="button"
+                                    className="settings-action-button settings-action-button--small"
                                     onClick={async () => {
                                         try {
-                                            const selected = await open({ directory: true, multiple: false });
+                                            const selected = await withNativeDialog(
+                                                () => open({ directory: true, multiple: false }),
+                                                "settings:file-transfer-path"
+                                            );
                                             if (selected) {
                                                 saveSetting('file_transfer_path', selected as string);
                                                 setTimeout(fetchEffectiveTransferPath, 100);
@@ -256,8 +275,7 @@ const FileTransferSettingsGroup = ({
                                 </button>
                             </div>
                             <div
-                                className="data-panel"
-                                style={{ fontSize: '11px', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                className="data-panel settings-path-panel"
                                 onClick={async () => {
                                     let path = fileTransferPath;
                                     if (!path) {

@@ -16,7 +16,7 @@ const ToastContainer = ({ toasts }: ToastContainerProps) => (
           exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
           className="toast-item"
         >
-          {toast.msg}
+          <span className="toast-text">{toast.msg}</span>
         </motion.div>
       ))}
     </AnimatePresence>

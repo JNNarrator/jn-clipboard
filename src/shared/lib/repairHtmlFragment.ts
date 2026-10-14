@@ -14,9 +14,20 @@ export const isHtmlishTagText = (text: string): boolean => {
   return MISSING_LEADING_TAG_RE.test((text || "").trim());
 };
 
+export const hasRenderableCssRules = (text: string): boolean => {
+  if (!text || !text.includes("{")) return false;
+  return /(?:^|[;{\s])(?:color|font|background|text-decoration|line-height|letter-spacing|border|mso-font|mso-highlight)\s*:/im.test(
+    text
+  );
+};
+
 export const isOfficeStyleDefinitionText = (text: string): boolean => {
   const normalized = (text || "").replace(/\s+/g, " ").trim();
-  return normalized.length > 24 && OFFICE_STYLE_SIGNAL_RE.test(normalized);
+  if (normalized.length <= 24 || !OFFICE_STYLE_SIGNAL_RE.test(normalized)) {
+    return false;
+  }
+  // WPS/Word style blocks often include mso-* metadata and real CSS rules together.
+  return !hasRenderableCssRules(normalized);
 };
 
 export const repairHtmlFragment = (html: string): string => {
@@ -30,6 +41,48 @@ export const repairHtmlFragment = (html: string): string => {
   }
 
   return trimmed;
+};
+
+const RICH_NAMED_FORMATS_PREFIX = "<!--TIEZ_RICH_FORMATS:";
+const RICH_NAMED_FORMATS_SUFFIX = "-->";
+
+export const stripRichStorageMarkers = (html: string): string => {
+  let processed = (html || "").trim();
+  if (!processed) return processed;
+
+  const imageStart = processed.lastIndexOf("<!--TIEZ_RICH_IMAGE:");
+  if (imageStart >= 0) {
+    const markerStart = imageStart + "<!--TIEZ_RICH_IMAGE:".length;
+    const endRel = processed.slice(markerStart).indexOf("-->");
+    if (endRel >= 0) {
+      const markerEnd = markerStart + endRel;
+      processed = `${processed.slice(0, imageStart)}${processed.slice(markerEnd + 3)}`.trim();
+    }
+  }
+
+  const formatsStart = processed.lastIndexOf(RICH_NAMED_FORMATS_PREFIX);
+  if (formatsStart >= 0) {
+    const markerStart = formatsStart + RICH_NAMED_FORMATS_PREFIX.length;
+    const endRel = processed.slice(markerStart).indexOf(RICH_NAMED_FORMATS_SUFFIX);
+    if (endRel >= 0) {
+      const markerEnd = markerStart + endRel;
+      processed = `${processed.slice(0, formatsStart)}${processed.slice(markerEnd + RICH_NAMED_FORMATS_SUFFIX.length)}`.trim();
+    }
+  }
+
+  return processed;
+};
+
+/**
+ * Excel, Word and WPS style cells and paragraphs from a <style> in <head>
+ * and mark them with a class only (`<td class=xl65>`). Cutting out the
+ * fragment dropped that sheet and with it every fill, border and font, so
+ * style blocks with real rules come along.
+ */
+const withSourceStyles = (source: string, fragment: string): string => {
+  const styles = (source.match(OFFICE_STYLE_BLOCK_RE) || [])
+    .filter((block) => !fragment.includes(block) && hasRenderableCssRules(block));
+  return styles.length ? `${styles.join("")}${fragment}` : fragment;
 };
 
 export const extractRenderableHtmlFragment = (html: string): string => {
@@ -46,20 +99,20 @@ export const extractRenderableHtmlFragment = (html: string): string => {
     const contentStart = startIndex + startMarker.length;
     const endIndex = trimmed.indexOf(endMarker, contentStart);
     if (endIndex > contentStart) {
-      return trimmed.slice(contentStart, endIndex).trim();
+      return withSourceStyles(trimmed, trimmed.slice(contentStart, endIndex).trim());
     }
   }
 
   const bodyMatch = trimmed.match(BODY_RE);
   if (bodyMatch?.[1]) {
-    return bodyMatch[1].trim();
+    return withSourceStyles(trimmed, bodyMatch[1].trim());
   }
 
-  return trimmed.replace(HEAD_RE, " ").trim();
+  return withSourceStyles(trimmed, trimmed.replace(HEAD_RE, " ").trim());
 };
 
 export const stripOfficePreviewNoise = (html: string): string => {
-  let processed = repairHtmlFragment(html || "");
+  let processed = extractRenderableHtmlFragment(html || "");
   if (!processed) {
     return processed;
   }

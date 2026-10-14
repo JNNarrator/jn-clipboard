@@ -13,15 +13,16 @@ pub enum AppError {
 
 impl std::error::Error for AppError {}
 
+// 前端约定：错误字符串格式为 "[tag] detail"，tag 由前端负责本地化，后端不写死任何语言。
 impl fmt::Display for AppError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            AppError::Database(e) => write!(f, "数据库错误: {}", e),
-            AppError::IO(e) => write!(f, "文件系统错误: {}", e),
-            AppError::Network(e) => write!(f, "网络错误: {}", e),
-            AppError::Internal(e) => write!(f, "内部系统错误: {}", e),
-            AppError::Validation(e) => write!(f, "验证错误: {}", e),
-            AppError::Encryption(e) => write!(f, "加密错误: {}", e),
+            AppError::Database(e) => write!(f, "[db] {}", e),
+            AppError::IO(e) => write!(f, "[io] {}", e),
+            AppError::Network(e) => write!(f, "[network] {}", e),
+            AppError::Internal(e) => write!(f, "[internal] {}", e),
+            AppError::Validation(e) => write!(f, "[validation] {}", e),
+            AppError::Encryption(e) => write!(f, "[encryption] {}", e),
         }
     }
 }
@@ -74,3 +75,36 @@ impl From<image::ImageError> for AppError {
 }
 
 pub type AppResult<T> = Result<T, AppError>;
+
+#[cfg(test)]
+mod tests {
+    use super::AppError;
+
+    #[test]
+    fn display_uses_language_neutral_tags() {
+        let cases = [
+            (AppError::Database("locked".into()), "[db] locked"),
+            (AppError::IO("missing".into()), "[io] missing"),
+            (
+                AppError::Network("HTTP 502 Bad Gateway".into()),
+                "[network] HTTP 502 Bad Gateway",
+            ),
+            (AppError::Internal("boom".into()), "[internal] boom"),
+            (
+                AppError::Validation("url is empty".into()),
+                "[validation] url is empty",
+            ),
+            (
+                AppError::Encryption("bad key".into()),
+                "[encryption] bad key",
+            ),
+        ];
+        for (err, expected) in cases {
+            assert_eq!(err.to_string(), expected);
+            assert_eq!(
+                serde_json::to_string(&err).unwrap(),
+                serde_json::to_string(expected).unwrap()
+            );
+        }
+    }
+}

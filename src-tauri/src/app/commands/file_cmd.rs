@@ -8,6 +8,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 use tauri::State;
+use urlencoding::decode;
 
 #[derive(Serialize)]
 pub struct FileSize {
@@ -29,12 +30,110 @@ pub async fn save_file_copy(source_path: String, target_path: String) -> AppResu
     Ok(())
 }
 
+#[tauri::command]
+pub async fn save_file_batch(
+    source_paths: Vec<String>,
+    target_dir: String,
+    batch_name: String,
+) -> AppResult<String> {
+    if source_paths.len() < 2 || source_paths.len() > 2_000 {
+        return Err(AppError::Validation(
+            "文件包必须包含 2–2000 个文件".to_string(),
+        ));
+    }
+    let target_root = PathBuf::from(target_dir);
+    if !target_root.is_dir() {
+        return Err(AppError::Validation("请选择有效的文件夹。".to_string()));
+    }
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let safe_batch_name = sanitize_copy_name(&batch_name, "TieZ 文件包");
+        let package_dir = unique_copy_path(&target_root, &safe_batch_name, true);
+        std::fs::create_dir(&package_dir).map_err(AppError::from)?;
+
+        for source in source_paths {
+            let source = PathBuf::from(source);
+            if !source.is_file() {
+                let _ = std::fs::remove_dir_all(&package_dir);
+                return Err(AppError::Validation(format!(
+                    "源文件不存在：{}",
+                    source.to_string_lossy()
+                )));
+            }
+            let requested_name = source
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or("文件");
+            let safe_name = sanitize_copy_name(requested_name, "文件");
+            let target = unique_copy_path(&package_dir, &safe_name, false);
+            if let Err(error) = std::fs::copy(&source, &target) {
+                let _ = std::fs::remove_dir_all(&package_dir);
+                return Err(AppError::from(error));
+            }
+        }
+
+        Ok(package_dir.to_string_lossy().to_string())
+    })
+    .await
+    .map_err(|error| AppError::Internal(error.to_string()))?
+}
+
+fn sanitize_copy_name(value: &str, fallback: &str) -> String {
+    let cleaned = value
+        .chars()
+        .filter(|character| !character.is_control())
+        .map(|character| {
+            if matches!(character, '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|') {
+                '_'
+            } else {
+                character
+            }
+        })
+        .take(120)
+        .collect::<String>();
+    let cleaned = cleaned.trim().trim_matches('.').trim();
+    if cleaned.is_empty() {
+        fallback.to_string()
+    } else {
+        cleaned.to_string()
+    }
+}
+
+fn unique_copy_path(root: &Path, requested_name: &str, directory: bool) -> PathBuf {
+    let initial = root.join(requested_name);
+    if !initial.exists() {
+        return initial;
+    }
+    let requested = Path::new(requested_name);
+    let stem = requested
+        .file_stem()
+        .and_then(|value| value.to_str())
+        .unwrap_or("文件");
+    let extension = if directory {
+        None
+    } else {
+        requested.extension().and_then(|value| value.to_str())
+    };
+    for suffix in 2..=10_000 {
+        let candidate_name = match extension {
+            Some(extension) => format!("{stem} ({suffix}).{extension}"),
+            None => format!("{stem} ({suffix})"),
+        };
+        let candidate = root.join(candidate_name);
+        if !candidate.exists() {
+            return candidate;
+        }
+    }
+    root.join(format!("{}-{}", stem, uuid::Uuid::new_v4()))
+}
+
 fn normalize_image_ext(ext: &str) -> Option<&'static str> {
     match ext.to_lowercase().as_str() {
         "png" => Some("png"),
         "jpg" | "jpeg" => Some("jpg"),
         "webp" => Some("webp"),
         "gif" => Some("gif"),
+        "avif" => Some("avif"),
         _ => None,
     }
 }
@@ -64,6 +163,7 @@ pub(crate) fn image_ext_from_mime(mime: &str) -> Option<&'static str> {
         "image/webp" => Some("webp"),
         "image/jpeg" => Some("jpg"),
         "image/png" => Some("png"),
+        "image/avif" => Some("avif"),
         _ => None,
     }
 }
@@ -75,6 +175,49 @@ fn image_ext_from_url(url: &reqwest::Url) -> Option<&'static str> {
         .and_then(|s| s.to_str())
         .unwrap_or("");
     normalize_image_ext(ext)
+}
+
+fn normalize_emoji_source_path(raw: &str) -> AppResult<String> {
+    let trimmed = raw.trim().trim_matches('"').trim_matches('\'');
+    if trimmed.is_empty() {
+        return Err(AppError::Validation("source_path is empty".to_string()));
+    }
+
+    let mut normalized = if trimmed.starts_with("file://") {
+        let path_raw = trimmed.trim_start_matches("file://");
+        let decoded = decode(path_raw)
+            .map(|p| p.into_owned())
+            .unwrap_or_else(|_| path_raw.to_string());
+
+        if decoded.chars().nth(1) == Some(':') {
+            decoded
+        } else if decoded.starts_with('/') && decoded.chars().nth(2) == Some(':') {
+            decoded[1..].to_string()
+        } else if !decoded.starts_with('/') && !decoded.starts_with('\\') {
+            format!("//{}", decoded)
+        } else {
+            decoded
+        }
+    } else {
+        decode(trimmed)
+            .map(|p| p.into_owned())
+            .unwrap_or_else(|_| trimmed.to_string())
+    };
+
+    normalized = normalized
+        .split('?')
+        .next()
+        .unwrap_or(&normalized)
+        .split('#')
+        .next()
+        .unwrap_or(&normalized)
+        .to_string();
+
+    if normalized.is_empty() {
+        return Err(AppError::Validation("source_path is empty".to_string()));
+    }
+
+    Ok(normalized)
 }
 
 pub(crate) fn save_emoji_favorite_bytes_to_dir(
@@ -103,7 +246,7 @@ pub(crate) fn save_emoji_favorite_bytes_to_dir(
     Ok(target_path.to_string_lossy().to_string())
 }
 
-pub(crate) fn list_emoji_favorite_paths_in_dir(data_dir: &Path) -> AppResult<Vec<String>> {
+pub(crate) fn list_emoji_favorite_paths_in_dir(data_dir: &std::path::Path) -> AppResult<Vec<String>> {
     let favorites_dir = data_dir.join("emoji_favorites");
     if !favorites_dir.exists() {
         return Ok(Vec::new());
@@ -126,23 +269,26 @@ pub(crate) fn list_emoji_favorite_paths_in_dir(data_dir: &Path) -> AppResult<Vec
 }
 
 #[tauri::command]
+pub fn list_emoji_favorites(app_data: State<'_, AppDataDir>) -> AppResult<Vec<String>> {
+    let data_dir = app_data.0.lock().unwrap().clone();
+    list_emoji_favorite_paths_in_dir(&data_dir)
+}
+
+#[tauri::command]
 pub async fn save_emoji_favorite(
     app_data: State<'_, AppDataDir>,
     source_path: String,
 ) -> AppResult<String> {
-    let source_path = source_path.trim();
-    if source_path.is_empty() {
-        return Err(AppError::Validation("source_path is empty".to_string()));
-    }
+    let source_path = normalize_emoji_source_path(&source_path)?;
 
-    let ext = match image_ext_from_filename(source_path) {
+    let ext = match image_ext_from_filename(&source_path) {
         Some(ext) => ext,
         None => {
             return Err(AppError::Validation("unsupported file type".to_string()));
         }
     };
 
-    let bytes = std::fs::read(source_path).map_err(AppError::from)?;
+    let bytes = std::fs::read(&source_path).map_err(AppError::from)?;
 
     let data_dir = app_data.0.lock().unwrap().clone();
     save_emoji_favorite_bytes_to_dir(&data_dir, &bytes, ext)
@@ -168,12 +314,6 @@ pub async fn remove_emoji_favorite(app_data: State<'_, AppDataDir>, path: String
     }
 
     Ok(())
-}
-
-#[tauri::command]
-pub fn list_emoji_favorites(app_data: State<'_, AppDataDir>) -> AppResult<Vec<String>> {
-    let data_dir = app_data.0.lock().unwrap().clone();
-    list_emoji_favorite_paths_in_dir(&data_dir)
 }
 
 #[tauri::command]
@@ -223,7 +363,6 @@ pub(crate) async fn save_emoji_favorite_url_to_dir(
     if trimmed.is_empty() {
         return Err(AppError::Validation("url is empty".to_string()));
     }
-
     let parsed = reqwest::Url::parse(trimmed)
         .map_err(|_| AppError::Validation("invalid url".to_string()))?;
     let scheme = parsed.scheme();
@@ -232,9 +371,12 @@ pub(crate) async fn save_emoji_favorite_url_to_dir(
     }
 
     let client = reqwest::Client::builder()
+        .user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
         .redirect(reqwest::redirect::Policy::limited(10))
         .build()
-        .map_err(|e| AppError::Network(e.to_string()))?;
+        .map_err(|e| {
+            AppError::Network(e.to_string())
+        })?;
 
     let response = client
         .get(parsed.clone())
@@ -256,7 +398,6 @@ pub(crate) async fn save_emoji_favorite_url_to_dir(
         .unwrap_or("")
         .to_string();
     let mime = mime.split(';').next().unwrap_or("").trim().to_string();
-
     let bytes = response
         .bytes()
         .await
@@ -281,4 +422,37 @@ pub async fn save_emoji_favorite_url(
 ) -> AppResult<String> {
     let data_dir = app_data.0.lock().unwrap().clone();
     save_emoji_favorite_url_to_dir(data_dir, url).await
+}
+
+#[derive(Serialize)]
+pub struct TextFilePreview {
+    pub text: String,
+    pub truncated: bool,
+}
+
+#[tauri::command]
+pub async fn read_text_file_preview(path: String) -> Result<TextFilePreview, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        use std::io::Read;
+        const LIMIT: usize = 100_000;
+        let extension = Path::new(&path).extension().and_then(|v| v.to_str()).unwrap_or("").to_ascii_lowercase();
+        if !matches!(extension.as_str(), "md" | "markdown" | "js" | "jsx" | "ts" | "tsx" | "mjs" | "cjs" | "py" | "sh" | "bash" | "zsh" | "json" | "yaml" | "yml" | "toml" | "txt" | "css" | "html" | "rs" | "go" | "c" | "h" | "cpp" | "java" | "sql") {
+            return Err("Unsupported file type".into());
+        }
+        let file = std::fs::File::open(&path).map_err(|e| e.to_string())?;
+        if !file.metadata().map_err(|e| e.to_string())?.is_file() {
+            return Err("Not a regular file".into());
+        }
+        let mut bytes = Vec::new();
+        file.take((LIMIT + 1) as u64).read_to_end(&mut bytes).map_err(|e| e.to_string())?;
+        if bytes.contains(&0) { return Err("Binary file".into()); }
+        let truncated = bytes.len() > LIMIT;
+        if truncated { bytes.truncate(LIMIT); }
+        let text = match std::str::from_utf8(&bytes) {
+            Ok(text) => text.to_owned(),
+            Err(error) if truncated && error.error_len().is_none() => String::from_utf8(bytes[..error.valid_up_to()].to_vec()).map_err(|e| e.to_string())?,
+            Err(_) => return Err("File is not UTF-8 text".into()),
+        };
+        Ok(TextFilePreview { text, truncated })
+    }).await.map_err(|e| e.to_string())?
 }

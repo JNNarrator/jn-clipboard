@@ -2,10 +2,14 @@ import { useCallback, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { Dispatch, SetStateAction } from "react";
 import type { ClipboardEntry } from "../types";
+import type { ClipboardSortMode } from "../../features/app/types";
+import { isTauriRuntime } from "../lib/tauriRuntime";
+import { parseSearchQuery } from "../lib/searchQuery";
 
 interface UseHistoryFetchOptions {
   debouncedSearch: string;
   typeFilter: string | null;
+  sortMode: ClipboardSortMode;
   persistentLimitEnabled: boolean;
   persistentLimit: number;
   pageSize: number;
@@ -22,11 +26,11 @@ interface UseHistoryFetchOptions {
 export const useHistoryFetch = ({
   debouncedSearch,
   typeFilter,
+  sortMode,
   persistentLimitEnabled,
   persistentLimit,
   pageSize,
   currentOffset,
-  historyLength,
   setHistory,
   setCurrentOffset,
   setHasMore,
@@ -38,17 +42,22 @@ export const useHistoryFetch = ({
   const fetchSeqRef = useRef(0);
   const lastRequestedOffsetRef = useRef<number | null>(null);
   const currentOffsetRef = useRef(currentOffset);
-  const historyLengthRef = useRef(historyLength);
 
   useEffect(() => {
     currentOffsetRef.current = currentOffset;
   }, [currentOffset]);
 
-  useEffect(() => {
-    historyLengthRef.current = historyLength;
-  }, [historyLength]);
   const fetchHistory = useCallback(
     async (reset = false) => {
+      if (!isTauriRuntime()) {
+        if (reset) {
+          setHistory([]);
+          setCurrentOffset(0);
+        }
+        setHasMore(false);
+        return;
+      }
+
       const seq = ++fetchSeqRef.current;
       try {
         if (reset) {
@@ -57,26 +66,23 @@ export const useHistoryFetch = ({
 
         const baseOffset = reset
           ? 0
-          : Math.min(currentOffsetRef.current, historyLengthRef.current);
+          : currentOffsetRef.current;
 
         let data: ClipboardEntry[] = [];
 
         const hasSearch = debouncedSearch && debouncedSearch.trim().length > 0;
 
         if (hasSearch) {
-          let term = debouncedSearch;
-          let tagOnly = false;
-          if (term.startsWith("tag:")) {
-            term = term.slice(4);
-            tagOnly = true;
-          }
+          const parsed = parseSearchQuery(debouncedSearch);
 
           try {
-            data = await invoke<ClipboardEntry[]>("search_clipboard_history", {
-              searchTerm: term,
+            const rawResults = await invoke<ClipboardEntry[]>("search_clipboard_history", {
+              searchTerm: parsed.term,
               limit: 200,
-              tagOnly
+              tagOnly: parsed.tagOnly,
+              noteOnly: parsed.noteOnly
             });
+            data = rawResults.map(item => ({ ...item, _serverSearchMatched: parsed.raw }));
           } catch (e) {
             console.error("Search failed, falling back", e);
             data = [];
@@ -92,7 +98,8 @@ export const useHistoryFetch = ({
           const rawData = await invoke<ClipboardEntry[]>("get_clipboard_history", {
             limit: requestedLimit,
             offset: baseOffset,
-            content_type: typeFilter || undefined
+            contentType: typeFilter || undefined,
+            sortMode
           });
 
           if (seq !== fetchSeqRef.current) return;
@@ -100,13 +107,12 @@ export const useHistoryFetch = ({
           const hasMoreNow = rawData.length > pageSize;
           const data = hasMoreNow ? rawData.slice(0, pageSize) : rawData;
 
-          // Calculate how many DB items we actually retrieved (id > 0)
-          // This is critical for the next offset to be correct
-          const dbItemsCount = data.filter(item => item.id > 0).length;
+          // Track total retrieved items across both session and DB items
+          const itemsCount = data.length;
 
           if (reset) {
             setHistory(data);
-            setCurrentOffset(dbItemsCount);
+            setCurrentOffset(itemsCount);
             setHasMore(hasMoreNow);
           } else {
             let nextItems: ClipboardEntry[] = [];
@@ -118,7 +124,7 @@ export const useHistoryFetch = ({
               return [...prev, ...nextItems];
             });
 
-            setCurrentOffset(prev => prev + dbItemsCount);
+            setCurrentOffset(prev => prev + itemsCount);
             // If we didn't add any NEW items but the backend says there are more,
             // it means the items we got were already in our list (maybe shifted due to sorting).
             // We should keep hasMore true so the user can try to load further.
@@ -127,12 +133,15 @@ export const useHistoryFetch = ({
         }
       } catch (err) {
         console.error("无法获取历史记录", err);
-        setHasMore(false);
+        if (seq === fetchSeqRef.current) {
+          lastRequestedOffsetRef.current = null;
+        }
       }
     },
     [
       debouncedSearch,
       typeFilter,
+      sortMode,
       pageSize,
       persistentLimit,
       persistentLimitEnabled,
@@ -146,7 +155,7 @@ export const useHistoryFetch = ({
     if (loadingRef.current || isLoadingMore || !hasMore) return;
     if (debouncedSearch && debouncedSearch.trim().length > 0) return;
 
-    const effectiveOffset = Math.min(currentOffsetRef.current, historyLengthRef.current);
+    const effectiveOffset = currentOffsetRef.current;
     if (lastRequestedOffsetRef.current === effectiveOffset) return;
     lastRequestedOffsetRef.current = effectiveOffset;
 
@@ -162,4 +171,3 @@ export const useHistoryFetch = ({
 
   return { fetchHistory, loadMoreHistory };
 };
-

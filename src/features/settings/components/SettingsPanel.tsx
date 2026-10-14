@@ -1,11 +1,26 @@
 
-import { memo, useState, useEffect, useCallback } from "react";
+import { memo, useState, useEffect, useCallback, useRef, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { emit, listen } from "@tauri-apps/api/event";
 import { getVersion } from "@tauri-apps/api/app";
-import { ChevronRight, HelpCircle } from "lucide-react";
-import { motion } from "framer-motion";
+import {
+    AppWindow,
+    ChevronRight,
+    Clipboard,
+    Cloud,
+    Database,
+    Info,
+    ListFilter,
+    MessageSquareText,
+    Palette,
+    Settings2,
+    ShieldCheck,
+    Sparkles,
+    Wifi,
+    type LucideIcon
+} from "lucide-react";
 import type { Locale } from "../../../shared/types";
+import { formatError } from "../../../shared/lib/errorMessage";
 import type { DefaultAppsMap, InstalledAppOption, SettingsSubpage, CloudSyncContentPrefs } from "../../app/types";
 import type { AiProfile, AiProfileStatusMap, AppCleanupPolicy, EditableAiProfile } from "../types";
 import AppSelectorModal from "./AppSelectorModal";
@@ -17,21 +32,34 @@ import AdvancedSettingsGroup from "./groups/AdvancedSettingsGroup";
 import AppearanceSettingsGroup from "./groups/AppearanceSettingsGroup";
 import SyncSettingsGroup from "./groups/SyncSettingsGroup";
 import CloudSyncSettingsGroup, { type CloudSyncStatusPayload } from "./groups/CloudSyncSettingsGroup";
+import { useE2eKey } from "../hooks/useE2eKey";
 import DefaultAppsSettingsGroup from "./groups/DefaultAppsSettingsGroup";
 import DataSettingsGroup from "./groups/DataSettingsGroup";
 import FileTransferSettingsGroup from "./groups/FileTransferSettingsGroup";
 import AiSettingsGroup from "./groups/AiSettingsGroup";
 import SettingsFooter from "./SettingsFooter";
-import ThemeStorePanel from "../../theme-store/components/ThemeStorePanel";
+import { LabelWithHint, SettingsHintProvider } from "./SettingsHint";
+import SecureTransfer from "./SecureTransfer";
+import { useWideWindow } from "../../../shared/hooks/useWideWindow";
+import { usePaneWidth } from "../../../shared/hooks/usePaneWidth";
+import PaneDivider from "../../../shared/components/PaneDivider";
 import { CLOUD_SYNC_ENABLED } from "../../../shared/config/edition";
+import { getReleaseBuildInfo, type ReleaseBuildInfo } from "../../../shared/lib/releaseBuild";
 
 interface SettingsPanelProps {
     t: (key: string) => string;
     theme: string;
     language: Locale;
+    nativePalette: string;
+    nativeCustomColor?: string;
+    setNativePalette: (val: string) => void;
     colorMode: string;
+    showAppBorder: boolean;
+    setShowAppBorder: (val: boolean) => void;
     showSourceAppIcon: boolean;
     setShowSourceAppIcon: (val: boolean) => void;
+    hideUnselectedItemActions: boolean;
+    setHideUnselectedItemActions: (val: boolean) => void;
     clipboardItemFontSize: number;
     setClipboardItemFontSize: (val: number) => void;
     clipboardTagFontSize: number;
@@ -41,6 +69,7 @@ interface SettingsPanelProps {
     collapsedGroups: Record<string, boolean>;
     settingsSubpage: SettingsSubpage;
     autoStart: boolean;
+    elevatedAutostart: boolean;
     silentStart: boolean;
     persistent: boolean;
     persistentLimitEnabled: boolean;
@@ -51,11 +80,18 @@ interface SettingsPanelProps {
     richTextSnapshotPreview: boolean;
     deleteAfterPaste: boolean;
     moveToTopAfterPaste: boolean;
+    clickCopyOnly: boolean;
+    pasteMethod: string;
+    setPasteMethod: (val: string) => void;
+    registryWinVEnabled: boolean;
+    setRegistryWinVEnabled: (val: boolean) => void;
     sequentialMode: boolean;
     sequentialHotkey: string;
     isRecordingSequential: boolean;
     richPasteHotkey: string;
+    plainPasteHotkey: string;
     isRecordingRich: boolean;
+    isRecordingPlain: boolean;
     searchHotkey: string;
     isRecordingSearch: boolean;
     quickPasteModifier: "disabled" | "ctrl" | "alt" | "shift" | "win";
@@ -79,6 +115,8 @@ interface SettingsPanelProps {
     showHotkeyHint: boolean;
     showSearchBox: boolean;
     setShowSearchBox: (val: boolean) => void;
+    searchBoxPinned: boolean;
+    setSearchBoxPinned: (val: boolean) => void;
     scrollTopButtonEnabled: boolean;
     setScrollTopButtonEnabled: (val: boolean) => void;
     emojiPanelEnabled: boolean;
@@ -87,6 +125,10 @@ interface SettingsPanelProps {
     setTagManagerEnabled: (val: boolean) => void;
     arrowKeySelection: boolean;
     setArrowKeySelection: (val: boolean) => void;
+    lightModeEnabled: boolean;
+    setLightModeEnabled: (val: boolean) => void;
+    lightModeIdleMinutes: number;
+    setLightModeIdleMinutes: (val: number) => void;
 
 
     soundEnabled: boolean;
@@ -101,6 +143,8 @@ interface SettingsPanelProps {
     setHideDockIcon: (val: boolean) => void;
     edgeDocking: boolean;
     setEdgeDocking: (val: boolean) => void;
+    followMouse: boolean;
+    setFollowMouse: (val: boolean) => void;
     customBackground: string;
     setCustomBackground: (val: string) => void;
     customBackgroundOpacity: number;
@@ -138,6 +182,8 @@ interface SettingsPanelProps {
     availableIps?: string[];
     setLocalIp?: (val: string) => void;
     actualPort: string;
+    fileTransferAccessToken: string;
+    fileTransferLanKey: string;
     fileTransferAutoOpen: boolean;
     showAutoCloseHint: boolean;
     fileServerAutoClose: boolean;
@@ -154,6 +200,7 @@ interface SettingsPanelProps {
     toggleGroup: (group: string) => void;
     setSettingsSubpage: (val: SettingsSubpage) => void;
     setAutoStart: (val: boolean) => void;
+    setElevatedAutostart: (val: boolean) => void;
     setSilentStart: (val: boolean) => void;
     setPersistent: (val: boolean) => void;
     setPersistentLimitEnabled: (val: boolean) => void;
@@ -164,12 +211,15 @@ interface SettingsPanelProps {
     setRichTextSnapshotPreview: (val: boolean) => void;
     setDeleteAfterPaste: (val: boolean) => void;
     setMoveToTopAfterPaste: (val: boolean) => void;
+    setClickCopyOnly: (val: boolean) => void;
     saveAppSetting: (key: string, val: string) => void;
     setSequentialModeState: (val: boolean) => void;
     setIsRecordingSequential: (val: boolean) => void;
     updateSequentialHotkey: (key: string) => void;
     setIsRecordingRich: (val: boolean) => void;
+    setIsRecordingPlain: (val: boolean) => void;
     updateRichPasteHotkey: (key: string) => void;
+    updatePlainPasteHotkey: (key: string) => void;
     setIsRecordingSearch: (val: boolean) => void;
     updateSearchHotkey: (key: string) => void;
     setPrivacyProtection: (val: boolean) => void;
@@ -186,6 +236,10 @@ interface SettingsPanelProps {
 
     compactMode: boolean;
     setCompactMode: (val: boolean) => void;
+    compactShowTime: boolean;
+    setCompactShowTime: (val: boolean) => void;
+    splitViewEnabled: boolean;
+    setSplitViewEnabled: (val: boolean) => void;
     checkHotkeyConflict: (newHotkey: string, mode: 'main' | 'sequential' | 'rich' | 'search') => boolean;
 
 
@@ -229,8 +283,6 @@ interface SettingsPanelProps {
     setAiEnabled: (val: boolean) => void;
     aiTargetLang: string;
     setAiTargetLang: (val: string) => void;
-    aiThinkingBudget: string;
-    setAiThinkingBudget: (val: string) => void;
     saveSetting: (key: string, val: string) => void;
     aiProfiles: AiProfile[];
     setAiProfiles: (val: AiProfile[]) => void;
@@ -242,46 +294,78 @@ interface SettingsPanelProps {
     setAiAssignedProfileTranslate: (id: string) => void;
 }
 
+const ABOUT_SECTION = "about";
+const ADVANCED_ENTRY = "advanced";
+const noop = () => {};
+
+const SECTION_ICONS: Record<string, LucideIcon> = {
+    general: Settings2,
+    appearance: Palette,
+    clipboard: Clipboard,
+    [ADVANCED_ENTRY]: ListFilter,
+    default_apps: AppWindow,
+    ai: Sparkles,
+    sync: MessageSquareText,
+    cloud_sync: Cloud,
+    file_transfer: Wifi,
+    secure_transfer: ShieldCheck,
+    data: Database
+};
+
+const NAV_GROUPS: { labelKey: string; ids: string[] }[] = [
+    { labelKey: "settings_nav_group_basic", ids: ["general", "appearance"] },
+    { labelKey: "settings_nav_group_clipboard", ids: ["clipboard", ADVANCED_ENTRY, "default_apps", "ai"] },
+    { labelKey: "settings_nav_group_sync", ids: ["sync", "cloud_sync", "file_transfer"] },
+    { labelKey: "settings_nav_group_data", ids: ["secure_transfer", "data"] }
+];
+
 const SettingsPanel = (props: SettingsPanelProps) => {
     const {
-        t, theme, language, colorMode, showSourceAppIcon, setShowSourceAppIcon,
-        collapsedGroups, settingsSubpage, autoStart, silentStart, persistent, persistentLimitEnabled, persistentLimit, deduplicate, captureFiles, captureRichText, richTextSnapshotPreview, deleteAfterPaste, moveToTopAfterPaste,
+        t, theme, nativePalette, nativeCustomColor, setNativePalette, language, colorMode, showAppBorder, setShowAppBorder, showSourceAppIcon, setShowSourceAppIcon, hideUnselectedItemActions, setHideUnselectedItemActions,
+        collapsedGroups, settingsSubpage, autoStart, elevatedAutostart, silentStart, persistent, persistentLimitEnabled, persistentLimit, deduplicate, captureFiles, captureRichText, richTextSnapshotPreview, deleteAfterPaste, moveToTopAfterPaste, clickCopyOnly, pasteMethod, setPasteMethod, registryWinVEnabled, setRegistryWinVEnabled,
         sequentialMode, sequentialHotkey, isRecordingSequential,
-        richPasteHotkey, isRecordingRich, searchHotkey, isRecordingSearch, quickPasteModifier, setQuickPasteModifier,
-        privacyProtection, privacyProtectionKinds, setPrivacyProtectionKinds, privacyProtectionCustomRules, setPrivacyProtectionCustomRules, sensitiveMaskPrefixVisible, setSensitiveMaskPrefixVisible, sensitiveMaskSuffixVisible, setSensitiveMaskSuffixVisible, sensitiveMaskEmailDomain, setSensitiveMaskEmailDomain, cleanupRules, setCleanupRules, appCleanupPolicies, setAppCleanupPolicies, showSearchBox, setShowSearchBox, scrollTopButtonEnabled, setScrollTopButtonEnabled, arrowKeySelection, setArrowKeySelection,
+        richPasteHotkey, isRecordingRich, plainPasteHotkey, isRecordingPlain, searchHotkey, isRecordingSearch, quickPasteModifier, setQuickPasteModifier,
+        privacyProtection, privacyProtectionKinds, setPrivacyProtectionKinds, privacyProtectionCustomRules, setPrivacyProtectionCustomRules, sensitiveMaskPrefixVisible, setSensitiveMaskPrefixVisible, sensitiveMaskSuffixVisible, setSensitiveMaskSuffixVisible, sensitiveMaskEmailDomain, setSensitiveMaskEmailDomain, cleanupRules, setCleanupRules, appCleanupPolicies, setAppCleanupPolicies, setShowSearchBox, searchBoxPinned, setSearchBoxPinned, scrollTopButtonEnabled, setScrollTopButtonEnabled, arrowKeySelection, setArrowKeySelection,
+        lightModeEnabled, setLightModeEnabled, lightModeIdleMinutes, setLightModeIdleMinutes,
         soundEnabled, setSoundEnabled, pasteSoundEnabled, setPasteSoundEnabled,
         soundVolume, setSoundVolume,
         hideTrayIcon, setHideTrayIcon,
         hideDockIcon, setHideDockIcon,
         edgeDocking, setEdgeDocking,
+        followMouse, setFollowMouse,
         customBackground, setCustomBackground,
         customBackgroundOpacity, setCustomBackgroundOpacity,
         surfaceOpacity, setSurfaceOpacity,
         mqttEnabled, mqttServer, mqttPort, mqttUser, mqttPass, mqttTopic, mqttProtocol, mqttWsPath, mqttNotificationEnabled,
         cloudSyncEnabled, cloudSyncAuto, cloudSyncIntervalSec, cloudSyncSnapshotIntervalMin, cloudSyncWebdavUrl, cloudSyncWebdavUsername, cloudSyncWebdavPassword, cloudSyncWebdavBasePath, cloudSyncContentPrefs,
-        fileServerEnabled, fileServerPort, localIp, availableIps, setLocalIp, actualPort, fileTransferAutoOpen, showAutoCloseHint, fileServerAutoClose, fileTransferAutoCopy, fileTransferPath,
+        fileServerEnabled, fileServerPort, localIp, availableIps, setLocalIp, actualPort, fileTransferAccessToken, fileTransferLanKey, fileTransferAutoOpen, showAutoCloseHint, fileServerAutoClose, fileTransferAutoCopy, fileTransferPath,
         installedApps, appSettings, defaultApps, showAppSelector, dataPath,
 
-        toggleGroup, setSettingsSubpage, setAutoStart, setSilentStart, setPersistent, setPersistentLimitEnabled, setPersistentLimit, setDeduplicate, setCaptureFiles, setCaptureRichText, setRichTextSnapshotPreview, setDeleteAfterPaste, setMoveToTopAfterPaste, saveAppSetting,
+        toggleGroup, setSettingsSubpage, setAutoStart, setElevatedAutostart, setSilentStart, setPersistent, setPersistentLimitEnabled, setPersistentLimit, setDeduplicate, setCaptureFiles, setCaptureRichText, setRichTextSnapshotPreview, setDeleteAfterPaste, setMoveToTopAfterPaste, setClickCopyOnly, saveAppSetting,
         setSequentialModeState, setIsRecordingSequential, updateSequentialHotkey,
         setIsRecordingRich, updateRichPasteHotkey,
+        setIsRecordingPlain, updatePlainPasteHotkey,
         setIsRecordingSearch, updateSearchHotkey,
         setPrivacyProtection,
         setIsRecording, isRecording, hotkey, hotkeyParts, updateHotkey,
-        setTheme, setColorMode, setLanguage, compactMode, setCompactMode, checkHotkeyConflict,
+        setTheme, setColorMode, setLanguage, compactMode, setCompactMode, compactShowTime, setCompactShowTime, splitViewEnabled, setSplitViewEnabled, checkHotkeyConflict,
         clipboardItemFontSize, setClipboardItemFontSize, clipboardTagFontSize, setClipboardTagFontSize,
         emojiPanelEnabled, setEmojiPanelEnabled, tagManagerEnabled, setTagManagerEnabled,
         setMqttEnabled, saveMqtt, setMqttServer, setMqttPort, setMqttUser, setMqttPass, setMqttTopic, setMqttProtocol, setMqttWsPath, setMqttNotificationEnabled,
         setCloudSyncEnabled, setCloudSyncAuto, setCloudSyncIntervalSec, setCloudSyncSnapshotIntervalMin, setCloudSyncWebdavUrl, setCloudSyncWebdavUsername, setCloudSyncWebdavPassword, setCloudSyncWebdavBasePath, setCloudSyncContentPrefs, saveCloudSync,
         setFileServerEnabled, setFileServerPort, setFileTransferAutoOpen, setShowAutoCloseHint, setFileServerAutoClose, setFileTransferAutoCopy, fetchEffectiveTransferPath,
         setShowAppSelector, handleResetSettings,
-        aiEnabled, setAiEnabled, aiTargetLang, setAiTargetLang, aiThinkingBudget, setAiThinkingBudget, saveSetting,
+        aiEnabled, setAiEnabled, aiTargetLang, setAiTargetLang, saveSetting,
         onOpenChat,
         aiProfiles, setAiProfiles, aiAssignedProfileTask, setAiAssignedProfileTask, aiAssignedProfileMouthpiece, setAiAssignedProfileMouthpiece, aiAssignedProfileTranslate, setAiAssignedProfileTranslate
     } = props;
 
     const [emailCopied, setEmailCopied] = useState(false);
     const [appVersion, setAppVersion] = useState("");
+    const [releaseBuildInfo, setReleaseBuildInfo] = useState<ReleaseBuildInfo>({
+        channel: "stable",
+        portable: false
+    });
     const [mqttStatus, setMqttStatus] = useState<"connected" | "disconnected" | "connecting">("disconnected");
     const [cloudSyncStatus, setCloudSyncStatus] = useState<CloudSyncStatusPayload>({
         state: "disabled",
@@ -296,9 +380,21 @@ const SettingsPanel = (props: SettingsPanelProps) => {
     const [profileStatuses, setProfileStatuses] = useState<AiProfileStatusMap>({});
     const [updateStatus, setUpdateStatus] = useState<string>("");
     // Removed updateModalData
-    const [openHints, setOpenHints] = useState<Set<string>>(new Set());
     const [privacyKindsOpen, setPrivacyKindsOpen] = useState(false);
     const [privacyRulesOpen, setPrivacyRulesOpen] = useState(false);
+    const isWide = useWideWindow();
+    const wideLayout = splitViewEnabled && isWide;
+    const [activeSection, setActiveSection] = useState("general");
+    const wideRef = useRef<HTMLDivElement | null>(null);
+    const navRef = useRef<HTMLElement | null>(null);
+    const { value: navWidth, resizing: navResizing, dividerProps: navDividerProps } = usePaneWidth({
+        storageKey: "app.pane.settings",
+        containerRef: wideRef,
+        paneRef: navRef,
+        min: 148,
+        max: 320,
+        minRest: 360
+    });
 
     const applyFileServerPort = async (portStr: string) => {
         const port = Number(portStr);
@@ -312,46 +408,14 @@ const SettingsPanel = (props: SettingsPanelProps) => {
         }
     };
 
-    const toggleHint = (key: string) => {
-        setOpenHints(prev => {
-            const next = new Set(prev);
-            if (next.has(key)) next.delete(key);
-            else next.add(key);
-            return next;
-        });
-    };
-
-    const LabelWithHint = ({ label, hint, hintKey }: { label: string; hint?: string | React.ReactNode; hintKey: string }) => (
-        <div className="item-label-group">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span className="item-label">{label}</span>
-                {hint && (
-                    <button
-                        type="button"
-                        className="hint-icon-btn"
-                        title={typeof hint === 'string' ? hint : undefined}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            toggleHint(hintKey);
-                        }}
-                    >
-                        <HelpCircle size={12} />
-                    </button>
-                )}
-            </div>
-            {hint && openHints.has(hintKey) && (
-                typeof hint === 'string' ? <span className="hint">{hint}</span> : hint
-            )}
-        </div>
-    );
-
     const checkModelStatus = async (profile: AiProfile) => {
         setProfileStatuses(prev => ({ ...prev, [profile.id]: 'loading' }));
         try {
             const result = await invoke<string>("check_ai_connectivity", {
                 baseUrl: profile.baseUrl,
                 apiKey: profile.apiKey,
-                model: profile.model
+                model: profile.model,
+                provider: profile.provider ?? null
             });
             if (result === "success") {
                 setProfileStatuses(prev => ({ ...prev, [profile.id]: 'success' }));
@@ -359,6 +423,8 @@ const SettingsPanel = (props: SettingsPanelProps) => {
         } catch (e: unknown) {
             console.error("AI Check failed:", e);
             setProfileStatuses(prev => ({ ...prev, [profile.id]: 'error' }));
+            // The red dot alone left users guessing (#114).
+            void emit("toast", `${t("ai_check_failed")}${formatError(e, t)}`);
         }
     };
 
@@ -370,6 +436,7 @@ const SettingsPanel = (props: SettingsPanelProps) => {
             setCloudSyncStatus(status);
         } catch (err) {
             console.error("Cloud sync now failed:", err);
+            void emit("toast", `${t("sync_now_failed")}${String(err)}`);
         } finally {
             setCloudSyncNowRunning(false);
         }
@@ -393,7 +460,7 @@ const SettingsPanel = (props: SettingsPanelProps) => {
 
     const handleDeleteProfile = (id: string) => {
         // Prevent deleting presets
-        if (['lc_flash_v1', 'lc_think_v1', 'lc_think_2601_v1'].includes(id)) return;
+        if (['ds_v4_pro_v1', 'ds_flash_v1'].includes(id)) return;
 
         const newProfiles = aiProfiles.filter(p => p.id !== id);
         setAiProfiles(newProfiles);
@@ -413,6 +480,7 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                 console.error("Failed to get version:", err);
                 setAppVersion("0.2.0");
             });
+        getReleaseBuildInfo().then(setReleaseBuildInfo);
 
         const unlistenMqtt = listen<string>("mqtt-status", (event) => {
             console.log('[MQTT STATUS] Received status:', event.payload);
@@ -455,345 +523,389 @@ const SettingsPanel = (props: SettingsPanelProps) => {
         setSettingsSubpage("advanced");
     }, [setSettingsSubpage]);
 
-    return (
-        <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            style={{ display: 'flex', flexDirection: 'column', gap: '4px', minHeight: '100%', flex: 1 }}
-        >
-            {settingsSubpage === "theme-store" ? (
-                <ThemeStorePanel
+    // Narrow windows show an accordion of collapsible groups. Wide ones list the
+    // sections on the left and show the selected group, always open, on the right.
+    const { key: e2eKey, save: saveE2eKey } = useE2eKey();
+    const groupState = (id: string) => wideLayout
+        ? { collapsed: false, onToggle: noop }
+        : { collapsed: collapsedGroups[id], onToggle: () => toggleGroup(id) };
+
+    const sections: { id: string; label: string; node: ReactNode }[] = [
+        {
+            id: "general",
+            label: t("general_settings"),
+            node: (
+                <GeneralSettingsGroup
                     t={t}
+                    {...groupState('general')}
+                    LabelWithHint={LabelWithHint}
+                    autoStart={autoStart}
+                    setAutoStart={setAutoStart}
+                    elevatedAutostart={elevatedAutostart}
+                    setElevatedAutostart={setElevatedAutostart}
+                    silentStart={silentStart}
+                    setSilentStart={setSilentStart}
+                    hideTrayIcon={hideTrayIcon}
+                    setHideTrayIcon={setHideTrayIcon}
+                    hideDockIcon={hideDockIcon}
+                    setHideDockIcon={setHideDockIcon}
+                    edgeDocking={edgeDocking}
+                    setEdgeDocking={setEdgeDocking}
+                    followMouse={followMouse}
+                    setFollowMouse={setFollowMouse}
+                    soundEnabled={soundEnabled}
+                    setSoundEnabled={setSoundEnabled}
+                    pasteSoundEnabled={pasteSoundEnabled}
+                    setPasteSoundEnabled={setPasteSoundEnabled}
+                    soundVolume={soundVolume}
+                    setSoundVolume={setSoundVolume}
+                    searchBoxPinned={searchBoxPinned}
+                    setSearchBoxPinned={setSearchBoxPinned}
+                    setShowSearchBox={setShowSearchBox}
+                    scrollTopButtonEnabled={scrollTopButtonEnabled}
+                    setScrollTopButtonEnabled={setScrollTopButtonEnabled}
+                    emojiPanelEnabled={emojiPanelEnabled}
+                    setEmojiPanelEnabled={setEmojiPanelEnabled}
+                    tagManagerEnabled={tagManagerEnabled}
+                    setTagManagerEnabled={setTagManagerEnabled}
+                    arrowKeySelection={arrowKeySelection}
+                    setArrowKeySelection={setArrowKeySelection}
+                    lightModeEnabled={lightModeEnabled}
+                    setLightModeEnabled={setLightModeEnabled}
+                    lightModeIdleMinutes={lightModeIdleMinutes}
+                    setLightModeIdleMinutes={setLightModeIdleMinutes}
+                    saveAppSetting={saveAppSetting}
+                />
+            )
+        },
+        {
+            id: "clipboard",
+            label: t("clipboard_settings"),
+            node: (
+                <ClipboardSettingsGroup
+                    t={t}
+                    {...groupState('clipboard')}
+                    LabelWithHint={LabelWithHint}
+                    persistent={persistent}
+                    setPersistent={setPersistent}
+                    persistentLimitEnabled={persistentLimitEnabled}
+                    setPersistentLimitEnabled={setPersistentLimitEnabled}
+                    persistentLimit={persistentLimit}
+                    setPersistentLimit={setPersistentLimit}
+                    saveAppSetting={saveAppSetting}
+                    deduplicate={deduplicate}
+                    setDeduplicate={setDeduplicate}
+                    captureFiles={captureFiles}
+                    setCaptureFiles={setCaptureFiles}
+                    captureRichText={captureRichText}
+                    setCaptureRichText={setCaptureRichText}
+                    richTextSnapshotPreview={richTextSnapshotPreview}
+                    setRichTextSnapshotPreview={setRichTextSnapshotPreview}
+                    richPasteHotkey={richPasteHotkey}
+                    plainPasteHotkey={plainPasteHotkey}
+                    isRecordingRich={isRecordingRich}
+                    isRecordingPlain={isRecordingPlain}
+                    setIsRecordingRich={setIsRecordingRich}
+                    setIsRecordingPlain={setIsRecordingPlain}
+                    updateRichPasteHotkey={updateRichPasteHotkey}
+                    updatePlainPasteHotkey={updatePlainPasteHotkey}
+                    searchHotkey={searchHotkey}
+                    isRecordingSearch={isRecordingSearch}
+                    setIsRecordingSearch={setIsRecordingSearch}
+                    updateSearchHotkey={updateSearchHotkey}
+                    quickPasteModifier={quickPasteModifier}
+                    setQuickPasteModifier={setQuickPasteModifier}
+                    deleteAfterPaste={deleteAfterPaste}
+                    setDeleteAfterPaste={setDeleteAfterPaste}
+                    moveToTopAfterPaste={moveToTopAfterPaste}
+                    clickCopyOnly={clickCopyOnly}
+                    setMoveToTopAfterPaste={setMoveToTopAfterPaste}
+                    setClickCopyOnly={setClickCopyOnly}
+                    pasteMethod={pasteMethod}
+                    setPasteMethod={setPasteMethod}
+                    registryWinVEnabled={registryWinVEnabled}
+                    setRegistryWinVEnabled={setRegistryWinVEnabled}
+                    sequentialMode={sequentialMode}
+                    setSequentialModeState={setSequentialModeState}
+                    sequentialHotkey={sequentialHotkey}
+                    isRecordingSequential={isRecordingSequential}
+                    setIsRecordingSequential={setIsRecordingSequential}
+                    updateSequentialHotkey={updateSequentialHotkey}
+                    checkHotkeyConflict={checkHotkeyConflict}
+                    privacyProtection={privacyProtection}
+                    setPrivacyProtection={setPrivacyProtection}
+                    privacyProtectionKinds={privacyProtectionKinds}
+                    setPrivacyProtectionKinds={setPrivacyProtectionKinds}
+                    privacyProtectionCustomRules={privacyProtectionCustomRules}
+                    setPrivacyProtectionCustomRules={setPrivacyProtectionCustomRules}
+                    sensitiveMaskPrefixVisible={sensitiveMaskPrefixVisible}
+                    setSensitiveMaskPrefixVisible={setSensitiveMaskPrefixVisible}
+                    sensitiveMaskSuffixVisible={sensitiveMaskSuffixVisible}
+                    setSensitiveMaskSuffixVisible={setSensitiveMaskSuffixVisible}
+                    sensitiveMaskEmailDomain={sensitiveMaskEmailDomain}
+                    setSensitiveMaskEmailDomain={setSensitiveMaskEmailDomain}
+                    privacyKindsOpen={privacyKindsOpen}
+                    setPrivacyKindsOpen={setPrivacyKindsOpen}
+                    privacyRulesOpen={privacyRulesOpen}
+                    setPrivacyRulesOpen={setPrivacyRulesOpen}
+
+                    isRecording={isRecording}
+                    setIsRecording={setIsRecording}
+                    hotkeyParts={hotkeyParts}
+                    updateHotkey={updateHotkey}
+                    hotkey={hotkey}
+                    appSettings={appSettings}
+                    theme={theme}
+                    colorMode={colorMode}
+                />
+            )
+        },
+        {
+            id: "appearance",
+            label: t("appearance_settings"),
+            node: (
+                <AppearanceSettingsGroup
+                    t={t}
+                    {...groupState('appearance')}
+                    LabelWithHint={LabelWithHint}
                     theme={theme}
                     setTheme={setTheme}
-                    saveAppSetting={saveAppSetting}
+                    nativePalette={nativePalette}
+                    nativeCustomColor={nativeCustomColor}
+                    setNativePalette={setNativePalette}
+                    colorMode={colorMode}
+                    setColorMode={setColorMode}
                     language={language}
-                    onBack={() => setSettingsSubpage("home")}
+                    setLanguage={setLanguage}
+                    showAppBorder={showAppBorder}
+                    setShowAppBorder={setShowAppBorder}
+                    showSourceAppIcon={showSourceAppIcon}
+                    setShowSourceAppIcon={setShowSourceAppIcon}
+                    hideUnselectedItemActions={hideUnselectedItemActions}
+                    setHideUnselectedItemActions={setHideUnselectedItemActions}
+                    compactMode={compactMode}
+                    setCompactMode={setCompactMode}
+                    compactShowTime={compactShowTime}
+                    setCompactShowTime={setCompactShowTime}
+                    splitViewEnabled={splitViewEnabled}
+                    setSplitViewEnabled={setSplitViewEnabled}
+                    clipboardItemFontSize={clipboardItemFontSize}
+                    setClipboardItemFontSize={setClipboardItemFontSize}
+                    clipboardTagFontSize={clipboardTagFontSize}
+                    setClipboardTagFontSize={setClipboardTagFontSize}
+                    customBackground={customBackground}
+                    setCustomBackground={setCustomBackground}
+                    customBackgroundOpacity={customBackgroundOpacity}
+                    setCustomBackgroundOpacity={setCustomBackgroundOpacity}
+                    surfaceOpacity={surfaceOpacity}
+                    setSurfaceOpacity={setSurfaceOpacity}
+                    saveAppSetting={saveAppSetting}
                 />
-            ) : settingsSubpage === "advanced" ? (
-                <>
-                    <AdvancedSettingsGroup
-                        t={t}
-                        cleanupRules={cleanupRules}
-                        setCleanupRules={setCleanupRules}
-                        appCleanupPolicies={appCleanupPolicies}
-                        setAppCleanupPolicies={setAppCleanupPolicies}
-                        installedApps={installedApps}
-                    />
-
-                    <AiProfileModal
-                        editingProfile={editingProfile}
-                        t={t}
-                        onClose={() => setEditingProfile(null)}
-                        onSave={handleSaveProfile}
-                        setEditingProfile={setEditingProfile}
-                    />
-
-                    <AppSelectorModal
-                        show={showAppSelector}
-                        installedApps={installedApps}
-                        theme={theme}
-                        colorMode={colorMode}
-                        t={t}
-                        onClose={() => setShowAppSelector(null)}
-                        onSave={saveAppSetting}
-                    />
-
-                    {/* Removed UpdateModal in advanced */}
-                </>
-            ) : (
-                <>
-            {/* General Settings */}
-            <GeneralSettingsGroup
-                t={t}
-                collapsed={collapsedGroups['general']}
-                onToggle={() => toggleGroup('general')}
-                LabelWithHint={LabelWithHint}
-                autoStart={autoStart}
-                setAutoStart={setAutoStart}
-                silentStart={silentStart}
-                setSilentStart={setSilentStart}
-                hideTrayIcon={hideTrayIcon}
-                setHideTrayIcon={setHideTrayIcon}
-                hideDockIcon={hideDockIcon}
-                setHideDockIcon={setHideDockIcon}
-                edgeDocking={edgeDocking}
-                setEdgeDocking={setEdgeDocking}
-                soundEnabled={soundEnabled}
-                setSoundEnabled={setSoundEnabled}
-                pasteSoundEnabled={pasteSoundEnabled}
-                setPasteSoundEnabled={setPasteSoundEnabled}
-                soundVolume={soundVolume}
-                setSoundVolume={setSoundVolume}
-                showSearchBox={showSearchBox}
-                setShowSearchBox={setShowSearchBox}
-                scrollTopButtonEnabled={scrollTopButtonEnabled}
-                setScrollTopButtonEnabled={setScrollTopButtonEnabled}
-                emojiPanelEnabled={emojiPanelEnabled}
-                setEmojiPanelEnabled={setEmojiPanelEnabled}
-                tagManagerEnabled={tagManagerEnabled}
-                setTagManagerEnabled={setTagManagerEnabled}
-                arrowKeySelection={arrowKeySelection}
-                setArrowKeySelection={setArrowKeySelection}
-                saveAppSetting={saveAppSetting}
-            />
-
-            {/* Clipboard Settings */}
-            <ClipboardSettingsGroup
-                t={t}
-                collapsed={collapsedGroups['clipboard']}
-                onToggle={() => toggleGroup('clipboard')}
-                LabelWithHint={LabelWithHint}
-                persistent={persistent}
-                setPersistent={setPersistent}
-                persistentLimitEnabled={persistentLimitEnabled}
-                setPersistentLimitEnabled={setPersistentLimitEnabled}
-                persistentLimit={persistentLimit}
-                setPersistentLimit={setPersistentLimit}
-                saveAppSetting={saveAppSetting}
-                deduplicate={deduplicate}
-                setDeduplicate={setDeduplicate}
-                captureFiles={captureFiles}
-                setCaptureFiles={setCaptureFiles}
-                captureRichText={captureRichText}
-                setCaptureRichText={setCaptureRichText}
-                richTextSnapshotPreview={richTextSnapshotPreview}
-                setRichTextSnapshotPreview={setRichTextSnapshotPreview}
-                richPasteHotkey={richPasteHotkey}
-                isRecordingRich={isRecordingRich}
-                setIsRecordingRich={setIsRecordingRich}
-                updateRichPasteHotkey={updateRichPasteHotkey}
-                searchHotkey={searchHotkey}
-                isRecordingSearch={isRecordingSearch}
-                setIsRecordingSearch={setIsRecordingSearch}
-                updateSearchHotkey={updateSearchHotkey}
-                quickPasteModifier={quickPasteModifier}
-                setQuickPasteModifier={setQuickPasteModifier}
-                deleteAfterPaste={deleteAfterPaste}
-                setDeleteAfterPaste={setDeleteAfterPaste}
-                moveToTopAfterPaste={moveToTopAfterPaste}
-                setMoveToTopAfterPaste={setMoveToTopAfterPaste}
-                sequentialMode={sequentialMode}
-                setSequentialModeState={setSequentialModeState}
-                sequentialHotkey={sequentialHotkey}
-                isRecordingSequential={isRecordingSequential}
-                setIsRecordingSequential={setIsRecordingSequential}
-                updateSequentialHotkey={updateSequentialHotkey}
-                checkHotkeyConflict={checkHotkeyConflict}
-                privacyProtection={privacyProtection}
-                setPrivacyProtection={setPrivacyProtection}
-                privacyProtectionKinds={privacyProtectionKinds}
-                setPrivacyProtectionKinds={setPrivacyProtectionKinds}
-                privacyProtectionCustomRules={privacyProtectionCustomRules}
-                setPrivacyProtectionCustomRules={setPrivacyProtectionCustomRules}
-                sensitiveMaskPrefixVisible={sensitiveMaskPrefixVisible}
-                setSensitiveMaskPrefixVisible={setSensitiveMaskPrefixVisible}
-                sensitiveMaskSuffixVisible={sensitiveMaskSuffixVisible}
-                setSensitiveMaskSuffixVisible={setSensitiveMaskSuffixVisible}
-                sensitiveMaskEmailDomain={sensitiveMaskEmailDomain}
-                setSensitiveMaskEmailDomain={setSensitiveMaskEmailDomain}
-                privacyKindsOpen={privacyKindsOpen}
-                setPrivacyKindsOpen={setPrivacyKindsOpen}
-                privacyRulesOpen={privacyRulesOpen}
-                setPrivacyRulesOpen={setPrivacyRulesOpen}
-
-                isRecording={isRecording}
-                setIsRecording={setIsRecording}
-                hotkeyParts={hotkeyParts}
-                updateHotkey={updateHotkey}
-                hotkey={hotkey}
-                appSettings={appSettings}
-                theme={theme}
-                colorMode={colorMode}
-            />
-
-            {/* Appearance Settings */}
-            <AppearanceSettingsGroup
-                t={t}
-                collapsed={collapsedGroups['appearance']}
-                onToggle={() => toggleGroup('appearance')}
-                LabelWithHint={LabelWithHint}
-                theme={theme}
-                setTheme={setTheme}
-                colorMode={colorMode}
-                setColorMode={setColorMode}
-                language={language}
-                setLanguage={setLanguage}
-                showSourceAppIcon={showSourceAppIcon}
-                setShowSourceAppIcon={setShowSourceAppIcon}
-                compactMode={compactMode}
-                setCompactMode={setCompactMode}
-                clipboardItemFontSize={clipboardItemFontSize}
-                setClipboardItemFontSize={setClipboardItemFontSize}
-                clipboardTagFontSize={clipboardTagFontSize}
-                setClipboardTagFontSize={setClipboardTagFontSize}
-                customBackground={customBackground}
-                setCustomBackground={setCustomBackground}
-                customBackgroundOpacity={customBackgroundOpacity}
-                setCustomBackgroundOpacity={setCustomBackgroundOpacity}
-                surfaceOpacity={surfaceOpacity}
-                setSurfaceOpacity={setSurfaceOpacity}
-                saveAppSetting={saveAppSetting}
-                setSettingsSubpage={setSettingsSubpage}
-            />
-
-            {/* Sync Settings */}
-            <SyncSettingsGroup
-                t={t}
-                collapsed={collapsedGroups['sync']}
-                onToggle={() => toggleGroup('sync')}
-                LabelWithHint={LabelWithHint}
-                mqttEnabled={mqttEnabled}
-                mqttStatus={mqttStatus}
-                setMqttEnabled={setMqttEnabled}
-                saveMqtt={saveMqtt}
-                mqttProtocol={mqttProtocol}
-                setMqttProtocol={setMqttProtocol}
-                mqttWsPath={mqttWsPath}
-                setMqttWsPath={setMqttWsPath}
-                mqttServer={mqttServer}
-                setMqttServer={setMqttServer}
-                mqttPort={mqttPort}
-                setMqttPort={setMqttPort}
-                mqttUser={mqttUser}
-                setMqttUser={setMqttUser}
-                mqttPass={mqttPass}
-                setMqttPass={setMqttPass}
-                mqttTopic={mqttTopic}
-                setMqttTopic={setMqttTopic}
-                mqttNotificationEnabled={mqttNotificationEnabled}
-                setMqttNotificationEnabled={setMqttNotificationEnabled}
-            />
-
-            {CLOUD_SYNC_ENABLED && (
-                <CloudSyncSettingsGroup
+            )
+        },
+        {
+            id: "sync",
+            label: t("sync_settings"),
+            node: (
+                <SyncSettingsGroup
                     t={t}
-                    collapsed={collapsedGroups['cloud_sync']}
-                    onToggle={() => toggleGroup('cloud_sync')}
+                    {...groupState('sync')}
                     LabelWithHint={LabelWithHint}
-                    cloudSyncEnabled={cloudSyncEnabled}
-                    setCloudSyncEnabled={setCloudSyncEnabled}
-                    cloudSyncAuto={cloudSyncAuto}
-                    setCloudSyncAuto={setCloudSyncAuto}
-                    cloudSyncIntervalSec={cloudSyncIntervalSec}
-                    setCloudSyncIntervalSec={setCloudSyncIntervalSec}
-                    cloudSyncSnapshotIntervalMin={cloudSyncSnapshotIntervalMin}
-                    setCloudSyncSnapshotIntervalMin={setCloudSyncSnapshotIntervalMin}
-                    cloudSyncWebdavUrl={cloudSyncWebdavUrl}
-                    setCloudSyncWebdavUrl={setCloudSyncWebdavUrl}
-                    cloudSyncWebdavUsername={cloudSyncWebdavUsername}
-                    setCloudSyncWebdavUsername={setCloudSyncWebdavUsername}
-                    cloudSyncWebdavPassword={cloudSyncWebdavPassword}
-                    setCloudSyncWebdavPassword={setCloudSyncWebdavPassword}
-                    cloudSyncWebdavBasePath={cloudSyncWebdavBasePath}
-                    setCloudSyncWebdavBasePath={setCloudSyncWebdavBasePath}
-                    cloudSyncContentPrefs={cloudSyncContentPrefs}
-                    setCloudSyncContentPrefs={setCloudSyncContentPrefs}
-                    saveCloudSync={saveCloudSync}
-                    status={cloudSyncStatus}
-                    syncingNow={cloudSyncNowRunning}
-                    onSyncNow={handleCloudSyncNow}
+                    mqttEnabled={mqttEnabled}
+                    mqttStatus={mqttStatus}
+                    setMqttEnabled={setMqttEnabled}
+                    saveMqtt={saveMqtt}
+                    mqttProtocol={mqttProtocol}
+                    setMqttProtocol={setMqttProtocol}
+                    mqttWsPath={mqttWsPath}
+                    setMqttWsPath={setMqttWsPath}
+                    mqttServer={mqttServer}
+                    setMqttServer={setMqttServer}
+                    mqttPort={mqttPort}
+                    setMqttPort={setMqttPort}
+                    mqttUser={mqttUser}
+                    setMqttUser={setMqttUser}
+                    mqttPass={mqttPass}
+                    setMqttPass={setMqttPass}
+                    mqttTopic={mqttTopic}
+                    setMqttTopic={setMqttTopic}
+                    mqttNotificationEnabled={mqttNotificationEnabled}
+                    setMqttNotificationEnabled={setMqttNotificationEnabled}
+                    e2eKey={e2eKey}
+                    saveE2eKey={saveE2eKey}
                 />
-            )}
+            )
+        },
+        ...(CLOUD_SYNC_ENABLED
+            ? [{
+                id: "cloud_sync",
+                label: t("cloud_sync_settings"),
+                node: (
+                    <CloudSyncSettingsGroup
+                        t={t}
+                        {...groupState('cloud_sync')}
+                        LabelWithHint={LabelWithHint}
+                        cloudSyncEnabled={cloudSyncEnabled}
+                        setCloudSyncEnabled={setCloudSyncEnabled}
+                        cloudSyncAuto={cloudSyncAuto}
+                        setCloudSyncAuto={setCloudSyncAuto}
+                        cloudSyncIntervalSec={cloudSyncIntervalSec}
+                        setCloudSyncIntervalSec={setCloudSyncIntervalSec}
+                        cloudSyncSnapshotIntervalMin={cloudSyncSnapshotIntervalMin}
+                        setCloudSyncSnapshotIntervalMin={setCloudSyncSnapshotIntervalMin}
+                        cloudSyncWebdavUrl={cloudSyncWebdavUrl}
+                        setCloudSyncWebdavUrl={setCloudSyncWebdavUrl}
+                        cloudSyncWebdavUsername={cloudSyncWebdavUsername}
+                        setCloudSyncWebdavUsername={setCloudSyncWebdavUsername}
+                        cloudSyncWebdavPassword={cloudSyncWebdavPassword}
+                        setCloudSyncWebdavPassword={setCloudSyncWebdavPassword}
+                        cloudSyncWebdavBasePath={cloudSyncWebdavBasePath}
+                        setCloudSyncWebdavBasePath={setCloudSyncWebdavBasePath}
+                        cloudSyncContentPrefs={cloudSyncContentPrefs}
+                        setCloudSyncContentPrefs={setCloudSyncContentPrefs}
+                        saveCloudSync={saveCloudSync}
+                        status={cloudSyncStatus}
+                        syncingNow={cloudSyncNowRunning}
+                        onSyncNow={handleCloudSyncNow}
+                        e2eKey={e2eKey}
+                        saveE2eKey={saveE2eKey}
+                    />
+                )
+            }]
+            : []),
+        {
+            id: "ai",
+            label: t("ai_settings"),
+            node: (
+                <AiSettingsGroup
+                    t={t}
+                    {...groupState('ai')}
+                    aiEnabled={aiEnabled}
+                    setAiEnabled={setAiEnabled}
+                    saveSetting={saveSetting}
+                    aiProfiles={aiProfiles}
+                    profileStatuses={profileStatuses}
+                    checkModelStatus={checkModelStatus}
+                    setEditingProfile={setEditingProfile}
+                    handleDeleteProfile={handleDeleteProfile}
+                    aiAssignedProfileTask={aiAssignedProfileTask}
+                    setAiAssignedProfileTask={setAiAssignedProfileTask}
+                    aiAssignedProfileMouthpiece={aiAssignedProfileMouthpiece}
+                    setAiAssignedProfileMouthpiece={setAiAssignedProfileMouthpiece}
+                    aiAssignedProfileTranslate={aiAssignedProfileTranslate}
+                    setAiAssignedProfileTranslate={setAiAssignedProfileTranslate}
+                    aiTargetLang={aiTargetLang}
+                    setAiTargetLang={setAiTargetLang}
+                    theme={theme}
+                />
+            )
+        },
+        {
+            id: "file_transfer",
+            label: t("file_transfer"),
+            node: (
+                <FileTransferSettingsGroup
+                    t={t}
+                    {...groupState('file_transfer')}
+                    fileServerEnabled={fileServerEnabled}
+                    setFileServerEnabled={setFileServerEnabled}
+                    fileServerPort={fileServerPort}
+                    setFileServerPort={setFileServerPort}
+                    applyFileServerPort={applyFileServerPort}
+                    localIp={localIp}
+                    availableIps={availableIps}
+                    setLocalIp={setLocalIp}
+                    actualPort={actualPort}
+                    accessToken={fileTransferAccessToken}
+                    lanKey={fileTransferLanKey}
+                    fileTransferAutoOpen={fileTransferAutoOpen}
+                    setFileTransferAutoOpen={setFileTransferAutoOpen}
+                    showAutoCloseHint={showAutoCloseHint}
+                    setShowAutoCloseHint={setShowAutoCloseHint}
+                    fileServerAutoClose={fileServerAutoClose}
+                    setFileServerAutoClose={setFileServerAutoClose}
+                    fileTransferAutoCopy={fileTransferAutoCopy}
+                    setFileTransferAutoCopy={setFileTransferAutoCopy}
+                    onOpenChat={onOpenChat}
+                    fileTransferPath={fileTransferPath}
+                    saveSetting={saveSetting}
+                    fetchEffectiveTransferPath={fetchEffectiveTransferPath}
+                />
+            )
+        },
+        {
+            id: "default_apps",
+            label: t("default_apps"),
+            node: (
+                <DefaultAppsSettingsGroup
+                    t={t}
+                    {...groupState('default_apps')}
+                    installedApps={installedApps}
+                    appSettings={appSettings}
+                    defaultApps={defaultApps}
+                    setShowAppSelector={setShowAppSelector}
+                />
+            )
+        },
+        {
+            id: "secure_transfer",
+            label: t("secure_transfer"),
+            node: (
+                <SecureTransfer t={t} {...groupState('secure_transfer')} />
+            )
+        },
+        {
+            id: "data",
+            label: t("data_management"),
+            node: (
+                <DataSettingsGroup
+                    t={t}
+                    theme={theme}
+                    {...groupState('data')}
+                    dataPath={dataPath}
+                />
+            )
+        }
+    ];
 
-            {/* AI Assistant Settings */}
-            <AiSettingsGroup
-                t={t}
-                collapsed={collapsedGroups['ai']}
-                onToggle={() => toggleGroup('ai')}
-                aiEnabled={aiEnabled}
-                setAiEnabled={setAiEnabled}
-                saveSetting={saveSetting}
-                aiProfiles={aiProfiles}
-                profileStatuses={profileStatuses}
-                checkModelStatus={checkModelStatus}
-                setEditingProfile={setEditingProfile}
-                handleDeleteProfile={handleDeleteProfile}
-                aiAssignedProfileTask={aiAssignedProfileTask}
-                setAiAssignedProfileTask={setAiAssignedProfileTask}
-                aiAssignedProfileMouthpiece={aiAssignedProfileMouthpiece}
-                setAiAssignedProfileMouthpiece={setAiAssignedProfileMouthpiece}
-                aiAssignedProfileTranslate={aiAssignedProfileTranslate}
-                setAiAssignedProfileTranslate={setAiAssignedProfileTranslate}
-                aiTargetLang={aiTargetLang}
-                setAiTargetLang={setAiTargetLang}
-                aiThinkingBudget={aiThinkingBudget}
-                setAiThinkingBudget={setAiThinkingBudget}
-                theme={theme}
-            />
+    // Keep the reader's place when the layout flips (window resized, or the
+    // two-column toggle itself switched off from the appearance section).
+    const sectionIds = sections.map((section) => section.id).join(" ");
+    const wasWideRef = useRef(wideLayout);
+    useEffect(() => {
+        if (wasWideRef.current === wideLayout) return;
+        wasWideRef.current = wideLayout;
+        if (wideLayout) {
+            const open = sectionIds.split(" ").find((id) => !collapsedGroups[id]);
+            if (open) setActiveSection(open);
+            return;
+        }
+        if (activeSection === ABOUT_SECTION || !collapsedGroups[activeSection]) return;
+        toggleGroup(activeSection);
+        requestAnimationFrame(() => {
+            document
+                .querySelector(`[data-settings-section="${activeSection}"] > .settings-group`)
+                ?.scrollIntoView({ block: "start" });
+        });
+    }, [wideLayout, sectionIds, collapsedGroups, activeSection, toggleGroup]);
 
-            {/* File Transfer Settings */}
-            <FileTransferSettingsGroup
-                t={t}
-                collapsed={collapsedGroups['file_transfer']}
-                onToggle={() => toggleGroup('file_transfer')}
-                fileServerEnabled={fileServerEnabled}
-                setFileServerEnabled={setFileServerEnabled}
-                fileServerPort={fileServerPort}
-                setFileServerPort={setFileServerPort}
-                applyFileServerPort={applyFileServerPort}
-                localIp={localIp}
-                availableIps={availableIps}
-                setLocalIp={setLocalIp}
-                actualPort={actualPort}
-                fileTransferAutoOpen={fileTransferAutoOpen}
-                setFileTransferAutoOpen={setFileTransferAutoOpen}
-                showAutoCloseHint={showAutoCloseHint}
-                setShowAutoCloseHint={setShowAutoCloseHint}
-                fileServerAutoClose={fileServerAutoClose}
-                setFileServerAutoClose={setFileServerAutoClose}
-                fileTransferAutoCopy={fileTransferAutoCopy}
-                setFileTransferAutoCopy={setFileTransferAutoCopy}
-                onOpenChat={onOpenChat}
-                fileTransferPath={fileTransferPath}
-                saveSetting={saveSetting}
-                fetchEffectiveTransferPath={fetchEffectiveTransferPath}
-            />
+    const footer = (
+        <SettingsFooter
+            expanded={wideLayout}
+            t={t}
+            appVersion={appVersion}
+            releaseChannel={releaseBuildInfo.channel}
+            portable={releaseBuildInfo.portable}
+            updateStatus={updateStatus}
+            setUpdateStatus={setUpdateStatus}
+            onResetSettings={handleResetSettings}
+            emailCopied={emailCopied}
+            setEmailCopied={setEmailCopied}
+        />
+    );
 
-            {/* Default Apps Settings */}
-            <DefaultAppsSettingsGroup
-                t={t}
-                collapsed={collapsedGroups['default_apps']}
-                onToggle={() => toggleGroup('default_apps')}
-                installedApps={installedApps}
-                appSettings={appSettings}
-                defaultApps={defaultApps}
-                setShowAppSelector={setShowAppSelector}
-            />
-
-            {/* Data Management Settings */}
-            <DataSettingsGroup
-                t={t}
-                collapsed={collapsedGroups['data']}
-                onToggle={() => toggleGroup('data')}
-                dataPath={dataPath}
-            />
-
-            <div className="settings-group">
-                <button
-                    type="button"
-                    className="group-header settings-nav-card"
-                    onClick={openAdvancedSettingsWindow}
-                >
-                    <div style={{ minWidth: 0, textAlign: "left" }}>
-                        <h3 style={{ margin: 0 }}>{t("advanced_settings")}</h3>
-                        <div className="settings-subpage-note">{t("advanced_settings_entry_desc")}</div>
-                    </div>
-                    <ChevronRight size={16} />
-                </button>
-            </div>
-
-            <SettingsFooter
-                t={t}
-                appVersion={appVersion}
-                updateStatus={updateStatus}
-                setUpdateStatus={setUpdateStatus}
-                // Removed setUpdateModalData
-                onResetSettings={handleResetSettings}
-                emailCopied={emailCopied}
-                setEmailCopied={setEmailCopied}
-            />
-
+    const modals = (
+        <>
             <AiProfileModal
                 editingProfile={editingProfile}
                 t={t}
@@ -811,11 +923,137 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                 onClose={() => setShowAppSelector(null)}
                 onSave={saveAppSetting}
             />
+        </>
+    );
 
-            {/* Removed UpdateModal in generic */}
-                </>
-            )}
-        </motion.div>
+    const renderNavItem = (id: string, label: string, onClick: () => void, trailing?: ReactNode) => {
+        const Icon = SECTION_ICONS[id] ?? Info;
+        const active = activeSection === id;
+        return (
+            <button
+                key={id}
+                type="button"
+                className={`settings-nav-item${active ? " active" : ""}`}
+                data-section={id}
+                aria-current={active ? "page" : undefined}
+                onClick={onClick}
+            >
+                <Icon className="settings-nav-icon" size={16} strokeWidth={1.75} aria-hidden="true" />
+                <span className="settings-nav-label">{label}</span>
+                {trailing}
+            </button>
+        );
+    };
+
+    const renderWide = () => {
+        const current = sections.find((section) => section.id === activeSection);
+        return (
+            <div
+                ref={wideRef}
+                className="settings-wide"
+                style={navWidth != null ? { ["--settings-nav-width" as string]: `${navWidth}px` } : undefined}
+            >
+                <nav ref={navRef} className="settings-nav" aria-label={t("settings")}>
+                    {NAV_GROUPS.map((group) => {
+                        const items = group.ids.flatMap((id) => {
+                            if (id === ADVANCED_ENTRY) {
+                                return [renderNavItem(
+                                    id,
+                                    t("advanced_settings"),
+                                    openAdvancedSettingsWindow,
+                                    <ChevronRight className="settings-nav-trailing" size={14} aria-hidden="true" />
+                                )];
+                            }
+                            const section = sections.find((item) => item.id === id);
+                            return section ? [renderNavItem(section.id, section.label, () => setActiveSection(section.id))] : [];
+                        });
+                        if (items.length === 0) return null;
+                        return (
+                            <div key={group.labelKey} className="settings-nav-group" role="group" aria-label={t(group.labelKey)}>
+                                <div className="settings-nav-group-label" aria-hidden="true">{t(group.labelKey)}</div>
+                                {items}
+                            </div>
+                        );
+                    })}
+                    <div className="settings-nav-footer">
+                        {renderNavItem(ABOUT_SECTION, t("settings_about"), () => setActiveSection(ABOUT_SECTION))}
+                    </div>
+                </nav>
+                <PaneDivider active={navResizing} label={t("pane_divider_hint")} {...navDividerProps} />
+                {/* Keyed so switching sections starts at the top. */}
+                <div className="settings-wide-content" key={activeSection}>
+                    <div className="settings-wide-inner">
+                        {activeSection === ABOUT_SECTION ? footer : (current ?? sections[0]).node}
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    return (
+        <SettingsHintProvider>
+            <div className="settings-panel-root">
+                {settingsSubpage === "advanced" ? (
+                    <AdvancedSettingsGroup
+                        t={t}
+                        cleanupRules={cleanupRules}
+                        setCleanupRules={setCleanupRules}
+                        appCleanupPolicies={appCleanupPolicies}
+                        setAppCleanupPolicies={setAppCleanupPolicies}
+                        installedApps={installedApps}
+                    />
+                ) : wideLayout ? (
+                    renderWide()
+                ) : (
+                    <>
+                        {/* The wide layout's sidebar groups, as an inset list:
+                            a flat run of a dozen equal cards was hard to scan. */}
+                        {NAV_GROUPS.map((group) => {
+                            const items = group.ids.flatMap((id) => {
+                                const Icon = SECTION_ICONS[id] ?? Info;
+                                const icon = <Icon className="settings-section-icon" size={16} strokeWidth={1.75} aria-hidden="true" />;
+                                if (id === ADVANCED_ENTRY) {
+                                    return [
+                                        <div key={id} className="settings-section">
+                                            {icon}
+                                            <div className="settings-group collapsed">
+                                                <button
+                                                    type="button"
+                                                    className="group-header settings-nav-card"
+                                                    onClick={openAdvancedSettingsWindow}
+                                                >
+                                                    <h3>{t("advanced_settings")}</h3>
+                                                    <ChevronRight size={16} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ];
+                                }
+                                const section = sections.find((item) => item.id === id);
+                                return section
+                                    ? [
+                                        <div key={section.id} className="settings-section" data-settings-section={section.id}>
+                                            {icon}
+                                            {section.node}
+                                        </div>
+                                    ]
+                                    : [];
+                            });
+                            if (items.length === 0) return null;
+                            return (
+                                <section key={group.labelKey} className="settings-narrow-group" aria-label={t(group.labelKey)}>
+                                    <div className="settings-narrow-group-label" aria-hidden="true">{t(group.labelKey)}</div>
+                                    <div className="settings-narrow-group-items">{items}</div>
+                                </section>
+                            );
+                        })}
+
+                        {footer}
+                    </>
+                )}
+                {modals}
+            </div>
+        </SettingsHintProvider>
     );
 };
 

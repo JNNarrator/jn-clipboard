@@ -1,22 +1,64 @@
-import React from "react";
+import React, { lazy, Suspense } from "react";
 import ReactDOM from "react-dom/client";
-import App from "./App";
-import CompactPreviewWindow from "./features/clipboard/components/CompactPreviewWindow";
-import AdvancedSettingsWindow from "./features/settings/components/AdvancedSettingsWindow";
 import "./index.css";
 import "./styles/components/index.css";
 import "./styles/themes/load";
+import "./styles/platform-windows.css";
+import "./styles/platform-macos.css";
+import "./styles/components/pin-sticker.css";
+import { installBrowserAcceleratorBlocker } from "./shared/lib/blockBrowserAccelerators";
+import ErrorBoundary from "./shared/components/ErrorBoundary";
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+import { isTauriRuntime } from "./shared/lib/tauriRuntime";
+
+// Suppress Chromium/WebView browser accelerators in every window (main, preview, settings…).
+installBrowserAcceleratorBlocker();
 
 const params = new URLSearchParams(window.location.search);
 const isCompactPreview = params.get("window") === "compact-preview";
-const isAdvancedSettingsWindow = params.get("window") === "advanced-settings";
+const isPinSticker = params.get("window") === "pin-sticker";
+const RootComponent = isCompactPreview
+  ? lazy(() => import("./features/clipboard/components/CompactPreviewWindow"))
+  : isPinSticker
+    ? lazy(() => import("./features/clipboard/components/PinStickerWindow"))
+    : lazy(() => import("./App"));
+const isMacPlatform =
+  /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent) || /Mac/i.test(navigator.platform);
 
-ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
+if (isPinSticker) {
+  document.documentElement.classList.add("window-pin-sticker");
+  document.body.classList.add("window-pin-sticker");
+}
+
+if (isMacPlatform) {
+  document.documentElement.classList.add("platform-macos");
+  document.body.classList.add("platform-macos");
+} else {
+  document.documentElement.classList.add("platform-windows");
+  document.body.classList.add("platform-windows");
+}
+
+const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement);
+root.render(
   <React.StrictMode>
-    {isCompactPreview
-      ? <CompactPreviewWindow />
-      : isAdvancedSettingsWindow
-        ? <AdvancedSettingsWindow />
-        : <App />}
+    <ErrorBoundary>
+      <Suspense fallback={null}>
+        <RootComponent />
+      </Suspense>
+    </ErrorBoundary>
   </React.StrictMode>,
 );
+
+// Light mode is about to drop this page. Unmount first so every effect cleanup
+// unregisters its Tauri event listener; Tauri keeps them across reloads
+// otherwise. Rust waits for the ack (or gives up after a second).
+if (!isCompactPreview && !isPinSticker && isTauriRuntime()) {
+  const offRelease = listen("light-mode-release", async () => {
+    root.unmount();
+    (await offRelease)();
+    // Let the unlisten calls from the cleanups go out before Rust navigates.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    await invoke("main_ui_released").catch(() => {});
+  });
+}

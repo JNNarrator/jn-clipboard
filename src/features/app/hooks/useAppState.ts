@@ -3,6 +3,7 @@ import { DEFAULT_THEME } from "../../../shared/config/themes";
 import type { ClipboardEntry, Locale } from "../../../shared/types";
 import type {
   AppState,
+  ClipboardSortMode,
   CloudSyncContentPrefs,
   DefaultAppsMap,
   InstalledAppOption,
@@ -11,27 +12,17 @@ import type {
 } from "../types";
 import { DEFAULT_CLOUD_SYNC_CONTENT_PREFS } from "../types";
 import type { AiProfile, AppCleanupPolicy } from "../../settings/types";
-
-const DEFAULT_AI_KEY = import.meta.env.VITE_AI_DEFAULT_API_KEY ?? "";
+import { DEFAULT_COLLAPSED_GROUPS } from "../../settings/types";
 
 export const useAppState = (): AppState => {
   const [showSettings, setShowSettings] = useState(false);
   const [settingsSubpage, setSettingsSubpage] = useState<SettingsSubpage>("home");
   const [showTagManager, setShowTagManager] = useState(false);
   const [tagManagerEnabled, setTagManagerEnabled] = useState(true);
-  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({
-    general: true,
-    clipboard: true,
-    advanced: true,
-    appearance: true,
-    sync: true,
-    cloud_sync: true,
-    ai: true,
-    file_transfer: true,
-    default_apps: true,
-    data: true
-  });
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(DEFAULT_COLLAPSED_GROUPS);
   const [history, setHistory] = useState<ClipboardEntry[]>([]);
+  const [clipboardSortMode, setClipboardSortMode] =
+    useState<ClipboardSortMode>("activity");
   const [search, setSearch] = useState("");
   const [isComposing, setIsComposing] = useState(false);
   const [searchIsFocused, setSearchIsFocused] = useState(false);
@@ -41,8 +32,10 @@ export const useAppState = (): AppState => {
   const [emojiFavorites, setEmojiFavorites] = useState<string[]>([]);
   const [aiOptionsOpenId, setAiOptionsOpenId] = useState<number | null>(null);
   const [editingTagsId, setEditingTagsId] = useState<number | null>(null);
+  const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
   const [revealedIds, setRevealedIds] = useState<Set<number>>(new Set());
   const [autoStart, setAutoStart] = useState(true);
+  const [elevatedAutostart, setElevatedAutostart] = useState(false);
   const [deduplicate, setDeduplicate] = useState(true);
   const [persistent, setPersistent] = useState(true);
   const [persistentLimitEnabled, setPersistentLimitEnabled] = useState(true);
@@ -56,6 +49,7 @@ export const useAppState = (): AppState => {
   const [hotkey, setHotkey] = useState<string>("Alt+C");
   const [sequentialHotkey, setSequentialHotkey] = useState<string>("Alt+V");
   const [richPasteHotkey, setRichPasteHotkey] = useState<string>("Alt+Shift+V");
+  const [plainPasteHotkey, setPlainPasteHotkey] = useState<string>("");
   const [searchHotkey, setSearchHotkey] = useState<string>("Alt+F");
   const [quickPasteModifier, setQuickPasteModifier] =
     useState<QuickPasteModifier>("disabled");
@@ -63,10 +57,12 @@ export const useAppState = (): AppState => {
   const [isRecording, setIsRecording] = useState(false);
   const [isRecordingSequential, setIsRecordingSequential] = useState(false);
   const [isRecordingRich, setIsRecordingRich] = useState(false);
+  const [isRecordingPlain, setIsRecordingPlain] = useState(false);
   const [isRecordingSearch, setIsRecordingSearch] = useState(false);
   const [deleteAfterPaste, setDeleteAfterPaste] = useState(false);
-  const [moveToTopAfterPaste, setMoveToTopAfterPaste] = useState(true);
-  const [privacyProtection, setPrivacyProtection] = useState(true);
+  const [moveToTopAfterPaste, setMoveToTopAfterPaste] = useState(false);
+  const [clickCopyOnly, setClickCopyOnly] = useState(false);
+  const [privacyProtection, setPrivacyProtection] = useState(false);
   const [privacyProtectionKinds, setPrivacyProtectionKinds] = useState<string[]>([
     "phone",
     "idcard",
@@ -81,18 +77,22 @@ export const useAppState = (): AppState => {
   const [appCleanupPolicies, setAppCleanupPolicies] = useState<AppCleanupPolicy[]>([]);
   const [captureFiles, setCaptureFiles] = useState(true);
   const [captureRichText, setCaptureRichText] = useState(false);
-  const [richTextSnapshotPreview, setRichTextSnapshotPreview] = useState(true);
+  const [richTextSnapshotPreview, setRichTextSnapshotPreview] = useState(false);
   const [silentStart, setSilentStart] = useState(true);
   const [followMouse, setFollowMouse] = useState(false);
   const [showAppBorder, setShowAppBorder] = useState(false);
   const [winClipboardDisabled, setWinClipboardDisabled] = useState(false);
   const [registryWinVEnabled, setRegistryWinVEnabled] = useState(false);
-  const [pasteMethod, setPasteMethod] = useState("simulate");
+  const [pasteMethod, setPasteMethod] = useState("shift_insert");
   const [theme, setTheme] = useState(DEFAULT_THEME);
+  const [nativePalette, setNativePalette] = useState("default");
   const [colorMode, setColorMode] = useState("system");
   const [showSourceAppIcon, setShowSourceAppIcon] = useState(true);
+  const [hideUnselectedItemActions, setHideUnselectedItemActions] = useState(false);
 
   const [compactMode, setCompactMode] = useState(false);
+  const [compactShowTime, setCompactShowTime] = useState(false);
+  const [splitViewEnabled, setSplitViewEnabled] = useState(true);
   const [clipboardItemFontSize, setClipboardItemFontSize] = useState(13);
   const [clipboardTagFontSize, setClipboardTagFontSize] = useState(10);
   const [emojiPanelEnabled, setEmojiPanelEnabled] = useState(false);
@@ -102,9 +102,14 @@ export const useAppState = (): AppState => {
   const [language, setLanguage] = useState<Locale>("zh");
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [isWindowPinned, setIsWindowPinned] = useState(false);
+  /** Persistent preference: search bar always visible (settings toggle). */
+  const [searchBoxPinned, setSearchBoxPinned] = useState(true);
+  /** Transient UI visibility (may temporarily differ from pinned via scroll reveal). */
   const [showSearchBox, setShowSearchBox] = useState(true);
   const [scrollTopButtonEnabled, setScrollTopButtonEnabled] = useState(true);
   const [arrowKeySelection, setArrowKeySelection] = useState(true);
+  const [lightModeEnabled, setLightModeEnabled] = useState(false);
+  const [lightModeIdleMinutes, setLightModeIdleMinutes] = useState(15);
   const [hideTrayIcon, setHideTrayIcon] = useState(false);
   const [hideDockIcon, setHideDockIcon] = useState(false);
   const [edgeDocking, setEdgeDocking] = useState(false);
@@ -112,6 +117,7 @@ export const useAppState = (): AppState => {
   const [customBackgroundOpacity, setCustomBackgroundOpacity] = useState(45);
   const [surfaceOpacity, setSurfaceOpacity] = useState(50);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
   const [isKeyboardMode, setIsKeyboardMode] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -139,10 +145,12 @@ export const useAppState = (): AppState => {
   const [cloudSyncContentPrefs, setCloudSyncContentPrefs] =
     useState<CloudSyncContentPrefs>(DEFAULT_CLOUD_SYNC_CONTENT_PREFS);
   const [fileServerEnabled, setFileServerEnabled] = useState(false);
-  const [fileServerPort, setFileServerPort] = useState("12345");
+  const [fileServerPort, setFileServerPort] = useState("28462");
   const [localIp, setLocalIp] = useState("");
   const [availableIps, setAvailableIps] = useState<string[]>([]);
   const [actualPort, setActualPort] = useState("");
+  const [fileTransferAccessToken, setFileTransferAccessToken] = useState("");
+  const [fileTransferLanKey, setFileTransferLanKey] = useState("");
   const [fileTransferPath, setFileTransferPath] = useState("");
   const [fileTransferAutoOpen, setFileTransferAutoOpen] = useState(false);
   const [fileTransferAutoCopy, setFileTransferAutoCopy] = useState(false);
@@ -152,28 +160,22 @@ export const useAppState = (): AppState => {
   const [soundVolume, setSoundVolume] = useState(1.0);
   const [aiEnabled, setAiEnabled] = useState(true);
   const [aiTargetLang, setAiTargetLang] = useState("zh");
-  const [aiThinkingBudget, setAiThinkingBudget] = useState("1024");
   const [aiProfiles, setAiProfiles] = useState<AiProfile[]>([
     {
-      id: "lc_flash_v1",
-      baseUrl: "https://api.longcat.chat/openai/v1",
-      apiKey: DEFAULT_AI_KEY,
-      model: "LongCat-Flash-Chat",
+      id: "ds_v4_pro_v1",
+      provider: "deepseek",
+      baseUrl: "https://api.deepseek.com/v1",
+      apiKey: "",
+      model: "deepseek-v4-pro",
+      enableThinking: true
+    },
+    {
+      id: "ds_flash_v1",
+      provider: "deepseek",
+      baseUrl: "https://api.deepseek.com/v1",
+      apiKey: "",
+      model: "deepseek-flash",
       enableThinking: false
-    },
-    {
-      id: "lc_think_v1",
-      baseUrl: "https://api.longcat.chat/openai/v1",
-      apiKey: DEFAULT_AI_KEY,
-      model: "LongCat-Flash-Thinking",
-      enableThinking: true
-    },
-    {
-      id: "lc_think_2601_v1",
-      baseUrl: "https://api.longcat.chat/openai/v1",
-      apiKey: DEFAULT_AI_KEY,
-      model: "LongCat-Flash-Thinking-2601",
-      enableThinking: true
     }
   ]);
   const [aiAssignedProfileTask, setAiAssignedProfileTask] = useState("default");
@@ -195,6 +197,8 @@ export const useAppState = (): AppState => {
     setCollapsedGroups,
     history,
     setHistory,
+    clipboardSortMode,
+    setClipboardSortMode,
     search,
     setSearch,
     isComposing,
@@ -213,10 +217,14 @@ export const useAppState = (): AppState => {
     setAiOptionsOpenId,
     editingTagsId,
     setEditingTagsId,
+    editingNoteId,
+    setEditingNoteId,
     revealedIds,
     setRevealedIds,
     autoStart,
     setAutoStart,
+    elevatedAutostart,
+    setElevatedAutostart,
     deduplicate,
     setDeduplicate,
     persistent,
@@ -242,7 +250,9 @@ export const useAppState = (): AppState => {
     sequentialHotkey,
     setSequentialHotkey,
     richPasteHotkey,
+    plainPasteHotkey,
     setRichPasteHotkey,
+    setPlainPasteHotkey,
     searchHotkey,
     setSearchHotkey,
     quickPasteModifier,
@@ -254,13 +264,17 @@ export const useAppState = (): AppState => {
     isRecordingSequential,
     setIsRecordingSequential,
     isRecordingRich,
+    isRecordingPlain,
     setIsRecordingRich,
+    setIsRecordingPlain,
     isRecordingSearch,
     setIsRecordingSearch,
     deleteAfterPaste,
     setDeleteAfterPaste,
     moveToTopAfterPaste,
+    clickCopyOnly,
     setMoveToTopAfterPaste,
+    setClickCopyOnly,
     privacyProtection,
     setPrivacyProtection,
     privacyProtectionKinds,
@@ -297,13 +311,21 @@ export const useAppState = (): AppState => {
     setPasteMethod,
     theme,
     setTheme,
+    nativePalette,
+    setNativePalette,
     colorMode,
     setColorMode,
     showSourceAppIcon,
     setShowSourceAppIcon,
+    hideUnselectedItemActions,
+    setHideUnselectedItemActions,
 
     compactMode,
     setCompactMode,
+    compactShowTime,
+    setCompactShowTime,
+    splitViewEnabled,
+    setSplitViewEnabled,
     clipboardItemFontSize,
     setClipboardItemFontSize,
     clipboardTagFontSize,
@@ -322,12 +344,18 @@ export const useAppState = (): AppState => {
     setSettingsLoaded,
     isWindowPinned,
     setIsWindowPinned,
+    searchBoxPinned,
+    setSearchBoxPinned,
     showSearchBox,
     setShowSearchBox,
     scrollTopButtonEnabled,
     setScrollTopButtonEnabled,
     arrowKeySelection,
     setArrowKeySelection,
+    lightModeEnabled,
+    setLightModeEnabled,
+    lightModeIdleMinutes,
+    setLightModeIdleMinutes,
     hideTrayIcon,
     setHideTrayIcon,
     hideDockIcon,
@@ -343,6 +371,8 @@ export const useAppState = (): AppState => {
     setSurfaceOpacity,
     selectedIndex,
     setSelectedIndex,
+    selectedItemId,
+    setSelectedItemId,
     isKeyboardMode,
     setIsKeyboardMode,
     isLoadingMore,
@@ -403,6 +433,10 @@ export const useAppState = (): AppState => {
     setAvailableIps,
     actualPort,
     setActualPort,
+    fileTransferAccessToken,
+    setFileTransferAccessToken,
+    fileTransferLanKey,
+    setFileTransferLanKey,
     fileTransferPath,
     setFileTransferPath,
     fileTransferAutoOpen,
@@ -421,8 +455,6 @@ export const useAppState = (): AppState => {
     setAiEnabled,
     aiTargetLang,
     setAiTargetLang,
-    aiThinkingBudget,
-    setAiThinkingBudget,
     aiProfiles,
     setAiProfiles,
     aiAssignedProfileTask,

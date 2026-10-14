@@ -1,3 +1,5 @@
+import { hotkeyKeyFromCode } from "../lib/hotkeyKey";
+
 interface MatchHotkeyOptions {
   ignoreWin?: boolean;
 }
@@ -46,6 +48,10 @@ export const matchesHotkey = (
 
   const keyUpper = keyPart.toUpperCase();
   const eventKey = event.key;
+
+  // Physical key first: Option/Shift change event.key (Option+F is "ƒ").
+  const physical = hotkeyKeyFromCode(event.code ?? "");
+  if (physical && physical.toUpperCase() === keyUpper) return true;
 
   if (keyUpper === "SPACE") return eventKey === " " || eventKey === "Spacebar";
   if (keyUpper === "ENTER" || keyUpper === "RETURN") return eventKey === "Enter";

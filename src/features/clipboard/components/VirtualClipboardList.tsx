@@ -8,6 +8,8 @@ type VirtuosoListContext = {
     header?: React.ReactNode;
     hasMore: boolean;
     isLoading: boolean;
+    loadingLabel: string;
+    loadMoreLabel: string;
 };
 
 const ListHeader = ({ context }: { context?: VirtuosoListContext }) => {
@@ -25,10 +27,12 @@ const ListFooter = ({ context }: { context?: VirtuosoListContext }) => {
             padding: '20px',
             textAlign: 'center',
             opacity: 0.6,
-            fontSize: '12px',
+            fontSize: 'var(--font-size-sm)',
             color: 'var(--text-secondary)'
         }}>
-            {isLoading ? '加载中...' : '加载更多...'}
+            <span role="status" aria-live="polite">
+                {isLoading ? context.loadingLabel : context.loadMoreLabel}
+            </span>
         </div>
     );
 };
@@ -45,7 +49,9 @@ const VirtualClipboardList = React.forwardRef<VirtualClipboardListHandle, Virtua
             isKeyboardMode,
             onScroll,
             compactMode,
-            header
+            header,
+            loadingLabel,
+            loadMoreLabel
         } = props;
 
         const virtuosoRef = useRef<VirtuosoHandle>(null);
@@ -129,6 +135,8 @@ const VirtualClipboardList = React.forwardRef<VirtualClipboardListHandle, Virtua
             );
         }, [renderItem, compactMode]);
 
+        const computeItemKey = useCallback((_index: number, item: ClipboardEntry) => item.id, []);
+
         const components = useMemo(() => ({
             Header: ListHeader,
             Footer: ListFooter
@@ -137,14 +145,19 @@ const VirtualClipboardList = React.forwardRef<VirtualClipboardListHandle, Virtua
         const context = useMemo(() => ({
             header,
             hasMore,
-            isLoading
-        }), [header, hasMore, isLoading]);
+            isLoading,
+            loadingLabel,
+            loadMoreLabel
+        }), [header, hasMore, isLoading, loadingLabel, loadMoreLabel]);
 
         return (
             <div className="virtual-list-wrapper" style={{ height: '100%', width: '100%' }}>
                 <Virtuoso
                     ref={virtuosoRef}
                     data={items}
+                    // Key rows by entry id, not index: a new copy shifts every
+                    // index, which otherwise remounts every visible card.
+                    computeItemKey={computeItemKey}
                     itemContent={itemContent}
                     components={components}
                     context={context}
@@ -152,7 +165,7 @@ const VirtualClipboardList = React.forwardRef<VirtualClipboardListHandle, Virtua
                     onScroll={(e) => handleScroll((e.currentTarget as HTMLElement).scrollTop)}
                     endReached={handleEndReached}
                     rangeChanged={handleRangeChanged}
-                    overscan={200} // Pre-render 200px of content for smoother scrolling
+                    overscan={400} // Pre-render 400px of content for smoother scrolling
                 />
             </div>
         );
@@ -163,5 +176,3 @@ VirtualClipboardList.displayName = 'VirtualClipboardList';
 
 export { VirtualClipboardList };
 export default VirtualClipboardList;
-
-

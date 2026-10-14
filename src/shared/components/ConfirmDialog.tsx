@@ -1,10 +1,15 @@
+import AppModal from "./AppModal";
+
 interface ConfirmDialogProps {
   open: boolean;
   title: string;
   message: string;
-  theme: string;
+  theme?: string;
   confirmLabel: string;
   cancelLabel: string;
+  /** Destructive actions (delete, clear, reset) use the danger button. */
+  danger?: boolean;
+  busy?: boolean;
   onConfirm: () => void;
   onClose: () => void;
 }
@@ -16,27 +21,34 @@ const ConfirmDialog = ({
   theme,
   confirmLabel,
   cancelLabel,
+  danger = false,
+  busy = false,
   onConfirm,
   onClose
-}: ConfirmDialogProps) => {
-  if (!open) return null;
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className={`confirm-dialog theme-${theme}`} onClick={(e) => e.stopPropagation()}>
-        <div className="confirm-dialog-title">{title}</div>
-        <div className="confirm-dialog-message">{message}</div>
-        <div className="confirm-dialog-buttons">
-          <button className="confirm-dialog-button" onClick={onClose}>
-            {cancelLabel}
-          </button>
-          <button className="confirm-dialog-button primary" onClick={onConfirm}>
-            {confirmLabel}
-          </button>
-        </div>
-      </div>
+}: ConfirmDialogProps) => (
+  <AppModal
+    open={open}
+    onClose={onClose}
+    theme={theme}
+    panelClassName="modal-panel confirm-dialog"
+    ariaLabel={title}
+  >
+    <h3 className="confirm-dialog-title">{title}</h3>
+    <p className="confirm-dialog-message">{message}</p>
+    <div className="confirm-dialog-buttons">
+      <button type="button" className="modal-button" onClick={onClose} disabled={busy}>
+        {cancelLabel}
+      </button>
+      <button
+        type="button"
+        className={`modal-button ${danger ? "danger" : "primary"}`}
+        onClick={onConfirm}
+        disabled={busy}
+      >
+        {confirmLabel}
+      </button>
     </div>
-  );
-};
+  </AppModal>
+);
 
 export default ConfirmDialog;

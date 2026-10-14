@@ -10,11 +10,24 @@ pub struct ClipboardEntry {
     pub source_app: String,
     #[serde(default)]
     pub source_app_path: Option<String>,
+    /// Legacy-compatible list timestamp. Mirrors `sort_at`.
     pub timestamp: i64,
+    /// Immutable first-capture/import time.
+    #[serde(default)]
+    pub created_at: i64,
+    /// Most recent explicit use (paste/open), if any.
+    #[serde(default)]
+    pub last_used_at: i64,
+    /// Mutable ordering key used by "move to top after paste".
+    #[serde(default)]
+    pub sort_at: i64,
     pub preview: String,
     pub is_pinned: bool,
     #[serde(default)]
     pub tags: Vec<String>,
+    /// Free-text remark on this entry (not a category tag).
+    #[serde(default)]
+    pub note: String,
     #[serde(default)]
     pub use_count: i32,
     #[serde(default)]

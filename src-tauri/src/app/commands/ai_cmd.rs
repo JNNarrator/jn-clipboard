@@ -1,64 +1,112 @@
 use crate::database::DbState;
+use crate::error;
 use crate::error::{AppError, AppResult};
+use crate::infrastructure::http_error::{body_for_log, summarize_http_error};
 use crate::infrastructure::repository::clipboard_repo::ClipboardRepository;
 use crate::infrastructure::repository::settings_repo::SettingsRepository;
-use serde::{Deserialize, Serialize};
+use super::ai_provider::{build_call, parse_reply, AiReply, AiRequest, HttpCall, Provider};
+use serde::Serialize;
 use tauri::{command, AppHandle, Emitter, Manager};
 
-#[derive(Debug, Serialize, Deserialize)]
-struct ChatMessage {
-    role: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    content: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    reasoning_content: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct ChatCompletionRequest {
-    model: String,
-    messages: Vec<ChatMessage>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    enable_thinking: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    thinking_budget: Option<i32>,
-    max_tokens: i32,
-    temperature: f32,
-    presence_penalty: f32,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct ChatCompletionResponse {
-    choices: Vec<Choice>,
-    #[serde(flatten)]
-    _other: serde_json::Value,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct Choice {
-    message: Option<ChatMessage>,
-    #[serde(flatten)]
-    _other: serde_json::Value,
-}
+const DEFAULT_BASE_URL: &str = "https://api.deepseek.com/v1";
 
 fn clean_url(url: &str) -> String {
     url.trim().trim_end_matches('/').to_string()
 }
 
-fn apply_optional_http_referer(request: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
-    if let Ok(referer) = std::env::var("AI_HTTP_REFERER") {
-        let trimmed = referer.trim();
-        if !trimmed.is_empty() {
-            return request.header("HTTP-Referer", trimmed.to_string());
-        }
+async fn send_call(
+    client: &reqwest::Client,
+    call: &HttpCall,
+) -> Result<reqwest::Response, reqwest::Error> {
+    let mut request = client.post(&call.url).json(&call.body);
+    for (name, value) in &call.headers {
+        request = request.header(*name, value);
     }
-    request
+    request.send().await
 }
 
-fn sanitize_input(content: &str) -> AppResult<String> {
-    // Note: We used to have an injection check here, but it's too aggressive for a general purpose clipboard
-    // where users might be copying technical text about AI. The limit is increased to 10000 characters.
-    Ok(content.chars().take(10000).collect())
+struct ProfileConfig {
+    provider: Provider,
+    api_key: String,
+    base_url: String,
+    model: String,
+    enable_thinking: bool,
+    reasoning_effort: String,
+    thinking_budget: Option<i32>,
+}
+
+fn profile_config(profile: Option<&serde_json::Value>) -> ProfileConfig {
+    let text = |field: &str| {
+        profile
+            .and_then(|p| p[field].as_str())
+            .map(str::to_string)
+            .unwrap_or_default()
+    };
+    // Only the no-profile default may fall back to DeepSeek. A profile with an
+    // empty URL must not send its key (Claude, Gemini, custom…) to DeepSeek.
+    let base_url = match text("baseUrl") {
+        url if url.trim().is_empty() && profile.is_none() => DEFAULT_BASE_URL.to_string(),
+        url => clean_url(&url),
+    };
+    let model = match (profile, text("model")) {
+        (Some(_), m) if m.is_empty() => "deepseek-flash".to_string(),
+        (_, m) => m,
+    };
+    let effort = text("reasoningEffort");
+    ProfileConfig {
+        provider: Provider::resolve(&text("provider"), &base_url),
+        api_key: text("apiKey"),
+        base_url,
+        model,
+        enable_thinking: profile
+            .and_then(|p| p["enableThinking"].as_bool())
+            .unwrap_or(false),
+        reasoning_effort: if effort.is_empty() { "medium".to_string() } else { effort },
+        thinking_budget: profile
+            .and_then(|p| p["thinkingBudget"].as_i64())
+            .and_then(|v| i32::try_from(v).ok()),
+    }
+}
+
+/// Characters of an entry the AI sees. Longer entries are cut, and the
+/// result is then flagged so it can't replace the whole entry.
+const AI_INPUT_LIMIT: usize = 2000;
+/// Upper bound on a provider's response body; the timeout alone doesn't cap it.
+const MAX_RESPONSE_BYTES: usize = 4 * 1024 * 1024;
+
+/// A reply plus whether it was produced from a cut-down input.
+#[derive(Serialize)]
+pub struct AiResult {
+    #[serde(flatten)]
+    reply: AiReply,
+    truncated: bool,
+}
+
+async fn read_body_capped(mut response: reqwest::Response) -> Result<String, reqwest::Error> {
+    let mut body = Vec::new();
+    while let Some(chunk) = response.chunk().await? {
+        if body.len() + chunk.len() > MAX_RESPONSE_BYTES {
+            break;
+        }
+        body.extend_from_slice(&chunk);
+    }
+    Ok(String::from_utf8_lossy(&body).into_owned())
+}
+
+/// Returns the text to send and whether it had to be cut.
+fn sanitize_input(content: &str) -> AppResult<(String, bool)> {
+    // "你是" ("you are") is left out: it is everyday Chinese, and blocked
+    // ordinary entries as well as follow-ups quoting the AI's own question.
+    let forbidden = ["忽略以上", "system prompt", "以上指令"];
+    for word in forbidden {
+        if content.contains(word) {
+            return Err(AppError::Validation(
+                "Input contains potential injection keywords".to_string(),
+            ));
+        }
+    }
+    let truncated = content.chars().count() > AI_INPUT_LIMIT;
+    Ok((content.chars().take(AI_INPUT_LIMIT).collect(), truncated))
 }
 
 fn build_system_prompt(action_type: &str) -> String {
@@ -93,7 +141,8 @@ fn build_system_prompt(action_type: &str) -> String {
         【你的核心原则】\n\
         1. **结果导向**：直接提供用户需要的内容，不要废话，不要过度寒暄。\n\
         2. **逻辑严密**：确保生成的内容结构清晰、论证有力。\n\
-        3. **专业可靠**：保持客观、专业的语气，除非用户指定了特定风格。";
+        3. **专业可靠**：保持客观、专业的语气，除非用户指定了特定风格。\n\
+        4. **缺信息先问**：只有缺少关键信息、无法完成任务时，才只输出一行 [[QUESTION:你的问题]]，不要输出其他内容。";
 
     // 3. 翻译专家 (Translator)
     let translator_persona = "你现在的具体任务是【顶级同传】：请将内容翻译成目标语言，确保译文地道且富有生活化语气，严禁机翻感。只输出译文，不要哪怕一句多余的解释。";
@@ -128,41 +177,60 @@ pub async fn check_ai_connectivity(
     base_url: String,
     api_key: String,
     model: String,
+    provider: Option<String>,
 ) -> AppResult<String> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(120))
         .build()
         .map_err(|e| format!("Client creation failed: {}", e))?;
     let cleaned_base = clean_url(&base_url);
-    let api_url = format!("{}/chat/completions", cleaned_base);
+    let provider = Provider::resolve(provider.as_deref().unwrap_or(""), &cleaned_base);
+    // Same rule as call_ai, so a passing check means calls work too.
+    if provider.requires_key && api_key.trim().is_empty() {
+        return Err(AppError::Validation(
+            "AI API Key is not set. Add one in AI Assistant Settings.".to_string(),
+        ));
+    }
 
-    // Perform a real minimal handshake
-    let request_body = serde_json::json!({
-        "model": model,
-        "messages": [{"role": "user", "content": "ping"}],
-        "max_tokens": 1
-    });
+    // Perform a real minimal handshake. Reasoning models may spend a few
+    // tokens before answering, so a single token is not always accepted.
+    let call = build_call(
+        &provider,
+        &cleaned_base,
+        &api_key,
+        &model,
+        &AiRequest {
+            system: "Reply with OK.",
+            user: "ping",
+            max_tokens: 16,
+            temperature: 0.0,
+            presence_penalty: 0.0,
+            thinking: false,
+            thinking_budget: 0,
+            reasoning_effort: "low",
+        },
+    );
+    let api_url = call.url.clone();
 
-    let request = client
-        .post(&api_url)
-        .header("Authorization", format!("Bearer {}", api_key))
-        .header("X-Title", "TieZ Clipboard");
-
-    let response = apply_optional_http_referer(request)
-        .json(&request_body)
-        .send()
+    let response = send_call(&client, &call)
         .await
-        .map_err(|e| format!("Network Error: {}", e))?;
+        .map_err(|e| {
+            error!("[AI] connectivity request to {} failed: {}", api_url, e);
+            AppError::Network(e.without_url().to_string())
+        })?;
 
     let status = response.status();
     if status.is_success() {
         Ok("success".to_string())
     } else {
-        let err_text = response
-            .text()
-            .await
-            .unwrap_or_else(|_| "Unknown error".to_string());
-        Err(format!("HTTP {} - {}", status, err_text).into())
+        let err_text = response.text().await.unwrap_or_default();
+        error!(
+            "[AI] connectivity check {} returned {}: {}",
+            api_url,
+            status,
+            body_for_log(&err_text)
+        );
+        Err(AppError::Network(summarize_http_error(status, &err_text)))
     }
 }
 
@@ -172,11 +240,14 @@ pub async fn call_ai(
     id: i64,
     mut content: String,
     action_type: String, // "task", "mouthpiece", "translate"
-) -> AppResult<String> {
+    use_provided_content: Option<bool>,
+) -> AppResult<AiResult> {
     let state = app_handle.state::<DbState>();
 
     // 0. Resolve full content if ID is provided and content is placeholder/truncated
-    if id != 0 {
+    // Follow-up prompts already include the full original and the user's
+    // answer. Resolve ordinary requests from storage, but keep that prompt.
+    if id != 0 && !use_provided_content.unwrap_or(false) {
         if id > 0 {
             // Fetch from Database
             if let Ok(Some(full_content)) = state.repo.get_entry_content(id) {
@@ -192,9 +263,9 @@ pub async fn call_ai(
         }
     }
 
-    let content = sanitize_input(&content)?;
+    let (content, truncated) = sanitize_input(&content)?;
 
-    let (api_key, base_url, model, target_lang, persistent, enable_thinking, thinking_budget) = {
+    let (config, target_lang, thinking_budget) = {
         // 1. Get functional assignment
         let assigned_profile_key = format!("ai_assigned_profile_{}", action_type);
         let assigned_id = state
@@ -213,90 +284,47 @@ pub async fn call_ai(
         let profiles: serde_json::Value =
             serde_json::from_str(&profiles_json).unwrap_or(serde_json::json!([]));
 
-        // 3. Find assigned profile
-        let profile = profiles
-            .as_array()
+        // 3. Find assigned profile, falling back to the first available one
+        let list = profiles.as_array();
+        let profile = list
             .and_then(|arr| arr.iter().find(|p| p["id"].as_str() == Some(&assigned_id)))
-            .cloned();
-
-        let (key, url, mdl, thinking) = if let Some(p) = profile {
-            (
-                p["apiKey"]
-                    .as_str()
-                    .map(|s| s.to_string())
-                    .unwrap_or_default(),
-                clean_url(
-                    p["baseUrl"]
-                        .as_str()
-                        .unwrap_or("https://api.longcat.chat/openai/v1"),
-                ),
-                p["model"]
-                    .as_str()
-                    .map(|s| s.to_string())
-                    .unwrap_or_else(|| "LongCat-Flash-Chat".to_string()),
-                p["enableThinking"].as_bool().unwrap_or(false),
-            )
-        } else {
-            // If the assigned profile doesn't exist, try to use the first available profile
-            if let Some(p) = profiles.as_array().and_then(|arr| arr.get(0)) {
-                (
-                    p["apiKey"]
-                        .as_str()
-                        .map(|s| s.to_string())
-                        .unwrap_or_default(),
-                    clean_url(
-                        p["baseUrl"]
-                            .as_str()
-                            .unwrap_or("https://api.longcat.chat/openai/v1"),
-                    ),
-                    p["model"]
-                        .as_str()
-                        .map(|s| s.to_string())
-                        .unwrap_or_else(|| "LongCat-Flash-Chat".to_string()),
-                    p["enableThinking"].as_bool().unwrap_or(false),
-                )
-            } else {
-                (
-                    "".to_string(),
-                    "https://api.longcat.chat/openai/v1".to_string(),
-                    "".to_string(),
-                    false,
-                )
-            }
-        };
+            .or_else(|| list.and_then(|arr| arr.first()));
+        let config = profile_config(profile);
 
         let lang = state
             .settings_repo
             .get("ai_target_lang")
             .unwrap_or(None)
             .unwrap_or_else(|| "zh".to_string());
-        let persistent = state
-            .settings_repo
-            .get("app.persistent")
-            .unwrap_or(None)
-            .unwrap_or_else(|| "true".to_string())
-            == "true";
-        let thinking_budget = state
-            .settings_repo
-            .get("ai_thinking_budget")
-            .unwrap_or(None)
-            .unwrap_or_else(|| "1024".to_string())
-            .parse::<i32>()
-            .map(|v| std::cmp::max(v, 1024)) // API requires minimum 1024
+        // Profiles saved before per-profile budgets fall back to the old global setting.
+        let thinking_budget = config
+            .thinking_budget
+            .or_else(|| {
+                state
+                    .settings_repo
+                    .get("ai_thinking_budget")
+                    .unwrap_or(None)
+                    .and_then(|v| v.parse::<i32>().ok())
+            })
+            .map(|v| v.clamp(1024, 32_000)) // APIs require at least 1024
             .unwrap_or(1024);
 
-        (key, url, mdl, lang, persistent, thinking, thinking_budget)
+        (config, lang, thinking_budget)
     };
 
-    if api_key.is_empty() {
+    if config.base_url.trim().is_empty() {
         return Err(AppError::Validation(
-            "AI API Key is not set in settings.".to_string(),
+            "AI API URL is not set. Add one in AI Assistant Settings.".to_string(),
+        ));
+    }
+    // Only the user's own key is ever sent; there is no built-in fallback key.
+    if config.provider.requires_key && config.api_key.trim().is_empty() {
+        return Err(AppError::Validation(
+            "AI API Key is not set. Add one in AI Assistant Settings.".to_string(),
         ));
     }
 
-    // Respect User Choice: Remove the forced override for thinking.
-    // If user enabled it in the profile, we send it to the API.
-    let effective_thinking = enable_thinking;
+    let effective_thinking = config.enable_thinking;
 
     // Handle Auto Detect for Translation
     let effective_target_lang = if action_type == "translate" && target_lang == "auto_zh_en" {
@@ -323,7 +351,6 @@ pub async fn call_ai(
         .timeout(std::time::Duration::from_secs(120))
         .build()
         .map_err(|e| format!("Client creation failed: {}", e))?;
-    let api_url = format!("{}/chat/completions", base_url);
 
     // Ensure max_tokens is greater than thinking_budget when thinking is enabled
     // This prevents the thinking process from consuming all tokens, leaving no room for actual output
@@ -343,79 +370,76 @@ pub async fn call_ai(
         0.0 // Task/Translate usually needs accuracy, not variety
     };
 
-    let request_body = ChatCompletionRequest {
-        model,
-        messages: vec![
-            ChatMessage {
-                role: "system".to_string(),
-                content: Some(system_prompt),
-                reasoning_content: None,
-            },
-            ChatMessage {
-                role: "user".to_string(),
-                content: Some(user_prompt),
-                reasoning_content: None,
-            },
-        ],
-        enable_thinking: if effective_thinking { Some(true) } else { None },
-        thinking_budget: if effective_thinking {
-            Some(thinking_budget)
-        } else {
-            None
+    let call = build_call(
+        &config.provider,
+        &config.base_url,
+        &config.api_key,
+        &config.model,
+        &AiRequest {
+            system: &system_prompt,
+            user: &user_prompt,
+            max_tokens: final_max_tokens,
+            temperature: 0.7,
+            presence_penalty,
+            thinking: effective_thinking,
+            thinking_budget,
+            reasoning_effort: &config.reasoning_effort,
         },
-        max_tokens: final_max_tokens,
-        temperature: 0.7,
-        presence_penalty: presence_penalty,
-    };
+    );
+    let api_url = call.url.clone();
 
-    let request = client
-        .post(&api_url)
-        .header("Authorization", format!("Bearer {}", api_key))
-        .header("X-Title", "TieZ Clipboard");
-
-    let response = apply_optional_http_referer(request)
-        .json(&request_body)
-        .send()
+    let response = send_call(&client, &call)
         .await
-        .map_err(|e| format!("Request failed: {}", e))?;
+        .map_err(|e| {
+            error!("[AI] request to {} failed: {}", api_url, e);
+            AppError::Network(e.without_url().to_string())
+        })?;
 
-    if !response.status().is_success() {
-        let err_text = response
-            .text()
-            .await
-            .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(format!("AI API error: {} - {}", api_url, err_text).into());
+    let status = response.status();
+    if !status.is_success() {
+        let err_text = response.text().await.unwrap_or_default();
+        error!(
+            "[AI] API {} returned {}: {}",
+            api_url,
+            status,
+            body_for_log(&err_text)
+        );
+        return Err(AppError::Network(summarize_http_error(status, &err_text)));
     }
 
-    let response_text = response
-        .text()
-        .await
-        .map_err(|e| format!("Failed to read response body: {}", e))?;
+    let response_text = read_body_capped(response).await.map_err(|e| {
+        error!("[AI] failed to read response body from {}: {}", api_url, e);
+        AppError::Network(e.without_url().to_string())
+    })?;
 
-    let completion: ChatCompletionResponse = serde_json::from_str(&response_text)
-        .map_err(|e| format!("Failed to parse response: {} | Body: {}", e, response_text))?;
+    let completion: serde_json::Value = serde_json::from_str(&response_text).map_err(|e| {
+        // A 2xx body carries the user's own text; log its size, not its content.
+        error!(
+            "[AI] failed to parse response from {}: {} ({} bytes)",
+            api_url,
+            e,
+            response_text.len()
+        );
+        AppError::Network("unexpected response from AI provider".to_string())
+    })?;
 
-    let choice = completion.choices.first();
-
-    // Log reasoning content if available for debugging
-    if let Some(c) = choice {
-        if let Some(msg) = &c.message {
-            if let Some(reasoning) = &msg.reasoning_content {
-                println!("[AI Reasoning] {}", reasoning);
-            }
-        }
-    }
-
-    let raw_response = choice
-        .and_then(|c| c.message.as_ref())
-        .and_then(|m| m.content.clone())
-        .unwrap_or_default();
+    let AiReply {
+        content: raw_response,
+        reasoning,
+    } = parse_reply(config.provider.protocol, &completion);
 
     let mut ai_response = raw_response.trim().to_string();
 
     // Safety check for empty results early
     if ai_response.is_empty() {
-        return Err(format!("AI returned an empty response. Raw Body: {}", response_text).into());
+        error!(
+            "[AI] empty content from {} ({} bytes)",
+            api_url,
+            response_text.len()
+        );
+        return Err(AppError::Internal(
+            "AI returned an empty response".to_string(),
+        ));
     }
 
     // UTF-8 Safe Quote Stripping - ONLY for Mouthpiece
@@ -441,51 +465,82 @@ pub async fn call_ai(
         }
     }
 
-    if !ai_response.is_empty() {
-        let preview = if ai_response.chars().count() > 100 {
-            let p: String = ai_response.chars().take(100).collect();
-            format!("{}...", p.replace('\n', " "))
-        } else {
-            ai_response.replace('\n', " ")
-        };
+    if ai_response.is_empty() {
+        error!(
+            "[AI] response became empty after cleaning; original: {}",
+            body_for_log(&raw_response)
+        );
+        return Err(AppError::Internal(
+            "AI response became empty after cleaning".to_string(),
+        ));
+    }
 
-        // Update database only if persistence is enabled
-        if persistent {
-            state
-                .repo
-                .update_entry_content(id, &ai_response, &preview)
-                .map_err(|e| format!("Database update failed: {}", e))?;
-        }
+    // The entry stays untouched until the user confirms with apply_ai_result.
+    Ok(AiResult {
+        reply: AiReply {
+            content: ai_response,
+            reasoning,
+        },
+        truncated,
+    })
+}
 
-        // Sync Session History and Emit Update
-        use crate::app_state::SessionHistory;
-        if let Some(session) = app_handle.try_state::<SessionHistory>() {
-            let mut history = session.0.lock().unwrap();
-            if let Some(item) = history.iter_mut().find(|i| i.id == id) {
-                item.content = ai_response.clone();
-                item.preview = preview.clone();
-                // Clear rich text so AI result is shown
-                if item.content_type == "rich_text" {
-                    item.content_type = "text".to_string();
-                    item.html_content = None;
-                }
-                // Emit update event from session item
+/// Replaces an entry's content with a confirmed AI result.
+// async: run off the main thread (DB lock + re-encryption).
+#[command(async)]
+pub fn apply_ai_result(app_handle: AppHandle, id: i64, content: String) -> AppResult<()> {
+    let content = content.trim().to_string();
+    if content.is_empty() {
+        return Err(AppError::Validation("AI result is empty".to_string()));
+    }
+    let state = app_handle.state::<DbState>();
+    let persistent = state
+        .settings_repo
+        .get("app.persistent")
+        .unwrap_or(None)
+        .unwrap_or_else(|| "true".to_string())
+        == "true";
+    let preview = if content.chars().count() > 100 {
+        let p: String = content.chars().take(100).collect();
+        format!("{}...", p.replace('\n', " "))
+    } else {
+        content.replace('\n', " ")
+    };
+
+    // 1. Update Session History (Memory State) - ALWAYS do this
+    use crate::app_state::SessionHistory;
+    let mut updated_item_found = false;
+    if let Some(session) = app_handle.try_state::<SessionHistory>() {
+        let mut history = session.0.lock().unwrap();
+        if let Some(item) = history.iter_mut().find(|i| i.id == id) {
+            item.content = content.clone();
+            item.preview = preview.clone();
+            if item.content_type != "image" {
+                item.content_type = "text".to_string();
+                item.html_content = None;
+            }
+            updated_item_found = true;
+
+            // For session items (id < 0) or when persistence is off, emit the updated item directly from memory
+            if !persistent || id < 0 {
                 let _ = app_handle.emit("clipboard-updated", item.clone());
-            } else if persistent {
-                // If persistent and not in session, fetch from DB to emit
-                if let Ok(Some(updated_entry)) = state.repo.get_entry_by_id(id) {
-                    let _ = app_handle.emit("clipboard-updated", updated_entry);
-                }
             }
         }
-
-        // Return response directly. Frontend will update local state to avoid race conditions.
-        Ok(ai_response)
-    } else {
-        Err(format!(
-            "AI response became empty after cleaning. Original: {}",
-            raw_response
-        )
-        .into())
     }
+
+    // 2. Update Database (if item is persistent and persistence is enabled)
+    if persistent && id > 0 {
+        state
+            .repo
+            .update_entry_content(id, &content, &preview)
+            .map_err(|e| AppError::Internal(format!("Database update failed: {}", e)))?;
+        // Emit update event from database to ensure consistency for persistent items
+        if let Ok(Some(updated_entry)) = state.repo.get_entry_by_id(id) {
+            let _ = app_handle.emit("clipboard-updated", updated_entry);
+        }
+        crate::services::cloud_sync::request_cloud_sync(app_handle.clone());
+    } else if !updated_item_found {
+        return Err(AppError::Validation(format!("Entry {} not found", id)));
+    }
+    Ok(())
 }

@@ -1,46 +1,93 @@
 import { useEffect, useMemo, useState, useRef } from "react";
-import { emitTo, listen } from "@tauri-apps/api/event";
-import { getCurrentWindow, LogicalSize, currentMonitor } from "@tauri-apps/api/window";
+import { emit, emitTo, listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { motion } from "framer-motion";
 import {
     FileText,
     Image as ImageIcon,
     Link as LinkIcon,
     Code,
     File,
+    FileQuestion,
+    Files,
+    ImageOff,
     Video,
     AppWindow,
     Clock
 } from "lucide-react";
 import HtmlContent from "../../../shared/components/HtmlContent";
 import {
+    applyNativePalette,
     applyThemeClasses,
     DEFAULT_THEME,
     normalizeThemeId
 } from "../../../shared/config/themes";
 import { getConciseTime } from "../../../shared/lib/utils";
+import { getSourceAppIcon, peekSourceAppIcon } from "../../../shared/lib/sourceAppIcon";
 import type { Locale } from "../../../shared/types";
+import { translations } from "../../../locales";
 import { toTauriLocalImageSrc } from "../../../shared/lib/localImageSrc";
+import { stripRichStorageMarkers } from "../../../shared/lib/repairHtmlFragment";
 import { getRichTextSnapshotDataUrl } from "../../../shared/lib/richTextSnapshot";
+import { ensureInstalledThemeStyle } from "../../../shared/lib/themePackages";
+import { preferRichImageFallback } from "../lib/richPreview";
+
+const TYPE_LABEL_KEYS: Record<string, string> = {
+    code: "type_code", link: "type_url", url: "type_url", file: "type_file",
+    image: "type_image", video: "type_video", rich_text: "type_rich_text"
+};
+
+/** The content type in the user's language; it showed the raw id ("rich_text"). */
+const typeLabel = (type: string, language: Locale = "zh") => {
+    const key = (TYPE_LABEL_KEYS[type] ?? "type_text") as keyof typeof translations["zh"];
+    return translations[language]?.[key] || translations.zh[key];
+};
 
 type PreviewPayload = {
+    requestId: number;
     contentType: string;
     content: string;
     preview?: string;
     htmlContent?: string;
+    filePreviewExists?: boolean;
     sourceApp?: string;
+    sourceAppPath?: string;
+    sourceAppIcon?: string | null;
     timestamp?: number;
     language?: Locale;
     theme?: string;
     colorMode?: "light" | "dark";
+    nativePalette?: string;
     richTextSnapshotPreview?: boolean;
     clipboardItemFontSize?: number;
     clipboardTagFontSize?: number;
+    maxWidth: number;
+    maxHeight: number;
+    mediaMaxWidth: number;
+    mediaMaxHeight: number;
+    minWidth: number;
 };
 
+type PreviewResizePayload = {
+    requestId: number;
+    width: number;
+    height: number;
+};
+
+/**
+ * Transparent gap between the card and the window edge. A border right on the
+ * edge loses its right and bottom sides at fractional display scaling (only
+ * left and top showed, like the main window's old CSS border).
+ */
+const CARD_INSET_PX = 1;
+/** Card padding and border around rich content (see .compact-popover-portal). */
+const RICH_CARD_CHROME_PX = 26;
+
+/** Short rich text gets a compact card; longer text uses the room there is. */
+const richCardWidth = (payload: { content?: string; maxWidth: number }) =>
+    Math.min(payload.maxWidth, (payload.content || "").trim().length <= 80 ? 380 : 520);
 const RICH_IMAGE_FALLBACK_PREFIX = "<!--TIEZ_RICH_IMAGE:";
 const RICH_IMAGE_FALLBACK_SUFFIX = "-->";
-const TABULAR_RICH_HTML_RE = /<(table|tr|td|th|thead|tbody|tfoot|colgroup|col)\b/i;
-const SPREADSHEET_SOURCE_RE = /\b(excel|et|wps|sheet|spreadsheet|calc)\b/i;
 
 const extractRichImageFallback = (html?: string): { cleanHtml?: string; imagePayload?: string } => {
     if (!html) return {};
@@ -66,23 +113,6 @@ const resolveRichImageSrc = (payload: string): string | null => {
     if (value.startsWith("data:image/")) return value;
     if (/^https?:\/\/asset\.localhost\//i.test(value)) return value;
     return toTauriLocalImageSrc(value);
-};
-
-const isAnimatedGifSrc = (src?: string | null): boolean => {
-    const value = (src || "").trim().toLowerCase();
-    if (!value) return false;
-    return value.startsWith("data:image/gif") || /\.gif(?:$|[?#])/i.test(value);
-};
-
-const richHtmlLooksTabular = (html?: string): boolean => {
-    if (!html) return false;
-    return TABULAR_RICH_HTML_RE.test(html);
-};
-
-const isSpreadsheetLikeSource = (sourceApp?: string): boolean => {
-    const value = (sourceApp || "").trim();
-    if (!value) return false;
-    return SPREADSHEET_SOURCE_RE.test(value);
 };
 
 const COMPACT_PREVIEW_DEBUG = false;
@@ -125,14 +155,17 @@ const seekVideoPreviewFrame = (video: HTMLVideoElement | null) => {
     }
 };
 
-const applyTheme = (payload: PreviewPayload) => {
+const applyTheme = async (payload: PreviewPayload) => {
     const theme = normalizeThemeId(payload.theme || DEFAULT_THEME);
     const colorMode = payload.colorMode || "light";
 
     const root = document.documentElement;
     const body = document.body;
 
-    applyThemeClasses(theme, root, body);
+    const installedThemeReady = await ensureInstalledThemeStyle(theme);
+    const effectiveTheme = installedThemeReady ? theme : DEFAULT_THEME;
+    applyThemeClasses(effectiveTheme, root, body);
+    applyNativePalette(payload.theme || effectiveTheme, payload.nativePalette, root, body);
 
     root.classList.remove("light-mode", "dark-mode");
     body.classList.remove("light-mode", "dark-mode");
@@ -161,10 +194,21 @@ const applyTheme = (payload: PreviewPayload) => {
     });
 };
 
+const applyPreviewBounds = (payload: PreviewPayload) => {
+    const root = document.documentElement;
+    root.style.setProperty("--preview-max-width", `${payload.maxWidth}px`);
+    root.style.setProperty("--preview-max-height", `${payload.maxHeight}px`);
+    root.style.setProperty("--preview-media-max-width", `${payload.mediaMaxWidth}px`);
+    root.style.setProperty("--preview-media-max-height", `${payload.mediaMaxHeight}px`);
+    root.style.setProperty("--preview-min-width", `${payload.minWidth}px`);
+};
+
 const CompactPreviewWindow = () => {
     const [payload, setPayload] = useState<PreviewPayload | null>(null);
-    const [snapshotFailed, setSnapshotFailed] = useState(false);
-    const [richImageFallbackFailed, setRichImageFallbackFailed] = useState(false);
+    const [sourceAppIcon, setSourceAppIcon] = useState<string | null>(null);
+    const [snapshotFailedRequestId, setSnapshotFailedRequestId] = useState<number | null>(null);
+    const [richImageFallbackFailedRequestId, setRichImageFallbackFailedRequestId] = useState<number | null>(null);
+    const [mediaFailedRequestId, setMediaFailedRequestId] = useState<number | null>(null);
     const richSnapshotImgRef = useRef<HTMLImageElement | null>(null);
     const richSnapshotFallbackTimerRef = useRef<number | null>(null);
     const containerRef = useRef<HTMLDivElement | null>(null);
@@ -173,145 +217,135 @@ const CompactPreviewWindow = () => {
     const dividerRef = useRef<HTMLDivElement | null>(null);
     const requestResizeRef = useRef<() => void>(() => {});
     const previewBoundsRef = useRef({ width: 560, height: 560, mediaWidth: 520, mediaHeight: 360 });
-    const lastSentSizeRef = useRef<{ width: number; height: number } | null>(null);
-    const richImageFallback = useMemo(() => {
+    const latestRequestIdRef = useRef(0);
+    const lastSentSizeRef = useRef<PreviewResizePayload | null>(null);
+    const richImageFallbackSrc = useMemo(() => {
         if (!payload || payload.contentType !== "rich_text" || !payload.htmlContent) return null;
         const { imagePayload } = extractRichImageFallback(payload.htmlContent);
         if (!imagePayload) return null;
         const src = resolveRichImageSrc(imagePayload);
         if (!src) return null;
-        return {
-            payload: imagePayload,
-            src
-        };
+        // The source app's bitmap, shrunk to the card, was unreadable for text.
+        const useBitmap = preferRichImageFallback({
+            imageSrc: src,
+            text: payload.content,
+            html: payload.htmlContent,
+            sourceApp: payload.sourceApp,
+            sourceAppPath: payload.sourceAppPath
+        });
+        return useBitmap ? src : null;
     }, [payload]);
-    const richTextCleanHtml = useMemo(() => {
-        if (!payload || payload.contentType !== "rich_text" || !payload.htmlContent) return "";
-        const { cleanHtml } = extractRichImageFallback(payload.htmlContent);
-        return cleanHtml || payload.htmlContent;
-    }, [payload]);
-    const richTextHasAnimatedImageFallback = useMemo(() => (
-        isAnimatedGifSrc(richImageFallback?.payload || richImageFallback?.src || null)
-    ), [richImageFallback]);
-    const preferHtmlRichPreview = useMemo(() => {
-        if (!payload || payload.contentType !== "rich_text" || !payload.htmlContent) return false;
-        return (
-            !richTextHasAnimatedImageFallback
-            && !richHtmlLooksTabular(richTextCleanHtml)
-            && !isSpreadsheetLikeSource(payload.sourceApp)
-        );
-    }, [payload, richTextCleanHtml, richTextHasAnimatedImageFallback]);
-    const preferGeneratedRichPreview = useMemo(() => {
-        if (!payload || payload.contentType !== "rich_text" || !payload.htmlContent) return false;
-        return (
-            !preferHtmlRichPreview
-            && (
-                !!payload.richTextSnapshotPreview
-                || richHtmlLooksTabular(richTextCleanHtml)
-                || isSpreadsheetLikeSource(payload.sourceApp)
-            )
-        );
-    }, [payload, preferHtmlRichPreview, richTextCleanHtml]);
     const richTextSnapshotSrc = useMemo(() => {
         if (!payload || payload.contentType !== "rich_text" || !payload.htmlContent) return null;
-        if (!preferGeneratedRichPreview) return null;
-        if (!richTextCleanHtml) return null;
-        return getRichTextSnapshotDataUrl(richTextCleanHtml, {
-            width: 560,
-            maxHeight: 1200
+        if (!payload.richTextSnapshotPreview) return null;
+        const { cleanHtml } = extractRichImageFallback(payload.htmlContent);
+        const htmlForSnapshot = stripRichStorageMarkers(cleanHtml || payload.htmlContent);
+        // Rendered at the width it is shown at; the card crops what doesn't
+        // fit instead of shrinking the whole image until the text is tiny.
+        return getRichTextSnapshotDataUrl(htmlForSnapshot, {
+            width: richCardWidth(payload) - RICH_CARD_CHROME_PX,
+            maxHeight: payload.maxHeight
         });
-    }, [payload, preferGeneratedRichPreview, richTextCleanHtml]);
+    }, [payload]);
+    const snapshotFailed = !!payload && snapshotFailedRequestId === payload.requestId;
+    const richImageFallbackFailed = !!payload && richImageFallbackFailedRequestId === payload.requestId;
+    const mediaFailed = !!payload && mediaFailedRequestId === payload.requestId;
     const effectiveRichTextSnapshotSrc = snapshotFailed ? null : richTextSnapshotSrc;
-    const effectiveRichImageFallbackSrc = richImageFallbackFailed ? null : (richImageFallback?.src || null);
-    // For tabular/spreadsheet sources, prefer the real clipboard bitmap image
-    // (same image you see when pasting Excel into WeChat) over the generated SVG snapshot.
-    const preferImageFallbackForTabular = (
-        richHtmlLooksTabular(richTextCleanHtml) || isSpreadsheetLikeSource(payload?.sourceApp)
-    ) && !!effectiveRichImageFallbackSrc;
-    const richTextPreviewSrc = richTextHasAnimatedImageFallback
-        ? (effectiveRichImageFallbackSrc || effectiveRichTextSnapshotSrc)
-        : preferImageFallbackForTabular
-            ? (effectiveRichImageFallbackSrc || effectiveRichTextSnapshotSrc)
-            : (effectiveRichTextSnapshotSrc || null);
-    const useSnapshotPreviewImage = !!richTextPreviewSrc && richTextPreviewSrc === effectiveRichTextSnapshotSrc;
-    const useRichImageFallback = !!richTextPreviewSrc && richTextPreviewSrc === effectiveRichImageFallbackSrc;
+    const effectiveRichImageFallbackSrc = richImageFallbackFailed ? null : richImageFallbackSrc;
+    const useSnapshotPreviewImage = !effectiveRichImageFallbackSrc && !!effectiveRichTextSnapshotSrc;
 
     useEffect(() => {
         compactPreviewLog("window mounted", { label: getCurrentWindow().label });
-        getCurrentWindow()
-            .setAlwaysOnTop(true)
-            .then(() => compactPreviewLog("setAlwaysOnTop(true) success"))
-            .catch((err) => {
-                console.error(err);
-                compactPreviewLog("setAlwaysOnTop(true) failed", err);
-            });
-        (async () => {
+        let disposed = false;
+        let stopUpdate: (() => void) | null = null;
+        let stopReadyQuery: (() => void) | null = null;
+
+        void (async () => {
             try {
-                const monitor = await currentMonitor();
-                const fallbackWidth = 1280;
-                const fallbackHeight = 720;
-                const monitorWidth = monitor?.size.width ?? fallbackWidth;
-                const monitorHeight = monitor?.size.height ?? fallbackHeight;
-                const maxWidth = Math.max(320, Math.min(560, Math.floor(monitorWidth * 0.6)));
-                const maxHeight = Math.max(240, Math.min(560, Math.floor(monitorHeight * 0.6)));
-                const mediaMaxWidth = Math.max(260, Math.min(520, maxWidth));
-                const mediaMaxHeight = Math.max(200, Math.min(360, maxHeight - 120));
-                const minWidth = Math.max(300, Math.min(380, Math.floor(maxWidth * 0.62)));
-                compactPreviewLog("resolved monitor bounds", {
-                    monitorPos: monitor?.position,
-                    monitorSize: monitor?.size,
-                    maxWidth,
-                    maxHeight,
-                    mediaMaxWidth,
-                    mediaMaxHeight,
-                    minWidth
+                await Promise.allSettled([
+                    getCurrentWindow().setFocusable(false),
+                    getCurrentWindow().setIgnoreCursorEvents(true)
+                ]);
+                if (disposed) return;
+
+                stopUpdate = await listen<PreviewPayload>("compact-preview-update", (event) => {
+                    const next = event.payload;
+                    if (latestRequestIdRef.current === next.requestId) {
+                        requestResizeRef.current?.();
+                        return;
+                    }
+                    latestRequestIdRef.current = next.requestId;
+                    lastSentSizeRef.current = null;
+                    applyPreviewBounds(next);
+                    previewBoundsRef.current = {
+                        width: next.maxWidth,
+                        height: next.maxHeight,
+                        mediaWidth: next.mediaMaxWidth,
+                        mediaHeight: next.mediaMaxHeight
+                    };
+                    compactPreviewLog("received compact-preview-update", {
+                        requestId: next.requestId,
+                        contentType: next.contentType,
+                        contentLength: next.content?.length ?? 0,
+                        previewLength: next.preview?.length ?? 0,
+                        hasHtml: !!next.htmlContent,
+                        sourceApp: next.sourceApp
+                    });
+
+                    if (disposed) return;
+                    const peeked =
+                        next.sourceAppIcon ||
+                        peekSourceAppIcon(next.sourceAppPath) ||
+                        null;
+                    setSourceAppIcon(peeked);
+                    setPayload(next);
+                    if (!peeked && next.sourceAppPath) {
+                        void getSourceAppIcon(next.sourceAppPath).then((icon) => {
+                            if (!disposed && latestRequestIdRef.current === next.requestId) {
+                                setSourceAppIcon(icon);
+                                lastSentSizeRef.current = null;
+                                requestResizeRef.current?.();
+                            }
+                        });
+                    }
+                    void applyTheme(next).then(() => {
+                        if (!disposed && latestRequestIdRef.current === next.requestId) {
+                            requestResizeRef.current?.();
+                        }
+                    }).catch((err) => {
+                        console.error("Failed to apply compact preview theme:", err);
+                    });
                 });
+                if (disposed) {
+                    stopUpdate();
+                    stopUpdate = null;
+                    return;
+                }
 
-                previewBoundsRef.current = {
-                    width: maxWidth,
-                    height: maxHeight,
-                    mediaWidth: mediaMaxWidth,
-                    mediaHeight: mediaMaxHeight
-                };
+                stopReadyQuery = await listen("compact-preview-ready-query", () => {
+                    void emitTo("main", "compact-preview-ready", true);
+                });
+                if (disposed) {
+                    stopReadyQuery();
+                    stopReadyQuery = null;
+                    return;
+                }
 
-                const root = document.documentElement;
-                root.style.setProperty("--preview-max-width", `${maxWidth}px`);
-                root.style.setProperty("--preview-max-height", `${maxHeight}px`);
-                root.style.setProperty("--preview-media-max-width", `${mediaMaxWidth}px`);
-                root.style.setProperty("--preview-media-max-height", `${mediaMaxHeight}px`);
-                root.style.setProperty("--preview-min-width", `${minWidth}px`);
-
-                await getCurrentWindow().setSize(new LogicalSize(maxWidth, maxHeight));
-                compactPreviewLog("initial size set", { width: maxWidth, height: maxHeight });
+                if (!disposed) {
+                    await emitTo("main", "compact-preview-ready", true);
+                    compactPreviewLog("compact preview listeners ready");
+                }
             } catch (err) {
-                console.error("Failed to initialize preview bounds:", err);
-                compactPreviewLog("initialize preview bounds failed", err);
-            } finally {
-                compactPreviewLog("trigger initial resize request");
-                requestResizeRef.current?.();
+                console.error("Failed to initialize compact preview window:", err);
+                compactPreviewLog("compact preview initialization failed", err);
             }
         })();
-        compactPreviewLog("listen compact-preview-update");
-        const unlisten = listen<PreviewPayload>("compact-preview-update", (event) => {
-            compactPreviewLog("received compact-preview-update", {
-                contentType: event.payload.contentType,
-                contentLength: event.payload.content?.length ?? 0,
-                previewLength: event.payload.preview?.length ?? 0,
-                hasHtml: !!event.payload.htmlContent,
-                sourceApp: event.payload.sourceApp
-            });
-            setPayload(event.payload);
-            applyTheme(event.payload);
-        });
-        emitTo("main", "compact-preview-mounted", true)
-            .then(() => compactPreviewLog("emit compact-preview-mounted"))
-            .catch((err) => {
-                console.error(err);
-                compactPreviewLog("emit compact-preview-mounted failed", err);
-            });
+
         return () => {
+            disposed = true;
             compactPreviewLog("window unmount cleanup");
-            unlisten.then((f) => f());
+            stopUpdate?.();
+            stopReadyQuery?.();
         };
     }, []);
 
@@ -324,6 +358,199 @@ const CompactPreviewWindow = () => {
         let timerA: number | null = null;
         let timerB: number | null = null;
         let timerC: number | null = null;
+const measurePlainTextWidth = (text: string, contentEl: HTMLElement | null): number => {
+    const lines = text.split("\n");
+    const style = contentEl ? getComputedStyle(contentEl) : null;
+    const fontSize = style?.fontSize || "13px";
+    const fontFamily = style?.fontFamily || "sans-serif";
+    const fontWeight = style?.fontWeight || "400";
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+        return Math.ceil(Math.max(...lines.map((line) => line.length), 1) * 8.5);
+    }
+    ctx.font = `${fontWeight} ${fontSize} ${fontFamily}`;
+    let max = 0;
+    for (const line of lines) {
+        max = Math.max(max, ctx.measureText(line || " ").width);
+    }
+    return Math.ceil(max);
+};
+
+/** Measure meta at its unconstrained natural width so type · app · time never clip. */
+const measureMetaNaturalWidth = (metaEl: HTMLElement | null): number => {
+    if (!metaEl) return 240;
+
+    const clone = metaEl.cloneNode(true) as HTMLElement;
+    clone.style.cssText = [
+        "position:absolute",
+        "left:-10000px",
+        "top:0",
+        "visibility:hidden",
+        "pointer-events:none",
+        "display:inline-flex",
+        "flex-direction:row",
+        "align-items:center",
+        "flex-wrap:nowrap",
+        "width:max-content",
+        "max-width:none",
+        "min-width:0",
+        "overflow:visible",
+        "white-space:nowrap",
+        "gap:6px",
+        "margin:0",
+        "padding:0",
+        "border:0",
+        "font:inherit",
+    ].join(";");
+
+    for (const child of Array.from(clone.querySelectorAll<HTMLElement>("*"))) {
+        child.style.flexShrink = "0";
+        child.style.maxWidth = "none";
+        child.style.overflow = "visible";
+        child.style.whiteSpace = "nowrap";
+        child.style.width = "max-content";
+    }
+
+    document.body.appendChild(clone);
+    const width = Math.ceil(
+        Math.max(clone.scrollWidth, clone.offsetWidth, clone.getBoundingClientRect().width)
+    );
+    clone.remove();
+    return Math.max(180, width);
+};
+
+const calculateStandardCardDimensions = (
+    payload: PreviewPayload,
+    bounds: { width: number; height: number; mediaWidth: number; mediaHeight: number },
+    chromeWidth: number,
+    chromeHeight: number,
+    container: HTMLElement,
+    contentEl: HTMLElement | null,
+    metaEl: HTMLElement | null
+): { width: number; height: number } => {
+    const maxW = Math.min(bounds.width, 540);
+    const maxH = bounds.height;
+    const applyCardWidth = (width: number) => {
+        container.style.setProperty("--preview-card-width", `${width}px`);
+        container.style.width = `${width}px`;
+    };
+    const baseMinW = 168;
+    // Meta row drives the floor — keep a little slack for icon/font rounding.
+    const metaMinWidth = Math.min(
+        maxW,
+        Math.max(220, measureMetaNaturalWidth(metaEl) + chromeWidth + 8)
+    );
+
+    // 1. Media Preview (Images, Videos, Fallback snapshots)
+    const isMedia = payload.contentType === "image" || payload.contentType === "video";
+    if (isMedia) {
+        const standardMediaWidth = Math.min(maxW, 460);
+        const availableMediaHeight = Math.max(120, Math.floor(maxH - chromeHeight - 8));
+        const availableMediaWidth = Math.max(160, Math.floor(standardMediaWidth - chromeWidth));
+
+        container.style.setProperty("--preview-media-fit-height", `${availableMediaHeight}px`);
+        container.style.setProperty("--preview-media-fit-width", `${availableMediaWidth}px`);
+
+        const mediaEl = contentEl?.querySelector<HTMLImageElement | HTMLVideoElement>("img, video");
+        if (mediaEl instanceof HTMLImageElement && mediaEl.naturalWidth > 0 && mediaEl.naturalHeight > 0) {
+            const nw = mediaEl.naturalWidth;
+            const nh = mediaEl.naturalHeight;
+            // Vertical phone screenshot (aspect ratio < 0.68) -> slightly narrower card 360px
+            const isTallPortrait = nw / nh < 0.68;
+            const chosenTargetWidth = isTallPortrait ? Math.min(maxW, 360) : standardMediaWidth;
+            const availW = chosenTargetWidth - chromeWidth;
+            const scale = Math.min(1, availW / nw, availableMediaHeight / nh);
+            const fitW = Math.round(nw * scale);
+            const fitH = Math.round(nh * scale);
+            const finalW = Math.min(maxW, Math.max(baseMinW, metaMinWidth, fitW + chromeWidth));
+            const finalH = Math.min(maxH, Math.max(80, fitH + chromeHeight));
+            applyCardWidth(finalW);
+            return { width: finalW, height: finalH };
+        } else if (mediaEl && mediaEl.getBoundingClientRect().height > 0) {
+            const r = mediaEl.getBoundingClientRect();
+            const finalW = Math.max(standardMediaWidth, metaMinWidth);
+            applyCardWidth(finalW);
+            return {
+                width: finalW,
+                height: Math.min(maxH, Math.max(80, Math.ceil(r.height + chromeHeight)))
+            };
+        }
+        const finalW = Math.max(standardMediaWidth, metaMinWidth);
+        applyCardWidth(finalW);
+        return {
+            width: finalW,
+            height: Math.min(maxH, Math.max(160, Math.floor(availableMediaHeight * 0.7) + chromeHeight))
+        };
+    }
+
+    // 2. Code Preview
+    if (payload.contentType === "code") {
+        const standardCodeWidth = Math.max(metaMinWidth, Math.min(maxW, 480));
+        applyCardWidth(standardCodeWidth);
+        const measuredHeight = Math.ceil(container.scrollHeight || container.offsetHeight || container.getBoundingClientRect().height);
+        return {
+            width: standardCodeWidth,
+            height: Math.min(maxH, Math.max(80, measuredHeight))
+        };
+    }
+
+    // 3. File List Preview
+    if (payload.contentType === "file") {
+        const standardFileWidth = Math.max(metaMinWidth, Math.min(maxW, 380));
+        applyCardWidth(standardFileWidth);
+        const measuredHeight = Math.ceil(container.scrollHeight || container.offsetHeight || container.getBoundingClientRect().height);
+        return {
+            width: standardFileWidth,
+            height: Math.min(maxH, Math.max(80, measuredHeight))
+        };
+    }
+
+    // 4. Rich Text Preview
+    if (payload.contentType === "rich_text") {
+        const standardRichWidth = Math.max(metaMinWidth, Math.min(maxW, richCardWidth(payload)));
+        applyCardWidth(standardRichWidth);
+        const measuredHeight = Math.ceil(container.scrollHeight || container.offsetHeight || container.getBoundingClientRect().height);
+        return {
+            width: standardRichWidth,
+            height: Math.min(maxH, Math.max(80, measuredHeight))
+        };
+    }
+
+    // 5. Plain text / URL — never narrower than the full meta row.
+    const text = (payload.content || payload.preview || "").trim();
+    const hasLineBreak = text.includes("\n");
+    const charCount = text.length;
+    const lineCount = hasLineBreak ? text.split("\n").length : 1;
+    const measuredTextWidth = measurePlainTextWidth(text, contentEl);
+    const contentPad = 16;
+    const contentDriven = measuredTextWidth + chromeWidth + contentPad;
+
+    let targetWidth: number;
+    if (!hasLineBreak && charCount <= 24) {
+        targetWidth = Math.max(metaMinWidth, Math.min(maxW, contentDriven));
+    } else if (!hasLineBreak && charCount <= 56) {
+        targetWidth = Math.max(metaMinWidth, Math.min(maxW, Math.max(contentDriven, metaMinWidth)));
+    } else if (charCount <= 120 && lineCount <= 3) {
+        targetWidth = Math.max(metaMinWidth, Math.min(maxW, Math.max(contentDriven, 300)));
+    } else if (charCount <= 220 && lineCount <= 6) {
+        targetWidth = Math.max(metaMinWidth, Math.min(maxW, 380));
+    } else {
+        targetWidth = Math.max(metaMinWidth, Math.min(maxW, 420));
+    }
+
+    applyCardWidth(targetWidth);
+    contentEl?.classList.toggle(
+        "is-short-text",
+        !hasLineBreak && charCount <= 56
+    );
+    const measuredHeight = Math.ceil(container.scrollHeight || container.offsetHeight || container.getBoundingClientRect().height);
+    return {
+        width: targetWidth,
+        height: Math.min(maxH, Math.max(76, measuredHeight))
+    };
+};
+
         const updateSize = () => {
             raf = window.requestAnimationFrame(() => {
                 const container = containerRef.current;
@@ -333,52 +560,78 @@ const CompactPreviewWindow = () => {
                 }
 
                 const bounds = previewBoundsRef.current;
-                const maxWidth = bounds.width;
-                const maxHeight = bounds.height;
-                const minWidth =
-                    payload.contentType === "image" || payload.contentType === "video"
-                        ? 260
-                        : Math.min(bounds.width, 320);
+                const style = getComputedStyle(container);
+                const pixels = (value: string) => Number.parseFloat(value) || 0;
+                const outerHeight = (element: HTMLElement | null) => {
+                    if (!element || getComputedStyle(element).display === "none") return 0;
+                    const elementStyle = getComputedStyle(element);
+                    return element.getBoundingClientRect().height
+                        + pixels(elementStyle.marginTop) + pixels(elementStyle.marginBottom);
+                };
+                const chromeHeight = pixels(style.paddingTop) + pixels(style.paddingBottom)
+                    + pixels(style.borderTopWidth) + pixels(style.borderBottomWidth)
+                    + outerHeight(metaRef.current) + outerHeight(dividerRef.current);
+                const chromeWidth = pixels(style.paddingLeft) + pixels(style.paddingRight)
+                    + pixels(style.borderLeftWidth) + pixels(style.borderRightWidth);
 
-                const measuredWidth = Math.max(container.offsetWidth, container.scrollWidth);
-                const measuredHeight = Math.max(container.offsetHeight, container.scrollHeight);
-                const width = Math.min(Math.max(Math.ceil(measuredWidth), minWidth), maxWidth);
-                const height = Math.min(Math.max(Math.ceil(measuredHeight), 80), maxHeight);
+                const { width, height } = calculateStandardCardDimensions(
+                    payload,
+                    bounds,
+                    chromeWidth,
+                    chromeHeight,
+                    container,
+                    contentRef.current,
+                    metaRef.current
+                );
+
+                // Content taller than the card is cropped; fade it out so the
+                // cut doesn't look like the end (the window takes no scrolling).
+                const contentEl = contentRef.current;
+                if (contentEl) {
+                    contentEl.classList.toggle(
+                        "is-clipped",
+                        contentEl.scrollHeight > contentEl.clientHeight + 1
+                    );
+                }
+
                 if (width < 40 || height < 40) {
                     compactPreviewLog("skip emit: measured size too small", {
-                        measuredWidth,
-                        measuredHeight,
                         width,
                         height
                     });
                     return;
                 }
 
+                const requestId = payload.requestId;
+                if (latestRequestIdRef.current !== requestId) return;
                 const last = lastSentSizeRef.current;
-                if (last && Math.abs(last.width - width) <= 1 && Math.abs(last.height - height) <= 1) {
+                if (
+                    last &&
+                    last.requestId === requestId &&
+                    Math.abs(last.width - width) <= 1 &&
+                    Math.abs(last.height - height) <= 1
+                ) {
                     return;
                 }
-                lastSentSizeRef.current = { width, height };
+                lastSentSizeRef.current = { requestId, width, height };
                 compactPreviewLog("emit compact-preview-resize", {
-                    measuredWidth,
-                    measuredHeight,
+                    requestId,
                     width,
-                    height,
-                    minWidth,
-                    maxWidth,
-                    maxHeight
+                    height
                 });
 
-                emitTo("main", "compact-preview-resize", { width, height }).catch((err) => {
+                // The window is the card plus its inset on every side (see
+                // .compact-preview-root in compact-preview.css).
+                const windowSize = {
+                    requestId,
+                    width: width + 2 * CARD_INSET_PX,
+                    height: height + 2 * CARD_INSET_PX
+                };
+                emit("compact-preview-resize", windowSize).catch(() => {});
+                emitTo("main", "compact-preview-resize", windowSize).catch((err) => {
                     console.error(err);
                     compactPreviewLog("emit compact-preview-resize failed", err);
                 });
-                getCurrentWindow()
-                    .setSize(new LogicalSize(width, height))
-                    .catch((err) => {
-                        console.error(err);
-                        compactPreviewLog("setSize in preview failed", err);
-                    });
             });
         };
 
@@ -408,9 +661,12 @@ const CompactPreviewWindow = () => {
     }, [payload]);
 
     useEffect(() => {
-        setSnapshotFailed(false);
-        setRichImageFallbackFailed(false);
-    }, [payload?.content, payload?.htmlContent, payload?.richTextSnapshotPreview]);
+        if (!payload) return;
+        // App icon / meta text can settle after the first measure — reflow once more.
+        lastSentSizeRef.current = null;
+        const timer = window.setTimeout(() => requestResizeRef.current?.(), 30);
+        return () => window.clearTimeout(timer);
+    }, [payload, sourceAppIcon]);
 
     useEffect(() => {
         if (richSnapshotFallbackTimerRef.current) {
@@ -430,7 +686,7 @@ const CompactPreviewWindow = () => {
                     naturalHeight: img?.naturalHeight ?? 0,
                     sourceApp: payload?.sourceApp || ""
                 });
-                setSnapshotFailed(true);
+                if (payload) setSnapshotFailedRequestId(payload.requestId);
             }
         }, 700);
 
@@ -440,11 +696,19 @@ const CompactPreviewWindow = () => {
                 richSnapshotFallbackTimerRef.current = null;
             }
         };
-    }, [useSnapshotPreviewImage, effectiveRichTextSnapshotSrc, payload?.content, payload?.htmlContent]);
+    }, [useSnapshotPreviewImage, effectiveRichTextSnapshotSrc, payload?.requestId, payload?.content, payload?.htmlContent]);
 
     const content = useMemo(() => {
         if (!payload) return null;
         if (payload.contentType === "image") {
+            if (payload.filePreviewExists === false || mediaFailed) {
+                return (
+                    <div className="compact-preview-unavailable">
+                        <ImageOff size={22} />
+                        <span>Preview unavailable</span>
+                    </div>
+                );
+            }
             const src = payload.content.startsWith("data:")
                 ? payload.content
                 : (toTauriLocalImageSrc(payload.content) || payload.content);
@@ -456,15 +720,28 @@ const CompactPreviewWindow = () => {
                         compactPreviewLog("image loaded, request resize");
                         requestResizeRef.current?.();
                     }}
+                    onError={() => setMediaFailedRequestId(payload.requestId)}
                     style={{
+                        maxWidth: "100%",
+                        maxHeight: "var(--preview-media-fit-height, 460px)",
                         width: "auto",
                         height: "auto",
+                        objectFit: "contain",
+                        display: "block",
                         borderRadius: "4px"
                     }}
                 />
             );
         }
         if (payload.contentType === "video") {
+            if (payload.filePreviewExists === false || mediaFailed) {
+                return (
+                    <div className="compact-preview-unavailable">
+                        <Video size={22} />
+                        <span>Preview unavailable</span>
+                    </div>
+                );
+            }
             const src = payload.content.startsWith("data:")
                 ? payload.content
                 : (toTauriLocalImageSrc(payload.content) || payload.content);
@@ -481,23 +758,92 @@ const CompactPreviewWindow = () => {
                         seekVideoPreviewFrame(e.currentTarget);
                         requestResizeRef.current?.();
                     }}
+                    onError={() => setMediaFailedRequestId(payload.requestId)}
                     style={{
+                        maxWidth: "100%",
+                        maxHeight: "var(--preview-media-fit-height, 460px)",
                         width: "auto",
                         height: "auto",
+                        objectFit: "contain",
+                        display: "block",
                         borderRadius: "4px",
                         background: "#000"
                     }}
                 />
             );
         }
+        if (payload.contentType === "file") {
+            if (payload.filePreviewExists === false) {
+                return (
+                    <div className="compact-preview-unavailable">
+                        <FileQuestion size={22} />
+                        <span>File unavailable</span>
+                    </div>
+                );
+            }
+            const paths = payload.content
+                .split(/\r?\n/)
+                .map((path) => path.trim())
+                .filter(Boolean);
+            return (
+                <div className="compact-preview-file-list">
+                    {paths.length > 1 && (
+                        <div className="compact-preview-file-count">
+                            <Files size={16} />
+                            <span>{paths.length} items</span>
+                        </div>
+                    )}
+                    {(paths.length > 0 ? paths : [payload.preview || payload.content]).slice(0, 12).map((path, index) => (
+                        <div className="compact-preview-file-row" key={`${path}-${index}`}>
+                            <File size={14} />
+                            <span title={path}>{path.split(/[\\/]/).pop() || path}</span>
+                        </div>
+                    ))}
+                    {paths.length > 12 && (
+                        <div className="compact-preview-file-more">+{paths.length - 12}</div>
+                    )}
+                </div>
+            );
+        }
         if (payload.contentType === "rich_text" && payload.htmlContent) {
-            if (useSnapshotPreviewImage && effectiveRichTextSnapshotSrc) {
+            if (effectiveRichImageFallbackSrc) {
+                compactPreviewLog("render rich_text as fallback image");
+                return (
+                    <img
+                        src={effectiveRichImageFallbackSrc}
+                        alt="rich text preview"
+                        onLoad={() => {
+                            compactPreviewLog("rich fallback image loaded, request resize");
+                            requestResizeRef.current?.();
+                        }}
+                        onError={() => {
+                            richPreviewFailureLog("fallback image load error -> switch to snapshot", {
+                                srcLength: (effectiveRichImageFallbackSrc || "").length,
+                                srcSample: (effectiveRichImageFallbackSrc || "").slice(0, 140),
+                                sourceApp: payload.sourceApp || ""
+                            });
+                            setRichImageFallbackFailedRequestId(payload.requestId);
+                        }}
+                        style={{
+                            maxWidth: "100%",
+                            maxHeight: "var(--preview-media-fit-height, 460px)",
+                            width: "auto",
+                            height: "auto",
+                            objectFit: "contain",
+                            display: "block",
+                            borderRadius: "4px"
+                        }}
+                    />
+                );
+            }
+            if (effectiveRichTextSnapshotSrc) {
                 compactPreviewLog("render rich_text as html snapshot image");
                 return (
                     <img
                         ref={richSnapshotImgRef}
                         src={effectiveRichTextSnapshotSrc}
                         alt="rich text snapshot preview"
+                        className="rich-text-snapshot-full"
                         onLoad={() => {
                             if (richSnapshotFallbackTimerRef.current) {
                                 window.clearTimeout(richSnapshotFallbackTimerRef.current);
@@ -516,39 +862,14 @@ const CompactPreviewWindow = () => {
                                 srcSample: (effectiveRichTextSnapshotSrc || "").slice(0, 140),
                                 sourceApp: payload.sourceApp || ""
                             });
-                            setSnapshotFailed(true);
+                            setSnapshotFailedRequestId(payload.requestId);
                         }}
                         style={{
+                            // Full card width, natural height: .popover-content
+                            // crops (and fades) the rest.
                             width: "100%",
-                            maxWidth: "100%",
                             height: "auto",
                             display: "block",
-                            borderRadius: "4px"
-                        }}
-                    />
-                );
-            }
-            if (useRichImageFallback && effectiveRichImageFallbackSrc) {
-                compactPreviewLog("render rich_text as fallback image");
-                return (
-                    <img
-                        src={effectiveRichImageFallbackSrc}
-                        alt="rich text preview"
-                        onLoad={() => {
-                            compactPreviewLog("rich fallback image loaded, request resize");
-                            requestResizeRef.current?.();
-                        }}
-                        onError={() => {
-                            richPreviewFailureLog("fallback image load error -> switch to html", {
-                                srcLength: (effectiveRichImageFallbackSrc || "").length,
-                                srcSample: (effectiveRichImageFallbackSrc || "").slice(0, 140),
-                                sourceApp: payload.sourceApp || ""
-                            });
-                            setRichImageFallbackFailed(true);
-                        }}
-                        style={{
-                            width: "auto",
-                            height: "auto",
                             borderRadius: "4px"
                         }}
                     />
@@ -560,7 +881,7 @@ const CompactPreviewWindow = () => {
                     className="rich-text-preview"
                     htmlContent={cleanHtml || payload.htmlContent}
                     fallbackText={payload.preview || payload.content}
-                    preview={false}
+                    preview={true}
                     style={{
                         // Keep a single scrollbar on .popover-content to avoid nested scrollbars.
                         maxHeight: "none",
@@ -572,26 +893,44 @@ const CompactPreviewWindow = () => {
             );
         }
         return payload.content || payload.preview || "";
-    }, [payload, effectiveRichImageFallbackSrc, effectiveRichTextSnapshotSrc]);
+    }, [payload, effectiveRichImageFallbackSrc, effectiveRichTextSnapshotSrc, mediaFailed]);
 
     return (
         <div className="compact-preview-root">
-            <div
+            <motion.div
                 ref={containerRef}
-                className={`compact-popover-portal compact-preview-window theme-${normalizeThemeId(payload?.theme || DEFAULT_THEME)} ${payload?.contentType === "image" ? "compact-preview-image" : ""} ${payload?.contentType === "image" || payload?.contentType === "video" || !!richTextPreviewSrc ? "compact-preview-media" : ""} ${payload?.colorMode === "dark" ? "dark-mode" : ""}`}
+                className={`compact-popover-portal compact-preview-window theme-${normalizeThemeId(payload?.theme || DEFAULT_THEME)} ${payload?.contentType === "image" ? "compact-preview-image" : ""} ${payload?.contentType === "image" || payload?.contentType === "video" || !!effectiveRichImageFallbackSrc || useSnapshotPreviewImage ? "compact-preview-media" : ""} ${payload?.colorMode === "dark" ? "dark-mode" : ""}`}
+                initial={{ opacity: 0, scale: 0.95, y: 3 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                transition={{
+                    type: "spring",
+                    damping: 26,
+                    stiffness: 360,
+                    mass: 0.8
+                }}
                 style={{
                     display: "flex",
-                    flexDirection: "column"
+                    flexDirection: "column",
+                    transformOrigin: "center center"
                 }}
             >
                 <div ref={metaRef} className="popover-meta">
                     <div className="meta-row">
                         {getIcon(payload?.contentType || "text")}
-                        <span>{payload?.contentType || "text"}</span>
+                        <span>{typeLabel(payload?.contentType || "text", payload?.language)}</span>
                     </div>
                     <div className="meta-dot">•</div>
-                    <div className="meta-row">
-                        <AppWindow size={14} />
+                    <div className="meta-row meta-row-source">
+                        {sourceAppIcon || payload?.sourceAppIcon ? (
+                            <img
+                                src={sourceAppIcon || payload?.sourceAppIcon || ""}
+                                alt=""
+                                className="source-app-icon"
+                                draggable={false}
+                            />
+                        ) : (
+                            <AppWindow size={14} />
+                        )}
                         <span>{payload?.sourceApp || "Unknown"}</span>
                     </div>
                     <div className="meta-dot">•</div>
@@ -605,8 +944,17 @@ const CompactPreviewWindow = () => {
                     </div>
                 </div>
                 <div ref={dividerRef} className="popover-divider" />
-                <div ref={contentRef} className="popover-content">{content}</div>
-            </div>
+                <motion.div
+                    key={payload?.requestId}
+                    ref={contentRef}
+                    initial={{ opacity: 0.4 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+                    className={`popover-content${payload?.contentType === "code" ? " compact-preview-code" : ""}`}
+                >
+                    {content}
+                </motion.div>
+            </motion.div>
         </div>
     );
 };

@@ -12,7 +12,7 @@
 
   | STARS | VERSION | LICENSE | PLATFORM |
   | :--- | :--- | :--- | :--- |
-  | [![Stars](https://img.shields.io/github/stars/jimuzhe/tiez-clipboard?label=STARS&style=for-the-badge&color=4CAF50)](https://github.com/jimuzhe/tiez-clipboard/stargazers) | [![Version](https://img.shields.io/github/v/release/jimuzhe/tiez-clipboard?label=VERSION&style=for-the-badge&color=2196F3)](https://github.com/jimuzhe/tiez-clipboard/releases) | [![License](https://img.shields.io/badge/LICENSE-GPL--3.0-FF9800?style=for-the-badge)](https://www.gnu.org/licenses/gpl-3.0) | [![Platform](https://img.shields.io/badge/PLATFORM-WIN%20%2F%20MAC-f44336?style=for-the-badge)](https://github.com/jimuzhe/tiez-clipboard/releases) |
+  | [![Stars](https://img.shields.io/github/stars/jimuzhe/tiez-clipboard?label=STARS&style=for-the-badge&color=4CAF50)](https://github.com/jimuzhe/tiez-clipboard/stargazers) | [![Version](https://img.shields.io/github/v/release/jimuzhe/tiez-clipboard?label=VERSION&style=for-the-badge&color=2196F3)](https://github.com/jimuzhe/tiez-clipboard/releases) | [![License](https://img.shields.io/badge/LICENSE-GPL--3.0-FF9800?style=for-the-badge)](https://www.gnu.org/licenses/gpl-3.0) | [![Platform](https://img.shields.io/badge/PLATFORM-macOS-f44336?style=for-the-badge)](https://github.com/jimuzhe/tiez-clipboard/releases) |
 
   [English](./README.md) | [简体中文](./README.zh-CN.md)
 </div>
@@ -23,14 +23,14 @@
 
 ## Theme Gallery
 
-Explore 4 elegant themes designed for every workspace and efficiency scenarios.
+Eight built-in themes; four of them:
 
   <table>
     <tr>
-      <td align="center"><b>Frosted Glass</b><br><img src="docs/images/毛玻璃.png" width="220" /></td>
-      <td align="center"><b>Notebook Style</b><br><img src="docs/images/书.png" width="220" /></td>
-      <td align="center"><b>Sticky Note</b><br><img src="docs/images/便利贴.png" width="220" /></td>
-      <td align="center"><b>3D Interaction</b><br><img src="docs/images/3d.png" width="220" /></td>
+      <td align="center"><b>Frosted</b><br><img src="docs/images/毛玻璃.png" width="220" /></td>
+      <td align="center"><b>Paper</b><br><img src="docs/images/书.png" width="220" /></td>
+      <td align="center"><b>Sticky</b><br><img src="docs/images/便利贴.png" width="220" /></td>
+      <td align="center"><b>Retro</b><br><img src="docs/images/3d.png" width="220" /></td>
     </tr>
   </table>
 </div>
@@ -77,9 +77,7 @@ Explore 4 elegant themes designed for every workspace and efficiency scenarios.
 ### Platform Support
 | Platform | Requirement | Output |
 | :--- | :--- | :--- |
-| **Windows** | Windows 10/11 (x86/x64)<br>*(Windows 11 Recommended)* | `.exe` / **`.zip` (Portable)** |
-| **macOS** | Sierra 10.15+ <br>(Apple Silicon / Intel) | `.dmg` |
-| **Linux** | Support Coming Soon | TBD |
+| **macOS** | macOS 10.15+ <br>(Apple Silicon / Intel) | `.dmg` / `.app` |
 
 [**Download the Latest Release →**](https://github.com/jimuzhe/tiez-clipboard/releases)
 

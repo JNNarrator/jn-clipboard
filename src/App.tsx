@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useCallback, useState } from "react";
+import { useEffect, useMemo, useRef, useCallback, useState, useDeferredValue } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import ToastContainer from "./shared/components/ToastContainer";
+import MacAccessibilityPrompt from "./shared/components/MacAccessibilityPrompt";
 import ConfirmDialog from "./shared/components/ConfirmDialog";
 
 import { translations } from "./locales";
@@ -12,7 +13,8 @@ import { useSettingsPanelProps } from "./features/settings/hooks/useSettingsPane
 import { useDebounce } from "./shared/hooks/useDebounce";
 import { useHistoryFetch } from "./shared/hooks/useHistoryFetch";
 import { useHotkeyConfig } from "./shared/hooks/useHotkeyConfig";
-import { useInputFocus } from "./shared/hooks/useInputFocus";
+import { useFocusCoordinator } from "./shared/hooks/useFocusCoordinator";
+import { focusClipboardWindow } from "./shared/lib/focus";
 import { useSearchScroll } from "./shared/hooks/useSearchScroll";
 import { useSettingsApply } from "./shared/hooks/useSettingsApply";
 import { useSettingsInit } from "./shared/hooks/useSettingsInit";
@@ -21,8 +23,6 @@ import { useSettingsSync } from "./shared/hooks/useSettingsSync";
 import { useTagColors } from "./shared/hooks/useTagColors";
 import { useClipboardEvents } from "./shared/hooks/useClipboardEvents";
 import { useClipboardActions } from "./shared/hooks/useClipboardActions";
-import { useMqttListener } from "./shared/hooks/useMqttListener";
-import { useSoundEffects } from "./shared/hooks/useSoundEffects";
 import { useWindowPinnedListener } from "./shared/hooks/useWindowPinnedListener";
 import { useCustomBackground } from "./shared/hooks/useCustomBackground";
 import { useToastListener } from "./shared/hooks/useToastListener";
@@ -51,15 +51,24 @@ import type { QuickPasteHint, VirtualClipboardListHandle } from "./features/clip
 
 /** Must match privacy blur checks in `useClipboardItemRenderer` / `ClipboardItem`. */
 const BUILTIN_SENSITIVE_TAG_NAMES = ["sensitive", "密码", "password"] as const;
-import type { QuickPasteModifier } from "./features/app/types";
+import type { ClipboardSortMode, QuickPasteModifier } from "./features/app/types";
 import {
   forceHideCompactPreviewWindow,
   isCompactPreviewWindowSupported,
   isCompactPreviewWarmupSupported,
+  noteCompactPreviewClipboardShown,
   warmupCompactPreviewWindow
 } from "./features/clipboard/lib/compactPreviewControls";
 import { isMacPlatform } from "./shared/lib/platform";
 import { isTauriRuntime } from "./shared/lib/tauriRuntime";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import ClipboardDetailPane from "./features/clipboard/components/ClipboardDetailPane";
+import { useSplitView } from "./features/app/hooks/useSplitView";
+import { useDetailPaneActions } from "./features/app/hooks/useDetailPaneActions";
+import { usePaneWidth } from "./shared/hooks/usePaneWidth";
+import PaneDivider from "./shared/components/PaneDivider";
+
+const SENSITIVE_TAGS = ["sensitive", "密码", "password"];
 
 const insertHistoryItem = (list: ClipboardEntry[], item: ClipboardEntry) => {
   const next = list.slice();
@@ -70,7 +79,7 @@ const insertHistoryItem = (list: ClipboardEntry[], item: ClipboardEntry) => {
     while (insertIndex < next.length) {
       const current = next[insertIndex];
       if (!current.is_pinned) break;
-      if (current.timestamp < item.timestamp) break;
+      if ((current.sort_at || current.timestamp) < (item.sort_at || item.timestamp)) break;
       insertIndex++;
     }
   } else {
@@ -83,7 +92,7 @@ const insertHistoryItem = (list: ClipboardEntry[], item: ClipboardEntry) => {
         insertIndex++;
         continue;
       }
-      if (current.timestamp < item.timestamp) break;
+      if ((current.sort_at || current.timestamp) < (item.sort_at || item.timestamp)) break;
       insertIndex++;
     }
   }
@@ -127,6 +136,7 @@ const buildQuickPasteHintsById = (
 };
 
 const App = () => {
+  useFocusCoordinator();
   type FileTransferSourceView = "clipboard" | "settings" | "tag_manager" | "emoji_panel";
 
   const appState = useAppState();
@@ -142,6 +152,8 @@ const App = () => {
     setCollapsedGroups,
     history,
     setHistory,
+    clipboardSortMode,
+    setClipboardSortMode,
     search,
     setSearch,
     isComposing,
@@ -160,9 +172,12 @@ const App = () => {
     setAiOptionsOpenId,
     editingTagsId,
     setEditingTagsId,
+    editingNoteId,
+    setEditingNoteId,
     revealedIds,
     setRevealedIds,
     setAutoStart,
+    setElevatedAutostart,
     deduplicate,
     setDeduplicate,
     persistent,
@@ -171,7 +186,6 @@ const App = () => {
     setPersistentLimitEnabled,
     persistentLimit,
     setPersistentLimit,
-    appSettings,
     setAppSettings,
     setDefaultApps,
     chatMode,
@@ -183,7 +197,9 @@ const App = () => {
     sequentialHotkey,
     setSequentialHotkey,
     richPasteHotkey,
+    plainPasteHotkey,
     setRichPasteHotkey,
+    setPlainPasteHotkey,
     searchHotkey,
     setSearchHotkey,
     quickPasteModifier,
@@ -195,13 +211,17 @@ const App = () => {
     isRecordingSequential,
     setIsRecordingSequential,
     isRecordingRich,
+    isRecordingPlain,
     setIsRecordingRich,
+    setIsRecordingPlain,
     isRecordingSearch,
     setIsRecordingSearch,
     deleteAfterPaste,
     setDeleteAfterPaste,
     moveToTopAfterPaste,
+    clickCopyOnly,
     setMoveToTopAfterPaste,
+    setClickCopyOnly,
     privacyProtection,
     setPrivacyProtection,
     sensitiveMaskPrefixVisible,
@@ -221,25 +241,29 @@ const App = () => {
     richTextSnapshotPreview,
     setRichTextSnapshotPreview,
     setSilentStart,
-    followMouse: _followMouse,
     setFollowMouse,
     showAppBorder,
     setShowAppBorder,
-    winClipboardDisabled: _winClipboardDisabled,
-    setWinClipboardDisabled,
-    registryWinVEnabled: _registryWinVEnabled,
     setRegistryWinVEnabled,
-    pasteMethod: _pasteMethod,
     setPasteMethod,
+    setWinClipboardDisabled,
     theme,
     setTheme,
+    setNativePalette,
     colorMode,
+    nativePalette,
     setColorMode,
     showSourceAppIcon,
     setShowSourceAppIcon,
+    hideUnselectedItemActions,
+    setHideUnselectedItemActions,
 
     compactMode,
     setCompactMode,
+    compactShowTime,
+    setCompactShowTime,
+    splitViewEnabled,
+    setSplitViewEnabled,
     clipboardItemFontSize,
     setClipboardItemFontSize,
     clipboardTagFontSize,
@@ -254,12 +278,16 @@ const App = () => {
     setSettingsLoaded,
     isWindowPinned,
     setIsWindowPinned,
+    searchBoxPinned,
+    setSearchBoxPinned,
     showSearchBox,
     setShowSearchBox,
     scrollTopButtonEnabled,
     setScrollTopButtonEnabled,
     arrowKeySelection,
     setArrowKeySelection,
+    setLightModeEnabled,
+    setLightModeIdleMinutes,
     setHideTrayIcon,
     setHideDockIcon,
     setEdgeDocking,
@@ -271,6 +299,8 @@ const App = () => {
     setSurfaceOpacity,
     selectedIndex,
     setSelectedIndex,
+    selectedItemId,
+    setSelectedItemId,
     isKeyboardMode,
     setIsKeyboardMode,
     isLoadingMore,
@@ -288,7 +318,6 @@ const App = () => {
     setMqttTopic,
     setMqttProtocol,
     setMqttWsPath,
-    mqttNotificationEnabled,
     setMqttNotificationEnabled,
     cloudSyncEnabled,
     setCloudSyncEnabled,
@@ -311,6 +340,10 @@ const App = () => {
     setAvailableIps,
     actualPort,
     setActualPort,
+    fileTransferAccessToken,
+    setFileTransferAccessToken,
+    fileTransferLanKey,
+    setFileTransferLanKey,
     setFileTransferPath,
     setFileTransferAutoOpen,
     setFileTransferAutoCopy,
@@ -318,16 +351,13 @@ const App = () => {
     fileTransferAutoOpen,
     fileTransferAutoCopy,
     fileServerAutoClose,
-    soundEnabled,
     setSoundEnabled,
-    pasteSoundEnabled,
     setPasteSoundEnabled,
     soundVolume,
     setSoundVolume,
     aiEnabled,
     setAiEnabled,
     setAiTargetLang,
-    setAiThinkingBudget,
     aiProfiles,
     setAiProfiles,
     setAiAssignedProfileTask,
@@ -345,6 +375,8 @@ const App = () => {
     status: updateStatus,
     version: updateVersion,
     notes: updateNotes,
+    important: updateImportant,
+    releaseChannel: updateReleaseChannel,
     downloadProgress: updateProgress,
     onStartDownload,
     onApplyUpdate,
@@ -357,18 +389,38 @@ const App = () => {
   const [fileTransferSourceView, setFileTransferSourceView] =
     useState<FileTransferSourceView>("clipboard");
 
-  const debouncedSearch = useDebounce(search, 400);
-  const searchInputRef = useInputFocus<HTMLInputElement>();
+  const debouncedSearch = useDebounce(search, 200);
+  const deferredSearch = useDeferredValue(search);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const showTagFilterRef = useRef(showTagFilter);
+  showTagFilterRef.current = showTagFilter;
+
+  const dismissSearchTagFilter = useCallback(() => {
+    setShowTagFilter(false);
+    setSearchIsFocused(false);
+    if (searchInputRef.current && document.activeElement === searchInputRef.current) {
+      searchInputRef.current.blur();
+    }
+  }, [setShowTagFilter, setSearchIsFocused, searchInputRef]);
+
+  useEffect(() => {
+    if (!showSearchBox) {
+      dismissSearchTagFilter();
+    }
+  }, [showSearchBox, dismissSearchTagFilter]);
   const tagColors = useTagColors();
   const virtualListRef = useRef<VirtualClipboardListHandle | null>(null);
+  const appContainerRef = useRef<HTMLDivElement | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
-  const [quickPasteHintsById, setQuickPasteHintsById] = useState<Record<number, QuickPasteHint>>(
-    {}
+  const quickPasteHintsById = useMemo(
+    () => buildQuickPasteHintsById(history, quickPasteModifier),
+    [history, quickPasteModifier]
   );
   const PAGE_SIZE = 80;
   const { fetchHistory, loadMoreHistory } = useHistoryFetch({
     debouncedSearch,
     typeFilter,
+    sortMode: clipboardSortMode,
     persistentLimitEnabled,
     persistentLimit,
     pageSize: PAGE_SIZE,
@@ -387,13 +439,15 @@ const App = () => {
     return translations[language][k] || translations['en'][k] || key;
   }, [language]);
 
-  const { handleListScroll: handleSearchScroll, handleMainWheel } = useSearchScroll({
+  const { handleListScroll: handleSearchScroll } = useSearchScroll({
+    containerRef: appContainerRef,
+    searchBoxPinned,
     showSearchBox,
     setShowSearchBox,
     search,
     showSettings,
     showTagManager: effectiveShowTagManager,
-    appSettings
+    dismissSearchTagFilter
   });
 
   const showScrollTopVisible = showScrollTop && scrollTopButtonEnabled;
@@ -471,8 +525,14 @@ const App = () => {
 
   const handleListScroll = useCallback((offset: number) => {
     handleSearchScroll(offset);
-    setShowScrollTop(offset > 200);
-  }, [handleSearchScroll]);
+    if (offset > 0 && showTagFilterRef.current) {
+      dismissSearchTagFilter();
+    }
+    setShowScrollTop((prev) => {
+      const next = offset > 200;
+      return prev === next ? prev : next;
+    });
+  }, [handleSearchScroll, dismissSearchTagFilter]);
 
   const handleScrollTop = useCallback(() => {
     if (virtualListRef.current?.scrollToTop) {
@@ -510,7 +570,7 @@ const App = () => {
 
   useEffect(() => {
     const handleKeydown = (event: KeyboardEvent) => {
-      if (isRecording || isRecordingSequential || isRecordingRich || isRecordingSearch) return;
+      if (isRecording || isRecordingSequential || isRecordingRich || isRecordingPlain || isRecordingSearch) return;
       if (!hotkey || hotkey === t('not_set')) return;
 
       const activeEl = document.activeElement as HTMLElement | null;
@@ -534,12 +594,11 @@ const App = () => {
 
     window.addEventListener('keydown', handleKeydown, true);
     return () => window.removeEventListener('keydown', handleKeydown, true);
-  }, [hotkey, isRecording, isRecordingSequential, isRecordingRich, isRecordingSearch, t]);
+  }, [hotkey, isRecording, isRecordingSequential, isRecordingRich, isRecordingPlain, isRecordingSearch, t]);
 
 
-  const { toasts, pushToast, confirmDialog, openConfirm, closeConfirm } = useOverlays();
+  const { toasts, pushToast, confirmDialog, openConfirm, closeConfirm } = useOverlays(t);
 
-  useSoundEffects({ soundEnabled, pasteSoundEnabled, soundVolume });
 
   const fetchEffectiveTransferPath = useCallback(() => {
     invoke<string>("get_active_file_transfer_path")
@@ -555,10 +614,19 @@ const App = () => {
     setAppSettings,
     setHotkey,
     setTheme,
+    setNativePalette,
     setColorMode,
     setCompactMode,
     setLanguage
   });
+
+  // After light mode rebuilds the WebView, Rust shows the window only once this
+  // arrives, so the first frame is the themed UI rather than an empty shell.
+  // Effects run while the window is still hidden (unlike requestAnimationFrame).
+  useEffect(() => {
+    if (!settings || !isTauriRuntime()) return;
+    invoke("main_ui_ready").catch(() => { /* older backend: it times out instead */ });
+  }, [settings]);
 
   useSettingsPostInit({
     settings,
@@ -575,6 +643,7 @@ const App = () => {
     setPersistent,
     setPersistentLimitEnabled,
     setPersistentLimit,
+    setClipboardSortMode,
     setDeduplicate,
     setCaptureFiles,
     setCaptureRichText,
@@ -593,15 +662,22 @@ const App = () => {
     setRegistryWinVEnabled,
     setPasteMethod,
     setShowSourceAppIcon,
+    setHideUnselectedItemActions,
+    setCompactShowTime,
+    setSplitViewEnabled,
 
     setDeleteAfterPaste,
     setMoveToTopAfterPaste,
+    setClickCopyOnly,
     setHideTrayIcon,
     setHideDockIcon,
     setEdgeDocking,
+    setSearchBoxPinned,
     setShowSearchBox,
     setScrollTopButtonEnabled,
     setArrowKeySelection,
+    setLightModeEnabled,
+    setLightModeIdleMinutes,
     setMqttEnabled,
     setMqttServer,
     setMqttPort,
@@ -629,6 +705,7 @@ const App = () => {
     setFileServerPort,
     setSequentialHotkey,
     setRichPasteHotkey,
+    setPlainPasteHotkey,
     setSearchHotkey,
     setQuickPasteModifier,
     setSequentialModeState,
@@ -637,7 +714,6 @@ const App = () => {
     setSoundVolume,
     setAiEnabled,
     setAiTargetLang,
-    setAiThinkingBudget,
     setIsWindowPinned,
     setAiProfiles,
     setAiAssignedProfileTask,
@@ -646,28 +722,20 @@ const App = () => {
     setSettingsLoaded
   });
 
-  useEffect(() => {
-    if (!isTauriRuntime()) return;
-
-    const unlisten = listen("focus-search-input", () => {
-      setShowSettings(false);
-      setShowTagManager(false);
-      setChatMode(false);
-      setShowEmojiPanel(false);
-      setShowSearchBox(true);
-      setSearchIsFocused(true);
-      invoke("activate_window_focus")
-        .catch(console.error)
-        .finally(() => {
-          requestAnimationFrame(() => {
-            searchInputRef.current?.focus();
-          });
+  const focusSearchBox = useCallback(() => {
+    setShowSettings(false);
+    setShowTagManager(false);
+    setChatMode(false);
+    setShowEmojiPanel(false);
+    setShowSearchBox(true);
+    setSearchIsFocused(true);
+    focusClipboardWindow()
+      .catch(console.error)
+      .finally(() => {
+        requestAnimationFrame(() => {
+          searchInputRef.current?.focus();
         });
-    });
-
-    return () => {
-      unlisten.then((off) => off());
-    };
+      });
   }, [
     setShowSettings,
     setShowTagManager,
@@ -676,6 +744,67 @@ const App = () => {
     setShowSearchBox,
     setSearchIsFocused,
     searchInputRef
+  ]);
+
+  useEffect(() => {
+    if (!isTauriRuntime()) return;
+
+    let disposed = false;
+    const unlistenPromise = listen("focus-search", () => {
+      if (disposed) return;
+      focusSearchBox();
+    });
+
+    return () => {
+      disposed = true;
+      unlistenPromise.then((unlisten) => unlisten()).catch(() => { });
+    };
+  }, [focusSearchBox]);
+
+  useEffect(() => {
+    const handleSearchKeydown = (event: KeyboardEvent) => {
+      if (isRecording || isRecordingSequential || isRecordingRich || isRecordingPlain || isRecordingSearch) return;
+      if (!searchHotkey || searchHotkey === t('not_set')) return;
+      if (matchesHotkey(event, searchHotkey)) {
+        event.preventDefault();
+        focusSearchBox();
+      }
+    };
+
+    window.addEventListener('keydown', handleSearchKeydown, true);
+    return () => window.removeEventListener('keydown', handleSearchKeydown, true);
+  }, [searchHotkey, isRecording, isRecordingSequential, isRecordingRich, isRecordingPlain, isRecordingSearch, t, focusSearchBox]);
+
+  // Ctrl/Cmd+F → TieZ search (browser find is already blocked globally; this routes it).
+  useEffect(() => {
+    const onFind = (event: KeyboardEvent) => {
+      if (isRecording || isRecordingSequential || isRecordingRich || isRecordingPlain || isRecordingSearch) return;
+      if (showSettings || effectiveShowTagManager || chatMode || effectiveShowEmojiPanel) return;
+
+      const key = event.key.toLowerCase();
+      const isFind =
+        ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && key === "f") ||
+        (key === "f3" && !event.ctrlKey && !event.metaKey && !event.altKey);
+      if (!isFind) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      focusSearchBox();
+    };
+
+    window.addEventListener("keydown", onFind, true);
+    return () => window.removeEventListener("keydown", onFind, true);
+  }, [
+    isRecording,
+    isRecordingSequential,
+    isRecordingRich,
+    isRecordingPlain,
+    isRecordingSearch,
+    showSettings,
+    effectiveShowTagManager,
+    chatMode,
+    effectiveShowEmojiPanel,
+    focusSearchBox
   ]);
 
   useEffect(() => {
@@ -695,9 +824,12 @@ const App = () => {
     setDataPath,
     setInstalledApps,
     setAutoStart,
+    setElevatedAutostart,
     setDefaultApps,
     setFileServerEnabled,
     setActualPort,
+    setFileTransferAccessToken,
+    setFileTransferLanKey,
     setLocalIp,
     setAvailableIps,
     setWinClipboardDisabled
@@ -711,9 +843,12 @@ const App = () => {
 
   useSettingsApply({
     theme,
+    nativePalette,
     colorMode,
 
     compactMode,
+    compactShowTime,
+    hideUnselectedItemActions,
     settingsLoaded,
     clipboardItemFontSize,
     clipboardTagFontSize,
@@ -733,13 +868,29 @@ const App = () => {
 
   useEffect(() => {
     if (!isTauriRuntime()) return;
-    const unlisten = listen("force-hide-compact-preview", () => {
+    const unlistenForceHide = listen("force-hide-compact-preview", () => {
       forceHideCompactPreviewWindow();
     });
-    return () => {
-      unlisten.then((off) => off());
+    // Opening under the cursor synthesizes mouseenter — arm the move gate
+    // and hide any preview that may already be mid-flight.
+    const onShown = () => {
+      noteCompactPreviewClipboardShown();
     };
-  }, []);
+    // Each opening starts unfiltered: a type filter is for digging out one
+    // item, not a mode to keep (#142). A pinned window never reopens, so its
+    // filter stays.
+    const onClipboardShown = () => {
+      onShown();
+      setTypeFilter(null);
+    };
+    const unlistenClipboardShown = listen("clipboard-shown", onClipboardShown);
+    const unlistenShow = getCurrentWindow().listen("tauri://show", onShown);
+    return () => {
+      unlistenForceHide.then((off) => off());
+      unlistenClipboardShown.then((off) => off());
+      unlistenShow.then((off) => off()).catch(() => {});
+    };
+  }, [setTypeFilter]);
 
   useCustomBackground({ customBackground, customBackgroundOpacity, theme });
 
@@ -758,44 +909,6 @@ const App = () => {
     }
   });
 
-  useMqttListener({ enabled: mqttNotificationEnabled, t });
-
-  useEffect(() => {
-    fetchHistory();
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    const seededHints = buildQuickPasteHintsById(history, quickPasteModifier);
-    setQuickPasteHintsById(seededHints);
-
-    if (quickPasteModifier === "disabled") {
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    invoke<ClipboardEntry[]>("get_clipboard_history", {
-      limit: 256,
-      offset: 0,
-      contentType: null
-    })
-      .then((items) => {
-        if (!cancelled) {
-          setQuickPasteHintsById(buildQuickPasteHintsById(items, quickPasteModifier));
-        }
-      })
-      .catch((error) => {
-        console.error("Failed to refresh quick paste hints:", error);
-        if (!cancelled) {
-          setQuickPasteHintsById(seededHints);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [history, quickPasteModifier]);
 
   useToastListener({ pushToast });
 
@@ -816,9 +929,12 @@ const App = () => {
 
     // Sync theme-related settings to localStorage for instant startup (prevents flash)
     try {
+      if (type === 'native_palette') localStorage.setItem('tiez_native_palette', path);
       if (type === 'theme') localStorage.setItem('tiez_theme', path);
       if (type === 'color_mode') localStorage.setItem('tiez_color_mode', path);
       if (type === 'compact_mode') localStorage.setItem('tiez_compact_mode', path);
+      if (type === 'compact_show_time') localStorage.setItem('tiez_compact_show_time', path);
+      if (type === 'language') localStorage.setItem('tiez_language', path);
     } catch (e) {
       // Ignore localStorage errors
     }
@@ -842,6 +958,14 @@ const App = () => {
       .catch(console.error);
   }, []);
 
+  const updateClipboardSortMode = useCallback(
+    (mode: ClipboardSortMode) => {
+      setClipboardSortMode(mode);
+      saveSetting("app.clipboard_sort_mode", mode);
+    },
+    [saveSetting, setClipboardSortMode]
+  );
+
   useSettingsSync({
     settingsLoaded,
     deduplicate,
@@ -863,6 +987,7 @@ const App = () => {
     updateHotkey,
     updateSequentialHotkey,
     updateRichPasteHotkey,
+    updatePlainPasteHotkey,
     updateSearchHotkey
   } =
     useHotkeyConfig({
@@ -871,7 +996,9 @@ const App = () => {
       sequentialHotkey,
       setSequentialHotkey,
       richPasteHotkey,
+      plainPasteHotkey,
       setRichPasteHotkey,
+      setPlainPasteHotkey,
       searchHotkey,
       setSearchHotkey,
       sequentialMode,
@@ -880,7 +1007,9 @@ const App = () => {
       isRecordingSequential,
       setIsRecordingSequential,
       isRecordingRich,
+      isRecordingPlain,
       setIsRecordingRich,
+      setIsRecordingPlain,
       isRecordingSearch,
       setIsRecordingSearch,
       saveAppSetting,
@@ -890,12 +1019,14 @@ const App = () => {
 
   useNavigationSync({ showSettings, showTagManager: effectiveShowTagManager, chatMode, showEmojiPanel: effectiveShowEmojiPanel });
 
-  const { copyToClipboard, openContent, deleteEntry, togglePin, handleUpdateTags } =
+  const { copyToClipboard, openContent, deleteEntry, togglePin, handleUpdateTags, handleUpdateNote } =
     useClipboardActions({
       t,
       pushToast,
       deleteAfterPaste,
       moveToTopAfterPaste,
+      clickCopyOnly,
+      isWindowPinned,
       setSearch,
       setHistory,
       virtualListRef
@@ -911,9 +1042,10 @@ const App = () => {
     fetchHistory
   });
 
-  const { handleAIAction } = useAiActions({
+  const { handleAIAction, handleAISupplement, applyAIResult, discardAIResult, copyAIText, aiDetails } = useAiActions({
+    history,
     aiProfiles,
-    language,
+    t,
     pushToast,
     setShowSettings,
     setProcessingAiId,
@@ -933,40 +1065,107 @@ const App = () => {
 
   const filteredHistory = useFilteredHistory({
     history,
-    search,
-    typeFilter
+    search: deferredSearch,
+    typeFilter,
+    sortMode: clipboardSortMode
   });
 
   const effectiveHasMore = hasMore && filteredHistory.length >= PAGE_SIZE;
 
-  const { pinnedItems, unpinnedItems, handlePinnedReorder } = usePinnedSort({
+  const {
+    pinnedItems,
+    unpinnedItems,
+    navigableHistory,
+    pinnedOrderIds,
+    isDraggingPinned,
+    handlePinnedIdsReorder,
+    handlePinnedDragStart,
+    handlePinnedDragEnd
+  } = usePinnedSort({
     filteredHistory,
     history,
     setHistory
   });
 
-  useListSelectionReset({ filteredHistory, setSelectedIndex });
+  const { splitActive, detailItem, handleListMouseOver, handleListMouseLeave, focusDetailItem } = useSplitView({
+    enabled: splitViewEnabled,
+    listVisible: !showSettings && !effectiveShowTagManager && !showEmojiPanel && !chatMode,
+    items: navigableHistory,
+    selectedItemId,
+    isKeyboardMode,
+    lockedId: editingTagsId ?? editingNoteId
+  });
+  const [noteDraftState, setNoteDraftState] = useState<{ id: number; text: string } | null>(null);
+  const editingNoteDraft = noteDraftState?.id === editingNoteId ? noteDraftState.text : undefined;
+  const setEditingNoteDraft = useCallback((text: string) => {
+    if (editingNoteId !== null) setNoteDraftState({ id: editingNoteId, text });
+  }, [editingNoteId]);
+  useEffect(() => {
+    if (editingNoteId === null) setNoteDraftState(null);
+  }, [editingNoteId]);
+  const mainRef = useRef<HTMLElement | null>(null);
+  const splitListRef = useRef<HTMLDivElement | null>(null);
+  // Stored as the list's share of the width so the split survives window resizes.
+  const { value: splitRatio, resizing: splitResizing, dividerProps: splitDividerProps } = usePaneWidth({
+    storageKey: "app.pane.clipboard_split",
+    containerRef: mainRef,
+    paneRef: splitListRef,
+    min: 240,
+    minRest: 280,
+    unit: "ratio"
+  });
+  const detailIsSensitive = !!detailItem && SENSITIVE_TAGS.some((tag) => detailItem.tags?.includes(tag));
+  const detailIsRevealed = !!detailItem && revealedIds.has(detailItem.id);
+  const detailActions = useDetailPaneActions({
+    items: navigableHistory,
+    focusDetailItem,
+    copyToClipboard,
+    openContent,
+    togglePin,
+    deleteEntry,
+    handleAIAction,
+    handleAISupplement,
+    applyAIResult,
+    discardAIResult,
+    copyAIText,
+    setEditingTagsId,
+    setEditingNoteId,
+    setTagInput,
+    setRevealedIds,
+    handleUpdateTags,
+    handleUpdateNote
+  });
 
-  useSearchFetchTrigger({ debouncedSearch, isComposing, typeFilter, fetchHistory });
+  useListSelectionReset({
+    filteredHistory: navigableHistory,
+    selectedItemId,
+    setSelectedIndex,
+    setSelectedItemId
+  });
+
+  useSearchFetchTrigger({ debouncedSearch, isComposing, typeFilter, sortMode: clipboardSortMode, fetchHistory });
 
   useScrollToSelection({
-    filteredHistory,
+    filteredHistory: navigableHistory,
     selectedIndex,
     isKeyboardMode,
     pinnedCount: pinnedItems.length,
     virtualListRef
   });
 
-  useKeyboardNavigation({
-    filteredHistory,
+  const { selectItemByIndex } = useKeyboardNavigation({
+    filteredHistory: navigableHistory,
     selectedIndex,
+    selectedItemId,
     setSelectedIndex,
+    setSelectedItemId,
     isKeyboardMode,
     setIsKeyboardMode,
     showSettings,
     showTagManager: effectiveShowTagManager,
     chatMode,
     editingTagsId,
+    editingNoteId,
     arrowKeySelection,
     richPasteHotkey,
     searchInputRef,
@@ -979,9 +1178,14 @@ const App = () => {
     privacyProtection,
     revealedIds,
     isKeyboardMode,
-    selectedIndex,
+    selectedItemId,
+    detailFocusedId: detailItem?.id ?? null,
+    splitActive,
+    noteDraft: editingNoteDraft,
+    setNoteDraft: setEditingNoteDraft,
     isWindowPinned,
     editingTagsId,
+    editingNoteId,
     tagInput,
     allTags,
     tagColors,
@@ -1000,15 +1204,21 @@ const App = () => {
     aiOptionsOpenId,
     setAiOptionsOpenId,
     copyToClipboard,
-    setSelectedIndex,
+    selectItemByIndex,
     setRevealedIds,
     openContent,
     togglePin,
     deleteEntry,
     setEditingTagsId,
+    setEditingNoteId,
     setTagInput,
     handleUpdateTags,
-    handleAIAction
+    handleUpdateNote,
+    handleAIAction,
+    handleAISupplement,
+    aiDetails,
+    applyAIResult,
+    discardAIResult
   });
 
   const settingsPanelProps = useSettingsPanelProps({
@@ -1021,6 +1231,7 @@ const App = () => {
     updateHotkey,
     updateSequentialHotkey,
     updateRichPasteHotkey,
+    updatePlainPasteHotkey,
     updateSearchHotkey,
     saveAppSetting,
     saveSetting,
@@ -1035,6 +1246,7 @@ const App = () => {
 
   return (
     <div
+      ref={appContainerRef}
       className="app-container"
     >
       <AppHeader
@@ -1060,14 +1272,21 @@ const App = () => {
         showTagFilter={showTagFilter}
         setShowTagFilter={setShowTagFilter}
         allTags={allTags}
+        tagColors={tagColors}
         searchIsFocused={searchIsFocused}
         setSearchIsFocused={setSearchIsFocused}
         setEditingTagsId={setEditingTagsId}
         theme={theme}
         colorMode={colorMode}
-        settingsTitle={showSettings && settingsSubpage === "advanced" ? t("advanced_settings") : t("settings")}
+        settingsTitle={
+          showSettings && settingsSubpage === "advanced"
+            ? t("advanced_settings")
+            : t("settings")
+        }
         typeFilter={typeFilter}
         setTypeFilter={setTypeFilter}
+        clipboardSortMode={clipboardSortMode}
+        onClipboardSortModeChange={updateClipboardSortMode}
         onBack={handleHeaderBack}
         onToggleChat={handleToggleHeaderChat}
       />
@@ -1078,55 +1297,100 @@ const App = () => {
       />
 
       <main
-        className={`main-content${chatMode ? " file-transfer-mode" : ""}${effectiveShowTagManager ? " tag-manager-mode" : ""}`}
-        style={{ 
-          overflowY: (showSettings || effectiveShowTagManager) ? 'auto' : 'hidden',
-          padding: effectiveShowTagManager ? '0' : undefined
+        ref={mainRef}
+        className={`main-content${chatMode ? " file-transfer-mode" : ""}${effectiveShowTagManager ? " tag-manager-mode" : ""}${showSettings ? " settings-mode" : ""}${splitActive ? " is-split" : ""}`}
+        style={{
+          padding: effectiveShowTagManager ? "0" : undefined,
+          ...(splitRatio != null
+            ? { ["--split-columns" as string]: `minmax(240px, ${splitRatio * 100}fr) minmax(0, ${(1 - splitRatio) * 100}fr)` }
+            : {})
         }}
-        onWheel={handleMainWheel}
       >
-        <AppMainContent
-          t={t}
-          theme={theme}
-          showSettings={showSettings}
-          showTagManager={effectiveShowTagManager}
-          tagManagerEnabled={tagManagerEnabled}
-          showEmojiPanel={effectiveShowEmojiPanel}
-          chatMode={chatMode}
-          localIp={localIp}
-          actualPort={actualPort}
-          settingsPanelProps={settingsPanelProps}
-          emojiFavorites={emojiFavorites}
-          setEmojiFavorites={setEmojiFavorites}
-          emojiPanelTab={emojiPanelTab}
-          setEmojiPanelTab={setEmojiPanelTab}
-          saveSetting={saveSetting}
-          filteredHistory={filteredHistory}
-          search={search}
-          pinnedItems={pinnedItems}
-          unpinnedItems={unpinnedItems}
-          compactMode={compactMode}
-          selectedIndex={selectedIndex}
-          isKeyboardMode={isKeyboardMode}
-          virtualListRef={virtualListRef}
-          handlePinnedReorder={handlePinnedReorder}
-          renderItemContent={renderItemContent}
-          loadMoreHistory={loadMoreHistory}
-          handleListScroll={handleListScroll}
-          hasMore={effectiveHasMore}
-          isLoadingMore={isLoadingMore}
-          showScrollTop={showScrollTopVisible}
-          onScrollTop={handleScrollTop}
-        />
+        <div
+          ref={splitListRef}
+          className="main-split-list"
+          onMouseOver={splitActive ? handleListMouseOver : undefined}
+          onMouseLeave={splitActive ? handleListMouseLeave : undefined}
+        >
+          <AppMainContent
+            t={t}
+            theme={theme}
+            showSettings={showSettings}
+            showTagManager={effectiveShowTagManager}
+            tagManagerEnabled={tagManagerEnabled}
+            showEmojiPanel={effectiveShowEmojiPanel}
+            chatMode={chatMode}
+            localIp={localIp}
+            actualPort={actualPort}
+            fileTransferAccessToken={fileTransferAccessToken}
+            fileTransferLanKey={fileTransferLanKey}
+            settingsPanelProps={settingsPanelProps}
+            emojiFavorites={emojiFavorites}
+            setEmojiFavorites={setEmojiFavorites}
+            emojiPanelTab={emojiPanelTab}
+            setEmojiPanelTab={setEmojiPanelTab}
+            saveSetting={saveSetting}
+            filteredHistory={filteredHistory}
+            search={search}
+            pinnedItems={pinnedItems}
+            unpinnedItems={unpinnedItems}
+            compactMode={compactMode}
+            selectedIndex={selectedIndex}
+            isKeyboardMode={isKeyboardMode}
+            virtualListRef={virtualListRef}
+            pinnedOrderIds={pinnedOrderIds}
+            isDraggingPinned={isDraggingPinned}
+            handlePinnedIdsReorder={handlePinnedIdsReorder}
+            handlePinnedDragStart={handlePinnedDragStart}
+            handlePinnedDragEnd={handlePinnedDragEnd}
+            renderItemContent={renderItemContent}
+            loadMoreHistory={loadMoreHistory}
+            handleListScroll={handleListScroll}
+            hasMore={effectiveHasMore}
+            isLoadingMore={isLoadingMore}
+            showScrollTop={showScrollTopVisible}
+            onScrollTop={handleScrollTop}
+          />
+        </div>
+        {/* Always mounted as the grid's second column; content only when wide. */}
+        <aside className="main-split-detail" aria-hidden={!splitActive}>
+          {splitActive && (
+            <PaneDivider overlay active={splitResizing} label={t("pane_divider_hint")} {...splitDividerProps} />
+          )}
+          {splitActive && (
+            <ClipboardDetailPane
+              item={detailItem}
+              t={t}
+              language={language}
+              actions={detailActions}
+              isSensitive={detailIsSensitive}
+              isSensitiveHidden={detailIsSensitive && privacyProtection && !detailIsRevealed}
+              isRevealed={detailIsRevealed}
+              isEditingTags={!!detailItem && editingTagsId === detailItem.id}
+              isEditingNote={!!detailItem && editingNoteId === detailItem.id}
+              aiEnabled={aiEnabled}
+              isAIProcessing={!!detailItem && (aiDetails[detailItem.id]?.processing ?? processingAiId === detailItem.id)}
+              aiDetail={detailItem ? aiDetails[detailItem.id] : undefined}
+              showSourceAppIcon={showSourceAppIcon}
+              tagInput={tagInput}
+              tagSuggestions={allTags}
+              onTagInput={setTagInput}
+              noteDraft={editingNoteDraft}
+              onNoteDraftChange={setEditingNoteDraft}
+            />
+          )}
+        </aside>
       </main>
 
       <ToastContainer toasts={toasts} />
+      <MacAccessibilityPrompt ready={settingsLoaded} theme={theme} t={t} pushToast={pushToast} />
 
       <ConfirmDialog
         open={confirmDialog.show}
         title={confirmDialog.title}
         message={confirmDialog.message}
         theme={theme}
+        danger={confirmDialog.danger}
         confirmLabel={t('confirm')}
         cancelLabel={t('cancel')}
         onClose={closeConfirm}
@@ -1137,10 +1401,13 @@ const App = () => {
         isOpen={isUpdateOpen}
         version={updateVersion}
         notes={updateNotes}
+        important={updateImportant}
+        releaseChannel={updateReleaseChannel}
         downloadProgress={updateProgress}
         status={updateStatus}
         onUpdate={updateStatus === "ready" ? onApplyUpdate : onStartDownload}
         onClose={closeUpdateDialog}
+        t={t}
       />
     </div >
   );

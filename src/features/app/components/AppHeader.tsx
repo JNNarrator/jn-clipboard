@@ -1,6 +1,8 @@
-import type { RefObject } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
+import type { CSSProperties, MouseEvent, RefObject } from "react";
 import {
+  ArrowUpDown,
+  Check,
   ChevronLeft,
   MessageSquare,
   Pin,
@@ -13,7 +15,10 @@ import {
   X
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
-import { getTagColor, getTagTextColor } from "../../../shared/lib/utils";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getTagColor } from "../../../shared/lib/utils";
+import { isMacPlatform } from "../../../shared/lib/platform";
+import type { ClipboardSortMode } from "../types";
 
 interface AppHeaderProps {
   t: (key: string) => string;
@@ -38,6 +43,7 @@ interface AppHeaderProps {
   showTagFilter: boolean;
   setShowTagFilter: (val: boolean) => void;
   allTags: string[];
+  tagColors: Record<string, string>;
   searchIsFocused: boolean;
   setSearchIsFocused: (val: boolean) => void;
   setEditingTagsId: (val: number | null) => void;
@@ -46,6 +52,8 @@ interface AppHeaderProps {
   settingsTitle: string;
   typeFilter: string | null;
   setTypeFilter: (val: string | null) => void;
+  clipboardSortMode: ClipboardSortMode;
+  onClipboardSortModeChange: (val: ClipboardSortMode) => void;
   onBack: () => void;
   onToggleChat: () => void;
 }
@@ -73,6 +81,7 @@ const AppHeader = ({
   showTagFilter,
   setShowTagFilter,
   allTags,
+  tagColors,
   searchIsFocused,
   setSearchIsFocused,
   setEditingTagsId,
@@ -81,9 +90,14 @@ const AppHeader = ({
   settingsTitle,
   typeFilter,
   setTypeFilter,
+  clipboardSortMode,
+  onClipboardSortModeChange,
   onBack,
   onToggleChat
 }: AppHeaderProps) => {
+  const [sortMenuOpen, setSortMenuOpen] = useState(false);
+  const sortMenuRef = useRef<HTMLDivElement | null>(null);
+
   const getTypeName = (type: string) => {
     switch (type) {
       case "code": return t('type_code');
@@ -93,201 +107,332 @@ const AppHeader = ({
       case "image": return t('type_image');
       case "video": return t('type_video');
       case "rich_text": return t('type_rich_text');
-      default: return t('type_text') || 'Text';
+      default: return t('type_text');
     }
   };
 
+  const searchVisible = showSearchBox || search.trim().length > 0;
+  const isMac = isMacPlatform();
+  const sortOptions: Array<{ value: ClipboardSortMode; label: string }> = [
+    { value: "activity", label: t("clipboard_sort_activity") },
+    { value: "created", label: t("clipboard_sort_created") },
+    { value: "last_used", label: t("clipboard_sort_last_used") },
+    { value: "usage", label: t("clipboard_sort_usage") }
+  ];
+  const activeSortLabel =
+    sortOptions.find((option) => option.value === clipboardSortMode)?.label ||
+    t("clipboard_sort_activity");
+
+  useEffect(() => {
+    if (!sortMenuOpen) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!sortMenuRef.current?.contains(event.target as Node)) {
+        setSortMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setSortMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [sortMenuOpen]);
+
+  useEffect(() => {
+    if (!searchVisible) setSortMenuOpen(false);
+  }, [searchVisible]);
+
+  const headerTitle = showEmojiPanel
+    ? t('emoji_panel')
+    : showTagManager && tagManagerEnabled
+      ? t('tag_manager')
+      : showSettings
+        ? (chatMode ? t('file_transfer') : settingsTitle)
+        : t('app_name');
+
+  const hideWindow = (e: MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    invoke("hide_window_cmd").catch(console.error);
+  };
+
   return (
-  <header className="window-drag-region">
-    <div className="header-top">
-      <div className="header-leading">
-        {(showSettings || showTagManager || showEmojiPanel) && (
-          <button className="btn-icon window-no-drag" onClick={onBack}>
-            <ChevronLeft size={18} />
+    <header
+      onMouseDown={(e) => {
+        // Only drag on left click
+        if (e.button !== 0) return;
+
+        // Don't drag if clicking on interactive elements
+        const target = e.target as HTMLElement;
+        if (target.closest('button, input, select, textarea, [role="button"]')) {
+          return;
+        }
+
+        // Blur search input if focused
+        if (searchInputRef.current && document.activeElement === searchInputRef.current) {
+          searchInputRef.current.blur();
+        }
+
+        // Prevent default and start dragging
+        e.preventDefault();
+        getCurrentWindow().startDragging();
+      }}
+    >
+      <div className="header-top">
+        <div className="header-leading">
+          {isMac && (
+            <div className="mac-traffic-lights">
+              <button
+                className="traffic-light red"
+                title={t('hide')}
+                aria-label={t('hide')}
+                onClick={hideWindow}
+              />
+            </div>
+          )}
+          {(showSettings || showTagManager || showEmojiPanel) && (
+            <button className="btn-icon header-back-btn" onClick={onBack} aria-label={t("back")} title={t("back")}>
+              <ChevronLeft size={16} />
+            </button>
+          )}
+          {showSettings || showTagManager || showEmojiPanel ? (
+            <span className="header-title page-header-title is-page-title">{headerTitle}</span>
+          ) : (
+            <span className="brand-mark" role="img" aria-label={t("app_name")} />
+          )}
+        </div>
+
+        <div className="header-drag-region">
+          {/* Middle area for dragging */}
+        </div>
+
+        <div className="header-actions">
+          {/* Pin Button */}
+          <button
+            className={`btn-icon header-pin-btn ${isWindowPinned ? 'active' : ''}`}
+            title={t('pin')}
+            aria-label={t('pin')}
+            onClick={() => {
+              const newVal = !isWindowPinned;
+              setIsWindowPinned(newVal);
+              invoke("set_window_pinned", { pinned: newVal }).catch(console.error);
+            }}
+          >
+            {isWindowPinned ? <PinOff size={16} /> : <Pin size={16} />}
           </button>
-        )}
-        <div className="header-drag-region" data-tauri-drag-region>
-          <span className="header-title">
-            {showEmojiPanel
-              ? (t('emoji_panel') || '表情包')
-              : showTagManager && tagManagerEnabled
-                ? (t('tag_manager') || '标签管理')
-                : showSettings
-                  ? settingsTitle
-                  : t('app_name')}
-          </span>
+
+          {!showSettings && !showTagManager && !showEmojiPanel && (
+            <>
+              <button className="btn-icon" title={t('clear_history')} aria-label={t('clear_history')} onClick={clearHistory}>
+                <Trash2 size={16} />
+              </button>
+              {tagManagerEnabled && (
+                <button className="btn-icon" title={t('tag_manager')} aria-label={t('tag_manager')} onClick={() => setShowTagManager(true)}>
+                  <Tag size={16} />
+                </button>
+              )}
+              {emojiPanelEnabled && (
+                <button className="btn-icon" title={t('emoji_panel')} aria-label={t('emoji_panel')} onClick={() => setShowEmojiPanel(true)}>
+                  <Smile size={16} />
+                </button>
+              )}
+              <button className="btn-icon" title={t('settings')} aria-label={t('settings')} onClick={() => setShowSettings(true)}>
+                <SettingsIcon size={16} />
+              </button>
+            </>
+          )}
+          {fileServerEnabled && (
+            <button
+              className={`btn-icon header-chat-btn ${chatMode && showSettings ? 'active' : ''}`}
+              title={t('file_transfer')}
+              aria-label={t('file_transfer')}
+              onClick={onToggleChat}
+            >
+              <MessageSquare size={16} />
+            </button>
+          )}
+
+          {!isMac && (
+            <button
+              className="btn-icon windows-close-btn"
+              title={t('hide')}
+              aria-label={t('hide')}
+              onClick={hideWindow}
+            >
+              <X size={16} strokeWidth={2.2} />
+            </button>
+          )}
         </div>
       </div>
-      <div className="header-actions window-no-drag">
-        {/* Pin Button - Always visible but single instance */}
-        <button
-          className={`btn-icon ${isWindowPinned ? 'active' : ''}`}
-          title={t('pin')}
-          onClick={() => {
-            const newVal = !isWindowPinned;
-            setIsWindowPinned(newVal);
-            invoke("set_window_pinned", { pinned: newVal }).catch(console.error);
-          }}
+
+      {!showSettings && !showTagManager && !showEmojiPanel && (
+        <div
+          className={`search-reveal${searchVisible ? " is-open" : ""}`}
+          aria-hidden={!searchVisible}
         >
-          {isWindowPinned ? <PinOff size={16} /> : <Pin size={16} />}
-        </button>
-
-        {!showSettings && !showTagManager && !showEmojiPanel && (
-          <>
-            <button className="btn-icon" title={t('clear_history')} onClick={clearHistory}>
-              <Trash2 size={16} />
-            </button>
-            {tagManagerEnabled && (
-              <button className="btn-icon" title={t('tag_manager') || '标签管理'} onClick={() => setShowTagManager(true)}>
-                <Tag size={16} />
-              </button>
-            )}
-            {emojiPanelEnabled && (
-              <button className="btn-icon" title={t('emoji_panel') || '表情包'} onClick={() => setShowEmojiPanel(true)}>
-                <Smile size={16} />
-              </button>
-            )}
-            <button className="btn-icon" title={t('settings')} onClick={() => setShowSettings(true)}>
-              <SettingsIcon size={16} />
-            </button>
-          </>
-        )}
-        {fileServerEnabled && (
-          <button
-            className={`btn-icon header-chat-btn ${chatMode && showSettings ? 'active' : ''}`}
-            title="Chat"
-            onClick={onToggleChat}
-          >
-            <MessageSquare size={16} />
-          </button>
-        )}
-        <button className="btn-icon" title={t('hide')} onClick={async () => {
-          invoke("hide_window_cmd").catch(console.error);
-        }}>
-          <X size={16} />
-        </button>
-      </div>
-    </div>
-
-    {!showSettings && !showTagManager && !showEmojiPanel && (
-      <AnimatePresence>
-        {(showSearchBox || search.trim().length > 0) && (
-          <motion.div
-            initial={{ height: 0, opacity: 0, overflow: 'hidden' }}
-            animate={{
-              height: "auto",
-              opacity: 1,
-              transitionEnd: { overflow: "visible" }
-            }}
-            exit={{ height: 0, opacity: 0, overflow: 'hidden' }}
-            transition={{ duration: 0.2, ease: "circOut" }}
-            style={{ flexShrink: 0 }}
-          >
-            <div className="search-container window-no-drag">
-              <div style={{ position: 'relative' }}>
-                <Search size={14} className="search-icon" />
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  className={`search-input ${showTagFilter && allTags.length > 0 ? 'dropdown-open' : ''}`}
-                  placeholder={t('search_placeholder')}
-                  value={search}
-                  onCompositionStart={() => setIsComposing(true)}
-                  onCompositionEnd={(e) => {
-                    setIsComposing(false);
-                    setSearch((e.target as HTMLInputElement).value);
-                  }}
-                  onChange={(e) => {
-                    setSearch(e.target.value);
-                  }}
-                  onMouseDown={() => {
-                    invoke("activate_window_focus").catch(console.error);
-                  }}
-                  onClick={() => { setShowTagFilter(true); setEditingTagsId(null); }}
-                  onFocus={() => {
-                    invoke("activate_window_focus").catch(console.error);
-                    setShowTagFilter(true);
-                    setSearchIsFocused(true);
-                    setEditingTagsId(null);
-                  }}
-                  onBlur={() => {
-                    setTimeout(() => {
-                      setShowTagFilter(false);
-                      setSearchIsFocused(false);
-                    }, 200);
-                  }}
-                  style={{ color: colorMode === 'dark' ? '#ffffff' : undefined }}
-                />
-                {showTagFilter && searchIsFocused && allTags.length > 0 && (
-                  <div className="tags-dropdown">
-                    <div className="tags-label">{t('tags') || "Tags"}</div>
-                    <div className="tags-list">
-                      {allTags.map(tag => {
-                        const tagBackground = getTagColor(tag, theme);
-                        return (
-                          <span
-                            className="tag-chip"
-                            key={tag}
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              setSearch("tag:" + tag);
-                              setShowTagFilter(false);
-                            }}
-                            data-tag={tag}
-                            style={{ background: tagBackground, color: getTagTextColor(tagBackground) }}
-                          >
-                            {tag}
-                          </span>
-                        );
-                      })}
+          <div className="search-reveal-inner">
+            <div className="search-container">
+                <div className="search-input-wrap">
+                  <div className="search-input-row">
+                    <span className="search-prompt" aria-hidden="true">
+                      {theme === "terminal" ? "➜" : "%"}
+                    </span>
+                    <Search size={14} className="search-icon" />
+                    <input
+                    ref={searchInputRef}
+                    type="text"
+                    className={`search-input has-sort-control ${showTagFilter && searchIsFocused && search.trim().length === 0 && allTags.length > 0 ? 'dropdown-open' : ''}`}
+                    placeholder={
+                      theme === "terminal"
+                        ? t("search_placeholder_terminal")
+                        : t('search_placeholder')
+                    }
+                    value={search}
+                    onCompositionStart={() => setIsComposing(true)}
+                    onCompositionEnd={(e) => {
+                      setIsComposing(false);
+                      setSearch((e.target as HTMLInputElement).value);
+                    }}
+                    onChange={(e) => {
+                      setSearch(e.target.value);
+                    }}
+                    onClick={() => { setShowTagFilter(true); setEditingTagsId(null); }}
+                    onFocus={() => {
+                      // Do not re-invoke activate here: a second focus bounce can
+                      // blur the caret right after the user clicks the field.
+                      setSortMenuOpen(false);
+                      setShowTagFilter(true);
+                      setSearchIsFocused(true);
+                      setEditingTagsId(null);
+                    }}
+                    onBlur={() => {
+                      setTimeout(() => {
+                        setShowTagFilter(false);
+                        setSearchIsFocused(false);
+                      }, 200);
+                    }}
+                    style={{ color: colorMode === 'dark' ? '#ffffff' : undefined }}
+                  />
+                    <div ref={sortMenuRef} className="clipboard-sort-anchor">
+                      <button
+                        type="button"
+                        className={`clipboard-sort-trigger${sortMenuOpen ? " is-open" : ""}${clipboardSortMode !== "activity" ? " has-custom-sort" : ""}`}
+                        aria-label={`${t("clipboard_sort")}: ${activeSortLabel}`}
+                        aria-haspopup="menu"
+                        aria-expanded={sortMenuOpen}
+                        title={`${t("clipboard_sort")}: ${activeSortLabel}`}
+                        onClick={() => {
+                          setShowTagFilter(false);
+                          setSortMenuOpen((open) => !open);
+                        }}
+                      >
+                        <ArrowUpDown size={14} aria-hidden="true" />
+                      </button>
+                      {sortMenuOpen && (
+                        <div className="clipboard-sort-menu" role="menu" aria-label={t("clipboard_sort")}>
+                          <div className="clipboard-sort-menu-title">{t("clipboard_sort")}</div>
+                          {sortOptions.map((option) => {
+                            const selected = option.value === clipboardSortMode;
+                            return (
+                              <button
+                                key={option.value}
+                                type="button"
+                                role="menuitemradio"
+                                aria-checked={selected}
+                                className={`clipboard-sort-option${selected ? " is-selected" : ""}`}
+                                onClick={() => {
+                                  onClipboardSortModeChange(option.value);
+                                  setSortMenuOpen(false);
+                                }}
+                              >
+                                <span>{option.label}</span>
+                                <Check
+                                  size={13}
+                                  aria-hidden="true"
+                                  className={selected ? undefined : "clipboard-sort-check-placeholder"}
+                                />
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   </div>
-                )}
-              </div>
-              <div
-                className="hide-scrollbar"
-                style={{
-                  display: 'flex',
-                  gap: '6px',
-                  padding: '8px 0 0 0',
-                  overflowX: 'auto',
-                  scrollbarWidth: 'none',
-                  msOverflowStyle: 'none'
-                }}
-                onWheel={(e) => {
-                  if (e.deltaY !== 0) {
-                    e.currentTarget.scrollLeft += e.deltaY;
-                  }
-                }}
-              >
-                {['text', 'image', 'file', 'url', 'code', 'video', 'rich_text'].map(t => (
-                  <button
-                    key={t}
-                    className={`btn-icon ${typeFilter === t ? 'active' : ''}`}
-                    onClick={() => setTypeFilter(typeFilter === t ? null : t)}
-                    style={{
-                      width: 'auto',
-                      padding: '4px 8px',
-                      fontSize: '11px',
-                      borderRadius: '4px',
-                      whiteSpace: 'nowrap',
-                      flexShrink: 0,
-                      opacity: typeFilter === t ? 1 : 0.7
-                    }}
-                    title={getTypeName(t)}
-                  >
-                    {getTypeName(t)}
-                  </button>
-                ))}
-              </div>
+                  {showTagFilter && searchIsFocused && search.trim().length === 0 && allTags.length > 0 && (
+                    <div className="tags-dropdown">
+                      <div className="tags-list">
+                        {allTags.map(tag => {
+                          const tagColor = tagColors[tag] || getTagColor(tag, theme);
+                          return (
+                            <button
+                              type="button"
+                              className="tag-chip tag-filter-chip"
+                              key={tag}
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                setSearch("tag:" + tag);
+                                setShowTagFilter(false);
+                              }}
+                              data-tag={tag}
+                              style={{
+                                '--tag-color': tagColor,
+                              } as CSSProperties}
+                            >
+                              <span
+                                className="tag-color-dot"
+                                style={{ backgroundColor: tagColor }}
+                                aria-hidden="true"
+                              />
+                              <span className="tag-name">{tag}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div
+                  className="search-type-filters hide-scrollbar"
+                  onWheel={(e) => {
+                    e.stopPropagation();
+                    if (e.deltaY !== 0) {
+                      e.currentTarget.scrollLeft += e.deltaY;
+                    }
+                  }}
+                >
+                  {[null, 'text', 'image', 'file', 'url', 'code', 'video', 'rich_text'].map(type => (
+                    <button
+                      key={type ?? 'all'}
+                      className={`btn-icon ${typeFilter === type ? 'active' : ''}`}
+                      onClick={() => setTypeFilter(type)}
+                      style={{
+                        width: 'auto',
+                        padding: '4px 8px',
+                        fontSize: 'var(--font-size-xs)',
+                        borderRadius: '4px',
+                        whiteSpace: 'nowrap',
+                        flexShrink: 0,
+                        opacity: typeFilter === type ? 1 : 0.7
+                      }}
+                      title={type === null ? t('type_all') : getTypeName(type)}
+                    >
+                      {type === null ? t('type_all') : getTypeName(type)}
+                    </button>
+                  ))}
+                </div>
 
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    )}
-  </header>
-);
+          </div>
+        </div>
+      )}
+    </header>
+  );
 };
 
 export default AppHeader;

@@ -1,12 +1,19 @@
-import { Github, MessageSquare, RotateCcw, X, ArrowUpCircle } from "lucide-react";
+import { Github, MessageSquare, RotateCcw } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { check, type Update } from "@tauri-apps/plugin-updater";
-import { relaunch } from "@tauri-apps/plugin-process";
-import { useState } from "react";
+import { emit, listen } from "@tauri-apps/api/event";
+import {
+    CHECK_RESULT_EVENT,
+    type UpdateCheckResult
+} from "../../../shared/hooks/useAutoUpdate";
+import SettingsAbout from "./SettingsAbout";
+import type { ReleaseChannel } from "../../../shared/lib/releaseBuild";
 
 interface SettingsFooterProps {
+    expanded?: boolean;
     t: (key: string) => string;
     appVersion: string;
+    releaseChannel: ReleaseChannel;
+    portable: boolean;
     updateStatus: string;
     setUpdateStatus: (val: string) => void;
     onResetSettings: () => void;
@@ -15,200 +22,97 @@ interface SettingsFooterProps {
 }
 
 const SettingsFooter = ({
+    expanded = false,
     t,
     appVersion,
+    releaseChannel,
+    portable,
     updateStatus,
     setUpdateStatus,
     onResetSettings,
     emailCopied,
     setEmailCopied
 }: SettingsFooterProps) => {
-    const [pendingUpdate, setPendingUpdate] = useState<Update | null>(null);
-
-    const handleInstallUpdate = async () => {
-        if (!pendingUpdate) return;
-        setUpdateStatus(`${t('downloading')} (0%)`);
-        
-        let downloaded = 0;
-        let total = 0;
-
-        try {
-            await pendingUpdate.downloadAndInstall((event) => {
-                switch (event.event) {
-                    case 'Started':
-                        total = event.data.contentLength || 0;
-                        break;
-                    case 'Progress':
-                        downloaded += event.data.chunkLength;
-                        if (total > 0) {
-                            const percent = Math.round((downloaded / total) * 100);
-                            setUpdateStatus(`${t('downloading')} (${percent}%)`);
-                        }
-                        break;
-                    case 'Finished':
-                        setUpdateStatus(t('relaunching') || '正在重启...');
-                        break;
-                }
-            });
-            await relaunch();
-        } catch (err) {
-            console.error('Update failed:', err);
-            setUpdateStatus(t('checking_failed'));
-            setTimeout(() => setUpdateStatus(''), 3000);
-        }
+    const copyEmail = () => {
+        navigator.clipboard.writeText('tiez@name666.top');
+        setEmailCopied(true);
+        setTimeout(() => setEmailCopied(false), 2000);
     };
+    const updateButton = (
+        <button
+            type="button"
+            className={expanded ? `settings-action-button settings-about-update${updateStatus === t('checking_failed') ? ' is-error' : updateStatus === t('up_to_date') ? ' is-success' : ''}` : undefined}
+            onClick={async () => {
+                if (updateStatus) return;
+                setUpdateStatus(t('checking'));
+
+                const requestId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+                let settled = false;
+                let timeoutId: number | undefined;
+                const unlisten = await listen<UpdateCheckResult>(CHECK_RESULT_EVENT, (event) => {
+                    if (event.payload.requestId !== requestId || settled) return;
+                    settled = true;
+                    if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+                    unlisten();
+
+                    const labels: Record<UpdateCheckResult["status"], string> = {
+                        available: t('new_version_found'),
+                        "up-to-date": t('up_to_date'),
+                        error: t('checking_failed'),
+                        portable: t('portable_manual_update')
+                    };
+                    setUpdateStatus(labels[event.payload.status]);
+                    window.setTimeout(() => setUpdateStatus(''), event.payload.status === "portable" ? 4000 : 2000);
+                });
+
+                timeoutId = window.setTimeout(() => {
+                    if (settled) return;
+                    settled = true;
+                    unlisten();
+                    setUpdateStatus(t('checking_failed'));
+                    window.setTimeout(() => setUpdateStatus(''), 2000);
+                }, 12000);
+
+                await emit("check-update-manually", { requestId });
+            }}
+            disabled={!!updateStatus}
+            style={expanded ? undefined : {
+                border: 'none',
+                background: 'transparent',
+                color: (updateStatus && (updateStatus === t('checking_failed'))) ? 'var(--status-danger)' :
+                       (updateStatus === t('up_to_date')) ? 'var(--status-success)' : 'var(--accent-color)',
+                cursor: updateStatus ? 'default' : 'pointer',
+                fontSize: 'var(--font-size-xs)',
+                padding: '2px 6px',
+                borderRadius: '4px',
+                opacity: updateStatus ? 1 : 0.8,
+                fontWeight: updateStatus ? 'bold' : 'normal',
+                transition: 'all 0.2s'
+            }}
+            onMouseEnter={(e) => !expanded && !updateStatus && (e.currentTarget.style.opacity = '1')}
+            onMouseLeave={(e) => !expanded && !updateStatus && (e.currentTarget.style.opacity = '0.8')}
+        >
+            {updateStatus || t('check_update')}
+        </button>
+    );
+
+    if (expanded) {
+        return (
+            <SettingsAbout
+                t={t}
+                appVersion={appVersion}
+                releaseChannel={releaseChannel}
+                portable={portable}
+                updateButton={updateButton}
+                emailCopied={emailCopied}
+                onCopyEmail={copyEmail}
+                onResetSettings={onResetSettings}
+            />
+        );
+    }
 
     return (
         <>
-            {/* Update Confirmation Modal */}
-            {pendingUpdate && (
-                <div style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    backgroundColor: 'rgba(0,0,0,0.6)',
-                    backdropFilter: 'blur(4px)',
-                    zIndex: 9999,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: '24px'
-                }}>
-                    <div className="settings-group" style={{
-                        maxWidth: '320px',
-                        width: '100%',
-                        padding: '16px',
-                        background: 'var(--bg-secondary)',
-                        borderRadius: '16px',
-                        boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
-                        border: '1px solid var(--border-color)',
-                        animation: 'modalSlideUp 0.3s ease-out'
-                    }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <ArrowUpCircle size={20} color="var(--accent-color)" />
-                                <h3 style={{ margin: 0, fontSize: '16px' }}>{t('update_available') || '发现新版本'}</h3>
-                            </div>
-                            <button
-                                onClick={() => setPendingUpdate(null)}
-                                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}
-                            >
-                                <X size={18} />
-                            </button>
-                        </div>
-
-                        <div style={{
-                            fontSize: '14px',
-                            color: 'var(--text-primary)',
-                            fontWeight: 600,
-                            marginBottom: '8px'
-                        }}>
-                            v{pendingUpdate.version}
-                        </div>
-
-                        {pendingUpdate.body && (
-                            <div style={{
-                                maxHeight: '160px',
-                                overflowY: 'auto',
-                                fontSize: '12px',
-                                color: 'var(--text-secondary)',
-                                background: 'rgba(0,0,0,0.1)',
-                                padding: '10px',
-                                borderRadius: '8px',
-                                marginBottom: '16px',
-                                whiteSpace: 'pre-wrap',
-                                lineHeight: '1.5'
-                            }}>
-                                {pendingUpdate.body}
-                            </div>
-                        )}
-
-                        {/* Progress Bar in the Middle */}
-                        {updateStatus.includes('%') && (
-                            <div style={{ marginTop: '16px', marginBottom: '8px' }}>
-                                <div style={{ 
-                                    height: '8px', 
-                                    background: 'var(--bg-element)', 
-                                    borderRadius: '4px', 
-                                    overflow: 'hidden',
-                                    border: '1px solid var(--line-soft)',
-                                    boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.1)'
-                                }}>
-                                    <div style={{ 
-                                        width: `${updateStatus.split('(')[1].split('%')[0]}%`,
-                                        height: '100%',
-                                        background: 'linear-gradient(90deg, var(--accent-color) 0%, var(--accent-hover) 100%)',
-                                        transition: 'width 0.3s ease-out'
-                                    }} />
-                                </div>
-                                <div style={{ 
-                                    textAlign: 'center', 
-                                    fontSize: '11px', 
-                                    marginTop: '6px', 
-                                    color: 'var(--accent-color)',
-                                    fontWeight: 700,
-                                    letterSpacing: '1px'
-                                }}>
-                                    {updateStatus.split('(')[1].split(')')[0]}
-                                </div>
-                                <div style={{ 
-                                    textAlign: 'center', 
-                                    fontSize: '10px', 
-                                    color: 'var(--text-muted)',
-                                    marginTop: '2px'
-                                }}>
-                                    正在同步 0.3.4 核心资源...
-                                </div>
-                            </div>
-                        )}
-
-                        <div style={{ 
-                            display: 'flex', 
-                            gap: '10px', 
-                            marginTop: updateStatus.includes('%') ? '0' : '0',
-                            maxHeight: updateStatus.includes('%') ? '0' : '100px',
-                            opacity: updateStatus.includes('%') ? 0 : 1,
-                            pointerEvents: updateStatus.includes('%') ? 'none' : 'auto',
-                            overflow: 'hidden',
-                            transition: 'all 0.3s ease'
-                        }}>
-                            <button
-                                className="update-modal-cancel-btn"
-                                style={{
-                                    flex: 1,
-                                    padding: '10px',
-                                    justifyContent: 'center',
-                                    margin: 0,
-                                    fontSize: '13px',
-                                    fontWeight: 600,
-                                    borderRadius: '12px'
-                                }}
-                                onClick={() => setPendingUpdate(null)}
-                            >
-                                {t('later') || '稍后再说'}
-                            </button>
-                            <button
-                                className="update-install-btn"
-                                style={{
-                                    flex: 1,
-                                    padding: '10px',
-                                    justifyContent: 'center',
-                                    margin: 0,
-                                    fontSize: '13px',
-                                    fontWeight: 600,
-                                    borderRadius: '12px'
-                                }}
-                                onClick={handleInstallUpdate}
-                            >
-                                {t('install_now') || '立即安装'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
             {/* Footer Actions */}
             <div style={{
                 marginTop: '16px',
@@ -231,15 +135,11 @@ const SettingsFooter = ({
                         justifyContent: 'center',
                         marginBottom: '0'
                     }}
-                    onClick={() => {
-                        navigator.clipboard.writeText('tiez@name666.top');
-                        setEmailCopied(true);
-                        setTimeout(() => setEmailCopied(false), 2000);
-                    }}
+                    onClick={copyEmail}
                 >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <MessageSquare size={16} />
-                        <span style={{ fontSize: '13px', fontWeight: 600 }}>
+                        <span style={{ fontSize: 'var(--font-size-base)', fontWeight: 600 }}>
                             {emailCopied ? t('email_copied') : t('feedback')}
                         </span>
                     </div>
@@ -263,7 +163,7 @@ const SettingsFooter = ({
                 >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <RotateCcw size={16} />
-                        <span style={{ fontSize: '13px', fontWeight: 600 }}>{t('reset_defaults')}</span>
+                        <span style={{ fontSize: 'var(--font-size-base)', fontWeight: 600 }}>{t('reset_defaults')}</span>
                     </div>
                 </div>
             </div>
@@ -276,7 +176,7 @@ const SettingsFooter = ({
                 opacity: 1
             }}>
                 <div style={{
-                    fontSize: '13px',
+                    fontSize: 'var(--font-size-base)',
                     fontWeight: 600,
                     color: 'var(--text-secondary)',
                     letterSpacing: '0.5px',
@@ -287,63 +187,27 @@ const SettingsFooter = ({
                     gap: '8px'
                 }}>
                     <span>TieZ {appVersion ? `v${appVersion}` : "v0.2.0"}</span>
-                    <button
-                        onClick={async () => {
-                            if (updateStatus) return;
-                            setUpdateStatus(t('checking'));
-                            try {
-                                const update = await check();
-                                if (update) {
-                                    setUpdateStatus('');
-                                    setPendingUpdate(update);
-                                } else {
-                                    setUpdateStatus(t('up_to_date'));
-                                    setTimeout(() => setUpdateStatus(''), 3000);
-                                }
-                            } catch (err) {
-                                console.error('Update check failed:', err);
-                                setUpdateStatus(t('checking_failed'));
-                                setTimeout(() => setUpdateStatus(''), 3000);
-                            }
-                        }}
-                        disabled={!!updateStatus}
-                        style={{
-                            border: 'none',
-                            background: 'transparent',
-                            color: (updateStatus && (updateStatus.includes('Failed') || updateStatus.includes('失败'))) ? '#ff4d4f' : 'var(--accent-color)',
-                            cursor: updateStatus ? 'default' : 'pointer',
-                            fontSize: '11px',
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            opacity: updateStatus ? 1 : 0.8,
-                            fontWeight: updateStatus ? 'bold' : 'normal',
-                            transition: 'all 0.2s'
-                        }}
-                        onMouseEnter={(e) => !updateStatus && (e.currentTarget.style.opacity = '1')}
-                        onMouseLeave={(e) => !updateStatus && (e.currentTarget.style.opacity = '0.8')}
-                    >
-                        {(updateStatus && !updateStatus.includes('%')) ? updateStatus : t('check_update')}
-                    </button>
+                    {releaseChannel === "beta" && (
+                        <span className="settings-version-badge beta">Beta</span>
+                    )}
+                    {portable && (
+                        <span className="settings-version-badge portable">Portable</span>
+                    )}
+                    {updateButton}
                 </div>
                 <div style={{
-                    fontSize: '11px',
+                    fontSize: 'var(--font-size-xs)',
                     color: 'var(--text-secondary)',
                     fontWeight: 500,
                     marginBottom: '4px'
                 }}>
                     {t('slogan')}
                 </div>
-                <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '10px',
-                    flexWrap: 'wrap'
-                }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', flexWrap: 'wrap' }}>
                     <button
                         onClick={() => openUrl('https://tiez.name666.top/')}
                         style={{
-                            fontSize: '11px',
+                            fontSize: 'var(--font-size-xs)',
                             color: 'var(--accent-color)',
                             background: 'transparent',
                             border: 'none',
@@ -361,7 +225,7 @@ const SettingsFooter = ({
                     <button
                         onClick={() => openUrl('https://github.com/jimuzhe/tiez-clipboard')}
                         style={{
-                            fontSize: '11px',
+                            fontSize: 'var(--font-size-xs)',
                             color: 'var(--accent-color)',
                             background: 'transparent',
                             border: 'none',

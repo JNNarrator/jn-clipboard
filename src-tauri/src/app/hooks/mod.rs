@@ -13,13 +13,33 @@ use windows::Win32::UI::WindowsAndMessaging::{
     WM_MBUTTONDOWN, WM_RBUTTONDOWN, WM_SYSKEYDOWN, WM_SYSKEYUP,
 };
 
-use crate::app::window_manager::{hide_window_cmd, toggle_window};
+use crate::app::window_manager::{hide_window_on_resign, toggle_window};
 use crate::app_state::SettingsState;
 use crate::global_state::*;
+#[cfg(target_os = "windows")]
 use crate::infrastructure::windows_ext::WindowExt;
 
 // Store registered hotkey IDs for cleanup
 static BLOCKED_HOTKEY_IDS: std::sync::Mutex<Vec<i32>> = std::sync::Mutex::new(Vec::new());
+
+/// The main window's HWND, so the mouse hook never asks Tauri for it:
+/// `WebviewWindow::hwnd()` waits for the main thread, and a low-level hook
+/// that waits stalls every click in the system (and Windows may drop it).
+#[cfg(target_os = "windows")]
+static MAIN_HWND: std::sync::atomic::AtomicIsize = std::sync::atomic::AtomicIsize::new(0);
+
+/// Record the main window's HWND. Call wherever the window is (re)created.
+#[cfg(target_os = "windows")]
+pub fn remember_main_hwnd(window: &tauri::WebviewWindow) {
+    if let Ok(hwnd) = window.hwnd() {
+        MAIN_HWND.store(hwnd.0 as isize, Ordering::Relaxed);
+    }
+}
+
+#[cfg(any(target_os = "windows", test))]
+fn is_recording_clear_key(vk: u32) -> bool {
+    matches!(vk, 0x08 | 0x2E)
+}
 
 #[cfg(target_os = "windows")]
 fn quick_paste_index_from_vk(vk: u32) -> Option<usize> {
@@ -74,6 +94,7 @@ fn quick_paste_modifier_active(
 #[tauri::command]
 pub fn set_recording_mode(app_handle: AppHandle, enabled: bool) -> Result<(), String> {
     IS_RECORDING.store(enabled, Ordering::SeqCst);
+    crate::global_state::CLIPBOARD_MONITOR_PAUSED.store(enabled, Ordering::Relaxed);
 
     let mut ids = BLOCKED_HOTKEY_IDS.lock().unwrap();
 
@@ -183,12 +204,16 @@ pub unsafe extern "system" fn keyboard_proc(
 
             if !is_win && is_down {
                 if let Some(handle) = GLOBAL_APP_HANDLE.get() {
+                    if is_recording_clear_key(vk) {
+                        let _ = handle.emit("hotkey-recorded", String::new());
+                        IS_RECORDING.store(false, Ordering::SeqCst);
+                        return LRESULT(1);
+                    }
+
                     let key_name = match vk {
                         0x20 => "Space".to_string(),
                         0x0D => "Enter".to_string(),
                         0x09 => "Tab".to_string(),
-                        0x08 => "Backspace".to_string(),
-                        0x2E => "Delete".to_string(),
                         0x2D => "Insert".to_string(),
                         0x21 => "PageUp".to_string(),
                         0x22 => "PageDown".to_string(),
@@ -241,13 +266,18 @@ pub unsafe extern "system" fn keyboard_proc(
             let win_down = (GetAsyncKeyState(VK_LWIN.0 as i32) as u16 & 0x8000 != 0)
                 || (GetAsyncKeyState(VK_RWIN.0 as i32) as u16 & 0x8000 != 0);
 
-            if vk == 0x56 && ctrl_down && !alt_down && !shift_down && !win_down {
+            // Injected keystrokes are skipped: TieZ's own synthetic Ctrl+V already
+            // schedules this sound (clipboard_ops::schedule_paste_sound).
+            let injected = kbd_struct.flags.0 & 0x10 != 0; // LLKHF_INJECTED
+            if vk == 0x56 && ctrl_down && !alt_down && !shift_down && !win_down && !injected {
                 if is_down {
                     if let Some(handle) = GLOBAL_APP_HANDLE.get() {
                         let settings = handle.state::<SettingsState>();
                         if settings.sound_enabled.load(Ordering::Relaxed) {
+                            // Played natively, not by the WebView, so it keeps
+                            // working while light mode has destroyed the UI.
                             std::thread::spawn(move || {
-                                let _ = handle.emit("play-sound", "paste");
+                                crate::services::ui_sound::play_ui_sound(handle, "paste");
                             });
                         }
                     }
@@ -419,44 +449,45 @@ pub unsafe extern "system" fn mouse_proc(n_code: i32, w_param: WPARAM, l_param: 
             }
 
             // Click Elsewhere to Hide Logic
+            // Only plain Win32 calls in here; the reaction runs on its own
+            // thread, since hiding waits on the main thread and sleeps.
             if msg == WM_LBUTTONDOWN || msg == WM_RBUTTONDOWN {
+                let main_hwnd_raw = MAIN_HWND.load(Ordering::Relaxed);
+                let main_hwnd = HWND(main_hwnd_raw as *mut _);
                 if let Some(handle) = GLOBAL_APP_HANDLE.get() {
-                    if let Some(window) = handle.get_webview_window("main") {
-                        if !IGNORE_BLUR.load(Ordering::Relaxed) {
-                            let mouse_struct = *(l_param.0 as *const MSLLHOOKSTRUCT);
-                            let point = mouse_struct.pt;
+                    if main_hwnd_raw != 0
+                        && !is_blur_ignored()
+                        && WindowExt::is_window_visible(main_hwnd)
+                    {
+                        let mouse_struct = *(l_param.0 as *const MSLLHOOKSTRUCT);
+                        let point = mouse_struct.pt;
+                        let mut rect = RECT::default();
+                        let _ = windows::Win32::UI::WindowsAndMessaging::GetWindowRect(
+                            main_hwnd, &mut rect,
+                        );
 
-                            if let Ok(hwnd_raw) = window.hwnd() {
-                                let main_hwnd = HWND(hwnd_raw.0);
-                                if !WindowExt::is_window_visible(main_hwnd) {
-                                    return CallNextHookEx(None, n_code, w_param, l_param);
-                                }
-                                let mut rect = RECT::default();
-                                let _ = windows::Win32::UI::WindowsAndMessaging::GetWindowRect(
-                                    main_hwnd, &mut rect,
-                                );
+                        // Boundary check: Is point outside the rect? (with 5px margin of safety)
+                        let margin = 5;
+                        let is_outside = point.x < rect.left - margin
+                            || point.x > rect.right + margin
+                            || point.y < rect.top - margin
+                            || point.y > rect.bottom + margin;
 
-                                // Boundary check: Is point outside the rect? (with 5px margin of safety)
-                                let margin = 5;
-                                let is_outside = point.x < rect.left - margin
-                                    || point.x > rect.right + margin
-                                    || point.y < rect.top - margin
-                                    || point.y > rect.bottom + margin;
-
-                                if is_outside {
-                                    // Status check before hiding
-                                    if !WindowExt::is_window_visible(main_hwnd) {
-                                        return CallNextHookEx(None, n_code, w_param, l_param);
-                                    }
-
-                                    if WINDOW_PINNED.load(Ordering::Relaxed) {
-                                        // Pinned: Just reset focusable state to ensure we don't retain focus
+                        if is_outside {
+                            let handle = handle.clone();
+                            std::thread::spawn(move || {
+                                if WINDOW_PINNED.load(Ordering::Relaxed) {
+                                    // Pinned: Just reset focusable state to ensure we don't retain focus
+                                    if let Some(window) = handle.get_webview_window("main") {
                                         let _ = window.set_focusable(false);
-                                    } else {
-                                        let _ = hide_window_cmd(handle.clone());
                                     }
+                                } else {
+                                    // Not hide_window_cmd: by now the click has
+                                    // focused what was clicked, and restoring the
+                                    // previous app would pull focus away from it.
+                                    let _ = hide_window_on_resign(handle);
                                 }
-                            }
+                            });
                         }
                     }
                 }
@@ -466,8 +497,12 @@ pub unsafe extern "system" fn mouse_proc(n_code: i32, w_param: WPARAM, l_param: 
             if msg == WM_MBUTTONDOWN {
                 let current = HOTKEY_STRING.lock().unwrap().to_lowercase();
                 if current == "mousemiddle" || current == "mbutton" {
+                    // Off the hook: after light mode the toggle rebuilds the
+                    // WebView, and blocking here stalls every mouse event
+                    // system-wide (Windows drops hooks that keep timing out).
                     if let Some(handle) = GLOBAL_APP_HANDLE.get() {
-                        toggle_window(&handle);
+                        let handle = handle.clone();
+                        std::thread::spawn(move || toggle_window(&handle));
                     }
                     return LRESULT(1);
                 }
@@ -476,6 +511,15 @@ pub unsafe extern "system" fn mouse_proc(n_code: i32, w_param: WPARAM, l_param: 
     }
 
     CallNextHookEx(None, n_code, w_param, l_param)
+}
+
+#[derive(Debug, Clone, Copy)]
+struct HookHotkey {
+    vk: u32,
+    ctrl: bool,
+    shift: bool,
+    alt: bool,
+    win: bool,
 }
 
 pub fn parse_hotkey_for_hook(hotkey: &str) -> Option<HookHotkey> {
@@ -569,4 +613,17 @@ pub fn is_win_v_hotkey(hotkey: &str) -> bool {
     }
 
     has_win && has_v
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_recording_clear_key;
+
+    #[test]
+    fn recording_clear_keys_are_not_registered_as_shortcuts() {
+        assert!(is_recording_clear_key(0x08));
+        assert!(is_recording_clear_key(0x2E));
+        assert!(!is_recording_clear_key(0x2D));
+        assert!(!is_recording_clear_key(0x41));
+    }
 }

@@ -30,7 +30,7 @@ pub fn toggle_clipboard_pin(
     app_data_dir: State<'_, AppDataDir>,
     id: i64,
     is_pinned: bool,
-) -> AppResult<i64> {
+) -> AppResult<()> {
     let mut real_id = id;
     let mut entry_to_save = None;
 
@@ -44,36 +44,41 @@ pub fn toggle_clipboard_pin(
         }
     }
 
-    let conn = state.conn.lock().unwrap();
+    {
+        let conn = state.conn.lock().unwrap();
 
-    if let Some(entry) = entry_to_save {
-        let data_dir = app_data_dir.0.lock().unwrap().clone();
-        if let Ok(new_id) = state.repo.save_with_conn(&conn, &entry, Some(&data_dir)) {
-            real_id = new_id;
-            if let Ok(deleted_ids) = state.repo.enforce_limit_with_conn(&conn, Some(&data_dir)) {
-                for deleted_id in deleted_ids {
-                    let _ = app_handle.emit("clipboard-removed", deleted_id);
-                }
-            }
+        if let Some(entry) = entry_to_save {
+            let data_dir = app_data_dir.0.lock().unwrap().clone();
+            if let Ok(new_id) = state
+                .repo
+                .save_with_conn(&conn, &entry, Some(&data_dir), None)
             {
-                let mut session_items = session.inner().0.lock().unwrap();
-                if let Some(item) = session_items.iter_mut().find(|i| i.id == id) {
-                    item.id = new_id;
+                real_id = new_id;
+                if let Ok(deleted_ids) = state.repo.enforce_limit_with_conn(&conn, Some(&data_dir))
+                {
+                    for deleted_id in deleted_ids {
+                        let _ = app_handle.emit("clipboard-removed", deleted_id);
+                    }
+                }
+                {
+                    let mut session_items = session.inner().0.lock().unwrap();
+                    // Once persisted, the database is the sole owner of this entry.
+                    session_items.retain(|item| item.id != id && item.id != new_id);
                 }
             }
         }
+
+        if real_id > 0 {
+            state
+                .repo
+                .toggle_pin_with_conn(&conn, real_id, is_pinned)
+                .map_err(AppError::from)?;
+        }
     }
 
-    if real_id > 0 {
-        state
-            .repo
-            .toggle_pin_with_conn(&conn, real_id, is_pinned)
-            .map_err(AppError::from)?;
-    }
-    drop(conn);
     let _ = app_handle.emit("clipboard-changed", ());
     crate::services::cloud_sync::request_cloud_sync(app_handle);
-    Ok(real_id)
+    Ok(())
 }
 
 #[tauri::command]
@@ -94,8 +99,10 @@ pub fn update_tags(
             let data_dir = app_data_dir.0.lock().unwrap().clone();
             let new_id = state.repo.save(&item, Some(&data_dir))?;
 
-            session_items[index].id = new_id;
-            session_items[index].tags = tags;
+            // Do not retain a second copy with the same persistent ID in memory.
+            session_items.retain(|entry| entry.id != id && entry.id != new_id);
+            drop(session_items);
+            let _ = app_handle.emit("clipboard-changed", ());
             crate::services::cloud_sync::request_cloud_sync(app_handle);
             return Ok(new_id);
         }
@@ -137,6 +144,33 @@ pub fn update_tags(
 }
 
 #[tauri::command]
+pub fn update_entry_note(
+    app_handle: AppHandle,
+    state: State<'_, DbState>,
+    session: State<'_, SessionHistory>,
+    id: i64,
+    note: String,
+) -> AppResult<()> {
+    let cleaned = note.trim().to_string();
+    if id < 0 {
+        let mut session_items = session.inner().0.lock().unwrap();
+        if let Some(item) = session_items.iter_mut().find(|item| item.id == id) {
+            item.note = cleaned;
+            return Ok(());
+        }
+        return Err(AppError::Validation("Item not found".to_string()));
+    }
+
+    state
+        .repo
+        .update_entry_note(id, &cleaned)
+        .map_err(AppError::from)?;
+    let _ = app_handle.emit("clipboard-changed", ());
+    crate::services::cloud_sync::request_cloud_sync(app_handle);
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn add_manual_item(
     app_handle: AppHandle,
     state: State<'_, DbState>,
@@ -145,6 +179,7 @@ pub async fn add_manual_item(
     tags: Vec<String>,
 ) -> AppResult<i64> {
     let preview = truncate_chars_with_suffix(&content, 200, "...");
+    let timestamp = chrono::Utc::now().timestamp_millis();
 
     let entry = database::ClipboardEntry {
         id: 0,
@@ -153,7 +188,11 @@ pub async fn add_manual_item(
         html_content: None,
         source_app: "Manual".to_string(),
         source_app_path: None,
-        timestamp: chrono::Utc::now().timestamp_millis(),
+        note: String::new(),
+        timestamp,
+        created_at: timestamp,
+        last_used_at: 0,
+        sort_at: timestamp,
         preview,
         is_pinned: false,
         tags,

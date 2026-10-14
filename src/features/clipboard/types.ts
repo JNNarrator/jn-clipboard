@@ -9,11 +9,18 @@ export interface QuickPasteHint {
 
 export interface ClipboardItemProps {
   item: ClipboardEntry;
+  /** Current position in the combined pinned + history list. */
+  navigationIndex: number;
   isSelected: boolean;
+  /** Shown in the wide layout's detail pane, whose action bar targets it. */
+  isDetailFocused?: boolean;
   windowPinned: boolean;
   isSensitiveHidden: boolean;
   isRevealed: boolean;
   isEditingTags: boolean;
+  isEditingNote: boolean;
+  noteDraft?: string;
+  onNoteDraftChange?: (note: string) => void;
   tagInput: string;
   /** Tags used elsewhere in history; shown as quick-pick when editing tags */
   tagSuggestions?: string[];
@@ -21,6 +28,10 @@ export interface ClipboardItemProps {
   language: Locale;
   t: (key: string) => string;
   isAIProcessing?: boolean;
+  /** A follow-up question from the AI waiting for the user's answer. */
+  aiQuestion?: string;
+  /** An AI result waiting for the user to replace the entry or discard it. */
+  aiPendingResult?: string;
   aiEnabled?: boolean;
   tagColors?: Record<string, string>;
   aiOptionsOpen?: boolean;
@@ -38,6 +49,9 @@ export interface ClipboardItemProps {
   onTogglePin: (e: MouseEvent) => void;
   onDelete: (e: MouseEvent) => void;
   onToggleTagEditor: (e: MouseEvent) => void;
+  onToggleNoteEditor: (e: MouseEvent) => void;
+  onNoteSave: (note: string) => void;
+  onNoteEditCancel?: () => void;
   onTagInput: (val: string) => void;
   onTagAdd: () => void;
   /** Pick an existing tag from the suggestion list (typically closes editor after add) */
@@ -48,6 +62,8 @@ export interface ClipboardItemProps {
   onAIAction?: (type: string) => void;
   onAIOptionsToggle?: () => void;
   onInputSubmit?: (val: string) => void;
+  onAIApply?: () => void;
+  onAIDiscard?: () => void;
   dragControls?: DragControls;
   id?: string;
   disableLayout?: boolean;
@@ -70,6 +86,8 @@ export interface VirtualClipboardListProps {
   onScroll?: (offset: number) => void;
   compactMode: boolean;
   header?: ReactNode;
+  loadingLabel: string;
+  loadMoreLabel: string;
 }
 
 export interface VirtualClipboardListHandle {

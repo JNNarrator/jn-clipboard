@@ -39,10 +39,23 @@ pub fn get_platform_info() -> PlatformInfo {
     #[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
     {
         PlatformInfo {
-            platform: "other".to_string(),
+            platform: std::env::consts::OS.to_string(),
             is_windows_10: false,
             is_windows_11: false,
         }
+    }
+}
+
+#[tauri::command]
+pub fn configure_compact_preview_window(app: AppHandle) -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        crate::infrastructure::macos_api::window::configure_compact_preview_window(&app)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = app;
+        true
     }
 }
 
@@ -53,7 +66,7 @@ pub fn send_system_notification(app: AppHandle, title: String, body: String) -> 
         .title(title)
         .body(body)
         .show()
-        .map_err(|err| AppError::Internal(format!("发送系统通知失败: {}", err)))?;
+        .map_err(|err| AppError::Internal(format!("无法发送系统通知。\n详情：{}", err)))?;
 
     Ok(())
 }
@@ -78,124 +91,97 @@ pub fn set_theme(
             .get("app.color_mode")
             .unwrap_or(Some("system".to_string()));
     }
-    let mut effective_show_app_border = show_app_border;
-    if effective_show_app_border.is_none() {
-        effective_show_app_border = db_state
+    #[cfg(target_os = "windows")]
+    let show_border = show_app_border.unwrap_or_else(|| {
+        db_state
             .settings_repo
             .get("app.show_app_border")
             .unwrap_or(Some("true".to_string()))
-            .map(|v| v != "false");
-    }
-    let show_border = effective_show_app_border.unwrap_or(true);
+            .map(|value| value != "false")
+        .unwrap_or(true)
+    });
+    #[cfg(not(target_os = "windows"))]
+    let _ = show_app_border;
 
     if let Ok(mut guard) = state.theme.lock() {
         *guard = theme.clone();
     }
 
-    #[cfg(target_os = "windows")]
-    use windows::core::BOOL;
-    #[cfg(target_os = "windows")]
-    use windows::Win32::Foundation::HWND;
-    #[cfg(target_os = "windows")]
-    use windows::Win32::Graphics::Dwm::{
-        DwmSetWindowAttribute, DWMWA_BORDER_COLOR, DWMWA_USE_IMMERSIVE_DARK_MODE,
-        DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND, DWM_WINDOW_CORNER_PREFERENCE,
+    let native_theme = match effective_color_mode.as_deref() {
+        Some("light") => Some(Theme::Light),
+        Some("dark") => Some(Theme::Dark),
+        _ => None,
     };
 
+    let _ = window.set_theme(native_theme);
+
     #[cfg(target_os = "windows")]
     {
-        let hwnd = window
-            .hwnd()
-            .map_err(|e| AppError::Internal(e.to_string()))?;
-        let hwnd = HWND(hwnd.0 as _);
-        let _ = window_vibrancy::clear_vibrancy(&window);
+        use windows::core::BOOL;
+        use windows::Win32::Foundation::HWND;
+        use windows::Win32::Graphics::Dwm::{
+            DwmSetWindowAttribute, DWM_WINDOW_CORNER_PREFERENCE, DWMWA_BORDER_COLOR,
+            DWMWA_USE_IMMERSIVE_DARK_MODE, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND,
+        };
 
+        let raw_hwnd = window
+            .hwnd()
+            .map_err(|error| AppError::Internal(error.to_string()))?;
+        let hwnd = HWND(raw_hwnd.0 as _);
         let is_dark = match effective_color_mode.as_deref() {
             Some("light") => false,
             Some("dark") => true,
             _ => window.theme().unwrap_or(Theme::Dark) == Theme::Dark,
         };
+        let apply_dwm_frame = |hwnd: HWND| {
+            unsafe {
+                let dark_mode = BOOL::from(is_dark);
+                let _ = DwmSetWindowAttribute(
+                    hwnd,
+                    DWMWA_USE_IMMERSIVE_DARK_MODE,
+                    &dark_mode as *const _ as _,
+                    std::mem::size_of::<BOOL>() as u32,
+                );
 
-        let dark_mode = BOOL::from(is_dark);
-        unsafe {
-            let _ = DwmSetWindowAttribute(
-                hwnd,
-                DWMWA_USE_IMMERSIVE_DARK_MODE,
-                &dark_mode as *const _ as _,
-                std::mem::size_of::<BOOL>() as u32,
-            );
-            // Toggle native DWM border visibility while preserving the window frame/corners.
-            const DWMWA_COLOR_DEFAULT: u32 = 0xFFFFFFFF;
-            const DWMWA_COLOR_NONE: u32 = 0xFFFFFFFE;
-            let border_color: u32 = if show_border {
-                DWMWA_COLOR_DEFAULT
-            } else {
-                DWMWA_COLOR_NONE
-            };
-            let _ = DwmSetWindowAttribute(
-                hwnd,
-                DWMWA_BORDER_COLOR,
-                &border_color as *const _ as _,
-                std::mem::size_of::<u32>() as u32,
-            );
-            // Keep rounded corners even when border/shadow are disabled.
-            let corner_pref = DWM_WINDOW_CORNER_PREFERENCE(DWMWCP_ROUND.0);
-            let _ = DwmSetWindowAttribute(
-                hwnd,
-                DWMWA_WINDOW_CORNER_PREFERENCE,
-                &corner_pref as *const _ as _,
-                std::mem::size_of::<DWM_WINDOW_CORNER_PREFERENCE>() as u32,
-            );
-        }
+                // Let DWM draw the window border. A CSS border on #root sits on
+                // the WebView edge, which rounds differently from the window at
+                // fractional scaling and loses its right and bottom sides; the
+                // DWM border follows the real (rounded) window edge on all four.
+                const DWMWA_COLOR_DEFAULT: u32 = 0xFFFF_FFFF;
+                let border_color = DWMWA_COLOR_DEFAULT;
+                let _ = DwmSetWindowAttribute(
+                    hwnd,
+                    DWMWA_BORDER_COLOR,
+                    &border_color as *const _ as _,
+                    std::mem::size_of::<u32>() as u32,
+                );
+
+                // Clip the whole HWND — including the square WebView
+                // background — to Windows 11's system corner. CSS fills the
+                // client rectangle (--shell-radius: 0) so those corners are covered.
+                let corner = DWM_WINDOW_CORNER_PREFERENCE(DWMWCP_ROUND.0);
+                let _ = DwmSetWindowAttribute(
+                    hwnd,
+                    DWMWA_WINDOW_CORNER_PREFERENCE,
+                    &corner as *const _ as _,
+                    std::mem::size_of::<DWM_WINDOW_CORNER_PREFERENCE>() as u32,
+                );
+            }
+        };
+
+        apply_dwm_frame(hwnd);
 
         let build = windows_version::OsVersion::current().build;
-        let is_win11 = build >= 22000;
-        let is_win10_1803 = build >= 17134;
-        let is_win10 = build >= 10240 && build < 22000;
+        let is_windows_11 = build >= 22000;
+        crate::app::window_manager::apply_windows_window_material(&window, &theme, is_dark);
+        let _ = window.set_shadow(show_border && is_windows_11);
 
-        match theme.as_str() {
-            "mica" if is_win11 => {
-                let _ = window_vibrancy::apply_mica(&window, Some(is_dark));
-                let _ = window.set_shadow(show_border);
-            }
-            "acrylic" if is_win10_1803 && !is_win10 => {
-                let _ = window_vibrancy::apply_acrylic(
-                    &window,
-                    Some(if is_dark {
-                        (30, 30, 30, 40)
-                    } else {
-                        (240, 240, 240, 40)
-                    }),
-                );
-                let _ = window.set_shadow(show_border);
-            }
-            "acrylic" if is_win10 => {
-                let _ = window.set_shadow(false);
-            }
-            _ => {
-                let _ = window
-                    .set_shadow(show_border && is_win11 && theme != "mica" && theme != "acrylic");
-            }
-        }
+        apply_dwm_frame(hwnd);
     }
 
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(target_os = "macos")]
     {
-        let is_dark = match effective_color_mode.as_deref() {
-            Some("light") => false,
-            Some("dark") => true,
-            _ => window.theme().unwrap_or(Theme::Dark) == Theme::Dark,
-        };
-
-        let _ = window_vibrancy::clear_vibrancy(&window);
-        if theme == "mica" || theme == "acrylic" {
-            let _ = window_vibrancy::apply_vibrancy(
-                &window,
-                window_vibrancy::NSVisualEffectMaterial::HudWindow,
-                None,
-                None,
-            );
-        }
+        crate::app::window_manager::apply_macos_window_material(&window)?;
     }
 
     let _ = window.emit("theme-changed", theme);

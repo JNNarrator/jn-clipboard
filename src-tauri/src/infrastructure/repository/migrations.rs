@@ -207,6 +207,180 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
         conn.execute("INSERT INTO schema_migrations (version) VALUES (10)", [])?;
     }
 
+    // Migration 11: Per-entry free-text note (separate from category tags)
+    if current_version < 11 {
+        if !has_column(conn, "clipboard_history", "note")? {
+            conn.execute(
+                "ALTER TABLE clipboard_history ADD COLUMN note TEXT NOT NULL DEFAULT ''",
+                [],
+            )?;
+            eprintln!("[migrations] added clipboard_history.note column");
+        }
+        conn.execute("INSERT INTO schema_migrations (version) VALUES (11)", [])?;
+    }
+
+    // Safety net: older builds may have queried `note` before migration 11 ran,
+    // or schema_migrations can drift. Always ensure the column exists.
+    if !has_column(conn, "clipboard_history", "note")? {
+        conn.execute(
+            "ALTER TABLE clipboard_history ADD COLUMN note TEXT NOT NULL DEFAULT ''",
+            [],
+        )?;
+        eprintln!("[migrations] repaired missing clipboard_history.note column");
+        conn.execute(
+            "INSERT OR IGNORE INTO schema_migrations (version) VALUES (11)",
+            [],
+        )?;
+    }
+
+    // Migration 12: Cover the exact list ordering used by paginated history.
+    // Including `id` also makes entries with identical timestamps deterministic.
+    if current_version < 12 {
+        conn.execute_batch(
+            "
+            CREATE INDEX IF NOT EXISTS idx_clipboard_history_list_order
+                ON clipboard_history (
+                    is_pinned DESC,
+                    pinned_order DESC,
+                    timestamp DESC,
+                    id DESC
+                );
+            CREATE INDEX IF NOT EXISTS idx_clipboard_history_type_list_order
+                ON clipboard_history (
+                    content_type,
+                    is_pinned DESC,
+                    pinned_order DESC,
+                    timestamp DESC,
+                    id DESC
+                );
+            ",
+        )?;
+        conn.execute("INSERT INTO schema_migrations (version) VALUES (12)", [])?;
+    }
+
+    // Migration 13: Structured per-entry shortcut and usage metadata.
+    // These fields are intentionally separate from the user-facing note.
+    if current_version < 13 {
+        let columns = [
+            ("item_hotkey", "TEXT NOT NULL DEFAULT ''"),
+            ("item_hotkey_global", "INTEGER NOT NULL DEFAULT 0"),
+            ("last_used_at", "INTEGER NOT NULL DEFAULT 0"),
+            ("move_to_group_hotkey", "TEXT NOT NULL DEFAULT ''"),
+            ("move_to_group_hotkey_global", "INTEGER NOT NULL DEFAULT 0"),
+        ];
+        for (name, definition) in columns {
+            if !has_column(conn, "clipboard_history", name)? {
+                conn.execute(
+                    &format!("ALTER TABLE clipboard_history ADD COLUMN {name} {definition}"),
+                    [],
+                )?;
+            }
+        }
+        conn.execute_batch(
+            "
+            CREATE INDEX IF NOT EXISTS idx_clipboard_history_last_used_at
+                ON clipboard_history (last_used_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_clipboard_history_item_hotkey
+                ON clipboard_history (item_hotkey)
+                WHERE item_hotkey <> '';
+            ",
+        )?;
+        conn.execute("INSERT INTO schema_migrations (version) VALUES (13)", [])?;
+    }
+
+    // Migration 14: Split immutable creation time from mutable list ordering.
+    // Existing `timestamp` values are the best available historical value, so
+    // use them for both fields to preserve the exact pre-upgrade list order.
+    if current_version < 14 {
+        if !has_column(conn, "clipboard_history", "created_at")? {
+            conn.execute(
+                "ALTER TABLE clipboard_history ADD COLUMN created_at INTEGER NOT NULL DEFAULT 0",
+                [],
+            )?;
+        }
+        if !has_column(conn, "clipboard_history", "sort_at")? {
+            conn.execute(
+                "ALTER TABLE clipboard_history ADD COLUMN sort_at INTEGER NOT NULL DEFAULT 0",
+                [],
+            )?;
+        }
+        conn.execute(
+            "UPDATE clipboard_history SET
+                created_at = CASE WHEN created_at <= 0 THEN timestamp ELSE created_at END,
+                sort_at = CASE WHEN sort_at <= 0 THEN timestamp ELSE sort_at END",
+            [],
+        )?;
+        conn.execute_batch(
+            "
+            CREATE INDEX IF NOT EXISTS idx_clipboard_history_sort_order
+                ON clipboard_history (
+                    is_pinned DESC,
+                    pinned_order DESC,
+                    sort_at DESC,
+                    id DESC
+                );
+            CREATE INDEX IF NOT EXISTS idx_clipboard_history_type_sort_order
+                ON clipboard_history (
+                    content_type,
+                    is_pinned DESC,
+                    pinned_order DESC,
+                    sort_at DESC,
+                    id DESC
+                );
+            ",
+        )?;
+        conn.execute("INSERT INTO schema_migrations (version) VALUES (14)", [])?;
+    }
+
+    // Migration 15: when an entry's tags were last edited, so cloud sync can
+    // keep the newer edit instead of letting any remote copy overwrite it.
+    if current_version < 15 {
+        if !has_column(conn, "clipboard_history", "tags_updated_at")? {
+            conn.execute(
+                "ALTER TABLE clipboard_history ADD COLUMN tags_updated_at INTEGER NOT NULL DEFAULT 0",
+                [],
+            )?;
+        }
+        conn.execute("INSERT INTO schema_migrations (version) VALUES (15)", [])?;
+    }
+
+    // Migration 16: Windows 0.3.x stored the sound volume as 0-100; it is 0-1
+    // now. Left alone, 70 shows as 7000% and plays at full volume.
+    if current_version < 16 {
+        let has_settings: bool = conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'settings')",
+            [],
+            |row| row.get(0),
+        )?;
+        if has_settings {
+            conn.execute(
+                "UPDATE settings SET value = CAST(MIN(CAST(value AS REAL), 100.0) / 100.0 AS TEXT)
+                 WHERE key = 'app.sound_volume' AND CAST(value AS REAL) > 1.0",
+                [],
+            )?;
+        }
+        conn.execute("INSERT INTO schema_migrations (version) VALUES (16)", [])?;
+    }
+
+    // Migration 17: rich text previews show the formatted text itself now; the
+    // snapshot image (default on until now, marked experimental) shrank long
+    // content until it was unreadable. Everyone starts with it off once; it
+    // was on by default, so a deliberate choice can't be told apart.
+    if current_version < 17 {
+        let has_settings: bool = conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'settings')",
+            [],
+            |row| row.get(0),
+        )?;
+        if has_settings {
+            conn.execute(
+                "UPDATE settings SET value = 'false' WHERE key = 'app.rich_text_snapshot_preview'",
+                [],
+            )?;
+        }
+        conn.execute("INSERT INTO schema_migrations (version) VALUES (17)", [])?;
+    }
+
     Ok(())
 }
 
@@ -220,4 +394,100 @@ fn has_column(conn: &Connection, table_name: &str, column_name: &str) -> Result<
         }
     }
     Ok(false)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn migration_14_preserves_existing_order_and_backfills_creation_time() {
+        let conn = Connection::open_in_memory().expect("open database");
+        conn.execute_batch(
+            "
+            CREATE TABLE schema_migrations (
+                version INTEGER PRIMARY KEY,
+                applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            INSERT INTO schema_migrations(version) VALUES (12);
+            CREATE TABLE clipboard_history (
+                id INTEGER PRIMARY KEY,
+                content_type TEXT NOT NULL,
+                timestamp INTEGER NOT NULL,
+                is_pinned INTEGER NOT NULL DEFAULT 0,
+                pinned_order INTEGER NOT NULL DEFAULT 0
+            );
+            INSERT INTO clipboard_history(id, content_type, timestamp)
+                VALUES
+                    (1, 'text', 1700000000123),
+                    (2, 'text', 1700000000456);
+            ",
+        )
+        .expect("create version 12 fixture");
+
+        run_migrations(&conn).expect("run update migrations");
+
+        let values: (i64, i64, i64) = conn
+            .query_row(
+                "SELECT created_at, sort_at, last_used_at
+                 FROM clipboard_history WHERE id = 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .expect("read migrated fields");
+        assert_eq!(values, (1_700_000_000_123, 1_700_000_000_123, 0));
+        let migrated_order: Vec<i64> = conn
+            .prepare("SELECT id FROM clipboard_history ORDER BY sort_at DESC, id DESC")
+            .expect("prepare migrated order query")
+            .query_map([], |row| row.get(0))
+            .expect("query migrated order")
+            .collect::<Result<Vec<_>>>()
+            .expect("collect migrated order");
+        assert_eq!(migrated_order, vec![2, 1]);
+        let version: i64 = conn
+            .query_row("SELECT MAX(version) FROM schema_migrations", [], |row| {
+                row.get(0)
+            })
+            .expect("read schema version");
+        assert_eq!(version, 17);
+    }
+
+    #[test]
+    fn migration_16_rescales_percent_sound_volume() {
+        let conn = Connection::open_in_memory().expect("open database");
+        conn.execute_batch(
+            "
+            CREATE TABLE schema_migrations (
+                version INTEGER PRIMARY KEY,
+                applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            INSERT INTO schema_migrations(version) VALUES (15);
+            CREATE TABLE clipboard_history (id INTEGER PRIMARY KEY, note TEXT NOT NULL DEFAULT '');
+            CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+            INSERT INTO settings(key, value) VALUES ('app.sound_volume', '70');
+            ",
+        )
+        .expect("create version 15 fixture");
+
+        run_migrations(&conn).expect("run update migrations");
+
+        let volume = |conn: &Connection| -> f64 {
+            conn.query_row(
+                "SELECT value FROM settings WHERE key = 'app.sound_volume'",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .expect("read volume")
+            .parse()
+            .expect("volume is a number")
+        };
+        assert!((volume(&conn) - 0.7).abs() < 1e-9);
+
+        // Already on the 0-1 scale: untouched.
+        conn.execute("UPDATE settings SET value = '0.5' WHERE key = 'app.sound_volume'", [])
+            .unwrap();
+        conn.execute("DELETE FROM schema_migrations WHERE version >= 16", []).unwrap();
+        run_migrations(&conn).expect("rerun migration 16");
+        assert!((volume(&conn) - 0.5).abs() < 1e-9);
+    }
 }

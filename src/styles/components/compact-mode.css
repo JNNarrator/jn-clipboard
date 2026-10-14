@@ -2,47 +2,51 @@
 
 /* Base Item Styles */
 .history-item.compact {
-    padding: 2px 4px 2px 10px !important;
-    min-height: auto;
-    height: 100% !important;
+    /* Padding comes from --layout-item-padding-compact (layout.css). Keep rows
+       dense, but never shorter than the ··· action button (20px). */
+    min-height: 28px;
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
     justify-content: center;
     position: relative;
     gap: 0;
-    overflow: visible !important;
+    overflow: visible;
+    border-radius: var(--compact-card-radius);
     z-index: 1;
-    margin-bottom: 0 !important;
+    margin-bottom: 0;
 }
 
 /* Add extra padding when drag handle is present to avoid overlap */
 .history-item.compact:has(.drag-handle) {
-    padding-left: 28px !important;
+    padding-left: 28px;
 }
 
 .history-item.compact:hover {
-    z-index: 100 !important;
-    background: var(--bg-element);
+    z-index: 100;
 }
 
 /* Hide Meta Header (Source App, Icon) */
 .history-item.compact .item-meta {
-    display: none !important;
+    display: none;
 }
 
-/* Pinned Indicator - just the corner triangle is enough */
-
 /* Image Preview */
+.history-item.compact .image-preview-frame {
+    min-height: 38px;
+}
+
 .history-item.compact .image-preview {
-    max-height: 44px !important;
+    max-height: 38px;
+    height: 38px;
     width: auto;
-    min-width: 44px;
-    max-width: 100%;
-    border-radius: 0;
+    min-width: 38px;
+    max-width: 80px;
+    border-radius: var(--compact-media-radius);
     margin-top: 0;
     display: block;
-    object-fit: contain !important;
-    background-color: rgba(0, 0, 0, 0.05);
+    object-fit: contain;
+    background-color: rgba(var(--shadow-rgb), 0.05);
     align-self: flex-start;
 }
 
@@ -56,30 +60,25 @@
     position: fixed;
     width: 320px;
     max-width: 80vw;
-    background: var(--bg-element);
-    /* Remove retro 2px border and offset shadow */
-    border: 1px solid var(--border-color, rgba(0, 0, 0, 0.1));
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-    /* Softer modern shadow */
-    border-radius: var(--radius-window, 8px);
-    /* Use theme radius or default 8px */
+    background: var(--popover-background);
+    backdrop-filter: var(--popover-backdrop-filter);
+    -webkit-backdrop-filter: var(--popover-backdrop-filter);
+    color: var(--popover-color);
+    border: var(--popover-border);
+    box-shadow: var(--popover-shadow);
+    border-radius: var(--popover-radius);
     padding: 12px;
-    z-index: 99999;
+    z-index: var(--z-popover);
     line-height: 1.5;
     pointer-events: auto;
 }
 
 /* Explicit standard dark mode fix (non-retro) */
 .compact-popover-portal.dark-mode {
-    background: #2c2c2c;
-    /* fallback or specific dark surface */
-    background: var(--bg-element);
-    /* should work if var is correct, but let's be explicit */
-    border-color: #444;
-    color: #ededed;
+    background: var(--popover-background);
+    border-color: var(--line-strong);
+    color: var(--popover-color);
 }
-
-
 
 @keyframes fadeIn {
     from {
@@ -98,7 +97,7 @@
 
 /* Popover Content Styling */
 .popover-meta {
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     color: var(--text-secondary);
     margin-bottom: 8px;
     display: flex;
@@ -108,330 +107,637 @@
     flex-wrap: wrap;
 }
 
-/* Tags Overlay - Absolute Position in Compact Mode */
+/* Tags sit left of the time/actions slot — never share an overlap grid with time. */
 .history-item.compact .item-tags-container {
-    position: absolute;
-    bottom: 2px;
-    right: 4px;
-    margin: 0 !important;
+    position: relative;
+    bottom: auto;
+    right: auto;
+    top: auto;
+    margin: 0;
     z-index: 5;
-    opacity: 0.85;
-    max-width: 60%;
-    flex-wrap: nowrap !important;
+    opacity: 0.9;
+    max-width: min(42vw, 160px);
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    flex: 0 1 auto;
+    flex-wrap: nowrap;
     overflow: hidden;
+    pointer-events: auto;
+    transform: none;
+    padding-right: 0;
+    transition: opacity var(--duration-base) ease, max-width var(--duration-base) ease;
+}
+
+body.compact-show-time .history-item.compact .item-tags-container,
+html.compact-show-time .history-item.compact .item-tags-container {
+    max-width: min(38vw, 140px);
+}
+
+/* When hovered or selected, keep tags visible beside the ··· button. */
+.history-item.compact:hover .item-tags-container:not(.tag-edit-active),
+.history-item.compact.selected .item-tags-container:not(.tag-edit-active) {
+    max-width: min(40vw, 150px);
 }
 
 /* Allow tag suggestion popover to extend outside the tag strip while editing */
 .history-item.compact .item-tags-container.tag-edit-active {
+    position: absolute;
+    top: 50%;
+    bottom: auto;
+    right: 8px;
+    left: auto;
+    transform: translateY(-50%);
     overflow: visible;
-    z-index: 60;
+    z-index: 250;
     opacity: 1;
+    max-width: calc(100% - 16px);
+    background: var(--bg-element);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border-color, rgba(var(--neutral-rgb), 0.2));
+    border-radius: var(--radius-sm);
+    padding: 2px 6px;
+    box-shadow: 0 4px 16px rgba(var(--shadow-rgb), 0.25);
+}
+
+.history-item.compact.editing-tags,
+.history-item.compact:has(.item-tags-container.tag-edit-active) {
+    z-index: 250;
+}
+
+.history-item.compact .compact-note-indicator {
+    position: absolute;
+    bottom: 2px;
+    left: 10px;
+    z-index: 5;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    border: none;
+    border-radius: var(--radius-xs);
+    background: color-mix(in srgb, var(--bg-element) 80%, transparent);
+    color: var(--text-secondary);
+    cursor: pointer;
+    opacity: 0.75;
+}
+
+.history-item.compact .compact-note-indicator:hover {
+    opacity: 1;
+    color: var(--accent-color);
+}
+
+/* Note editor in compact mode: seamless unified card without nested boxes */
+.history-item.compact.editing-note,
+.history-item.compact.editing-note:has(.drag-handle),
+.history-item.compact:has(.item-note-editor),
+.history-item.compact:has(.item-note-editor):has(.drag-handle) {
+    padding: 8px 10px 6px 10px;
+    min-height: auto;
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 0;
+    box-sizing: border-box;
+    z-index: 250;
+}
+
+.history-item.compact.editing-note .drag-handle,
+.history-item.compact:has(.item-note-editor) .drag-handle {
+    display: none;
+}
+
+.history-item.compact.editing-note .content-preview-shell,
+.history-item.compact:has(.item-note-editor) .content-preview-shell {
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 0 0 4px 0;
+    border-bottom: 1px solid var(--border-color, rgba(var(--neutral-rgb), 0.15));
+}
+
+.history-item.compact.editing-note .content-preview,
+.history-item.compact:has(.item-note-editor) .content-preview {
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    color: var(--text-secondary);
+    opacity: 0.75;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.3;
+    max-height: 16px;
+    margin: 0;
+    padding: 0;
+}
+
+.history-item.compact.editing-note .item-note,
+.history-item.compact:has(.item-note-editor) .item-note {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+/* Strip all nested card borders, outlines, backgrounds, and shadows */
+.history-item.compact.editing-note .item-note-editor-inner,
+.history-item.compact:has(.item-note-editor) .item-note-editor-inner {
+    width: 100%;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+    background: transparent;
+    overflow: visible;
+}
+
+.history-item.compact.editing-note .item-note-editor-inner:focus-within,
+.history-item.compact:has(.item-note-editor) .item-note-editor-inner:focus-within {
+    border: none;
+    box-shadow: none;
+}
+
+.history-item.compact.editing-note .item-note-input,
+.history-item.compact:has(.item-note-editor) .item-note-input {
+    min-height: 44px;
+    max-height: 120px;
+    padding: 4px 0 6px 0;
+    border: none;
+    outline: none;
+    box-shadow: none;
+    background: transparent;
+    font-size: var(--font-size-sm);
+    line-height: 1.45;
+    resize: none;
+    color: var(--text-primary);
+}
+
+.history-item.compact.editing-note .item-note-editor-footer,
+.history-item.compact:has(.item-note-editor) .item-note-editor-footer {
+    padding: 6px 0 0 0;
+    border-top: 1px solid color-mix(in srgb, var(--border-color, rgba(var(--neutral-rgb), 0.15)) 60%, transparent);
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.history-item.compact.editing-note .item-note-hint,
+.history-item.compact:has(.item-note-editor) .item-note-hint {
+    font-size: var(--font-size-2xs);
+    color: var(--text-muted);
+}
+
+.history-item.compact.editing-note .btn-note-action,
+.history-item.compact:has(.item-note-editor) .btn-note-action {
+    font-size: var(--font-size-xs);
+    padding: 2px 8px;
+    border-radius: var(--radius-xs);
 }
 
 /* Larger tags styling for better readability */
 .history-item.compact .item-tags-container .tag-chip {
-    font-size: var(--clipboard-tag-font-size) !important;
-    padding: 0px 4px !important;
+    font-size: var(--clipboard-tag-font-size);
+    padding: 0px 4px;
     min-height: 16px;
     line-height: 1;
     white-space: nowrap;
     display: inline-flex;
     align-items: center;
+    border-radius: var(--compact-action-radius);
+    max-width: 90px;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* Button Wrapper - reset .item-meta for structure */
 .history-item.compact .item-meta {
-    display: flex !important;
-    position: static !important;
-    margin: 0 !important;
-    border: none !important;
-    height: 0 !important;
-    overflow: visible !important;
+    display: flex;
+    position: static;
+    margin: 0;
+    border: none;
+    height: 0;
+    overflow: visible;
 }
 
 /* Hide the App Info (Source/Icon/Pin) on the left side */
 .history-item.compact .item-meta .app-info {
-    display: none !important;
+    display: none;
 }
 
 /* Show Drag Handle in Compact Mode */
 .history-item.compact .drag-handle {
-    position: absolute !important;
-    left: 8px !important;
-    top: 50% !important;
-    transform: translateY(-50%) !important;
-    opacity: 0.7 !important;
-    z-index: 20 !important;
-    width: 14px !important;
-    height: 100% !important;
-    margin: 0 !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
+    position: absolute;
+    left: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    opacity: 0.7;
+    z-index: 20;
+    width: 14px;
+    height: 100%;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .history-item.compact .drag-handle:hover {
-    opacity: 1 !important;
-    color: var(--accent-color) !important;
+    opacity: 1;
+    color: var(--accent-color);
 }
 
-/* The right side wrapper (Buttons) */
-.history-item.compact .item-meta>div:last-child {
+/* Passthrough in normal mode; compact overrides to a shared time/actions slot. */
+.item-meta-right-slot {
+    display: contents;
+}
+
+/* The right side wrapper: [tags][time/actions slot] */
+.history-item.compact .item-meta-right {
     position: absolute;
-    top: -8px;
+    top: 50%;
     right: 8px;
+    bottom: auto;
+    transform: translateY(-50%);
     height: auto;
     z-index: 200;
     display: flex;
     flex-direction: row;
     align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    max-width: min(72%, 300px);
+    min-width: 0;
     pointer-events: none;
 }
 
-/* Fix for first item buttons being clipped */
-.first-virtual-item .history-item.compact .item-meta>div:last-child {
-    top: -4px !important;
+/* Maintain vertical center for first item */
+.first-virtual-item .history-item.compact .item-meta-right {
+    top: 50%;
+    transform: translateY(-50%);
 }
 
-/* Button Actions Styling */
+/* Time and ··· share one slot; tags never enter this grid. */
+.history-item.compact .item-meta-right-slot {
+    position: relative;
+    display: grid;
+    grid-template-areas: "slot";
+    align-items: center;
+    justify-items: end;
+    flex: 0 0 auto;
+    min-width: 20px;
+    min-height: 20px;
+    pointer-events: none;
+}
+
+/* Button Actions Styling — only overlays the time slot, not tags */
 .history-item.compact .item-actions {
-    display: flex !important;
-    flex-direction: row !important;
-    gap: 4px !important;
+    grid-area: slot;
+    position: relative;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
     opacity: 0;
     visibility: hidden;
-    transform: translateY(5px);
-    transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.2s;
-    pointer-events: auto;
+    transform: translateX(6px);
+    transition: opacity var(--duration-base) cubic-bezier(0.16, 1, 0.3, 1), transform var(--duration-base) cubic-bezier(0.16, 1, 0.3, 1), visibility var(--duration-base);
+    pointer-events: none;
 
-    /* Position relative for AI dropdown positioning */
-    position: relative;
-
-    /* Remove container styling as requested */
-    background: transparent !important;
-    box-shadow: none !important;
+    background: transparent;
+    box-shadow: none;
     padding: 0;
     border-radius: 0;
     border: none;
 }
 
 .dark-mode .history-item.compact .item-actions {
-    background: transparent !important;
+    background: transparent;
     border-color: transparent;
 }
 
-.history-item.compact:hover .item-actions {
+.history-item.compact:hover .item-actions,
+.history-item.compact.selected .item-actions {
     opacity: 1;
     visibility: visible;
-    transform: translateY(0);
+    transform: translateX(0);
+    pointer-events: auto;
 }
 
-/* Button Icons - Default/Modern Style */
+body.hide-unselected-item-actions .history-item.compact:not(.selected):not(:hover) .item-actions {
+    opacity: 0;
+    visibility: hidden;
+    transform: translateX(6px);
+    pointer-events: none;
+}
+
+body.hide-unselected-item-actions .history-item.compact.selected .item-actions,
+body.hide-unselected-item-actions .history-item.compact:hover .item-actions {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(0);
+    pointer-events: auto;
+}
+
+.history-item.compact:has(.compact-more-btn.active) .item-actions,
+.history-item.compact:has(.ai-options-dropdown) .item-actions {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translateX(0);
+}
+
+/* Completely hide actions & right info when editing tags or notes in compact mode */
+.history-item.compact.editing-tags .item-actions,
+.history-item.compact.editing-tags .item-meta-right,
+.history-item.compact.editing-tags .item-meta-right-slot,
+.history-item.compact.editing-tags .item-meta-right-info,
+.history-item.compact.editing-tags .compact-more-btn,
+.history-item.compact.editing-tags .compact-more-action-wrap,
+.history-item.compact.editing-note .item-actions,
+.history-item.compact.editing-note .item-meta-right,
+.history-item.compact.editing-note .item-meta-right-slot,
+.history-item.compact.editing-note .item-meta-right-info,
+.history-item.compact.editing-note .compact-more-btn,
+.history-item.compact.editing-note .compact-more-action-wrap,
+.history-item.compact:has(.item-tags-container.tag-edit-active) .item-actions,
+.history-item.compact:has(.item-tags-container.tag-edit-active) .item-meta-right,
+.history-item.compact:has(.item-tags-container.tag-edit-active) .item-meta-right-slot,
+.history-item.compact:has(.item-tags-container.tag-edit-active) .item-meta-right-info,
+.history-item.compact:has(.item-tags-container.tag-edit-active) .compact-more-btn,
+.history-item.compact:has(.item-tags-container.tag-edit-active) .compact-more-action-wrap,
+.history-item.compact:has(.item-note-editor) .item-actions,
+.history-item.compact:has(.item-note-editor) .item-meta-right,
+.history-item.compact:has(.item-note-editor) .item-meta-right-slot,
+.history-item.compact:has(.item-note-editor) .item-meta-right-info,
+.history-item.compact:has(.item-note-editor) .compact-more-btn,
+.history-item.compact:has(.item-note-editor) .compact-more-action-wrap {
+    display: none;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: none;
+}
+
+/* Timestamp & Quick Paste Hint — shares the slot with ···, not with tags */
+.history-item.compact .item-meta-right-info {
+    grid-area: slot;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: var(--font-size-xs);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-muted);
+    white-space: nowrap;
+    -webkit-user-select: none;
+    user-select: none;
+    pointer-events: none;
+    transform: none;
+    transition: opacity var(--duration-base) cubic-bezier(0.16, 1, 0.3, 1), visibility var(--duration-base);
+}
+
+/* In compact mode, timestamp is hidden by default; visible only when compact-show-time is active */
+.history-item.compact .item-meta-right-info > span:not(.quick-paste-hint) {
+    display: none;
+    white-space: nowrap;
+    line-height: 1;
+}
+
+body.compact-show-time .history-item.compact .item-meta-right-info > span:not(.quick-paste-hint),
+html.compact-show-time .history-item.compact .item-meta-right-info > span:not(.quick-paste-hint) {
+    display: inline-block;
+}
+
+.history-item.compact:hover .item-meta-right-info,
+.history-item.compact.selected .item-meta-right-info,
+.history-item.compact:has(.ai-options-dropdown) .item-meta-right-info,
+.history-item.compact:has(.compact-more-btn.active) .item-meta-right-info {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+body.hide-unselected-item-actions .history-item.compact:not(.selected):not(:hover) .item-meta-right-info {
+    opacity: 0.68;
+    visibility: visible;
+}
+
+body.hide-unselected-item-actions .history-item.compact.selected .item-meta-right-info,
+body.hide-unselected-item-actions .history-item.compact:hover .item-meta-right-info {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
 .history-item.compact .item-actions .btn-icon {
-    width: 20px !important;
-    height: 20px !important;
-    padding: 3px !important;
-    border-radius: 6px;
-    background: rgba(255, 255, 255, 0.7);
-    /* Semi-transparent for glass effect */
-    color: #444;
-    border: 1px solid rgba(255, 255, 255, 0.4);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    transition: all 0.2s ease;
+    width: 20px;
+    height: 20px;
+    padding: 4px;
+    background: var(--compact-action-background);
+    color: var(--compact-action-color);
+    border: var(--compact-action-border);
+    border-radius: var(--compact-action-radius);
+    box-shadow: var(--compact-action-shadow);
+    backdrop-filter: var(--compact-action-backdrop-filter);
+    -webkit-backdrop-filter: var(--compact-action-backdrop-filter);
+    transition:
+        background var(--duration-base) ease,
+        border-color var(--duration-base) ease,
+        color var(--duration-base) ease,
+        box-shadow var(--duration-base) ease,
+        transform var(--duration-base) ease;
 }
 
-/* Dark Mode - Glass effect */
-.dark-mode .history-item.compact .item-actions .btn-icon {
-    background: rgba(60, 60, 60, 0.6);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    color: #fff;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
-}
-
-/* Modern/Mica Theme - Enhanced glass effect */
-body.theme-mica .history-item.compact .item-actions .btn-icon,
-body.theme-acrylic .history-item.compact .item-actions .btn-icon,
-html.theme-mica .history-item.compact .item-actions .btn-icon,
-html.theme-acrylic .history-item.compact .item-actions .btn-icon {
-    background: rgba(255, 255, 255, 0.85) !important;
-    border: 1px solid rgba(255, 255, 255, 0.5) !important;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1) !important;
-    backdrop-filter: blur(12px) saturate(180%) !important;
-    -webkit-backdrop-filter: blur(12px) saturate(180%) !important;
-    border-radius: 8px !important;
-}
-
-body.dark-mode.theme-mica .history-item.compact .item-actions .btn-icon,
-body.dark-mode.theme-acrylic .history-item.compact .item-actions .btn-icon,
-html.dark-mode.theme-mica .history-item.compact .item-actions .btn-icon,
-html.dark-mode.theme-acrylic .history-item.compact .item-actions .btn-icon {
-    background: rgba(45, 45, 45, 0.7) !important;
-    border: 1px solid rgba(255, 255, 255, 0.2) !important;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3) !important;
-}
-
-/* Retro/Non-Modern Theme Overrides for Buttons */
-/* Apply mechanical style to all non-modern themes (retro, default, etc.) */
-body:not(.theme-mica):not(.theme-acrylic) .history-item.compact .item-actions .btn-icon,
-body:not(.theme-mica):not(.theme-acrylic) .history-item.compact:hover .item-actions .btn-icon {
-    border-radius: 0 !important;
-    border: 2px solid var(--border-dark) !important;
-    box-shadow: 2px 2px 0 0 var(--shadow-color) !important;
-    background: var(--bg-button) !important;
-    color: var(--text-primary) !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-}
-
-body:not(.theme-mica):not(.theme-acrylic) .history-item.compact .item-actions .btn-icon:hover,
-body:not(.theme-mica):not(.theme-acrylic) .history-item.compact:hover .item-actions .btn-icon:hover {
-    transform: translate(-1px, -1px) !important;
-    box-shadow: 3px 3px 0 0 var(--shadow-color) !important;
-    background: var(--bg-input) !important;
-    border-color: var(--border-dark) !important;
-}
-
-body:not(.theme-mica):not(.theme-acrylic) .history-item.compact .item-actions .btn-icon:active {
-    transform: translate(1px, 1px) !important;
-    box-shadow: 1px 1px 0 0 var(--shadow-color) !important;
-}
-
-/* Hover effects - Glass style */
 .history-item.compact .item-actions .btn-icon:hover {
-    background: rgba(255, 255, 255, 0.95);
+    background: var(--compact-action-hover-background);
     color: var(--accent-color);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12) !important;
+    border-color: var(--compact-action-hover-border-color);
+    box-shadow: var(--compact-action-hover-shadow);
+    transform: var(--compact-action-hover-transform);
 }
 
-.dark-mode .history-item.compact .item-actions .btn-icon:hover {
-    background: rgba(80, 80, 80, 0.8);
-    color: var(--accent-color);
+.history-item.compact .item-actions .btn-icon:active {
+    box-shadow: var(--button-active-shadow);
+    transform: var(--button-active-transform);
 }
 
-/* Modern/Mica hover - Enhanced */
-body.theme-mica .history-item.compact .item-actions .btn-icon:hover,
-body.theme-acrylic .history-item.compact .item-actions .btn-icon:hover,
-html.theme-mica .history-item.compact .item-actions .btn-icon:hover,
-html.theme-acrylic .history-item.compact .item-actions .btn-icon:hover {
-    background: rgba(255, 255, 255, 0.95) !important;
-    transform: translateY(-2px) !important;
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15) !important;
-}
-
-body.dark-mode.theme-mica .history-item.compact .item-actions .btn-icon:hover,
-body.dark-mode.theme-acrylic .history-item.compact .item-actions .btn-icon:hover,
-html.dark-mode.theme-mica .history-item.compact .item-actions .btn-icon:hover,
-html.dark-mode.theme-acrylic .history-item.compact .item-actions .btn-icon:hover {
-    background: rgba(60, 60, 60, 0.85) !important;
-}
-
-/* Active/Selected State - Glass style */
 .history-item.compact .item-actions .btn-icon.active {
-    color: var(--accent-color);
-    background: rgba(var(--accent-color-rgb), 0.2);
-    border-color: rgba(var(--accent-color-rgb), 0.5);
-    box-shadow: 0 0 0 1px rgba(var(--accent-color-rgb), 0.3), 0 2px 8px rgba(var(--accent-color-rgb), 0.2) !important;
-    backdrop-filter: blur(10px);
+    background: var(--compact-action-active-background);
+    color: var(--compact-action-active-color);
+    border-color: var(--compact-action-active-border-color);
+    box-shadow: var(--compact-action-active-shadow);
 }
 
-.dark-mode .history-item.compact .item-actions .btn-icon.active {
-    background: rgba(var(--accent-color-rgb), 0.3);
-    border-color: rgba(var(--accent-color-rgb), 0.6);
-    box-shadow: 0 0 0 1px rgba(var(--accent-color-rgb), 0.4), 0 2px 12px rgba(var(--accent-color-rgb), 0.25) !important;
-}
-
-/* Modern/Mica active - Enhanced glass */
-body.theme-mica .history-item.compact .item-actions .btn-icon.active,
-body.theme-acrylic .history-item.compact .item-actions .btn-icon.active,
-html.theme-mica .history-item.compact .item-actions .btn-icon.active,
-html.theme-acrylic .history-item.compact .item-actions .btn-icon.active {
-    background: rgba(var(--accent-color-rgb), 0.25) !important;
-    border-color: rgba(var(--accent-color-rgb), 0.6) !important;
-    box-shadow: 0 0 0 2px rgba(var(--accent-color-rgb), 0.3), 0 4px 12px rgba(var(--accent-color-rgb), 0.25) !important;
-}
-
-body.dark-mode.theme-mica .history-item.compact .item-actions .btn-icon.active,
-body.dark-mode.theme-acrylic .history-item.compact .item-actions .btn-icon.active,
-html.dark-mode.theme-mica .history-item.compact .item-actions .btn-icon.active,
-html.dark-mode.theme-acrylic .history-item.compact .item-actions .btn-icon.active {
-    background: rgba(var(--accent-color-rgb), 0.35) !important;
-    border-color: rgba(var(--accent-color-rgb), 0.7) !important;
-}
-
-/* Non-Modern Theme Active State - Mechanical style */
-body:not(.theme-mica):not(.theme-acrylic) .history-item.compact .item-actions .btn-icon.active {
-    background: var(--accent-color) !important;
-    color: #fff !important;
-    border-color: var(--accent-color) !important;
-    box-shadow: 2px 2px 0 0 rgba(0, 0, 0, 0.3) !important;
-    border-radius: 0 !important;
-}
-
-body:not(.theme-mica):not(.theme-acrylic) .history-item.compact .item-actions .btn-icon.active:hover {
-    background: var(--accent-color) !important;
-    color: #fff !important;
-    transform: translate(-1px, -1px) !important;
-    box-shadow: 3px 3px 0 0 rgba(0, 0, 0, 0.3) !important;
+.history-item.compact .item-actions .btn-icon:focus-visible {
+    outline: 2px solid var(--accent-color);
+    outline-offset: 2px;
 }
 
 .history-item.compact .item-actions .btn-icon svg {
-    width: 14px !important;
-    height: 14px !important;
+    width: 14px;
+    height: 14px;
 }
 
-/* AI Dropdown Panel - Theme Adaptation */
-/* Modern/Mica/Acrylic Theme - Glass effect */
-body.theme-mica .history-item.compact .ai-options-dropdown,
-body.theme-acrylic .history-item.compact .ai-options-dropdown {
-    background: rgba(255, 255, 255, 0.85) !important;
-    border: 1px solid rgba(255, 255, 255, 0.5) !important;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15) !important;
-    backdrop-filter: blur(12px) saturate(180%) !important;
-    -webkit-backdrop-filter: blur(12px) saturate(180%) !important;
-    border-radius: 8px !important;
+.history-item.compact .ai-options-dropdown {
+    background: var(--popover-background);
+    color: var(--popover-color);
+    border: var(--popover-border);
+    border-radius: var(--popover-radius);
+    box-shadow: var(--popover-shadow);
+    backdrop-filter: var(--popover-backdrop-filter);
+    -webkit-backdrop-filter: var(--popover-backdrop-filter);
 }
 
-body.dark-mode.theme-mica .history-item.compact .ai-options-dropdown,
-body.dark-mode.theme-acrylic .history-item.compact .ai-options-dropdown {
-    background: rgba(45, 45, 45, 0.8) !important;
-    border: 1px solid rgba(255, 255, 255, 0.15) !important;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+.history-item.compact .ai-options-dropdown button {
+    background: var(--bg-button);
+    color: var(--text-primary);
+    border: var(--button-border);
+    border-radius: var(--button-radius);
+    box-shadow: var(--button-shadow);
 }
 
-/* AI Dropdown Buttons in Modern Theme */
-body.theme-mica .history-item.compact .ai-options-dropdown button,
-body.theme-acrylic .history-item.compact .ai-options-dropdown button {
-    background: rgba(255, 255, 255, 0.5) !important;
-    border: 1px solid rgba(128, 128, 128, 0.2) !important;
-    box-shadow: none !important;
-    border-radius: 6px !important;
+.history-item.compact .ai-options-dropdown button:hover {
+    background: var(--menu-item-hover-background);
+    color: var(--menu-item-hover-color);
 }
 
-body.dark-mode.theme-mica .history-item.compact .ai-options-dropdown button,
-body.dark-mode.theme-acrylic .history-item.compact .ai-options-dropdown button {
-    background: rgba(255, 255, 255, 0.1) !important;
-    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+/* Compact Action Menu (Three-dots Dropdown) */
+.compact-more-action-wrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
 }
 
-/* Retro Theme - Keep mechanical style */
-body.theme-retro .history-item.compact .ai-options-dropdown {
-    background: var(--bg-element) !important;
-    border: 2px solid var(--border-dark) !important;
-    box-shadow: 4px 4px 0 0 var(--shadow-color) !important;
-    border-radius: 0 !important;
+.compact-action-menu {
+    position: fixed;
+    z-index: var(--z-dropdown);
+    width: max-content;
+    min-width: 140px;
+    max-width: 220px;
+    padding: 4px;
+    border-radius: var(--menu-radius);
+    background: var(--menu-background);
+    border: var(--menu-border);
+    box-shadow: var(--menu-shadow);
+    backdrop-filter: var(--popover-backdrop-filter);
+    -webkit-backdrop-filter: var(--popover-backdrop-filter);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    animation: compactMenuFadeIn var(--duration-fast) cubic-bezier(0.16, 1, 0.3, 1);
+    -webkit-user-select: none;
+    user-select: none;
+    box-sizing: border-box;
 }
 
-body.theme-retro .history-item.compact .ai-options-dropdown button {
-    box-shadow: 2px 2px 0 0 var(--shadow-color) !important;
-    border-radius: 0 !important;
+@keyframes compactMenuFadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
 }
 
-/* Hide Timestamp */
-.history-item.compact .app-info:last-child {
-    display: none !important;
+.compact-action-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 28px;
+    padding: 0 8px;
+    border: 0;
+    border-radius: var(--compact-action-radius);
+    background: transparent;
+    color: var(--text-primary);
+    font-size: var(--font-size-sm);
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--duration-fast) ease, color var(--duration-fast) ease;
+    box-sizing: border-box;
+}
+
+.compact-action-menu-item svg {
+    flex-shrink: 0;
+    opacity: 0.82;
+}
+
+.compact-action-menu-item span {
+    flex: 1;
+    white-space: nowrap;
+}
+
+/* Default active state (when not hovered): subtle accent tint */
+.compact-action-menu-item.is-active {
+    color: var(--accent-color);
+    font-weight: 600;
+    background: var(--accent-soft);
+}
+
+.compact-action-menu-item.is-active svg {
+    color: var(--accent-color);
+    opacity: 1;
+}
+
+/* Hover, Focus, and Active states: GUARANTEED high contrast! */
+.compact-action-menu-item:hover,
+.compact-action-menu-item:focus-visible,
+.compact-action-menu-item:active,
+.compact-action-menu-item.is-active:hover,
+.compact-action-menu-item.is-active:focus-visible,
+.compact-action-menu-item.is-active:active {
+    outline: none;
+    background: var(--menu-item-hover-background);
+    color: var(--menu-item-hover-color);
+}
+
+.compact-action-menu-item:hover svg,
+.compact-action-menu-item:focus-visible svg,
+.compact-action-menu-item:active svg,
+.compact-action-menu-item.is-active:hover svg,
+.compact-action-menu-item.is-active:focus-visible svg,
+.compact-action-menu-item.is-active:active svg {
+    color: var(--menu-item-hover-color);
+    opacity: 1;
+}
+
+/* Danger Item: high contrast danger styling */
+.compact-action-menu-item.danger {
+    color: var(--status-danger);
+}
+
+.compact-action-menu-item.danger svg {
+    color: var(--status-danger);
+}
+
+.compact-action-menu-item.danger:hover,
+.compact-action-menu-item.danger:focus-visible,
+.compact-action-menu-item.danger:active {
+    background: var(--status-danger);
+    color: var(--on-accent);
+}
+
+.compact-action-menu-item.danger:hover svg,
+.compact-action-menu-item.danger:focus-visible svg,
+.compact-action-menu-item.danger:active svg {
+    color: var(--on-accent);
+    opacity: 1;
+}
+
+.compact-action-menu-divider {
+    height: 1px;
+    margin: 4px 4px;
+    background: var(--border-color, rgba(var(--neutral-rgb), 0.2));
 }
 
 /* Popover Content Styling */
@@ -444,220 +750,189 @@ body.theme-retro .history-item.compact .ai-options-dropdown button {
 
 .popover-meta .meta-dot {
     opacity: 0.3;
-    font-size: 10px;
+    font-size: var(--font-size-2xs);
 }
 
 /* Force icon sizes in popover header */
 .popover-meta .meta-row svg {
-    width: 12px !important;
-    height: 12px !important;
+    width: 12px;
+    height: 12px;
     opacity: 0.8;
 }
 
 .popover-meta .meta-row span {
-    opacity: 0.9;
     color: var(--text-primary);
     white-space: nowrap;
 }
 
 .popover-divider {
     height: 1px;
-    background: var(--border-color, rgba(0, 0, 0, 0.1));
+    background: var(--border-color, rgba(var(--shadow-rgb), 0.1));
     margin: 4px 0 8px 0;
     opacity: 1;
 }
 
 /* Hide divider in modern theme as requested */
 
-.compact-popover-portal:not(.retro) .popover-divider {
+.compact-popover-portal .popover-divider {
     display: none;
 }
 
 .popover-content {
-    font-size: 13px;
+    font-size: var(--font-size-base);
     color: var(--text-primary);
     line-height: 1.5;
     white-space: pre-wrap;
     word-break: break-all;
-    max-height: 300px;
-    overflow: hidden;
     font-family: var(--font-main);
 }
 
-/* Content Preview */
+/* Content Preview: by default, full width with only 8px edge padding */
 .history-item.compact .content-preview {
     font-size: var(--clipboard-item-font-size);
     line-height: 1.3;
     margin-top: 0;
     margin-bottom: 0;
-    -webkit-line-clamp: 2 !important;
-    line-clamp: 2 !important;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
     max-height: 40px;
+    min-height: 20px;
     color: var(--text-primary);
     display: -webkit-box;
     -webkit-box-orient: vertical;
     justify-content: flex-start;
-    overflow: hidden !important;
+    overflow: hidden;
+    padding-right: var(--compact-preview-reserve);
+    box-sizing: border-box;
+}
+
+/* Room kept free on the right for what floats there: the time slot (56px),
+   tags (120px) or both (168px). States only set the variable, so an editing
+   state can still override the padding with a plain selector. */
+.history-item.compact {
+    --compact-preview-reserve: 8px;
+}
+
+body.compact-show-time .history-item.compact,
+html.compact-show-time .history-item.compact {
+    --compact-preview-reserve: 56px;
+}
+
+.history-item.compact:has(.item-tags-container) {
+    --compact-preview-reserve: 120px;
+}
+
+body.compact-show-time .history-item.compact:has(.item-tags-container),
+html.compact-show-time .history-item.compact:has(.item-tags-container) {
+    --compact-preview-reserve: 168px;
 }
 
 /* Allow full height for media/file cards in compact mode */
 .history-item.compact .content-preview:has(.video-thumbnail-card),
 .history-item.compact .content-preview:has(.file-thumbnail-card),
 .history-item.compact .content-preview:has(.image-preview) {
-    max-height: none !important;
-    -webkit-line-clamp: unset !important;
-    line-clamp: unset !important;
+    max-height: none;
+
+    -webkit-box-orient: unset;
+    -webkit-line-clamp: unset;
+    line-clamp: unset;
     display: block;
-    overflow: visible !important;
+    overflow: visible;
+}
+
+.history-item.compact .content-preview.rich-text {
+    display: block;
+    -webkit-box-orient: unset;
+    -webkit-line-clamp: unset;
+    line-clamp: unset;
+    max-height: 64px;
+    overflow: hidden;
+    box-sizing: border-box;
 }
 
 /* Reduced padding for sensitive blur in compact mode to save height */
 .history-item.compact .content-preview.sensitive-blur {
-    padding: 2px 4px !important;
+    padding: 2px var(--compact-preview-reserve) 2px 4px;
 }
 
 /* Special Content - File & Video Thumbnails in Compact Mode */
 .history-item.compact .file-thumbnail-card,
 .history-item.compact .video-thumbnail-card {
-    border: none !important;
-    background: transparent !important;
-    padding: 2px 4px !important;
-    gap: 8px !important;
-    min-height: 44px;
-    display: flex !important;
-    align-items: center !important;
+    border: none;
+    background: transparent;
+    padding: 0 4px;
+    gap: 8px;
+    min-height: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
 }
 
 /* Compact mode - make file icon smaller */
 .history-item.compact .file-icon-wrapper {
-    width: 32px !important;
-    height: 32px !important;
-    min-width: 32px !important;
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    border-radius: var(--compact-media-radius);
 }
 
 /* Compact mode - make video thumbnail smaller */
 .history-item.compact .video-thumbnail-wrapper {
-    width: 48px !important;
-    height: 36px !important;
-    min-width: 48px !important;
+    width: 48px;
+    height: 32px;
+    min-width: 48px;
+    border-radius: var(--compact-media-radius);
 }
 
 /* Compact mode - file info styling */
 .history-item.compact .file-name {
-    font-size: calc(var(--clipboard-item-font-size) - 1px) !important;
+    font-size: calc(var(--clipboard-item-font-size) - 1px);
     font-weight: 500;
 }
 
 /* Hide file path in compact mode */
 .history-item.compact .file-hint {
-    display: none !important;
+    display: none;
 }
 
 .history-item.compact .file-icon-wrapper svg {
-    width: 20px !important;
-    height: 20px !important;
+    width: 20px;
+    height: 20px;
 }
 
 .history-item.compact .file-icon-image {
-    width: 100% !important;
-    height: 100% !important;
+    width: 100%;
+    height: 100%;
+    border-radius: inherit;
 }
 
-/* Pinned Indicator - Compact Mode */
+/* Pinned Indicator - Compact Mode (matches card corner curve exactly) */
 .compact-pinned-indicator {
     position: absolute;
     top: 0;
     left: 0;
     bottom: 0;
     width: 3px;
-    background: #007bff;
+    background: var(--accent-color);
     z-index: 10;
     pointer-events: none;
-}
-
-/* Rounded corners for modern themes - top and bottom left to match item border radius */
-body.theme-mica .history-item.compact .compact-pinned-indicator,
-body.theme-acrylic .history-item.compact .compact-pinned-indicator,
-html.theme-mica .history-item.compact .compact-pinned-indicator,
-html.theme-acrylic .history-item.compact .compact-pinned-indicator {
-    border-radius: 4px 0 0 4px;
+    border-radius: var(--compact-card-radius) 0 0 var(--compact-card-radius);
 }
 
 .compact-pinned-indicator svg {
     display: none;
 }
 
-/* Retro Theme Specific Styling for Popover */
-.compact-popover-portal.retro {
-    background: #e8e8e8;
-    /* Explicit retro light grey */
-    border: 3px solid #373737;
-    /* Thick dark border */
-    box-shadow: 4px 4px 0 0 #373737;
-    /* Hard shadow offset */
-    border-radius: 0;
-    /* Sharp corners */
+.history-item.compact .rich-text-snapshot-viewport {
+    border-radius: var(--compact-media-radius);
 }
 
-.compact-popover-portal.retro.dark-mode,
-.compact-popover-portal.retro.dark {
-    background: #1f1f1f !important;
-    border-color: #555 !important;
-    /* Lighter border for visibility against dark bg */
-    box-shadow: 4px 4px 0 0 #000 !important;
-    color: #ededed !important;
+.history-item.compact .color-code-swatch {
+    border-radius: var(--compact-media-radius);
 }
 
-.compact-popover-portal.retro .popover-divider {
-    display: block;
-    /* Show divider in retro */
-    height: 2px;
-    background: #373737;
-    margin: 6px 0 10px 0;
-    border-bottom: none;
-}
-
-.compact-popover-portal.retro.dark-mode .popover-divider {
-    background: #555;
-    opacity: 0.5;
-}
-
-/* Force metadata colors in retro dark mode */
-.compact-popover-portal.retro.dark-mode .popover-meta {
-    color: #a0a0a0;
-}
-
-.compact-popover-portal.retro.dark-mode .popover-meta .meta-row span,
-.compact-popover-portal.retro.dark-mode .popover-meta .meta-row svg {
-    color: #cccccc !important;
-    opacity: 1;
-}
-
-/* AI Dropdown Panel in Compact Mode - Higher z-index than preview popover */
-.history-item.compact .item-actions [style*="z-index: 1000"] {
-    /* Ensure AI dropdown is above preview popover (z-index 99999) */
-    z-index: 100000 !important;
-}
-
-/* AI dropdown scrollbar styling */
-.history-item.compact .item-actions [style*="overflow-y: auto"]::-webkit-scrollbar {
-    width: var(--scrollbar-size-thin);
-}
-
-.history-item.compact .item-actions [style*="overflow-y: auto"]::-webkit-scrollbar-track {
-    background: var(--scrollbar-track-background);
-}
-
-.history-item.compact .item-actions [style*="overflow-y: auto"]::-webkit-scrollbar-thumb {
-    background: var(--scrollbar-thumb-color);
-    border-radius: var(--scrollbar-radius);
-}
-
-body.theme-mica .history-item.compact,
-body.theme-acrylic .history-item.compact,
-html.theme-mica .history-item.compact,
-html.theme-acrylic .history-item.compact {
-    padding-top: 1px !important;
-    padding-bottom: 1px !important;
-    border-radius: 10px !important;
+@media (prefers-reduced-motion: reduce) {
+    .history-item.compact .item-actions .btn-icon {
+        transition: none;
+    }
 }

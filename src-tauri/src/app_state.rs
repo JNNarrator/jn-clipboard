@@ -1,7 +1,7 @@
 use crate::domain::models::ClipboardEntry;
 use crate::services::encryption_queue::EncryptionQueue;
 use std::collections::VecDeque;
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, AtomicU64};
 use std::sync::Mutex;
 
 pub struct SettingsState {
@@ -11,6 +11,7 @@ pub struct SettingsState {
     pub theme: Mutex<String>,
     pub capture_files: AtomicBool,
     pub capture_rich_text: AtomicBool,
+    pub rich_text_snapshot_preview: AtomicBool,
     pub auto_copy_file: AtomicBool,
     pub silent_start: AtomicBool,
     pub delete_after_paste: AtomicBool,
@@ -22,15 +23,24 @@ pub struct SettingsState {
     pub sequential_mode: AtomicBool,
     pub sequential_paste_hotkey: Mutex<String>,
     pub rich_paste_hotkey: Mutex<String>,
+    /// Pastes the latest item as plain text (#148). Empty: off.
+    pub plain_paste_hotkey: Mutex<String>,
     pub search_hotkey: Mutex<String>,
     pub quick_paste_modifier: Mutex<String>,
     pub sound_enabled: AtomicBool,
+    pub paste_sound_enabled: AtomicBool,
     pub hide_tray_icon: AtomicBool,
+    pub hide_dock_icon: AtomicBool,
     pub edge_docking: AtomicBool,
     pub follow_mouse: AtomicBool,
     pub arrow_key_selection: AtomicBool,
+    /// Idle WebView release (#154): destroy main WebView after idle, keep listeners.
+    pub light_mode_enabled: AtomicBool,
+    /// Idle minutes before entering light mode (min 1).
+    pub light_mode_idle_minutes: AtomicU64,
     pub main_hotkey: Mutex<String>,
     pub monitors: Mutex<Vec<tauri::Monitor>>,
+    pub sound_volume: Mutex<f64>,
 }
 
 #[derive(Default)]

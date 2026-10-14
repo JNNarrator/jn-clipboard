@@ -2,7 +2,8 @@ use std::thread;
 use std::time::Duration;
 use tauri::{AppHandle, Manager};
 
-use crate::database::{DbState, ENCRYPT_PREFIX, SENSITIVE_TAGS};
+use crate::database::{DbState, SENSITIVE_TAGS};
+use crate::infrastructure::encryption;
 use crate::infrastructure::repository::settings_repo::SettingsRepository;
 
 pub fn spawn_sensitive_alignment(app_handle: AppHandle) {
@@ -42,15 +43,15 @@ fn run_alignment(app_handle: AppHandle) {
         };
 
         let sql = format!(
-            "SELECT ch.id, ch.timestamp, ch.content, ch.preview, ch.html_content,
+            "SELECT ch.id, ch.sort_at, ch.content, ch.preview, ch.html_content,
                     EXISTS (
                         SELECT 1 FROM entry_tags se
                         WHERE se.entry_id = ch.id
                           AND se.tag COLLATE NOCASE IN {}
                     ) AS is_sensitive
              FROM clipboard_history ch
-             WHERE (ch.timestamp < ?1) OR (ch.timestamp = ?1 AND ch.id < ?2)
-             ORDER BY ch.timestamp DESC, ch.id DESC
+             WHERE (ch.sort_at < ?1) OR (ch.sort_at = ?1 AND ch.id < ?2)
+             ORDER BY ch.sort_at DESC, ch.id DESC
              LIMIT ?3",
             sensitive_tags_sql
         );
@@ -87,18 +88,25 @@ fn run_alignment(app_handle: AppHandle) {
         }
 
         for (id, _ts, content, preview, html, is_sensitive) in batch.iter() {
-            let content_encrypted = content.starts_with(ENCRYPT_PREFIX);
-            let preview_encrypted = preview.starts_with(ENCRYPT_PREFIX);
+            let content_encrypted = encryption::is_modern_ciphertext(content);
+            let preview_encrypted = encryption::is_modern_ciphertext(preview);
             let html_encrypted = html
                 .as_ref()
-                .map(|h| h.starts_with(ENCRYPT_PREFIX))
+                .map(|h| encryption::is_modern_ciphertext(h))
                 .unwrap_or(false);
 
             if *is_sensitive
                 && (!content_encrypted || !preview_encrypted || (html.is_some() && !html_encrypted))
             {
                 let _ = db_state.repo.encrypt_entry_with_conn(&conn_guard, *id);
-            } else if !*is_sensitive && (content_encrypted || preview_encrypted || html_encrypted) {
+            } else if !*is_sensitive
+                && (encryption::is_encrypted_value(content)
+                    || encryption::is_encrypted_value(preview)
+                    || html
+                        .as_ref()
+                        .map(|h| encryption::is_encrypted_value(h))
+                        .unwrap_or(false))
+            {
                 let _ = db_state.repo.decrypt_entry_with_conn(&conn_guard, *id);
             }
         }

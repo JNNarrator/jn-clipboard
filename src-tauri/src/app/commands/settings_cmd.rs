@@ -1,20 +1,10 @@
-use crate::app_state::SettingsState;
+use crate::app::commands::hotkey_cmd::{normalize_quick_paste_modifier, sync_registered_hotkeys};
+use crate::app_state::{PasteQueue, SettingsState};
 use crate::database::DbState;
 use crate::error::{AppError, AppResult};
 use crate::infrastructure::repository::settings_repo::SettingsRepository;
 use std::sync::atomic::Ordering;
 use tauri::{AppHandle, Manager, State};
-
-fn normalize_quick_paste_modifier(value: &str) -> &'static str {
-    match value.trim().to_ascii_lowercase().as_str() {
-        "disabled" => "disabled",
-        "ctrl" => "ctrl",
-        "alt" => "alt",
-        "shift" => "shift",
-        "win" => "win",
-        _ => "disabled",
-    }
-}
 
 #[tauri::command]
 pub fn set_sequential_mode(
@@ -27,7 +17,17 @@ pub fn set_sequential_mode(
     let _ = db_state
         .settings_repo
         .set("app.sequential_mode", &enabled.to_string());
-    let _ = crate::app::commands::hotkey_cmd::sync_registered_hotkeys(&app_handle);
+
+    if !enabled {
+        let paste_queue = app_handle.state::<PasteQueue>();
+        let mut queue = paste_queue.inner().0.lock().unwrap();
+        queue.items.clear();
+        queue.last_action_was_paste = false;
+        queue.last_pasted_content = None;
+        queue.last_pasted_fingerprint = None;
+    }
+
+    let _ = sync_registered_hotkeys(&app_handle);
 }
 
 #[tauri::command]
@@ -45,7 +45,8 @@ pub fn set_sequential_hotkey(
         .settings_repo
         .set("app.sequential_hotkey", &hotkey)
         .map_err(AppError::from)?;
-    crate::app::commands::hotkey_cmd::sync_registered_hotkeys(&app_handle)
+
+    sync_registered_hotkeys(&app_handle)
 }
 
 #[tauri::command]
@@ -63,7 +64,27 @@ pub fn set_rich_paste_hotkey(
         .settings_repo
         .set("app.rich_paste_hotkey", &hotkey)
         .map_err(AppError::from)?;
-    crate::app::commands::hotkey_cmd::sync_registered_hotkeys(&app_handle)
+
+    sync_registered_hotkeys(&app_handle)
+}
+
+#[tauri::command]
+pub fn set_plain_paste_hotkey(
+    app_handle: AppHandle,
+    state: State<'_, SettingsState>,
+    hotkey: String,
+) -> AppResult<()> {
+    if let Ok(mut guard) = state.plain_paste_hotkey.lock() {
+        *guard = hotkey.clone();
+    }
+
+    let db_state = app_handle.state::<DbState>();
+    db_state
+        .settings_repo
+        .set("app.plain_paste_hotkey", &hotkey)
+        .map_err(AppError::from)?;
+
+    sync_registered_hotkeys(&app_handle)
 }
 
 #[tauri::command]
@@ -81,7 +102,29 @@ pub fn set_search_hotkey(
         .settings_repo
         .set("app.search_hotkey", &hotkey)
         .map_err(AppError::from)?;
-    crate::app::commands::hotkey_cmd::sync_registered_hotkeys(&app_handle)
+
+    sync_registered_hotkeys(&app_handle)
+}
+
+#[tauri::command]
+pub fn set_quick_paste_modifier(
+    app_handle: AppHandle,
+    state: State<'_, SettingsState>,
+    modifier: String,
+) -> AppResult<()> {
+    let normalized = normalize_quick_paste_modifier(&modifier);
+
+    if let Ok(mut guard) = state.quick_paste_modifier.lock() {
+        *guard = normalized.clone();
+    }
+
+    let db_state = app_handle.state::<DbState>();
+    db_state
+        .settings_repo
+        .set("app.quick_paste_modifier", &normalized)
+        .map_err(AppError::from)?;
+
+    sync_registered_hotkeys(&app_handle)
 }
 
 #[tauri::command]
@@ -102,7 +145,7 @@ pub fn save_setting(
     db_state: State<'_, DbState>,
     settings_state: State<'_, crate::app_state::SettingsState>,
     key: String,
-    mut value: String,
+    value: String,
 ) -> AppResult<()> {
     match key.as_str() {
         "app.arrow_key_selection" => {
@@ -122,8 +165,15 @@ pub fn save_setting(
         }
         "app.sound_paste_enabled" => {
             settings_state
-                .delete_after_paste
-                .store(value != "false", Ordering::Relaxed);
+                .paste_sound_enabled
+                .store(value == "true", Ordering::Relaxed);
+        }
+        "app.sound_volume" => {
+            if let Some(v) = crate::database::sound_volume_from_setting(&value) {
+                if let Ok(mut guard) = settings_state.sound_volume.lock() {
+                    *guard = v;
+                }
+            }
         }
         "app.persistent" => {
             settings_state
@@ -138,6 +188,11 @@ pub fn save_setting(
         "app.capture_rich_text" => {
             settings_state
                 .capture_rich_text
+                .store(value == "true", Ordering::Relaxed);
+        }
+        "app.rich_text_snapshot_preview" => {
+            settings_state
+                .rich_text_snapshot_preview
                 .store(value == "true", Ordering::Relaxed);
         }
         "app.silent_start" => {
@@ -165,16 +220,28 @@ pub fn save_setting(
                 .follow_mouse
                 .store(value != "false", Ordering::Relaxed);
         }
+        "app.light_mode_enabled" => {
+            settings_state
+                .light_mode_enabled
+                .store(value == "true", Ordering::Relaxed);
+        }
+        "app.light_mode_idle_minutes" => {
+            if let Ok(mins) = value.parse::<u64>() {
+                settings_state
+                    .light_mode_idle_minutes
+                    .store(mins.clamp(1, 240), Ordering::Relaxed);
+            }
+        }
+
         "app.hide_tray_icon" => {
             settings_state
                 .hide_tray_icon
                 .store(value == "true", Ordering::Relaxed);
         }
-        "app.quick_paste_modifier" => {
-            value = normalize_quick_paste_modifier(&value).to_string();
-            if let Ok(mut guard) = settings_state.quick_paste_modifier.lock() {
-                *guard = value.clone();
-            }
+        "app.hide_dock_icon" => {
+            settings_state
+                .hide_dock_icon
+                .store(value == "true", Ordering::Relaxed);
         }
         _ => {}
     }
@@ -191,10 +258,42 @@ pub fn set_ignore_blur(ignore: bool) {
 }
 
 #[tauri::command]
+pub fn acquire_blur_guard(owner: String) -> Result<usize, String> {
+    let owner = owner.trim();
+    if owner.is_empty() {
+        return Err("Blur guard owner cannot be empty".to_string());
+    }
+    Ok(crate::global_state::acquire_blur_guard(owner))
+}
+
+#[tauri::command]
+pub fn release_blur_guard(owner: String) -> Result<usize, String> {
+    let owner = owner.trim();
+    if owner.is_empty() {
+        return Err("Blur guard owner cannot be empty".to_string());
+    }
+    Ok(crate::global_state::release_blur_guard(owner))
+}
+
+#[tauri::command]
 pub fn set_window_pinned(app_handle: AppHandle, state: State<'_, DbState>, pinned: bool) {
     crate::WINDOW_PINNED.store(pinned, Ordering::Relaxed);
     if let Some(window) = app_handle.get_webview_window("main") {
         let _ = window.set_always_on_top(pinned);
+        #[cfg(target_os = "windows")]
+        let _ = window.set_focusable(!pinned);
+        #[cfg(target_os = "macos")]
+        {
+            // NSPanel focusability cannot be changed through Tauri after panel
+            // conversion. In pinned mode, let ordinary clicks pass through
+            // without making the clipboard key; editable controls opt in via
+            // the shared focus coordinator.
+            let _ = crate::infrastructure::macos_api::window::set_clipboard_panel_pinned_interaction(
+                &app_handle,
+                pinned,
+            );
+        }
+        #[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
         let _ = window.set_focusable(false);
         #[cfg(windows)]
         {
@@ -205,11 +304,12 @@ pub fn set_window_pinned(app_handle: AppHandle, state: State<'_, DbState>, pinne
             if let Ok(hwnd) = window.hwnd() {
                 unsafe {
                     let ex_style = GetWindowLongPtrW(HWND(hwnd.0), GWL_EXSTYLE);
-                    let _ = SetWindowLongPtrW(
-                        HWND(hwnd.0),
-                        GWL_EXSTYLE,
-                        ex_style | WS_EX_NOACTIVATE.0 as isize,
-                    );
+                    let next = if pinned {
+                        ex_style | WS_EX_NOACTIVATE.0 as isize
+                    } else {
+                        ex_style & !(WS_EX_NOACTIVATE.0 as isize)
+                    };
+                    let _ = SetWindowLongPtrW(HWND(hwnd.0), GWL_EXSTYLE, next);
                 }
             }
         }
@@ -294,6 +394,21 @@ pub fn set_capture_rich_text(
     db_state
         .settings_repo
         .set("app.capture_rich_text", &enabled.to_string())
+        .map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn set_rich_text_snapshot_preview(
+    state: State<'_, crate::app_state::SettingsState>,
+    db_state: State<'_, DbState>,
+    enabled: bool,
+) -> AppResult<()> {
+    state
+        .rich_text_snapshot_preview
+        .store(enabled, Ordering::Relaxed);
+    db_state
+        .settings_repo
+        .set("app.rich_text_snapshot_preview", &enabled.to_string())
         .map_err(AppError::from)
 }
 
@@ -424,7 +539,32 @@ pub fn set_sound_enabled(
     db_state
         .settings_repo
         .set("app.sound_enabled", &enabled.to_string())
+        .map_err(AppError::from)?;
+    if enabled {
+        crate::services::ui_sound::preload_ui_sounds();
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn set_paste_sound_enabled(
+    state: State<'_, crate::app_state::SettingsState>,
+    db_state: State<'_, DbState>,
+    enabled: bool,
+) -> AppResult<()> {
+    state
+        .paste_sound_enabled
+        .store(enabled, Ordering::Relaxed);
+    db_state
+        .settings_repo
+        .set("app.sound_paste_enabled", &enabled.to_string())
         .map_err(AppError::from)
+}
+
+#[tauri::command]
+pub fn play_preview_sound(app_handle: tauri::AppHandle, kind: Option<String>) {
+    let kind = kind.unwrap_or_else(|| "copy".to_string());
+    crate::services::ui_sound::play_ui_sound(&app_handle, &kind);
 }
 
 #[tauri::command]
@@ -458,6 +598,11 @@ pub fn request_cloud_sync(app_handle: AppHandle) {
 }
 
 #[tauri::command]
+pub fn stop_cloud_sync_client(app_handle: AppHandle) {
+    crate::services::cloud_sync::stop_cloud_sync_client(app_handle);
+}
+
+#[tauri::command]
 pub async fn cloud_sync_now(
     app_handle: AppHandle,
 ) -> AppResult<crate::services::cloud_sync::CloudSyncStatus> {
@@ -479,7 +624,7 @@ pub fn reset_settings(
     }
 
     let machine_id = crate::app::system::get_machine_id();
-    let new_id = format!("{}-0000-0000-0000-000000000000", machine_id);
+    let new_id = crate::app::system::build_anon_id(&machine_id);
     state
         .settings_repo
         .set("app.anon_id", &new_id)
@@ -490,12 +635,6 @@ pub fn reset_settings(
         .get("app.hotkey")
         .unwrap_or(Some("Alt+C".to_string()))
         .unwrap_or("Alt+C".to_string());
-    let sequential_mode = state
-        .settings_repo
-        .get("app.sequential_mode")
-        .unwrap_or(Some("false".to_string()))
-        .map(|v| v == "true")
-        .unwrap_or(false);
     let seq_hotkey = state
         .settings_repo
         .get("app.sequential_hotkey")
@@ -504,8 +643,14 @@ pub fn reset_settings(
     let rich_hotkey = state
         .settings_repo
         .get("app.rich_paste_hotkey")
-        .unwrap_or(Some("Ctrl+Shift+Z".to_string()))
-        .unwrap_or("Ctrl+Shift+Z".to_string());
+        .unwrap_or(Some("Alt+Shift+V".to_string()))
+        .unwrap_or("Alt+Shift+V".to_string());
+    let plain_hotkey = state
+        .settings_repo
+        .get("app.plain_paste_hotkey")
+        .ok()
+        .flatten()
+        .unwrap_or_default();
     let search_hotkey = state
         .settings_repo
         .get("app.search_hotkey")
@@ -517,9 +662,6 @@ pub fn reset_settings(
         .unwrap_or(Some("disabled".to_string()))
         .unwrap_or("disabled".to_string());
 
-    settings_state
-        .sequential_mode
-        .store(sequential_mode, Ordering::Relaxed);
     {
         let mut guard = settings_state.main_hotkey.lock().unwrap();
         *guard = main_hotkey.clone();
@@ -533,19 +675,23 @@ pub fn reset_settings(
         *guard = rich_hotkey.clone();
     }
     {
+        let mut guard = settings_state.plain_paste_hotkey.lock().unwrap();
+        *guard = plain_hotkey;
+    }
+    {
         let mut guard = settings_state.search_hotkey.lock().unwrap();
         *guard = search_hotkey.clone();
     }
     {
         let mut guard = settings_state.quick_paste_modifier.lock().unwrap();
-        *guard = normalize_quick_paste_modifier(&quick_paste_modifier).to_string();
+        *guard = quick_paste_modifier;
     }
     {
         let mut guard = crate::global_state::HOTKEY_STRING.lock().unwrap();
         *guard = main_hotkey.clone();
     }
 
-    crate::app::commands::hotkey_cmd::sync_registered_hotkeys(&app)
+    sync_registered_hotkeys(&app)
 }
 
 #[tauri::command]
@@ -566,6 +712,43 @@ pub fn set_tray_visible(
 }
 
 #[tauri::command]
+pub fn set_dock_visible(
+    app_handle: AppHandle,
+    state: State<'_, crate::app_state::SettingsState>,
+    visible: bool,
+) -> AppResult<()> {
+    state.hide_dock_icon.store(!visible, Ordering::Relaxed);
+    #[cfg(target_os = "macos")]
+    {
+        crate::infrastructure::macos_api::window::set_dock_visibility_preserving_panel(
+            &app_handle, visible,
+        ).map_err(AppError::from)?;
+        if !visible {
+            // Tao intentionally drops a hide within one second of showing the
+            // Dock icon. Retry beyond that interval, but respect a newer toggle.
+            let app = app_handle.clone();
+            tauri::async_runtime::spawn(async move {
+                tokio::time::sleep(std::time::Duration::from_millis(1100)).await;
+                let app_on_main = app.clone();
+                let _ = app.run_on_main_thread(move || {
+                    let settings = app_on_main.state::<crate::app_state::SettingsState>();
+                    if settings.hide_dock_icon.load(Ordering::Relaxed) {
+                        if let Err(error) = crate::infrastructure::macos_api::window::set_dock_visibility_preserving_panel(&app_on_main, false) {
+                            eprintln!("Failed to retry hiding Dock icon: {error}");
+                        }
+                    }
+                });
+            });
+        }
+    }
+    let db_state = app_handle.state::<DbState>();
+    db_state
+        .settings_repo
+        .set("app.hide_dock_icon", &(!visible).to_string())
+        .map_err(AppError::from)
+}
+
+#[tauri::command]
 pub fn set_edge_docking(
     app_handle: AppHandle,
     state: State<'_, crate::app_state::SettingsState>,
@@ -576,7 +759,11 @@ pub fn set_edge_docking(
     db_state
         .settings_repo
         .set("app.edge_docking", &enabled.to_string())
-        .map_err(AppError::from)
+        .map_err(AppError::from)?;
+    if !enabled {
+        crate::app::setup::persist_edge_dock(&app_handle, 0);
+    }
+    Ok(())
 }
 
 #[tauri::command]

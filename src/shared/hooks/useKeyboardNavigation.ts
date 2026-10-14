@@ -4,36 +4,50 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { RefObject } from "react";
 import { matchesHotkey } from "./useHotkeyMatching";
-import { useWindowVisibility } from "./useWindowVisibility";
+import { isMacPlatform } from "../lib/platform";
+import { isTauriRuntime } from "../lib/tauriRuntime";
 import type { ClipboardEntry } from "../types";
 
 interface UseKeyboardNavigationOptions {
   filteredHistory: ClipboardEntry[];
   selectedIndex: number;
+  selectedItemId: number | null;
   setSelectedIndex: (val: number | ((prev: number) => number)) => void;
+  setSelectedItemId: (val: number | null) => void;
   isKeyboardMode: boolean;
   setIsKeyboardMode: (val: boolean | ((prev: boolean) => boolean)) => void;
   showSettings: boolean;
   showTagManager: boolean;
   chatMode: boolean;
   editingTagsId: number | null;
+  editingNoteId: number | null;
   arrowKeySelection: boolean;
   richPasteHotkey: string;
   searchInputRef: RefObject<HTMLInputElement | null>;
-  copyToClipboard: (id: number, content: string, contentType: string, pasteWithFormat?: boolean) => Promise<void>;
+  copyToClipboard: (
+    id: number,
+    content: string,
+    contentType: string,
+    pasteWithFormat?: boolean,
+    isPinned?: boolean,
+    tags?: string[]
+  ) => Promise<void>;
   setSearch: (val: string) => void;
 }
 
 export const useKeyboardNavigation = ({
   filteredHistory,
   selectedIndex,
+  selectedItemId,
   setSelectedIndex,
+  setSelectedItemId,
   isKeyboardMode,
   setIsKeyboardMode,
   showSettings,
   showTagManager,
   chatMode,
   editingTagsId,
+  editingNoteId,
   arrowKeySelection,
   richPasteHotkey,
   searchInputRef,
@@ -42,46 +56,170 @@ export const useKeyboardNavigation = ({
 }: UseKeyboardNavigationOptions) => {
   const filteredHistoryRef = useRef(filteredHistory);
   const selectedIndexRef = useRef(selectedIndex);
+  const selectedItemIdRef = useRef<number | null>(selectedItemId);
+  const selectedItemSnapshotRef = useRef<ClipboardEntry | null>(null);
   const isKeyboardModeRef = useRef(isKeyboardMode);
-  const isWindowVisibleRef = useWindowVisibility();
   const showSettingsRef = useRef(showSettings);
   const showTagManagerRef = useRef(showTagManager);
   const chatModeRef = useRef(chatMode);
   const editingTagsIdRef = useRef(editingTagsId);
+  const editingNoteIdRef = useRef(editingNoteId);
   const arrowKeySelectionRef = useRef(arrowKeySelection);
   const copyToClipboardRef = useRef(copyToClipboard);
   const richPasteHotkeyRef = useRef(richPasteHotkey);
+  const lastNavigationKeyRef = useRef<{ key: string; time: number }>({ key: "", time: 0 });
+  const pasteInFlightRef = useRef(false);
 
-  useEffect(() => { filteredHistoryRef.current = filteredHistory; }, [filteredHistory]);
-  useEffect(() => { selectedIndexRef.current = selectedIndex; }, [selectedIndex]);
-  useEffect(() => { isKeyboardModeRef.current = isKeyboardMode; }, [isKeyboardMode]);
-  useEffect(() => { showSettingsRef.current = showSettings; }, [showSettings]);
-  useEffect(() => { showTagManagerRef.current = showTagManager; }, [showTagManager]);
-  useEffect(() => { chatModeRef.current = chatMode; }, [chatMode]);
-  useEffect(() => { editingTagsIdRef.current = editingTagsId; }, [editingTagsId]);
-  useEffect(() => { arrowKeySelectionRef.current = arrowKeySelection; }, [arrowKeySelection]);
-  useEffect(() => { copyToClipboardRef.current = copyToClipboard; }, [copyToClipboard]);
-  useEffect(() => { richPasteHotkeyRef.current = richPasteHotkey; }, [richPasteHotkey]);
+  filteredHistoryRef.current = filteredHistory;
+  isKeyboardModeRef.current = isKeyboardMode;
+  showSettingsRef.current = showSettings;
+  showTagManagerRef.current = showTagManager;
+  chatModeRef.current = chatMode;
+  editingTagsIdRef.current = editingTagsId;
+  editingNoteIdRef.current = editingNoteId;
+  arrowKeySelectionRef.current = arrowKeySelection;
+  copyToClipboardRef.current = copyToClipboard;
+  richPasteHotkeyRef.current = richPasteHotkey;
+
   useEffect(() => {
+    selectedIndexRef.current = selectedIndex;
+    selectedItemIdRef.current = selectedItemId;
+    selectedItemSnapshotRef.current =
+      filteredHistoryRef.current.find((entry) => entry.id === selectedItemId) ??
+      filteredHistoryRef.current[selectedIndex] ??
+      null;
+  }, [selectedIndex, selectedItemId]);
+
+  // macOS NSPanel is non-key on show; arrow DOM navigation works after make_key_window.
+  // Native HID navigation is only needed on Windows (and legacy Mac non-key panels).
+  const usesNativeNavigation = () =>
+    isTauriRuntime() && arrowKeySelectionRef.current && !isMacPlatform();
+
+  const applySelection = (index: number, enableKeyboard = true) => {
+    const history = filteredHistoryRef.current;
+    const maxIndex = Math.max(0, history.length - 1);
+    const nextIndex = Math.max(0, Math.min(index, maxIndex));
+    const item = history[nextIndex];
+
+    selectedIndexRef.current = nextIndex;
+    selectedItemIdRef.current = item?.id ?? null;
+    selectedItemSnapshotRef.current = item ?? null;
+
+    if (enableKeyboard) {
+      setIsKeyboardMode(true);
+    }
+    setSelectedIndex(nextIndex);
+    setSelectedItemId(item?.id ?? null);
+  };
+
+  const resolveSelectedItem = (history: ClipboardEntry[]) => {
+    const snapshot = selectedItemSnapshotRef.current;
+    if (snapshot) {
+      const bySnapshotId = history.find((entry) => entry.id === snapshot.id);
+      if (bySnapshotId) return bySnapshotId;
+    }
+
+    const itemId = selectedItemIdRef.current;
+    if (itemId != null) {
+      const byId = history.find((entry) => entry.id === itemId);
+      if (byId) return byId;
+    }
+
+    const currentIndex = selectedIndexRef.current;
+    if (currentIndex >= 0 && currentIndex < history.length) {
+      return history[currentIndex];
+    }
+
+    const selectedElement = document.querySelector<HTMLElement>(
+      ".history-item.selected[id^='clipboard-item-']"
+    );
+    const visualItemId = selectedElement
+      ? Number(selectedElement.id.replace("clipboard-item-", ""))
+      : NaN;
+    if (!Number.isNaN(visualItemId)) {
+      const visualItem = history.find((entry) => entry.id === visualItemId);
+      if (visualItem) return visualItem;
+    }
+
+    return null;
+  };
+
+  const resetSelectionToTop = () => {
+    const history = filteredHistoryRef.current;
+    const firstId = history[0]?.id ?? null;
+    selectedIndexRef.current = 0;
+    selectedItemIdRef.current = firstId;
+    selectedItemSnapshotRef.current = history[0] ?? null;
+    isKeyboardModeRef.current = false;
+
+    setIsKeyboardMode(false);
+    setSelectedIndex(0);
+    setSelectedItemId(firstId);
+  };
+
+  const pasteSelectedItem = async (isRich: boolean, explicitItem?: ClipboardEntry) => {
+    if (pasteInFlightRef.current) return;
+
+    const history = filteredHistoryRef.current;
+    const item = explicitItem ?? resolveSelectedItem(history);
+    if (!item) return;
+
+    pasteInFlightRef.current = true;
+
+    const { id, content, content_type, is_pinned, tags } = item;
+
+    try {
+      if (copyToClipboardRef.current) {
+        await copyToClipboardRef.current(
+          id,
+          content,
+          content_type,
+          isRich,
+          is_pinned,
+          tags || []
+        );
+      }
+    } finally {
+      resetSelectionToTop();
+      window.setTimeout(() => {
+        pasteInFlightRef.current = false;
+      }, 500);
+    }
+  };
+
+  useEffect(() => {
+    if (!isTauriRuntime()) return;
     invoke("set_navigation_mode", { active: isKeyboardMode }).catch(console.error);
   }, [isKeyboardMode]);
 
   useEffect(() => {
-    let isPastingLocal = false;
+    if (!isTauriRuntime()) return;
+    const appWindow = getCurrentWindow();
+    const resetKeyboardNavigation = () => {
+      resetSelectionToTop();
+    };
 
+    const unlistenHide = appWindow.listen("tauri://hide", resetKeyboardNavigation);
+
+    return () => {
+      unlistenHide.then(f => f());
+    };
+  }, [setIsKeyboardMode, setSelectedIndex, setSelectedItemId]);
+
+  useEffect(() => {
     const handleKeyDown = async (e: KeyboardEvent) => {
-      if (!isWindowVisibleRef.current) return;
-      if (isPastingLocal) {
-        e.preventDefault();
-        e.stopPropagation();
-        return;
-      }
+      // A real keydown already means this window is receiving input; do not gate
+      // on Tauri isVisible() (NSPanel can report false while the panel is key).
+      if (e.defaultPrevented) return;
+      // Never steal IME / printable input from focused fields.
+      if (e.isComposing || e.key === "Process") return;
 
       if (
         showSettingsRef.current ||
         showTagManagerRef.current ||
         chatModeRef.current ||
-        editingTagsIdRef.current !== null
+        editingTagsIdRef.current !== null ||
+        editingNoteIdRef.current !== null
       ) {
         return;
       }
@@ -93,85 +231,90 @@ export const useKeyboardNavigation = ({
       const isEditable = isAnyInput || target.isContentEditable === true;
 
       if (e.key === "Escape") {
-          e.preventDefault();
-          if (isEditable) {
-              searchInputRef.current?.blur();
-          } else {
-              const isClipboardAtTop = !isKeyboardModeRef.current || selectedIndexRef.current <= 0;
-              if (isClipboardAtTop) {
-                invoke("hide_window_cmd");
-              } else {
-                setIsKeyboardMode(true);
-                setSelectedIndex(0);
-              }
-          }
+        e.preventDefault();
+        if (isEditable) {
+          searchInputRef.current?.blur();
+        } else if (usesNativeNavigation()) {
           return;
+        } else {
+          const isClipboardAtTop = !isKeyboardModeRef.current || selectedIndexRef.current <= 0;
+          if (isClipboardAtTop) {
+            resetSelectionToTop();
+            if (isTauriRuntime()) {
+              invoke("hide_window_cmd").catch(console.error);
+            }
+          } else {
+            applySelection(0);
+          }
+        }
+        return;
       }
 
+      // In inputs, only allow search ↑/↓ selection and search Enter-to-paste.
+      // Printable keys / Backspace / IME must reach the field unchanged.
       if (isEditable) {
-          if (e.key === "Enter" && isSearchInput) {
-              // Fall through
-          } else {
-              if (!arrowKeySelectionRef.current) return;
-              if (!isSearchInput) return;
-          }
+        const isSearchArrowNav =
+          isSearchInput &&
+          arrowKeySelectionRef.current &&
+          (e.key === "ArrowDown" || e.key === "ArrowUp");
+        const isSearchEnter = isSearchInput && e.key === "Enter";
+        if (!isSearchArrowNav && !isSearchEnter) {
+          return;
+        }
       }
 
       if (arrowKeySelectionRef.current && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+        if (usesNativeNavigation()) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+
         e.preventDefault();
         e.stopPropagation();
 
-        setIsKeyboardMode((prev) => {
-          if (!prev) {
-            setSelectedIndex(0);
-            return true;
-          }
+        const now = performance.now();
+        const lastNavigationKey = lastNavigationKeyRef.current;
+        if (lastNavigationKey.key === e.key && now - lastNavigationKey.time < 90) {
+          return;
+        }
+        lastNavigationKeyRef.current = { key: e.key, time: now };
 
-          if (e.key === "ArrowDown") {
-            setSelectedIndex((s) => Math.min(s + 1, filteredHistoryRef.current.length - 1));
-          } else {
-            setSelectedIndex((s) => Math.max(s - 1, 0));
-          }
-          return true;
-        });
+        const maxIndex = Math.max(0, filteredHistoryRef.current.length - 1);
+        const current = isKeyboardModeRef.current ? selectedIndexRef.current : -1;
+        const nextIndex = e.key === "ArrowDown"
+          ? Math.min(current + 1, maxIndex)
+          : Math.max(current <= 0 ? 0 : current - 1, 0);
+
+        isKeyboardModeRef.current = true;
+        applySelection(nextIndex);
         return;
       }
 
       const matchesRichHotkey = matchesHotkey(e, richPasteHotkeyRef.current);
       const shouldHandleEnter = e.key === "Enter" && isKeyboardModeRef.current;
       if (shouldHandleEnter || matchesRichHotkey) {
+        if (shouldHandleEnter && !matchesRichHotkey && usesNativeNavigation()) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+
         const isRich = matchesRichHotkey;
         e.preventDefault();
         e.stopPropagation();
 
-        const currentIndex = selectedIndexRef.current;
-        const currentHistory = filteredHistoryRef.current;
+        const history = filteredHistoryRef.current;
+        const item = resolveSelectedItem(history);
+        if (!item) return;
 
-        if (currentIndex >= 0 && currentIndex < currentHistory.length) {
-          isPastingLocal = true;
-          const item = currentHistory[currentIndex];
-
-          setIsKeyboardMode(false);
-          setSelectedIndex(0);
-
-          if (copyToClipboardRef.current) {
-            await copyToClipboardRef.current(
-              item.id,
-              item.content,
-              item.content_type,
-              isRich
-            );
-          }
-
-          setTimeout(() => {
-            isPastingLocal = false;
-          }, 500);
-        }
+        await pasteSelectedItem(isRich, item);
         return;
       }
     };
 
     const handleInteraction = () => {
+      isKeyboardModeRef.current = false;
       setIsKeyboardMode(false);
     };
 
@@ -182,66 +325,87 @@ export const useKeyboardNavigation = ({
       window.removeEventListener("keydown", handleKeyDown, true);
       window.removeEventListener("mousedown", handleInteraction);
     };
-  }, [searchInputRef, setIsKeyboardMode, setSelectedIndex]);
+  }, [searchInputRef, setIsKeyboardMode, setSelectedIndex, setSelectedItemId]);
 
   useEffect(() => {
+    if (!isTauriRuntime()) return;
     const unlisten = listen<string>("navigation-action", async (event) => {
-      try {
-        const isVisible = await getCurrentWindow().isVisible();
-        if (!isVisible) return;
-      } catch (err) {
-        console.warn("Failed to check window visibility:", err);
+      // Prefer document focus over Tauri isVisible — NSPanel visibility can lag.
+      let windowLooksOpen = document.hasFocus() || document.visibilityState === "visible";
+      if (!windowLooksOpen) {
+        try {
+          windowLooksOpen = await getCurrentWindow().isVisible();
+        } catch (err) {
+          console.warn("Failed to check window visibility:", err);
+        }
       }
+      if (!windowLooksOpen) return;
 
-      if (showSettings || showTagManager || chatMode || editingTagsId !== null) return;
+      if (showSettingsRef.current || showTagManagerRef.current || chatModeRef.current || editingTagsIdRef.current !== null || editingNoteIdRef.current !== null) {
+        return;
+      }
 
       const action = event.payload;
       const history = filteredHistoryRef.current;
       const currentIndex = selectedIndexRef.current;
       const isNavMode = isKeyboardModeRef.current;
 
-      if ((action === "up" || action === "down") && !arrowKeySelection) {
+      if ((action === "up" || action === "down") && !arrowKeySelectionRef.current) {
         return;
       }
 
       if (action === "up") {
-        if (!isNavMode) {
-          setIsKeyboardMode(true);
-          setSelectedIndex(0);
-        } else {
-          setSelectedIndex((prev) => Math.max(prev - 1, 0));
+        const now = performance.now();
+        const lastNavigationKey = lastNavigationKeyRef.current;
+        if (lastNavigationKey.key === action && now - lastNavigationKey.time < 90) {
+          return;
         }
+        lastNavigationKeyRef.current = { key: action, time: now };
+
+        const nextIndex = isNavMode ? Math.max(currentIndex - 1, 0) : 0;
+        isKeyboardModeRef.current = true;
+        applySelection(nextIndex);
       } else if (action === "down") {
-        if (!isNavMode) {
-          setIsKeyboardMode(true);
-          setSelectedIndex(0);
-        } else {
-          setSelectedIndex((prev) => Math.min(prev + 1, history.length - 1));
+        const now = performance.now();
+        const lastNavigationKey = lastNavigationKeyRef.current;
+        if (lastNavigationKey.key === action && now - lastNavigationKey.time < 90) {
+          return;
         }
+        lastNavigationKeyRef.current = { key: action, time: now };
+
+        const maxIndex = Math.max(0, history.length - 1);
+        const nextIndex = isNavMode ? Math.min(currentIndex + 1, maxIndex) : 0;
+        isKeyboardModeRef.current = true;
+        applySelection(nextIndex);
       } else if (action === "enter") {
         if (!isNavMode) return;
-        if (currentIndex >= 0 && currentIndex < history.length) {
-          const item = history[currentIndex];
-          copyToClipboard(item.id, item.content, item.content_type, false);
+
+        const now = performance.now();
+        const lastNavigationKey = lastNavigationKeyRef.current;
+        if (lastNavigationKey.key === action && now - lastNavigationKey.time < 350) {
+          return;
         }
+        lastNavigationKeyRef.current = { key: action, time: now };
+
+        const item = resolveSelectedItem(history);
+        if (!item) return;
+        await pasteSelectedItem(false, item);
       } else if (action === "escape") {
         setSearch("");
-        setIsKeyboardMode(false);
+        resetSelectionToTop();
       }
     });
 
     return () => { unlisten.then(f => f()); };
-  }, [
-    arrowKeySelection,
-    chatMode,
-    copyToClipboard,
-    editingTagsId,
-    setIsKeyboardMode,
-    setSearch,
-    setSelectedIndex,
-    showSettings,
-    showTagManager
-  ]);
+  }, [setIsKeyboardMode, setSearch, setSelectedIndex, setSelectedItemId]);
+
+  const selectItemByIndex = (index: number) => {
+    // Remember the clicked paste target without leaving a persistent highlight.
+    // Hover is purely visual and must not overwrite a keyboard-selected target.
+    applySelection(index, false);
+  };
+
+  return {
+    selectItemByIndex
+  };
 };
-
-
