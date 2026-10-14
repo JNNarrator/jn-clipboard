@@ -1445,11 +1445,11 @@ fn resolve_windows_paste_method(method: &str) -> String {
             .app_name
             .to_ascii_lowercase();
 
+        // mintty (Git Bash), PuTTY and ConEmu paste with Shift+Insert out of
+        // the box but bind Ctrl+Shift+V only when the user turns it on, so
+        // they keep Shift+Insert (#112).
         if class_name.contains("ConsoleWindowClass")
             || class_name.contains("CASCADIA_HOSTING_WINDOW_CLASS")
-            || class_name.contains("Mintty")
-            || class_name.contains("VirtualConsoleClass")
-            || app_name.contains("putty")
             || app_name.contains("windowsterminal")
         {
             return "ctrl_shift_v".to_string();

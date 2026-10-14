@@ -88,7 +88,41 @@ pub fn same_anon_id(left: &str, right: &str) -> bool {
     }
 }
 
-/// Wake-from-sleep and Explorer-restart notifications.
+#[cfg(target_os = "windows")]
+const WM_WTSSESSION_CHANGE: u32 = 0x02B1;
+#[cfg(target_os = "windows")]
+const NOTIFY_FOR_THIS_SESSION: u32 = 0;
+
+#[cfg(target_os = "windows")]
+#[link(name = "wtsapi32")]
+unsafe extern "system" {
+    fn WTSRegisterSessionNotification(hwnd: HWND, flags: u32) -> i32;
+}
+
+/// Windows shows the tray icon again when it rebuilds the notification area:
+/// after an Explorer restart, and after a Remote Desktop reconnect or unlock.
+/// Hide it again if the user chose so. The shell may take a moment, so try a
+/// few times. Session handling from #133.
+#[cfg(target_os = "windows")]
+fn rehide_tray_icon(reason: &'static str, delays_ms: &'static [u64]) {
+    let Some(app_handle) = crate::GLOBAL_APP_HANDLE.get() else { return };
+    let handle = app_handle.clone();
+    std::thread::spawn(move || {
+        for delay in delays_ms {
+            std::thread::sleep(std::time::Duration::from_millis(*delay));
+            let Some(settings) = handle.try_state::<crate::app_state::SettingsState>() else { return };
+            if !settings.hide_tray_icon.load(Ordering::Relaxed) {
+                return;
+            }
+            if let Some(tray) = handle.tray_by_id("main_tray") {
+                let _ = tray.set_visible(false);
+                println!(">>> [TRAY] {reason}: re-hiding tray icon per user setting.");
+            }
+        }
+    });
+}
+
+/// Wake-from-sleep, Explorer-restart and session (unlock, Remote Desktop) notifications.
 #[cfg(target_os = "windows")]
 fn handle_system_message(msg: u32, wparam: WPARAM) {
     use windows::Win32::UI::WindowsAndMessaging::{
@@ -102,20 +136,12 @@ fn handle_system_message(msg: u32, wparam: WPARAM) {
     }
     let taskbar_msg = TASKBAR_CREATED_MSG.load(Ordering::Relaxed);
     if msg != 0 && msg == taskbar_msg {
-        if let Some(app_handle) = crate::GLOBAL_APP_HANDLE.get() {
-            let handle = app_handle.clone();
-            std::thread::spawn(move || {
-                std::thread::sleep(std::time::Duration::from_millis(1500));
-                if let Some(settings) = handle.try_state::<crate::app_state::SettingsState>() {
-                    if settings.hide_tray_icon.load(Ordering::Relaxed) {
-                        if let Some(tray) = handle.tray_by_id("main_tray") {
-                            let _ = tray.set_visible(false);
-                            println!(">>> [TRAY] Explorer restart detected, re-hiding tray icon per user setting.");
-                        }
-                    }
-                }
-            });
-        }
+        rehide_tray_icon("Explorer restart", &[1500]);
+    }
+    // WTS_CONSOLE_CONNECT, WTS_REMOTE_CONNECT, WTS_SESSION_LOGON,
+    // WTS_SESSION_UNLOCK, WTS_SESSION_REMOTE_CONTROL
+    if msg == WM_WTSSESSION_CHANGE && matches!(wparam.0, 0x1 | 0x3 | 0x5 | 0x8 | 0x9) {
+        rehide_tray_icon("session change", &[500, 1500, 3000]);
     }
 }
 
@@ -163,7 +189,7 @@ pub fn start_system_event_window() {
             return;
         }
         // Never shown; WS_EX_TOOLWINDOW keeps it out of Alt+Tab and the taskbar.
-        if let Err(err) = CreateWindowExW(
+        let hwnd = match CreateWindowExW(
             WS_EX_TOOLWINDOW,
             class_name,
             w!("TieZ system events"),
@@ -177,8 +203,15 @@ pub fn start_system_event_window() {
             Some(instance),
             None,
         ) {
-            eprintln!("[system-events] CreateWindowExW failed: {err}");
-            return;
+            Ok(hwnd) => hwnd,
+            Err(err) => {
+                eprintln!("[system-events] CreateWindowExW failed: {err}");
+                return;
+            }
+        };
+        // Session changes arrive only for registered windows.
+        if WTSRegisterSessionNotification(hwnd, NOTIFY_FOR_THIS_SESSION) == 0 {
+            eprintln!("[system-events] WTSRegisterSessionNotification failed");
         }
         let mut msg = MSG::default();
         while GetMessageW(&mut msg, None, 0, 0).as_bool() {

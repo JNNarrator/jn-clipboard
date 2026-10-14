@@ -1164,8 +1164,15 @@ pub fn start_clipboard_monitor(app_handle: AppHandle) {
 #[cfg(target_os = "windows")]
 fn is_ignored_named_clipboard_format(name: &str) -> bool {
     let lower = name.trim().to_ascii_lowercase();
+    // OLE link formats: reading them has the source app build a link to its
+    // document, which an unsaved WPS document cannot do (#147), and a link
+    // replayed later points at the original document anyway.
     lower.is_empty()
         || lower == "html format"
+        || lower == "native"
+        || lower == "objectlink"
+        || lower == "ownerlink"
+        || lower == "link source"
         || [
             "png",
             "image/png",
@@ -1398,4 +1405,19 @@ fn process_new_entry_with_source(
     ctx.source_app = source.app_name;
     ctx.source_app_path = source.process_path;
     ClipboardPipeline::new().execute(&mut ctx);
+}
+
+#[cfg(all(test, target_os = "windows"))]
+mod named_format_tests {
+    use super::is_ignored_named_clipboard_format;
+
+    #[test]
+    fn ole_link_formats_are_not_read() {
+        for name in ["Link Source", "ObjectLink", "OwnerLink", "Native", "Embed Source", "Link Source Descriptor"] {
+            assert!(is_ignored_named_clipboard_format(name), "{name}");
+        }
+        for name in ["Rich Text Format", "XML Spreadsheet", "Biff12", "Csv", "Kingsoft Data Descriptor"] {
+            assert!(!is_ignored_named_clipboard_format(name), "{name}");
+        }
+    }
 }
