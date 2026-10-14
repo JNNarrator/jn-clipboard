@@ -11,12 +11,16 @@ export type PendingTransferItem = {
 
 export const resolveDropPaths = (payload: unknown): string[] => {
     if (Array.isArray(payload)) {
-        return payload.filter((p): p is string => typeof p === "string" && p.trim().length > 0);
+        return payload
+            .map((p) => (typeof p === "string" ? p.trim() : ""))
+            .filter((p) => p.length > 0);
     }
     if (payload && typeof payload === "object" && "paths" in payload) {
         const maybePaths = (payload as { paths?: unknown }).paths;
         if (Array.isArray(maybePaths)) {
-            return maybePaths.filter((p): p is string => typeof p === "string" && p.trim().length > 0);
+            return maybePaths
+                .map((p) => (typeof p === "string" ? p.trim() : ""))
+                .filter((p) => p.length > 0);
         }
     }
     return [];

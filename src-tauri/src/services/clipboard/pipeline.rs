@@ -363,6 +363,28 @@ impl PipelineStage for SoundStage {
     }
 }
 
+fn duplicate_content_matches(content: &str, kind: &str, html: Option<&str>, old: &str, old_kind: &str, old_html: Option<&str>) -> bool {
+    let compatible = kind == old_kind || (is_text_type(kind) && is_text_type(old_kind));
+    if !compatible || normalize_clipboard_line_endings(content) != normalize_clipboard_line_endings(old) {
+        return false;
+    }
+    if kind == "rich_text" && old_kind == "rich_text" {
+        return match (html, old_html) {
+            (None, None) => true,
+            (Some(a), Some(b)) => normalize_clipboard_line_endings(a) == normalize_clipboard_line_endings(b),
+            _ => false,
+        };
+    }
+    true
+}
+
+fn preserve_rich_format(entry: &mut ClipboardEntry, existing: &ClipboardEntry) {
+    if entry.content_type != "rich_text" && existing.content_type == "rich_text" {
+        entry.content_type = existing.content_type.clone();
+        entry.html_content = existing.html_content.clone();
+    }
+}
+
 // Stage 5: Deduplication (DB-heavy — intentionally after copy sound)
 pub struct DeduplicationStage;
 impl PipelineStage for DeduplicationStage {
@@ -386,64 +408,19 @@ impl PipelineStage for DeduplicationStage {
             };
 
             // Try precise match and normalized match
-            let normalized_content = normalize_clipboard_line_endings(&content);
-            let normalized_html = |html: &str| normalize_clipboard_line_endings(html);
-            let htmls_equivalent = |a: Option<&str>, b: Option<&str>| -> bool {
-                match (a, b) {
-                    (None, None) => true,
-                    (Some(left), Some(right)) => normalized_html(left) == normalized_html(right),
-                    _ => false,
-                }
-            };
-            let rich_text_html_matches = |id: i64| -> bool {
-                if let Ok(Some((_content, c_type, h_content))) = db_state
-                    .repo
-                    .get_entry_content_with_html_with_conn(&conn, id)
-                {
-                    if c_type != "rich_text" {
-                        return false;
+            if is_text_type(&content_type) {
+                if let Ok(ids) = db_state.repo.find_text_candidates_with_conn(&conn, &content) {
+                    for id in ids {
+                        if let Ok(Some((old_content, old_type, old_html))) = db_state.repo.get_entry_content_with_html_with_conn(&conn, id) {
+                            if duplicate_content_matches(&content, &content_type, html_content.as_deref(), &old_content, &old_type, old_html.as_deref()) {
+                                existing_id = Some(id);
+                                break;
+                            }
+                        }
                     }
-                    return htmls_equivalent(html_content.as_deref(), h_content.as_deref());
                 }
-                false
-            };
-
-            // For rich text, we want to deduplicate against all text types
-            let types_to_check = if content_type == "rich_text" {
-                vec!["rich_text", "text", "code", "url"]
             } else {
-                vec![content_type.as_str()]
-            };
-
-            for t in types_to_check {
-                if let Ok(Some(id)) =
-                    db_state
-                        .repo
-                        .find_by_content_with_conn(&conn, &content, Some(t))
-                {
-                    if content_type == "rich_text"
-                        && t == "rich_text"
-                        && !rich_text_html_matches(id)
-                    {
-                        continue;
-                    }
-                    existing_id = Some(id);
-                    break;
-                }
-                if let Ok(Some(id)) =
-                    db_state
-                        .repo
-                        .find_by_content_with_conn(&conn, &normalized_content, Some(t))
-                {
-                    if content_type == "rich_text"
-                        && t == "rich_text"
-                        && !rich_text_html_matches(id)
-                    {
-                        continue;
-                    }
-                    existing_id = Some(id);
-                    break;
-                }
+                existing_id = db_state.repo.find_by_content_with_conn(&conn, &content, Some(&content_type)).ok().flatten();
             }
 
             if persistent_enabled {
@@ -453,6 +430,7 @@ impl PipelineStage for DeduplicationStage {
                     let entry_mut = ctx.entry.as_mut().unwrap();
                     entry_mut.id = id;
                     if let Ok(Some(existing)) = db_state.repo.get_entry_by_id_with_conn(&conn, id) {
+                        preserve_rich_format(entry_mut, &existing);
                         entry_mut.created_at = existing.created_at;
                         entry_mut.last_used_at = existing.last_used_at;
                         // The UPDATE leaves these alone, but the entry is also
@@ -484,21 +462,8 @@ impl PipelineStage for DeduplicationStage {
             {
                 let session = session_history.0.lock().unwrap();
                 let entry = ctx.entry.as_ref().expect("entry exists");
-                let normalized_content = normalize_clipboard_line_endings(&entry.content);
                 for item in session.iter() {
-                    let item_normalized = normalize_clipboard_line_endings(&item.content);
-                    let html_match =
-                        if entry.content_type == "rich_text" && item.content_type == "rich_text" {
-                            htmls_equivalent(
-                                item.html_content.as_deref(),
-                                entry.html_content.as_deref(),
-                            )
-                        } else {
-                            true
-                        };
-                    let match_found = (item.content == entry.content
-                        || item_normalized == normalized_content)
-                        && html_match;
+                    let match_found = duplicate_content_matches(&entry.content, &entry.content_type, entry.html_content.as_deref(), &item.content, &item.content_type, item.html_content.as_deref());
                     if match_found {
                         removed_ids.push(item.id);
                         if !persistent_enabled {
@@ -564,6 +529,7 @@ impl PipelineStage for PersistenceStage {
                         let preserved_created_at = existing.created_at;
                         let preserved_last_used_at = existing.last_used_at;
 
+                        preserve_rich_format(entry, existing);
                         existing.content_type = entry.content_type.clone();
                         existing.content = entry.content.clone();
                         existing.html_content = entry.html_content.clone();
@@ -720,4 +686,38 @@ pub fn start_session_file_sweeper(app: tauri::AppHandle, data_dir: &std::path::P
         std::thread::sleep(std::time::Duration::from_secs(30));
         sweep_session_files(&app);
     });
+}
+
+#[cfg(test)]
+mod dedup_tests {
+    use super::*;
+    #[test]
+    fn identical_text_merges_across_types_in_both_directions() {
+        for a in ["text", "code", "url", "rich_text"] {
+            for b in ["text", "code", "url", "rich_text"] {
+                assert!(duplicate_content_matches("a\r\nb", a, Some("<b>a</b>"), "a\nb", b, Some("<b>a</b>")));
+            }
+        }
+    }
+    #[test]
+    fn different_formats_and_meaningful_whitespace_stay_separate() {
+        assert!(!duplicate_content_matches("a", "rich_text", Some("<b>a</b>"), "a", "rich_text", Some("<i>a</i>")));
+        assert!(!duplicate_content_matches(" a", "text", None, "a", "text", None));
+        assert!(!duplicate_content_matches("a", "file", None, "a", "text", None));
+    }
+    #[test]
+    fn plain_recapture_preserves_existing_html() {
+        let mut incoming = serde_json::from_value::<ClipboardEntry>(serde_json::json!({
+            "id": 0, "content_type": "text", "content": "a", "source_app": "test", "timestamp": 1, "preview": "a", "is_pinned": false
+        })).unwrap();
+        incoming.content_type = "text".into();
+        let mut existing = serde_json::from_value::<ClipboardEntry>(serde_json::json!({
+            "id": 0, "content_type": "text", "content": "a", "source_app": "test", "timestamp": 1, "preview": "a", "is_pinned": false
+        })).unwrap();
+        existing.content_type = "rich_text".into();
+        existing.html_content = Some("<b>a</b>".into());
+        preserve_rich_format(&mut incoming, &existing);
+        assert_eq!(incoming.content_type, "rich_text");
+        assert_eq!(incoming.html_content, existing.html_content);
+    }
 }

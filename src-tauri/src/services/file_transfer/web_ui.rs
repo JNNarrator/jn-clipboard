@@ -419,24 +419,24 @@ fn file_transfer_theme_variants(theme: &str) -> (&'static str, &'static str, &'s
             --text-primary: #1e1e1e;
             --text-secondary: #6a6a6a;
             --accent-color: #2a2a2a;
-            --bubble-border: 1px dashed var(--border-dark);
+            --bubble-border: 1px solid var(--border-dark);
             --shadow-color: rgba(0, 0, 0, 0.1);
             --font-mono: "Courier New", Courier, "SF Mono", monospace;
             --content-font-family: var(--font-mono);
             --radius: 0;
             --bubble-received-bg: #fffef9;
-            --panel-border: 1px dashed rgba(0, 0, 0, 0.18);
+            --panel-border: 1px solid rgba(0, 0, 0, 0.18);
             --panel-radius: 2px;
             --panel-shadow: none;
-            --input-border: 1px dashed rgba(0, 0, 0, 0.2);
+            --input-border: 1px solid rgba(0, 0, 0, 0.2);
             --input-radius: 0;
             --input-shadow: none;
-            --button-border: 1px dashed rgba(0, 0, 0, 0.25);
+            --button-border: 1px solid rgba(0, 0, 0, 0.25);
             --button-radius: 0;
             --button-shadow: none;
             --send-button-background: #2a2a2a;
             --send-button-color: #fffef9;
-            --send-button-border: 1px dashed #2a2a2a;
+            --send-button-border: 1px solid #2a2a2a;
             --send-button-shadow: none;
             "#,
             r#"
@@ -451,12 +451,12 @@ fn file_transfer_theme_variants(theme: &str) -> (&'static str, &'static str, &'s
             --bubble-sent-color: #1c1c1c;
             --shadow-color: rgba(0, 0, 0, 0.35);
             --bubble-received-bg: #242424;
-            --panel-border: 1px dashed rgba(255, 255, 255, 0.16);
-            --input-border: 1px dashed rgba(255, 255, 255, 0.18);
-            --button-border: 1px dashed rgba(255, 255, 255, 0.22);
+            --panel-border: 1px solid rgba(255, 255, 255, 0.16);
+            --input-border: 1px solid rgba(255, 255, 255, 0.18);
+            --button-border: 1px solid rgba(255, 255, 255, 0.22);
             --send-button-background: #e8e8e8;
             --send-button-color: #1c1c1c;
-            --send-button-border: 1px dashed #e8e8e8;
+            --send-button-border: 1px solid #e8e8e8;
             "#,
             r#"
             body.theme-receipt {{
@@ -468,10 +468,10 @@ fn file_transfer_theme_variants(theme: &str) -> (&'static str, &'static str, &'s
                 );
             }}
             .theme-receipt header, .theme-receipt footer {{
-                border-style: dashed;
+                border-style: solid;
             }}
             .theme-receipt .bubble {{
-                border-style: dashed;
+                border-style: solid;
                 box-shadow: none;
             }}
             "#,

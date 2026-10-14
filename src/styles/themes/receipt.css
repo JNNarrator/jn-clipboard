@@ -204,23 +204,7 @@ body.theme-receipt #root {
   overflow: hidden;
 }
 
-body.theme-receipt #root::after {
-  content: "";
-  display: block;
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 6px;
-  pointer-events: none;
-  background:
-    linear-gradient(135deg, var(--rc-paper) 33.33%, transparent 33.33%) -8px 0,
-    linear-gradient(225deg, var(--rc-paper) 33.33%, transparent 33.33%) -8px 0,
-    linear-gradient(45deg, rgba(var(--shadow-rgb), 0.06) 33.33%, transparent 33.33%),
-    linear-gradient(-45deg, rgba(var(--shadow-rgb), 0.06) 33.33%, transparent 33.33%);
-  background-size: 16px 6px;
-  z-index: 20;
-}
+
 
 html.theme-receipt,
 body.theme-receipt {
@@ -289,14 +273,7 @@ body.dark-mode.theme-receipt {
   --scrollbar-thumb-hover-color: rgba(255, 255, 255, 0.38);
 }
 
-body.dark-mode.theme-receipt #root::after {
-  background:
-    linear-gradient(135deg, var(--rc-paper) 33.33%, transparent 33.33%) -8px 0,
-    linear-gradient(225deg, var(--rc-paper) 33.33%, transparent 33.33%) -8px 0,
-    linear-gradient(45deg, rgba(var(--highlight-rgb), 0.08) 33.33%, transparent 33.33%),
-    linear-gradient(-45deg, rgba(var(--highlight-rgb), 0.08) 33.33%, transparent 33.33%);
-  background-size: 16px 6px;
-}
+
 
 body.theme-receipt,
 body.theme-receipt .search-input,

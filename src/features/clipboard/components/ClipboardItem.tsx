@@ -1,5 +1,5 @@
 import { getAppliedNativePalette } from "../../../shared/config/themes";
-import { useRef, useEffect, useLayoutEffect, useState, useMemo, memo } from "react";
+import { useRef, useId, useEffect, useLayoutEffect, useState, useMemo, memo } from "react";
 import { createPortal } from "react-dom";
 import type { CSSProperties } from "react";
 import { invoke } from "@tauri-apps/api/core";
@@ -79,7 +79,7 @@ import {
 import { openPinStickerWindow } from "../lib/pinStickerControls";
 import { activateForInput } from "../../../shared/lib/focus";
 import { getNotePlaceholder, isMacPlatform } from "../../../shared/lib/platform";
-import { setupDragDataTransfer, createDragGhostBadge } from "../lib/dragDrop";
+import { setupDragDataTransfer, createDragGhostBadge, shouldHideAfterExternalDrop } from "../lib/dragDrop";
 
 const COMPACT_PREVIEW_LABEL = "compact-preview";
 const COMPACT_PREVIEW_HOVER_DELAY_MS = 320;
@@ -771,6 +771,7 @@ const getFallbackFileIcon = (filePath: string) => {
 
 const ClipboardItem = ({
     item,
+    windowPinned,
     isSelected,
     isDetailFocused,
     isSensitiveHidden,
@@ -858,6 +859,11 @@ const ClipboardItem = ({
     const isReorderingRef = useRef(false);
     const canExportDragRef = useRef(false);
     const dragReleaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const dragGuardOwner = `drag:${useId()}`;
+    const dragGuardRef = useRef<{ owner: string; acquired: Promise<unknown> } | null>(null);
+    const dragSequenceRef = useRef(0);
+    const dragGhostRef = useRef<HTMLCanvasElement | null>(null);
+    const dragGhostFrameRef = useRef<number | null>(null);
     const pointerDownPosRef = useRef<{ x: number; y: number; time: number } | null>(null);
     const lastPasteTriggeredRef = useRef(0);
     const [sourceAppIcon, setSourceAppIcon] = useState<string | null>(() => peekSourceAppIcon(item.source_app_path) ?? null);
@@ -914,8 +920,13 @@ const ClipboardItem = ({
             window.removeEventListener("pointerup", finishReorder, true);
             window.removeEventListener("pointercancel", finishReorder, true);
             if (dragReleaseTimerRef.current) clearTimeout(dragReleaseTimerRef.current);
+            if (dragGhostFrameRef.current !== null) cancelAnimationFrame(dragGhostFrameRef.current);
+            dragGhostRef.current?.remove();
+            const acquired = dragGuardRef.current;
+            dragGuardRef.current = null;
+            if (acquired) void acquired.acquired.finally(() => invoke("release_blur_guard", { owner: acquired.owner }).catch(console.error));
         };
-    }, []);
+    }, [dragGuardOwner]);
 
     const [tagSuggestIndex, setTagSuggestIndex] = useState(-1);
     const tagSuggestListRef = useRef<HTMLDivElement | null>(null);
@@ -1986,7 +1997,8 @@ const ClipboardItem = ({
                 void hideCompactPreview();
 
                 // Prevent panel from hiding when dragging across other windows
-                invoke("acquire_blur_guard", { owner: "drag" }).catch(() => {});
+                const owner = `${dragGuardOwner}:${++dragSequenceRef.current}`;
+                dragGuardRef.current = { owner, acquired: invoke("acquire_blur_guard", { owner }).catch(console.error) };
 
                 // Setup payload for external windows (Finder, VSCode, Browser, Slack, etc.)
                 setupDragDataTransfer(e.dataTransfer, item, filePaths);
@@ -1996,11 +2008,18 @@ const ClipboardItem = ({
                     const badge = createDragGhostBadge(item, filePaths, theme, t);
                     badge.style.left = `${Math.max(0, e.clientX - 24)}px`;
                     badge.style.top = `${Math.max(0, e.clientY - 20)}px`;
+                    dragGhostRef.current?.remove();
+                    dragGhostRef.current = badge;
                     document.body.appendChild(badge);
                     e.dataTransfer.setDragImage(badge, 24, 20);
-                    setTimeout(() => {
-                        badge.remove();
-                    }, 0);
+                    // WebKit can snapshot the drag image on the next frame.
+                    // Keep the source alive; hide its page copy after capture.
+                    dragGhostFrameRef.current = requestAnimationFrame(() => {
+                        dragGhostFrameRef.current = requestAnimationFrame(() => {
+                            badge.style.visibility = "hidden";
+                            dragGhostFrameRef.current = null;
+                        });
+                    });
                 } catch {}
                 // Dragging doesn't touch the clipboard: a cancelled drag must
                 // not replace what the user had copied.
@@ -2010,7 +2029,22 @@ const ClipboardItem = ({
                 e.stopPropagation();
                 canExportDragRef.current = false;
                 setIsDragging(false);
-                invoke("release_blur_guard", { owner: "drag" }).catch(() => {});
+                if (dragGhostFrameRef.current !== null) cancelAnimationFrame(dragGhostFrameRef.current);
+                dragGhostFrameRef.current = null;
+                dragGhostRef.current?.remove();
+                dragGhostRef.current = null;
+                const insideWindow = e.clientX >= 0 && e.clientY >= 0
+                    && e.clientX < window.innerWidth && e.clientY < window.innerHeight;
+                const shouldHide = shouldHideAfterExternalDrop(e.dataTransfer.dropEffect, insideWindow, windowPinned);
+                const acquired = dragGuardRef.current;
+                dragGuardRef.current = null;
+                void (async () => {
+                    if (acquired) {
+                        await acquired.acquired;
+                        await invoke("release_blur_guard", { owner: acquired.owner });
+                    }
+                    if (shouldHide) await invoke("hide_window_cmd");
+                })().catch(console.error);
                 dragReleaseTimerRef.current = setTimeout(() => {
                     isDraggingRef.current = false;
                     pointerDownPosRef.current = null;

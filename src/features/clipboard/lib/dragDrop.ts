@@ -1,6 +1,10 @@
 import type { ClipboardEntry } from "../../../shared/types";
 import { stripRichStorageMarkers } from "../../../shared/lib/repairHtmlFragment";
 
+/** Hide only after an accepted external drop, never on Escape or row reorder. */
+export const shouldHideAfterExternalDrop = (effect: DataTransfer["dropEffect"], insideWindow: boolean, pinned: boolean): boolean =>
+  effect !== "none" && !insideWindow && !pinned;
+
 const SVG_ICONS: Record<string, string> = {
   file: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`,
   image: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`,
@@ -155,6 +159,8 @@ export const createDragGhostBadge = (
   } else {
     labelText = item.content.trim().replace(/\s+/g, " ");
   }
+  // Invisible direction controls and line separators should not shape the badge.
+  labelText = labelText.replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, "").replace(/\s+/g, " ");
   const characters = Array.from(labelText);
   if (characters.length > 24) labelText = characters.slice(0, 22).join("") + "…";
 
@@ -181,7 +187,7 @@ export const createDragGhostBadge = (
   const ascent = Math.max(0, metrics.actualBoundingBoxAscent);
   const descent = Math.max(0, metrics.actualBoundingBoxDescent);
   badge.width = labelLeft + labelWidth + 18;
-  badge.height = Math.max(34, Math.ceil(ascent + descent) + 12);
+  badge.height = 34;
   const centerY = badge.height / 2;
   badge.className = "drag-ghost-badge";
   Object.assign(badge.style, {
@@ -190,6 +196,9 @@ export const createDragGhostBadge = (
     left: "0",
     zIndex: "999999",
     pointerEvents: "none",
+    overflow: "hidden",
+    borderRadius: "17px",
+    contain: "paint",
     background: "transparent",
     border: "none",
     boxShadow: "none",

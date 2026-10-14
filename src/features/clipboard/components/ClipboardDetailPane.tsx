@@ -35,6 +35,7 @@ import { toTauriLocalImageSrc } from "../../../shared/lib/localImageSrc";
 import { getSourceAppIcon, peekSourceAppIcon } from "../../../shared/lib/sourceAppIcon";
 import { isTauriRuntime } from "../../../shared/lib/tauriRuntime";
 import { openPinStickerWindow } from "../lib/pinStickerControls";
+import TextFilePreview from "./TextFilePreview";
 import DetailAnnotationEditor from "./DetailAnnotationEditor";
 import type { AiDetail } from "../../../shared/hooks/useAiActions";
 
@@ -485,6 +486,8 @@ const ClipboardDetailPane = ({
     preview = <video className="detail-image" src={mediaSrc(item)} controls muted preload="metadata" />;
   } else if (item.content_type === "file") {
     preview = (
+      <>
+      <TextFilePreview paths={filePaths} language={language} />
       <ul className="detail-files">
         {/* Capped: a list of thousands of files mounted thousands of rows. */}
         {filePaths.slice(0, MAX_LISTED_FILES).map((path) => (
@@ -499,6 +502,7 @@ const ClipboardDetailPane = ({
           </li>
         )}
       </ul>
+      </>
     );
   } else if (originalItem?.content_type === "rich_text" && originalItem.html_content) {
     preview = <HtmlContent htmlContent={originalItem.html_content} fallbackText={text} className="detail-rich" eager />;

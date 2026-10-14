@@ -343,6 +343,44 @@ pub fn show_clipboard_panel(app: &AppHandle) -> bool {
     true
 }
 
+/// A Dock policy transition may resign the key panel. Keep that transient
+/// event from closing the settings window, without resurrecting a hidden panel.
+#[cfg(target_os = "macos")]
+pub fn set_dock_visibility_preserving_panel(app: &AppHandle, visible: bool) -> tauri::Result<()> {
+    static TRANSITION: AtomicU64 = AtomicU64::new(0);
+    let ticket = TRANSITION.fetch_add(1, AtomicOrdering::SeqCst) + 1;
+    let owner = format!("dock-visibility:{ticket}");
+    let was_visible = is_clipboard_panel_visible();
+    let generation = overlay_show_generation().load(AtomicOrdering::SeqCst);
+    if was_visible {
+        crate::global_state::acquire_blur_guard(&owner);
+    }
+    if let Err(error) = app.set_dock_visibility(visible) {
+        if was_visible { crate::global_state::release_blur_guard(&owner); }
+        return Err(error);
+    }
+    if was_visible {
+        let handle = app.clone();
+        tauri::async_runtime::spawn(async move {
+            tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+            let panel_handle = handle.clone();
+            let owner_on_main = owner.clone();
+            let result = handle.run_on_main_thread(move || {
+                if TRANSITION.load(AtomicOrdering::SeqCst) == ticket
+                    && overlay_show_generation().load(AtomicOrdering::SeqCst) == generation
+                    && is_clipboard_panel_visible()
+                    && !crate::global_state::IS_HIDDEN.load(AtomicOrdering::Relaxed)
+                {
+                    let _ = make_clipboard_panel_key(&panel_handle);
+                }
+                crate::global_state::release_blur_guard(&owner_on_main);
+            });
+            if result.is_err() { crate::global_state::release_blur_guard(&owner); }
+        });
+    }
+    Ok(())
+}
+
 #[cfg(target_os = "macos")]
 pub fn make_clipboard_panel_key(app: &AppHandle) -> bool {
     use tauri_nspanel::ManagerExt;

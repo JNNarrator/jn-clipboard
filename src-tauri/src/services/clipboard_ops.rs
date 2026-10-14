@@ -414,6 +414,22 @@ pub(crate) fn resolve_paste_with_format(
     content_type == "rich_text" && !plain_text_requires_exact_paste(content)
 }
 
+/// Simulating Cmd+V needs Accessibility on macOS; elsewhere it always works.
+fn paste_permission_missing() -> bool {
+    #[cfg(target_os = "macos")]
+    return !crate::infrastructure::macos_api::permissions::has_accessibility_permission();
+    #[cfg(not(target_os = "macos"))]
+    return false;
+}
+
+fn require_paste_permission(app: &tauri::AppHandle) -> AppResult<()> {
+    if paste_permission_missing() {
+        let _ = app.emit("accessibility-permission-required", ());
+        return Err(AppError::Validation("accessibility_permission_required".into()));
+    }
+    Ok(())
+}
+
 async fn copy_to_clipboard_inner(
     app_handle: tauri::AppHandle,
     state: &DbState,
@@ -426,6 +442,11 @@ async fn copy_to_clipboard_inner(
     paste_with_format: Option<bool>,
     move_to_top: Option<bool>,
 ) -> AppResult<()> {
+    // Without paste permission the item is still copied, so the user can press
+    // Cmd+V themselves (what the permission prompt tells them); only the
+    // window hand-off and the simulated keystroke are skipped.
+    let paste_blocked = paste && paste_permission_missing();
+    let paste = paste && !paste_blocked;
     println!(
         "[DEBUG] copy_to_clipboard called: id={}, paste={}, content_type={}, content_len={}",
         id,
@@ -477,6 +498,12 @@ async fn copy_to_clipboard_inner(
     )
     .await?;
 
+    if paste_blocked {
+        // Emits the event that opens the permission prompt; the error tells the
+        // frontend not to treat this as a completed paste.
+        return require_paste_permission(&app_handle);
+    }
+
     // 3. Perform paste action if requested
     if paste {
         perform_paste_action(
@@ -507,6 +534,7 @@ pub async fn paste_text_directly(app_handle: tauri::AppHandle, content: String) 
     }
     let _paste_guard = PASTE_LOCK.lock().await;
 
+    require_paste_permission(&app_handle)?;
     handle_window_focus_for_paste(&app_handle).await?;
     let paste_method = app_handle
         .try_state::<DbState>()
@@ -575,14 +603,7 @@ pub async fn paste_content_transiently(
     paste_with_format: Option<bool>,
 ) -> AppResult<()> {
     let _paste_guard = PASTE_LOCK.lock().await;
-    // Without Accessibility the keystroke is dropped silently; say so instead
-    // of swapping the clipboard back and forth for nothing.
-    #[cfg(target_os = "macos")]
-    if !crate::infrastructure::macos_api::permissions::has_accessibility_permission() {
-        return Err(AppError::Validation(
-            "需要在「系统设置 → 隐私与安全性 → 辅助功能」里允许 TieZ，才能直接粘贴。".to_string(),
-        ));
-    }
+    require_paste_permission(&app_handle)?;
     let previous_clipboard = capture_clipboard_snapshot();
     let mut html_content: Option<String> = None;
 

@@ -906,6 +906,17 @@ impl SqliteClipboardRepository {
         Ok(())
     }
 
+    /// Return every textual candidate so a different rich-text format cannot
+    /// hide a later match. Callers verify decrypted content and HTML.
+    pub fn find_text_candidates_with_conn(&self, conn: &Connection, content: &str) -> Result<Vec<i64>, String> {
+        let hash = calc_text_hash(content) as i64;
+        let mut stmt = conn.prepare(
+            "SELECT id FROM clipboard_history WHERE content_type IN ('text','code','url','rich_text') AND (content_hash = ?1 OR content = ?2) ORDER BY sort_at DESC, id DESC"
+        ).map_err(|e| e.to_string())?;
+        let rows = stmt.query_map(params![hash, content], |row| row.get(0)).map_err(|e| e.to_string())?;
+        rows.collect::<Result<Vec<i64>, _>>().map_err(|e| e.to_string())
+    }
+
     pub fn find_by_content_with_conn(
         &self,
         conn: &Connection,
@@ -1766,6 +1777,15 @@ mod tests {
             }
         }
         repo
+    }
+
+    #[test]
+    fn text_dedup_candidates_include_other_types_and_all_rich_variants() {
+        let repo = search_repository("INSERT INTO clipboard_history (id, content_type, content, timestamp, sort_at, source_app, preview) VALUES (1,'rich_text','same',1,1,'test',''), (2,'rich_text','same',2,2,'test',''), (3,'code','same',3,3,'test',''), (4,'file','same',4,4,'test','');");
+        let conn = repo.conn.lock().unwrap();
+        conn.execute("UPDATE clipboard_history SET content_hash = ?1", params![calc_text_hash("same") as i64]).unwrap();
+        assert_eq!(repo.find_text_candidates_with_conn(&conn, "same").unwrap(), vec![3,2,1]);
+        assert_eq!(repo.find_text_candidates_with_conn(&conn, "different").unwrap(), Vec::<i64>::new());
     }
 
     fn search_ids(

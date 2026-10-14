@@ -720,9 +720,26 @@ pub fn set_dock_visible(
     state.hide_dock_icon.store(!visible, Ordering::Relaxed);
     #[cfg(target_os = "macos")]
     {
-        app_handle
-            .set_dock_visibility(visible)
-            .map_err(AppError::from)?;
+        crate::infrastructure::macos_api::window::set_dock_visibility_preserving_panel(
+            &app_handle, visible,
+        ).map_err(AppError::from)?;
+        if !visible {
+            // Tao intentionally drops a hide within one second of showing the
+            // Dock icon. Retry beyond that interval, but respect a newer toggle.
+            let app = app_handle.clone();
+            tauri::async_runtime::spawn(async move {
+                tokio::time::sleep(std::time::Duration::from_millis(1100)).await;
+                let app_on_main = app.clone();
+                let _ = app.run_on_main_thread(move || {
+                    let settings = app_on_main.state::<crate::app_state::SettingsState>();
+                    if settings.hide_dock_icon.load(Ordering::Relaxed) {
+                        if let Err(error) = crate::infrastructure::macos_api::window::set_dock_visibility_preserving_panel(&app_on_main, false) {
+                            eprintln!("Failed to retry hiding Dock icon: {error}");
+                        }
+                    }
+                });
+            });
+        }
     }
     let db_state = app_handle.state::<DbState>();
     db_state

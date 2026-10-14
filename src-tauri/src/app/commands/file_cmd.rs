@@ -423,3 +423,36 @@ pub async fn save_emoji_favorite_url(
     let data_dir = app_data.0.lock().unwrap().clone();
     save_emoji_favorite_url_to_dir(data_dir, url).await
 }
+
+#[derive(Serialize)]
+pub struct TextFilePreview {
+    pub text: String,
+    pub truncated: bool,
+}
+
+#[tauri::command]
+pub async fn read_text_file_preview(path: String) -> Result<TextFilePreview, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        use std::io::Read;
+        const LIMIT: usize = 100_000;
+        let extension = Path::new(&path).extension().and_then(|v| v.to_str()).unwrap_or("").to_ascii_lowercase();
+        if !matches!(extension.as_str(), "md" | "markdown" | "js" | "jsx" | "ts" | "tsx" | "mjs" | "cjs" | "py" | "sh" | "bash" | "zsh" | "json" | "yaml" | "yml" | "toml" | "txt" | "css" | "html" | "rs" | "go" | "c" | "h" | "cpp" | "java" | "sql") {
+            return Err("Unsupported file type".into());
+        }
+        let file = std::fs::File::open(&path).map_err(|e| e.to_string())?;
+        if !file.metadata().map_err(|e| e.to_string())?.is_file() {
+            return Err("Not a regular file".into());
+        }
+        let mut bytes = Vec::new();
+        file.take((LIMIT + 1) as u64).read_to_end(&mut bytes).map_err(|e| e.to_string())?;
+        if bytes.contains(&0) { return Err("Binary file".into()); }
+        let truncated = bytes.len() > LIMIT;
+        if truncated { bytes.truncate(LIMIT); }
+        let text = match std::str::from_utf8(&bytes) {
+            Ok(text) => text.to_owned(),
+            Err(error) if truncated && error.error_len().is_none() => String::from_utf8(bytes[..error.valid_up_to()].to_vec()).map_err(|e| e.to_string())?,
+            Err(_) => return Err("File is not UTF-8 text".into()),
+        };
+        Ok(TextFilePreview { text, truncated })
+    }).await.map_err(|e| e.to_string())?
+}

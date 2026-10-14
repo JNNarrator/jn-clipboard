@@ -145,6 +145,7 @@ fn main() -> AppResult<()> {
             app::commands::get_clipboard_history,
             app::commands::import_clipboard_data,
             app::commands::export_secure_transfer,
+            app::commands::read_text_file_preview,
             app::commands::import_secure_transfer,
             app::commands::search_clipboard_history,
             app::commands::delete_clipboard_entry,

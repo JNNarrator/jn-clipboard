@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useCallback, useState, useDeferredValue } f
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import ToastContainer from "./shared/components/ToastContainer";
+import MacAccessibilityPrompt from "./shared/components/MacAccessibilityPrompt";
 import ConfirmDialog from "./shared/components/ConfirmDialog";
 
 import { translations } from "./locales";
@@ -1382,6 +1383,7 @@ const App = () => {
         </aside>
       </main>
 
+      <MacAccessibilityPrompt ready={settingsLoaded} theme={theme} t={t} pushToast={pushToast} />
       <ToastContainer toasts={toasts} />
 
       <ConfirmDialog

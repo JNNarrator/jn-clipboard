@@ -95,6 +95,8 @@ export const useClipboardActions = ({
 
         setSearch("");
       } catch (err) {
+        // The backend event opens the actionable permission dialog.
+        if (String(err).includes("accessibility_permission_required")) return;
         const errorMsg = t("copy_failed") + (err?.toString() || "");
         pushToast(errorMsg, 3000);
       }

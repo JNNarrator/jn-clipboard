@@ -628,3 +628,18 @@ body.split-view-active .main-content.is-split .history-item.compact.selected .it
 .detail-action-popover button.is-danger:hover {
   background: rgba(var(--status-danger-rgb), 0.08);
 }
+
+.detail-file-preview {
+  margin-bottom: var(--spacing-md, 16px);
+}
+.detail-file-preview-path {
+  margin: 0 0 12px;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  overflow-wrap: anywhere;
+  -webkit-user-select: text;
+  user-select: text;
+}
+.detail-file-preview .detail-text {
+  tab-size: 4;
+}
