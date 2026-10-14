@@ -394,6 +394,10 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                                     key={tag.name}
                                     role="button"
                                     tabIndex={0}
+                                    // Explicit name: the colour-dot and actions buttons nested
+                                    // inside would otherwise leak their labels into the chip's.
+                                    aria-label={`${tag.name} · ${tag.count}`}
+                                    aria-pressed={isSelected}
                                     className={`tag-manager-chip${isSelected ? " active" : ""}${tagMenu?.name === tag.name ? " menu-open" : ""}`}
                                     onClick={() => loadTagItems(tag.name)}
                                     onKeyDown={(e) => {
@@ -414,8 +418,8 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                                                 e.stopPropagation();
                                                 document.getElementById(`color-picker-${tag.name}`)?.click();
                                             }}
-                                            aria-label={`${tag.name}: ${t("color_mode")}`}
-                                            title={`${tag.name}: ${t("color_mode")}`}
+                                            aria-label={`${tag.name}: ${t("tag_color")}`}
+                                            title={`${tag.name}: ${t("tag_color")}`}
                                         />
                                         <input
                                             type="color"
