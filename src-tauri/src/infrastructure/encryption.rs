@@ -114,6 +114,13 @@ fn get_master_key() -> Option<&'static [u8; KEY_LEN]> {
 
 #[allow(dead_code)]
 fn data_dir() -> Option<&'static PathBuf> {
+    // Tests share one process and run in any order: one that reaches the key
+    // before another calls init() cached "no key" for all of them.
+    #[cfg(test)]
+    return Some(DATA_DIR.get_or_init(|| {
+        std::env::temp_dir().join(format!("tiez-test-encryption-{}", std::process::id()))
+    }));
+    #[cfg(not(test))]
     DATA_DIR.get()
 }
 
