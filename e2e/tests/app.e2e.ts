@@ -169,6 +169,11 @@ test('键盘：方向键选择默认关闭，↓ + Enter 不会粘贴', async ({
 
 test('键盘：开启方向键选择后，↓↓ 选到第二条，Enter 粘贴它', async ({ app, screen, browser }) => {
   await app.open('/?set=app.arrow_key_selection:true');
+  // Only macOS handles arrow selection in the page; on Windows the native
+  // (Rust) keyboard hook does it (usesNativeNavigation), which the browser
+  // harness does not have. CI runs on Linux, which takes the Windows path.
+  const isMac = await browser.evaluate(() => /Mac/i.test(navigator.userAgent) || /Mac/i.test(navigator.platform));
+  test.skip(!isMac, 'arrow navigation runs in the native hook outside macOS');
   await expect(screen.getByRole('main').getByText(SAMPLE.chat.text)).toBeVisible();
   await resetCalls(browser);
   // The app drops a repeat of the same arrow key within 90 ms (key-repeat
