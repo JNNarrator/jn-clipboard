@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { isMacPlatform } from "../lib/platform";
 import { isTauriRuntime } from "../lib/tauriRuntime";
+import { requestMacAccessibility } from "../lib/macAccessibility";
 import ConfirmDialog from "./ConfirmDialog";
 
 export default function MacAccessibilityPrompt({ ready, theme, t, pushToast }: {
@@ -49,8 +50,7 @@ export default function MacAccessibilityPrompt({ ready, theme, t, pushToast }: {
   const authorize = async () => {
     setBusy(true);
     try {
-      await invoke("request_macos_permissions");
-      await invoke("open_macos_accessibility_settings");
+      await requestMacAccessibility();
     } catch {
       pushToast(t("accessibility_settings_failed"), 5000);
     } finally {

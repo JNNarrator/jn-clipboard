@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { ComponentType, ReactNode } from "react";
+import { requestMacAccessibility } from "../../../../shared/lib/macAccessibility";
 
 interface LabelWithHintProps {
   label: string;
@@ -58,8 +59,7 @@ const MacAccessibilityPermission = ({ t, LabelWithHint }: MacAccessibilityPermis
   }, [refresh]);
 
   const openSettings = async () => {
-    await invoke("open_macos_accessibility_settings").catch(console.error);
-    await invoke("request_macos_permissions").catch(console.error);
+    await requestMacAccessibility().catch(console.error);
   };
 
   const copyBinaryPath = async () => {
