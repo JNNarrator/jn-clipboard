@@ -364,13 +364,15 @@ pub unsafe extern "system" fn keyboard_proc(
                 true
             };
 
-            if !allow_navigation {
+            let is_escape = vk == 0x1B;
+            // Esc closes the visible window even with arrow-key selection off;
+            // that setting is about Up/Down/Enter. From #172.
+            if !allow_navigation && !is_escape {
                 return CallNextHookEx(None, n_code, w_param, l_param);
             }
 
-            let is_navigation_key = vk == 0x26 || vk == 0x28 || vk == 0x0D || vk == 0x1B;
+            let is_navigation_key = vk == 0x26 || vk == 0x28 || vk == 0x0D || is_escape;
             let is_enter = vk == 0x0D;
-            let _is_escape = vk == 0x1B;
 
             if is_navigation_key && is_down {
                 // Only Enter requires navigation mode to be active
