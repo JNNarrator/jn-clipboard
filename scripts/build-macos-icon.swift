@@ -38,9 +38,30 @@ for (name, size) in sizes {
     // 824px tile + 100px margin on each side at 1024px. Pixel-align the
     // margins at small sizes to keep the outside transparent and symmetric.
     let inset = CGFloat((Double(size) * 100.0 / 1024.0).rounded())
-    context.draw(image, in: CGRect(x: inset, y: inset,
-                                  width: CGFloat(size) - inset * 2,
-                                  height: CGFloat(size) - inset * 2))
+    let tile = CGRect(x: inset, y: inset,
+                      width: CGFloat(size) - inset * 2,
+                      height: CGFloat(size) - inset * 2)
+    // macOS does not mask app icons: the rounded tile has to be in the image
+    // (Apple's template: 824px tile, ~185px corner radius at 1024px).
+    let radius = tile.width * 185.4 / 824.0
+    let shape = CGPath(roundedRect: tile, cornerWidth: radius, cornerHeight: radius, transform: nil)
+    if size >= 128 {
+        // Soft drop shadow like system icons; skipped at small sizes where it
+        // would only blur the edge.
+        context.saveGState()
+        context.setShadow(offset: CGSize(width: 0, height: -CGFloat(size) * 0.008),
+                          blur: CGFloat(size) * 0.02,
+                          color: CGColor(gray: 0, alpha: 0.28))
+        context.addPath(shape)
+        context.setFillColor(CGColor(gray: 1, alpha: 1))
+        context.fillPath()
+        context.restoreGState()
+    }
+    context.saveGState()
+    context.addPath(shape)
+    context.clip()
+    context.draw(image, in: tile)
+    context.restoreGState()
     guard let bitmap = context.makeImage(),
           let destination = CGImageDestinationCreateWithURL(iconset.appendingPathComponent(name) as CFURL,
                                                            UTType.png.identifier as CFString, 1, nil) else {
@@ -58,4 +79,4 @@ process.waitUntilExit()
 guard process.terminationStatus == 0 else { fatalError("iconutil failed") }
 let secondary = icons.appendingPathComponent("icon.icns")
 try Data(contentsOf: output).write(to: secondary, options: .atomic)
-print("Generated macOS icons with a centered 824px tile on a 1024px transparent canvas")
+print("Generated macOS icons: rounded 824px tile on a 1024px transparent canvas")
