@@ -90,8 +90,15 @@ unsafe extern "C" {
         source: CFRunLoopSourceRef,
         mode: *const std::ffi::c_void,
     );
+    fn CFRunLoopRemoveSource(
+        rl: CFRunLoopRef,
+        source: CFRunLoopSourceRef,
+        mode: *const std::ffi::c_void,
+    );
     fn CFRunLoopRun();
     fn CFRunLoopStop(rl: CFRunLoopRef);
+    fn CFMachPortInvalidate(port: CFMachPortRef);
+    fn CFRelease(cf: *const std::ffi::c_void);
     static kCFRunLoopCommonModes: *const std::ffi::c_void;
 }
 
@@ -183,6 +190,8 @@ unsafe fn try_start_event_tap() -> bool {
     if source.is_null() {
         eprintln!("[paste-key-monitor] Failed to create run loop source");
         ACTIVE_EVENT_TAP.store(std::ptr::null_mut(), Ordering::Release);
+        CFMachPortInvalidate(tap);
+        CFRelease(tap as *const std::ffi::c_void);
         return false;
     }
 
@@ -193,6 +202,13 @@ unsafe fn try_start_event_tap() -> bool {
     eprintln!("[paste-key-monitor] ⌘V listen-only listener active");
     CFRunLoopRun();
     ACTIVE_EVENT_TAP.store(std::ptr::null_mut(), Ordering::Release);
+    // Release the old tap before the outer loop builds a new one; each
+    // revoke/re-grant cycle used to leak a Mach port and run loop source.
+    // From PR #178 by @andya1lan.
+    CFRunLoopRemoveSource(run_loop, source, kCFRunLoopCommonModes);
+    CFMachPortInvalidate(tap);
+    CFRelease(source as *const std::ffi::c_void);
+    CFRelease(tap as *const std::ffi::c_void);
     eprintln!("[paste-key-monitor] ⌘V listener stopped — waiting for accessibility");
     true
 }
