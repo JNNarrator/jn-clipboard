@@ -2,6 +2,7 @@ import { useCallback, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { isTauriRuntime } from "../lib/tauriRuntime";
+import { isTypingHotkey } from "../lib/hotkeyKey";
 
 type HotkeyMode = "main" | "sequential" | "rich" | "plain" | "search";
 
@@ -63,6 +64,10 @@ export const useHotkeyConfig = ({
   const checkHotkeyConflict = useCallback(
     (newHotkey: string, mode: HotkeyMode): boolean => {
       if (!newHotkey) return false;
+      if (isTypingHotkey(newHotkey)) {
+        pushToast(t("hotkey_needs_modifier"), 5000);
+        return true;
+      }
 
       const conflicts = [];
       if (mode !== "main" && newHotkey === hotkey) conflicts.push(t("global_hotkey"));

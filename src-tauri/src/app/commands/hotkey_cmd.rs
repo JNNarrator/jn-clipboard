@@ -120,35 +120,41 @@ pub fn sync_registered_hotkeys(app_handle: &AppHandle) -> AppResult<()> {
     let quick_paste_modifier = settings.quick_paste_modifier.lock().unwrap().clone();
     let sequential_mode = settings.sequential_mode.load(Ordering::Relaxed);
     let mut registered = HashSet::new();
+    // Register every shortcut even if one fails (e.g. taken by another app):
+    // an early return used to leave the later ones unregistered, so pressing
+    // them typed a character instead (Option+F typing "ƒ"). Failures are
+    // logged to tiez.log; the first one is returned.
+    let mut first_error: Option<AppError> = None;
+    let mut register = |hotkey: &str| {
+        if let Err(err) = register_unique_shortcut(app_handle, hotkey, &mut registered) {
+            crate::error!(">>> [HOTKEY] {err}");
+            first_error.get_or_insert(err);
+        }
+    };
 
     if should_register_main_hotkey(&main_hotkey) {
-        register_unique_shortcut(app_handle, &main_hotkey, &mut registered)?;
+        register(&main_hotkey);
     }
 
     // Only bind sequential paste while the mode is enabled (#125).
     // Do not keep Alt+V registered for stale queue items after the mode is turned off.
     if sequential_mode {
-        register_unique_shortcut(app_handle, &sequential_hotkey, &mut registered)?;
+        register(&sequential_hotkey);
     }
 
-    if !rich_hotkey.is_empty() {
-        register_unique_shortcut(app_handle, &rich_hotkey, &mut registered)?;
-    }
-    if !plain_hotkey.is_empty() {
-        register_unique_shortcut(app_handle, &plain_hotkey, &mut registered)?;
-    }
-    if !search_hotkey.is_empty() {
-        register_unique_shortcut(app_handle, &search_hotkey, &mut registered)?;
-    }
-
-    for index in 0..QUICK_PASTE_KEYS.len() {
-        if let Some(prefix) = quick_paste_modifier_prefix(&quick_paste_modifier) {
-            let hotkey = format!("{prefix}+{}", QUICK_PASTE_KEYS[index]);
-            register_unique_shortcut(app_handle, &hotkey, &mut registered)?;
+    for hotkey in [&rich_hotkey, &plain_hotkey, &search_hotkey] {
+        if !hotkey.is_empty() {
+            register(hotkey);
         }
     }
 
-    Ok(())
+    if let Some(prefix) = quick_paste_modifier_prefix(&quick_paste_modifier) {
+        for key in QUICK_PASTE_KEYS {
+            register(&format!("{prefix}+{key}"));
+        }
+    }
+
+    first_error.map_or(Ok(()), Err)
 }
 
 #[tauri::command]
@@ -166,6 +172,37 @@ pub fn register_hotkey(app_handle: AppHandle, hotkey: String) -> AppResult<()> {
     sync_registered_hotkeys(&app_handle)
 }
 
+/// Shift alone (or no modifier) plus a key that types text: registered
+/// globally it swallows that character in every app. Mirrors isTypingHotkey
+/// in src/shared/lib/hotkeyKey.ts.
+pub fn is_typing_hotkey(hotkey: &str) -> bool {
+    let parts: Vec<String> = hotkey
+        .split('+')
+        .map(|p| p.trim().to_uppercase())
+        .filter(|p| !p.is_empty())
+        .collect();
+    let Some(first) = parts.first() else { return false };
+    if first == "MOUSEMIDDLE" || first == "MBUTTON" {
+        return false;
+    }
+    const MODIFIERS: [&str; 10] =
+        ["CTRL", "CONTROL", "ALT", "OPTION", "MENU", "WIN", "SUPER", "COMMAND", "CMD", "META"];
+    if parts.iter().any(|p| MODIFIERS.contains(&p.as_str())) {
+        return false;
+    }
+    let Some(key) = parts.iter().filter(|p| p.as_str() != "SHIFT").last() else { return false };
+    let silent = (key.len() >= 2
+        && key.starts_with('F')
+        && key[1..].parse::<u8>().map_or(false, |n| (1..=24).contains(&n)))
+        || matches!(
+            key.as_str(),
+            "ESC" | "ESCAPE" | "INSERT" | "DELETE" | "HOME" | "END" | "PAGEUP" | "PAGEDOWN"
+                | "UP" | "DOWN" | "LEFT" | "RIGHT" | "ARROWUP" | "ARROWDOWN" | "ARROWLEFT"
+                | "ARROWRIGHT" | "PRINTSCREEN" | "SCROLLLOCK" | "PAUSE" | "NUMLOCK"
+        );
+    !silent
+}
+
 #[tauri::command]
 pub fn test_hotkey_available(app_handle: AppHandle, hotkey: String) -> AppResult<bool> {
     if hotkey.is_empty()
@@ -173,6 +210,11 @@ pub fn test_hotkey_available(app_handle: AppHandle, hotkey: String) -> AppResult
         || hotkey.eq_ignore_ascii_case("MButton")
     {
         return Ok(true);
+    }
+    if is_typing_hotkey(&hotkey) {
+        return Err(AppError::Validation(
+            "快捷键需要包含 Ctrl、Option/Alt 或 Command/Win。".to_string(),
+        ));
     }
 
     let normalized = hotkey.replace("Win", "Super");
@@ -199,6 +241,16 @@ pub fn test_hotkey_available(app_handle: AppHandle, hotkey: String) -> AppResult
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn typing_hotkeys_are_refused() {
+        for h in ["Shift+S", "Shift+1", "C", "Space"] {
+            assert!(super::is_typing_hotkey(h), "{h}");
+        }
+        for h in ["Alt+C", "Command+Shift+V", "Ctrl+1", "F5", "Shift+F5", "MouseMiddle", ""] {
+            assert!(!super::is_typing_hotkey(h), "{h}");
+        }
+    }
+
     use super::{is_win_v_hotkey, should_register_main_hotkey};
 
     #[test]

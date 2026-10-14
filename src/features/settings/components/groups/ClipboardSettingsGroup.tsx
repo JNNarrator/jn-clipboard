@@ -5,6 +5,7 @@ import { ask } from "@tauri-apps/plugin-dialog";
 import { withNativeDialog } from "../../../../shared/lib/focus";
 import { ChevronDown, ChevronRight, HelpCircle } from "lucide-react";
 import { getHotkeyDisplayTokens } from "../../../../shared/lib/hotkeyDisplay";
+import { hotkeyKeyFromEvent } from "../../../../shared/lib/hotkeyKey";
 import { isMacPlatform, isWindowsPlatform } from "../../../../shared/lib/platform";
 import type { QuickPasteModifier } from "../../../app/types";
 
@@ -112,6 +113,11 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
             { value: "shift", label: props.t("quick_paste_modifier_shift") },
             { value: "win", label: props.t("quick_paste_modifier_win") }
         ];
+    // Shift+digit typed globally swallows !@#… in every app; no longer offered.
+    // Kept in the list only for a setup that already uses it.
+    const visibleQuickPasteOptions = quickPasteOptions.filter(
+        (option) => option.value !== "shift" || props.quickPasteModifier === "shift"
+    );
     const [persistentLimitDraft, setPersistentLimitDraft] = useState(
         props.persistentLimit.toString()
     );
@@ -194,8 +200,8 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
         if (event.altKey) modifiers.push('Alt');
         if (event.metaKey) modifiers.push(isMac ? 'Command' : 'Win');
 
-        const key = event.key.toUpperCase();
-        if (['CONTROL', 'SHIFT', 'ALT', 'META'].includes(key)) return;
+        const key = hotkeyKeyFromEvent(event);
+        if (!key) return;
 
         updateHotkey([...modifiers, key].join('+'));
     };
@@ -600,7 +606,7 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
                                 invoke("set_quick_paste_modifier", { modifier: value }).catch(console.error);
                             }}
                         >
-                            {quickPasteOptions.map((option) => (
+                            {visibleQuickPasteOptions.map((option) => (
                                 <option key={option.value} value={option.value}>
                                     {option.label}
                                 </option>
