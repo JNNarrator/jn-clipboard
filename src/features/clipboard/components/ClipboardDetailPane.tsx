@@ -35,7 +35,7 @@ import { toTauriLocalImageSrc } from "../../../shared/lib/localImageSrc";
 import { getSourceAppIcon, peekSourceAppIcon } from "../../../shared/lib/sourceAppIcon";
 import { isTauriRuntime } from "../../../shared/lib/tauriRuntime";
 import { openPinStickerWindow } from "../lib/pinStickerControls";
-import TextFilePreview from "./TextFilePreview";
+import TextFilePreview, { isTextPreviewable } from "./TextFilePreview";
 import DetailAnnotationEditor from "./DetailAnnotationEditor";
 import type { AiDetail } from "../../../shared/hooks/useAiActions";
 
@@ -437,6 +437,10 @@ const ClipboardDetailPane = ({
     () => (item?.content_type === "file" ? item.content.split("\n").map((p) => p.trim()).filter(Boolean) : []),
     [item]
   );
+  // The file shown below the list; the first previewable one until another is picked.
+  const [pickedFile, setPickedFile] = useState<{ id: number; path: string } | null>(null);
+  const previewPath = (pickedFile?.id === item?.id ? pickedFile?.path : undefined)
+    ?? filePaths.find(isTextPreviewable);
 
   if (!item) {
     return <div className="detail-empty">{t("detail_empty")}</div>;
@@ -485,23 +489,44 @@ const ClipboardDetailPane = ({
   } else if (item.content_type === "video") {
     preview = <video className="detail-image" src={mediaSrc(item)} controls muted preload="metadata" />;
   } else if (item.content_type === "file") {
+    // With several files, the list comes first and each previewable one can be
+    // picked; the preview used to sit on top showing only the first file.
+    const choosable = filePaths.length > 1;
     preview = (
       <>
-      <TextFilePreview paths={filePaths} language={language} />
-      <ul className="detail-files">
+      <ul className={`detail-files${choosable && previewPath ? " has-preview" : ""}`}>
         {/* Capped: a list of thousands of files mounted thousands of rows. */}
-        {filePaths.slice(0, MAX_LISTED_FILES).map((path) => (
-          <li key={path}>
-            <strong>{path.split(/[\\/]/).pop() || path}</strong>
-            <span>{path}</span>
-          </li>
-        ))}
+        {filePaths.slice(0, MAX_LISTED_FILES).map((path) => {
+          const name = (
+            <>
+              <strong>{path.split(/[\\/]/).pop() || path}</strong>
+              <span>{path}</span>
+            </>
+          );
+          return (
+            <li key={path}>
+              {!choosable ? name : isTextPreviewable(path) ? (
+                <button
+                  type="button"
+                  className="detail-file-row"
+                  aria-pressed={path === previewPath}
+                  onClick={() => setPickedFile({ id: item.id, path })}
+                >
+                  {name}
+                </button>
+              ) : (
+                <div className="detail-file-row">{name}</div>
+              )}
+            </li>
+          );
+        })}
         {filePaths.length > MAX_LISTED_FILES && (
           <li className="detail-files-more">
             {t("detail_more_files").replace("{count}", String(filePaths.length - MAX_LISTED_FILES))}
           </li>
         )}
       </ul>
+      <TextFilePreview path={previewPath} language={language} />
       </>
     );
   } else if (originalItem?.content_type === "rich_text" && originalItem.html_content) {

@@ -84,6 +84,16 @@ pub async fn open_content(
         return handle_url_content(&app_path, &content).await;
     }
 
+    // Several copied files open together, as a Finder or Explorer selection does.
+    // Only the first one used to open.
+    if content_type == "file" {
+        let paths = existing_file_paths(&content);
+        if paths.len() > 1 {
+            launch_files_with_app(&app_path, &paths).await?;
+            return Ok(());
+        }
+    }
+
     // Check if content points to existing file(s)
     if is_file_type(&content_type) && !content.starts_with("data:image") {
         if let Some(path) = get_existing_file_path(&content) {
@@ -328,6 +338,32 @@ fn get_existing_file_path(content: &str) -> Option<std::path::PathBuf> {
     } else {
         None
     }
+}
+
+/// Every line of a file entry that names a file still on disk.
+fn existing_file_paths(content: &str) -> Vec<std::path::PathBuf> {
+    content
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .map(std::path::PathBuf::from)
+        .filter(|path| path.exists())
+        .collect()
+}
+
+/// Opens each file; one that fails does not stop the rest.
+async fn launch_files_with_app(
+    app_path: &Option<String>,
+    paths: &[std::path::PathBuf],
+) -> Result<(), AppError> {
+    let mut first_error = None;
+    for path in paths {
+        let path_str = path.to_string_lossy();
+        if let Err(e) = launch_file_with_app(app_path, path, &path_str, "file", true).await {
+            first_error.get_or_insert(e);
+        }
+    }
+    first_error.map_or(Ok(()), Err)
 }
 
 fn create_temp_file(
@@ -706,4 +742,25 @@ fn store_edited_image(
     // is swept once no session entry shows the file.
     let root = if id > 0 { data_dir.clone() } else { data_dir.join("session") };
     crate::database::save_image_to_file(&content, &root).unwrap_or(content)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::existing_file_paths;
+
+    #[test]
+    fn existing_file_paths_keeps_every_file_still_on_disk() {
+        let dir = std::env::temp_dir().join(format!("tiez-open-files-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let a = dir.join("a.html");
+        let b = dir.join("b.html");
+        std::fs::write(&a, "a").unwrap();
+        std::fs::write(&b, "b").unwrap();
+        let missing = dir.join("gone.html");
+
+        let content = format!("{}\n\n  {}  \n{}", a.display(), missing.display(), b.display());
+        assert_eq!(existing_file_paths(&content), vec![a, b]);
+
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 }

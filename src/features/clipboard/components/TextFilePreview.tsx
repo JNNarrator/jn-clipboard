@@ -4,8 +4,9 @@ import { invoke } from "@tauri-apps/api/core";
 const supported = /\.(md|markdown|js|jsx|ts|tsx|mjs|cjs|py|sh|bash|zsh|json|yaml|yml|toml|txt|css|html|rs|go|c|h|cpp|java|sql)$/i;
 type Preview = { text: string; truncated: boolean };
 
-export default function TextFilePreview({ paths, language }: { paths: string[]; language: string }) {
-  const path = paths.find(path => supported.test(path));
+export const isTextPreviewable = (path: string) => supported.test(path);
+
+export default function TextFilePreview({ path, language }: { path?: string; language: string }) {
   const [result, setResult] = useState<{ path: string; preview?: Preview; error?: boolean } | null>(null);
   const en = language === "en";
   useEffect(() => {
@@ -21,7 +22,6 @@ export default function TextFilePreview({ paths, language }: { paths: string[]; 
   if (!path) return null;
   const current = result?.path === path ? result : null;
   return <section className="detail-file-preview" aria-label={en ? "File preview" : "文件预览"}>
-    <p className="detail-file-preview-path">{path}</p>
     {!current ? <p role="status">{en ? "Loading…" : "正在加载…"}</p> : current.error
       ? <p role="status">{en ? "Unable to preview. The file may be missing, unreadable, or not UTF-8 text." : "无法预览：文件可能已删除、无法读取或不是 UTF-8 文本。"}</p>
       : <>

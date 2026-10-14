@@ -276,6 +276,51 @@
   font-size: var(--font-size-sm);
 }
 
+/* Several files: rows for previewable files pick what the preview below shows.
+   The list scrolls on its own so a long one doesn't push the preview away. */
+.detail-files.has-preview {
+  flex: 0 0 auto;
+  gap: 2px;
+  max-height: 240px;
+  max-height: 40cqh;
+  overflow-y: auto;
+}
+
+.detail-file-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 6px 8px;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: inherit;
+  font: inherit;
+  text-align: start;
+}
+
+button.detail-file-row {
+  cursor: pointer;
+  transition: background-color var(--duration-fast) ease;
+}
+
+button.detail-file-row:hover {
+  background: var(--bg-input);
+}
+
+button.detail-file-row[aria-pressed="true"] {
+  background: var(--accent-soft);
+}
+
+button.detail-file-row:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: -2px;
+}
+
 .detail-sensitive,
 .detail-empty {
   display: flex;
@@ -630,15 +675,7 @@ body.split-view-active .main-content.is-split .history-item.compact.selected .it
 }
 
 .detail-file-preview {
-  margin-bottom: var(--spacing-md, 16px);
-}
-.detail-file-preview-path {
-  margin: 0 0 12px;
-  color: var(--text-secondary);
-  font-size: var(--font-size-sm);
-  overflow-wrap: anywhere;
-  -webkit-user-select: text;
-  user-select: text;
+  margin-top: var(--spacing-md, 16px);
 }
 .detail-file-preview .detail-text {
   tab-size: 4;
