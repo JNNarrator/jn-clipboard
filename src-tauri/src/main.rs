@@ -14,6 +14,8 @@ pub mod infrastructure;
 pub mod logger;
 pub mod migration;
 pub mod services;
+#[cfg(test)]
+mod upgrade_tests;
 
 use crate::app::setup;
 use crate::error::AppResult;
@@ -143,9 +145,9 @@ fn main() -> AppResult<()> {
             services::clipboard_ops::paste_latest_rich,
             app::commands::discover_clipboard_import_sources,
             app::commands::get_clipboard_history,
+            app::commands::read_text_file_preview,
             app::commands::import_clipboard_data,
             app::commands::export_secure_transfer,
-            app::commands::read_text_file_preview,
             app::commands::import_secure_transfer,
             app::commands::search_clipboard_history,
             app::commands::delete_clipboard_entry,

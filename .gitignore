@@ -41,3 +41,4 @@ mobile-app/
 # Tauri Updater Keys
 src-tauri/*.key
 src-tauri/*.key.pub
+coverage

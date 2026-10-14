@@ -39,5 +39,19 @@ export default defineConfig(async () => ({
     reportCompressedSize: false,
     // Keep one main chunk; Tauri loads from disk, not network
     assetsInlineLimit: 4096,
-  }
+  },
+  test: {
+    include: ["src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"],
+    exclude: ["**/node_modules/**", "**/dist/**", "**/artifacts/**"],
+    // `npm run test:coverage`. Report only, no thresholds yet: the point is to
+    // see where the gaps are. Files no test imports count as 0% (vitest default).
+    coverage: {
+      provider: "v8",
+      include: ["src/**/*.{ts,tsx}"],
+      // Data tables, not logic: they would inflate the number by ~4,400 lines.
+      exclude: ["src/**/*.test.{ts,tsx}", "src/**/*.d.ts", "src/locales.ts", "src/features/emoji/lib/emojiNames.ts"],
+      reporter: ["text-summary", "html", "json-summary"],
+      reportsDirectory: "coverage",
+    },
+  },
 }));
