@@ -8,6 +8,23 @@ use super::ai_provider::{build_call, parse_reply, AiReply, AiRequest, HttpCall, 
 use serde::Serialize;
 use tauri::{command, AppHandle, Emitter, Manager};
 
+/// reqwest's own message is only "error sending request"; the reason (refused,
+/// timed out, certificate, DNS) is further down the source chain. The URL is
+/// left out: it can carry an API key in the query.
+fn network_error_text(e: reqwest::Error) -> String {
+    let e = e.without_url();
+    let mut parts = vec![e.to_string()];
+    let mut source = std::error::Error::source(&e);
+    while let Some(cause) = source {
+        let text = cause.to_string();
+        if !text.is_empty() && !parts.iter().any(|p| p.contains(&text)) {
+            parts.push(text);
+        }
+        source = cause.source();
+    }
+    parts.join(": ")
+}
+
 const DEFAULT_BASE_URL: &str = "https://api.deepseek.com/v1";
 
 fn clean_url(url: &str) -> String {
@@ -216,7 +233,7 @@ pub async fn check_ai_connectivity(
         .await
         .map_err(|e| {
             error!("[AI] connectivity request to {} failed: {}", api_url, e);
-            AppError::Network(e.without_url().to_string())
+            AppError::Network(network_error_text(e))
         })?;
 
     let status = response.status();
@@ -392,7 +409,7 @@ pub async fn call_ai(
         .await
         .map_err(|e| {
             error!("[AI] request to {} failed: {}", api_url, e);
-            AppError::Network(e.without_url().to_string())
+            AppError::Network(network_error_text(e))
         })?;
 
     let status = response.status();
@@ -409,7 +426,7 @@ pub async fn call_ai(
 
     let response_text = read_body_capped(response).await.map_err(|e| {
         error!("[AI] failed to read response body from {}: {}", api_url, e);
-        AppError::Network(e.without_url().to_string())
+        AppError::Network(network_error_text(e))
     })?;
 
     let completion: serde_json::Value = serde_json::from_str(&response_text).map_err(|e| {
@@ -543,4 +560,24 @@ pub fn apply_ai_result(app_handle: AppHandle, id: i64, content: String) -> AppRe
         return Err(AppError::Validation(format!("Entry {} not found", id)));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::network_error_text;
+
+    #[test]
+    fn network_errors_say_why_the_request_failed() {
+        let _ = rustls::crypto::ring::default_provider().install_default();
+        // Bind and drop a listener: the port is then free and refuses connections.
+        let port = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
+        let url = format!("http://127.0.0.1:{port}/v1/chat/completions?key=secret");
+        let err = tauri::async_runtime::block_on(async {
+            reqwest::Client::new().get(&url).send().await.unwrap_err()
+        });
+        let text = network_error_text(err);
+        assert!(text.starts_with("error sending request"), "{text}");
+        assert!(text.len() > "error sending request".len() + 2, "no cause in: {text}");
+        assert!(!text.contains("secret"), "URL leaked into: {text}");
+    }
 }
