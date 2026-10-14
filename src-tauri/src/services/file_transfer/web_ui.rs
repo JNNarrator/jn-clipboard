@@ -467,9 +467,6 @@ fn file_transfer_theme_variants(theme: &str) -> (&'static str, &'static str, &'s
                     rgba(0, 0, 0, 0.025) 24px
                 );
             }}
-            .theme-receipt header, .theme-receipt footer {{
-                border-style: solid;
-            }}
             .theme-receipt .bubble {{
                 border-style: solid;
                 box-shadow: none;
