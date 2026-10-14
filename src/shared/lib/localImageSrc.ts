@@ -41,6 +41,20 @@ export const toLocalFilePath = (rawSrc: string): string | null => {
   return value;
 };
 
+/**
+ * Inverse of `convertFileSrc`: the filesystem path behind an asset URL
+ * (`asset://localhost/<enc>` on macOS/Linux, `http(s)://asset.localhost/<enc>`
+ * on Windows), or a plain local path as-is. Null for anything else.
+ */
+export const assetUrlToFilePath = (src: string): string | null => {
+  const match = /^(?:asset:\/\/localhost|https?:\/\/asset\.localhost)\/(.+)$/i.exec((src || "").trim());
+  if (!match) return toLocalFilePath(src);
+  const path = decodeUriComponentSafely(match[1].split(/[?#]/)[0], 2);
+  // Unix paths are encoded with their leading "/" ("%2FUsers/..."), Windows
+  // paths start with the drive letter.
+  return /^[a-zA-Z]:[\\/]/.test(path) || path.startsWith("/") ? path : `/${path}`;
+};
+
 export const toTauriLocalImageSrc = (rawSrc: string): string | null => {
   const path = toLocalFilePath(rawSrc);
   return path ? convertFileSrc(path) : null;

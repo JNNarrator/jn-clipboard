@@ -77,8 +77,8 @@ export const useSettingsApply = ({
       applyThemeClasses(effectiveTheme, root, body);
       invoke("set_theme", {
         theme: effectiveTheme,
-        color_mode: colorMode,
-        show_app_border: showAppBorder,
+        colorMode,
+        showAppBorder,
       }).catch(console.error);
     };
 

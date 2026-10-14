@@ -472,8 +472,8 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
                                                     setTimeout(() => {
                                                         invoke("set_theme", {
                                                             theme: props.theme,
-                                                            color_mode: props.colorMode,
-                                                            show_app_border: props.appSettings["app.show_app_border"] !== "false"
+                                                            colorMode: props.colorMode,
+                                                            showAppBorder: props.appSettings["app.show_app_border"] !== "false"
                                                         }).catch(console.error);
                                                     }, 2500);
                                                 } else {

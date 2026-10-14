@@ -17,6 +17,7 @@ import {
 import { translations } from "../../../locales";
 import { applyNativePalette, applyThemeClasses, DEFAULT_THEME, normalizeThemeId } from "../../../shared/config/themes";
 import type { Locale } from "../../../shared/types";
+import { assetUrlToFilePath } from "../../../shared/lib/localImageSrc";
 
 const STICKER_PADDING = 10; // 10px macOS-grade ambient shadow breathing space
 
@@ -208,52 +209,25 @@ export const PinStickerWindow: React.FC = () => {
 
   const handleSaveImage = useCallback(async () => {
     try {
-      const defaultFileName = `sticker_${Date.now()}.png`;
       const targetPath = await saveDialog({
-        defaultPath: defaultFileName,
+        defaultPath: `sticker_${Date.now()}.png`,
         filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "webp"] }],
       });
 
       if (!targetPath) return;
 
-      if (rawSrc.startsWith("asset://") || rawSrc.startsWith("/")) {
-        let cleanSource = rawSrc;
-        if (cleanSource.startsWith("asset://localhost/")) {
-          cleanSource = "/" + cleanSource.substring("asset://localhost/".length);
-        } else if (cleanSource.startsWith("asset://")) {
-          cleanSource = cleanSource.substring("asset://".length);
-        }
-        await invoke("save_file_copy", {
-          sourcePath: decodeURIComponent(cleanSource),
-          targetPath,
-        });
-        showToast(t("save_image_success"));
+      // Sticker images are local files shown through an asset URL, whose form
+      // differs per platform (asset://localhost/… vs http://asset.localhost/…
+      // on Windows). Copy the original file to the chosen path.
+      const sourcePath = assetUrlToFilePath(rawSrc);
+      if (!sourcePath) {
+        // No backend command writes arbitrary bytes; don't claim a save that
+        // did not happen.
+        showToast(t("save_image_failed"));
         return;
       }
-
-      if (imgRef.current) {
-        const canvas = document.createElement("canvas");
-        const img = imgRef.current;
-        canvas.width = img.naturalWidth || img.width;
-        canvas.height = img.naturalHeight || img.height;
-        const ctx = canvas.getContext("2d");
-        if (ctx) {
-          ctx.drawImage(img, 0, 0);
-          canvas.toBlob(async (blob) => {
-            if (blob) {
-              const arrayBuffer = await blob.arrayBuffer();
-              const bytes = Array.from(new Uint8Array(arrayBuffer));
-              await invoke("write_binary_file", { path: targetPath, contents: bytes }).catch(async () => {
-                const a = document.createElement("a");
-                a.href = canvas.toDataURL("image/png");
-                a.download = defaultFileName;
-                a.click();
-              });
-              showToast(t("save_image_success"));
-            }
-          });
-        }
-      }
+      await invoke("save_file_copy", { sourcePath, targetPath });
+      showToast(t("save_image_success"));
     } catch (err) {
       console.error("Failed to save image:", err);
       showToast(t("save_image_failed"));

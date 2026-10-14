@@ -13,7 +13,6 @@ import { useSettingsPanelProps } from "./features/settings/hooks/useSettingsPane
 import { useDebounce } from "./shared/hooks/useDebounce";
 import { useHistoryFetch } from "./shared/hooks/useHistoryFetch";
 import { useHotkeyConfig } from "./shared/hooks/useHotkeyConfig";
-import { useInputFocus } from "./shared/hooks/useInputFocus";
 import { useFocusCoordinator } from "./shared/hooks/useFocusCoordinator";
 import { focusClipboardWindow } from "./shared/lib/focus";
 import { useSearchScroll } from "./shared/hooks/useSearchScroll";
@@ -392,7 +391,7 @@ const App = () => {
 
   const debouncedSearch = useDebounce(search, 200);
   const deferredSearch = useDeferredValue(search);
-  const searchInputRef = useInputFocus<HTMLInputElement>();
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const showTagFilterRef = useRef(showTagFilter);
   showTagFilterRef.current = showTagFilter;
 
@@ -1383,8 +1382,8 @@ const App = () => {
         </aside>
       </main>
 
-      <MacAccessibilityPrompt ready={settingsLoaded} theme={theme} t={t} pushToast={pushToast} />
       <ToastContainer toasts={toasts} />
+      <MacAccessibilityPrompt ready={settingsLoaded} theme={theme} t={t} pushToast={pushToast} />
 
       <ConfirmDialog
         open={confirmDialog.show}
