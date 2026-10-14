@@ -307,7 +307,9 @@ const AppHeader = ({
                       // Do not re-invoke activate here: a second focus bounce can
                       // blur the caret right after the user clicks the field.
                       setSortMenuOpen(false);
-                      setShowTagFilter(true);
+                      // The tag list opens on click only. The search hotkey
+                      // focuses the field too, and the list then covered the
+                      // type filters like an empty record (#170, #135).
                       setSearchIsFocused(true);
                       setEditingTagsId(null);
                     }}
