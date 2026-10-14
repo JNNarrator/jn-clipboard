@@ -128,9 +128,10 @@ const resolveImgSource = (el: Element): string | null => {
 const SANITIZE_CACHE_LIMIT = 100;
 // Keyed by the HTML string itself: engines cache a string's hash, so lookups
 // stay cheap for the same item, unlike re-hashing every character per render.
+type SanitizedHtml = { html: string; hasRenderable: boolean; hasSourceStyles: boolean };
 const sanitizeCaches = {
-  preview: new Map<string, { html: string; hasRenderable: boolean }>(),
-  full: new Map<string, { html: string; hasRenderable: boolean }>()
+  preview: new Map<string, SanitizedHtml>(),
+  full: new Map<string, SanitizedHtml>()
 };
 
 const sanitizeHTML = (html: string, preview?: boolean) => {
@@ -177,7 +178,9 @@ const sanitizeHTML = (html: string, preview?: boolean) => {
   let processedHtml = stripOfficePreviewNoise(html);
   if ((processedHtml.includes("<tr") || processedHtml.includes("<td") || processedHtml.includes("<col"))
     && !processedHtml.toLowerCase().includes("<table")) {
-    processedHtml = `<table style="border-collapse: collapse; min-width: 100%;">${processedHtml}</table>`;
+    // No width here: unstyled tables get the full width from the shadow style,
+    // a spreadsheet's rows keep the column widths they came with.
+    processedHtml = `<table>${processedHtml}</table>`;
   }
 
   const doc = parser.parseFromString(processedHtml, "text/html");
@@ -295,7 +298,11 @@ const sanitizeHTML = (html: string, preview?: boolean) => {
     textContent
   );
 
-  const result = { html: bodyHtml, hasRenderable };
+  // A style sheet, or styling on rows and cells: a table that only sets its
+  // own width or outline still gets TieZ's cell look.
+  const hasSourceStyles = !!doc.body.querySelector("style, tr[style], th[style], td[style], [bgcolor]");
+
+  const result = { html: bodyHtml, hasRenderable, hasSourceStyles };
   if (sanitizeCache.size >= SANITIZE_CACHE_LIMIT) {
     const firstKey = sanitizeCache.keys().next().value;
     if (firstKey) sanitizeCache.delete(firstKey);
@@ -363,31 +370,47 @@ const SHADOW_BASE_STYLE = `
     max-width: 100%;
   }
   .tiez-rich-root img, .tiez-rich-root video { max-width: 100%; height: auto; }
-  .tiez-rich-root table {
+  /* Bare element selectors (the shadow root scopes them) so a source's own
+     rules, such as Excel's td.xl65, win over these defaults. */
+  table {
     border-collapse: collapse !important;
     border-spacing: 0;
-    width: 100%;
     margin: var(--rich-preview-block-gap, 0.5em) 0;
     font-size: inherit;
-    border: 1px solid var(--line-strong, var(--border-dark));
-    border-radius: var(--rich-preview-radius, 6px);
-    overflow: hidden;
   }
-  .tiez-rich-root th, .tiez-rich-root td {
-    border: 1px solid var(--line-soft, var(--border-dark));
+  th, td {
     padding: 0.36em 0.55em;
     vertical-align: top;
     word-break: break-word;
     box-sizing: border-box;
   }
-  .tiez-rich-root th {
+  /* A styled table sits on white paper, as in the app it came from (and in
+     the image of it the list shows): its colors were picked for white, and
+     black text or dark red on a dark card was unreadable. */
+  .tiez-rich-root.has-source-styles table {
+    background-color: #fff;
+    color: #000;
+  }
+  /* TieZ's table look only for tables that bring no styling of their own:
+     it painted over the fills, borders and stripes a spreadsheet copied. */
+  .tiez-rich-root:not(.has-source-styles) table {
+    width: 100%;
+    border: 1px solid var(--line-strong, var(--border-dark));
+    border-radius: var(--rich-preview-radius, 6px);
+    overflow: hidden;
+  }
+  .tiez-rich-root:not(.has-source-styles) th,
+  .tiez-rich-root:not(.has-source-styles) td {
+    border: 1px solid var(--line-soft, var(--border-dark));
+  }
+  .tiez-rich-root:not(.has-source-styles) th {
     background-color: var(--bg-button, var(--bg-element));
     font-weight: 600;
   }
-  .tiez-rich-root td {
+  .tiez-rich-root:not(.has-source-styles) td {
     background-color: var(--bg-element, transparent);
   }
-  .tiez-rich-root tr:nth-child(even) td {
+  .tiez-rich-root:not(.has-source-styles) tr:nth-child(even) td {
     background-color: color-mix(in srgb, var(--bg-element) 60%, transparent);
   }
 `;
@@ -764,7 +787,7 @@ const HtmlContent = ({ htmlContent, fallbackText, className, style, preview, cla
       return scheduleRepair();
     }
     processedRef.current = { htmlContent, preview, fallbackText };
-    const { html: cleanHTML, hasRenderable } = sanitizeHTML(htmlContent, preview);
+    const { html: cleanHTML, hasRenderable, hasSourceStyles } = sanitizeHTML(htmlContent, preview);
     let shadowRoot = host.shadowRoot;
     if (!shadowRoot) {
       shadowRoot = host.attachShadow({ mode: "open" });
@@ -773,7 +796,7 @@ const HtmlContent = ({ htmlContent, fallbackText, className, style, preview, cla
     }
     const renderedContent = !hasRenderable && fallbackText
       ? `<div class="tiez-rich-root" dir="auto"></div>`
-      : `<div class="tiez-rich-root" dir="auto">${cleanHTML}</div>`;
+      : `<div class="tiez-rich-root${hasSourceStyles ? " has-source-styles" : ""}" dir="auto">${cleanHTML}</div>`;
     shadowRoot.innerHTML = `<style>${SHADOW_BASE_STYLE}${preview ? SHADOW_PREVIEW_STYLE : ""}</style>${renderedContent}`;
 
     if (!hasRenderable && fallbackText) {

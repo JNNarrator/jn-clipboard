@@ -8,7 +8,7 @@ import {
 
 const SNAPSHOT_CACHE_LIMIT = 120;
 const SNAPSHOT_CACHE_BYTE_LIMIT = 24 * 1024 * 1024;
-const SNAPSHOT_CACHE_VERSION = "v9";
+const SNAPSHOT_CACHE_VERSION = "v10";
 const snapshotCache = new Map<string, { dataUrl: string; bytes: number }>();
 let snapshotCacheBytes = 0;
 
@@ -71,6 +71,7 @@ const logSnapshotFailure = (
 const normalizeRichHtml = (html: string): {
   bodyHtml: string;
   estimatedHeight: number;
+  hasSourceStyles: boolean;
   imageStats: {
     total: number;
     data: number;
@@ -87,7 +88,7 @@ const normalizeRichHtml = (html: string): {
     (processed.includes("<tr") || processed.includes("<td") || processed.includes("<col")) &&
     !processed.toLowerCase().includes("<table")
   ) {
-    processed = `<table style="border-collapse: collapse; min-width: 100%;">${processed}</table>`;
+    processed = `<table>${processed}</table>`;
   }
 
   const doc = parser.parseFromString(processed, "text/html");
@@ -95,7 +96,11 @@ const normalizeRichHtml = (html: string): {
   doc.querySelectorAll("style").forEach((style) => {
     if (isOfficeStyleDefinitionText(style.textContent || "")) {
       style.remove();
+      return;
     }
+    // Office wraps its rules in <!-- -->. The snapshot is parsed as XML, where
+    // that turned the whole sheet into a comment.
+    style.textContent = (style.textContent || "").replace(/<!--|-->/g, "");
   });
   doc.querySelectorAll("meta, link, xml").forEach((el) => el.remove());
   doc.head.querySelectorAll("style").forEach((style) => {
@@ -218,7 +223,10 @@ const normalizeRichHtml = (html: string): {
         ? Math.max(120, Math.min(2200, roughTextLines * 20 + 72))
         : Math.max(52, Math.min(1800, roughTextLines * 20 + 20));
 
-  return { bodyHtml, estimatedHeight, imageStats };
+  // Same test as HtmlContent: styled tables keep their own look.
+  const hasSourceStyles = !!doc.body.querySelector("style, tr[style], th[style], td[style], [bgcolor]");
+
+  return { bodyHtml, estimatedHeight, imageStats, hasSourceStyles };
 };
 
 const toXmlSafeNamedEntities = (html: string): string => {
@@ -439,7 +447,7 @@ const buildRichTextSnapshotDataUrl = (
     const svg = [
       `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">`,
       `<foreignObject x="0" y="0" width="100%" height="100%">`,
-      '<div xmlns="http://www.w3.org/1999/xhtml" class="tiez-rich-snapshot-root" style="',
+      `<div xmlns="http://www.w3.org/1999/xhtml" class="tiez-rich-snapshot-root${normalized.hasSourceStyles ? " has-source-styles" : ""}" style="`,
       snapshotStyle,
       '">',
       xmlSafeBodyHtml,
@@ -483,9 +491,17 @@ const buildRichTextSnapshotDataUrl = (
       table {
         border-collapse: collapse !important;
         border-spacing: 0;
-        width: 100% !important;
         table-layout: auto;
         margin: 0.5em 0 !important;
+      }
+      /* Styled tables on white paper, as in HtmlContent. */
+      .tiez-rich-snapshot-root.has-source-styles table {
+        background-color: #fff;
+        color: #000;
+      }
+      /* TieZ's table look only where the source brought none (see HtmlContent). */
+      .tiez-rich-snapshot-root:not(.has-source-styles) table {
+        width: 100% !important;
         border: 1px solid ${snapshotBorder} !important;
       }
       img, video {
@@ -501,17 +517,20 @@ const buildRichTextSnapshotDataUrl = (
       }
       td, th {
         vertical-align: top;
-        border: 1px solid ${snapshotBorder} !important;
         padding: 0.36em 0.55em !important;
         font-size: 0.92em !important;
         line-height: 1.35 !important;
         word-break: break-word;
       }
-      th {
+      .tiez-rich-snapshot-root:not(.has-source-styles) td,
+      .tiez-rich-snapshot-root:not(.has-source-styles) th {
+        border: 1px solid ${snapshotBorder} !important;
+      }
+      .tiez-rich-snapshot-root:not(.has-source-styles) th {
         font-weight: 600 !important;
         background-color: color-mix(in srgb, ${snapshotText} 8%, ${snapshotBackground});
       }
-      tr:nth-child(even) td:not([style*="background"]):not([bgcolor]) {
+      .tiez-rich-snapshot-root:not(.has-source-styles) tr:nth-child(even) td:not([style*="background"]):not([bgcolor]) {
         background-color: color-mix(in srgb, ${snapshotText} 4%, ${snapshotBackground});
       }
       ul, ol {

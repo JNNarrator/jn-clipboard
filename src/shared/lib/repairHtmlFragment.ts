@@ -73,6 +73,18 @@ export const stripRichStorageMarkers = (html: string): string => {
   return processed;
 };
 
+/**
+ * Excel, Word and WPS style cells and paragraphs from a <style> in <head>
+ * and mark them with a class only (`<td class=xl65>`). Cutting out the
+ * fragment dropped that sheet and with it every fill, border and font, so
+ * style blocks with real rules come along.
+ */
+const withSourceStyles = (source: string, fragment: string): string => {
+  const styles = (source.match(OFFICE_STYLE_BLOCK_RE) || [])
+    .filter((block) => !fragment.includes(block) && hasRenderableCssRules(block));
+  return styles.length ? `${styles.join("")}${fragment}` : fragment;
+};
+
 export const extractRenderableHtmlFragment = (html: string): string => {
   const repaired = repairHtmlFragment(html || "");
   const trimmed = repaired.trim();
@@ -87,16 +99,16 @@ export const extractRenderableHtmlFragment = (html: string): string => {
     const contentStart = startIndex + startMarker.length;
     const endIndex = trimmed.indexOf(endMarker, contentStart);
     if (endIndex > contentStart) {
-      return trimmed.slice(contentStart, endIndex).trim();
+      return withSourceStyles(trimmed, trimmed.slice(contentStart, endIndex).trim());
     }
   }
 
   const bodyMatch = trimmed.match(BODY_RE);
   if (bodyMatch?.[1]) {
-    return bodyMatch[1].trim();
+    return withSourceStyles(trimmed, bodyMatch[1].trim());
   }
 
-  return trimmed.replace(HEAD_RE, " ").trim();
+  return withSourceStyles(trimmed, trimmed.replace(HEAD_RE, " ").trim());
 };
 
 export const stripOfficePreviewNoise = (html: string): string => {
