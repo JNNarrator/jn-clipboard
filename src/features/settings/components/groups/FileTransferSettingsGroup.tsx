@@ -221,7 +221,18 @@ const FileTransferSettingsGroup = ({
                                         <div className="qr-label">{t('scan_me')}</div>
                                     </div>
                                     <div className="transfer-info">
-                                        <div className="scan-title">{t('scan_to_send')}</div>
+                                        <div className="transfer-info-head">
+                                            <div className="scan-title">{t('scan_to_send')}</div>
+                                            <button
+                                                type="button"
+                                                className="open-browser-btn"
+                                                onClick={() => {
+                                                    if (onOpenChat) onOpenChat();
+                                                }}
+                                            >
+                                                {t('open_page')}
+                                            </button>
+                                        </div>
                                         <div className="info-row">
                                             <span className="info-label">{t('status')}</span>
                                             <span className="status-online">{t('online')}</span>
@@ -234,15 +245,6 @@ const FileTransferSettingsGroup = ({
                                             <span className="info-label">{t('port')}</span>
                                             <span className="info-value">{actualPort}</span>
                                         </div>
-                                        <button
-                                            type="button"
-                                            className="open-browser-btn"
-                                            onClick={() => {
-                                                if (onOpenChat) onOpenChat();
-                                            }}
-                                        >
-                                            {t('open_page')}
-                                        </button>
                                     </div>
                                 </div>
                             </motion.div>

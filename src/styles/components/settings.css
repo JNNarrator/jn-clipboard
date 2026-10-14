@@ -688,9 +688,12 @@
   font-size: var(--font-size-xs);
 }
 
+/* Hugs the address: an IPv4 address filled a third of the fixed field and
+   left the rest blank. Long (IPv6) addresses stop at the field width. */
 .setting-item:not(.column) > .settings-address-panel {
-  flex: 0 1 var(--st-field-width);
-  width: var(--st-field-width);
+  flex: 0 1 auto;
+  width: auto;
+  max-width: var(--st-field-width);
   gap: 0;
   cursor: default;
   font-size: var(--font-size-xs);
@@ -1114,6 +1117,16 @@
   gap: 8px;
 }
 
+/* Title and action share the top line; rows below put values at the right
+   edge, as setting rows do, instead of leaving the card's right half blank. */
+.settings-view .transfer-info-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
 .settings-view .scan-title {
   font-size: var(--st-control-size);
   font-weight: var(--st-label-weight);
@@ -1125,7 +1138,8 @@
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 4px;
+  justify-content: space-between;
+  gap: 12px;
   font-family: var(--font-mono);
   font-size: var(--font-size-xs);
   line-height: 1.2;
@@ -1156,9 +1170,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: 0 0 auto;
   min-height: 24px;
   padding: 0 10px;
-  margin-top: 2px;
   border: none;
   border-radius: var(--st-control-radius);
   background: rgba(var(--accent-color-rgb), 0.12);
