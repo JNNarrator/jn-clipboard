@@ -310,6 +310,18 @@ pub fn toggle_autostart(app_handle: AppHandle, enabled: bool) -> AppResult<()> {
     {
         use tauri_plugin_autostart::ManagerExt;
         let autolaunch = app_handle.autolaunch();
+        #[cfg(target_os = "macos")]
+        {
+            use crate::infrastructure::macos_api::login_item;
+            if login_item::available() {
+                // The old ~/Library/LaunchAgents item goes either way, so it
+                // can't start TieZ twice or show up under the developer's name.
+                if autolaunch.is_enabled().unwrap_or(false) {
+                    let _ = autolaunch.disable();
+                }
+                return login_item::set_enabled(enabled).map_err(AppError::Internal);
+            }
+        }
         if enabled {
             let _ = autolaunch.enable();
         } else {
@@ -332,6 +344,13 @@ pub fn is_autostart_enabled(app_handle: AppHandle) -> AppResult<bool> {
     #[cfg(not(target_os = "windows"))]
     {
         use tauri_plugin_autostart::ManagerExt;
+        #[cfg(target_os = "macos")]
+        {
+            use crate::infrastructure::macos_api::login_item;
+            if login_item::available() {
+                return Ok(login_item::is_enabled());
+            }
+        }
         let autolaunch = app_handle.autolaunch();
         Ok(autolaunch.is_enabled().unwrap_or(false))
     }

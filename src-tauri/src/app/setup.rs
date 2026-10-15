@@ -1003,6 +1003,35 @@ fn enable_autostart_on_first_run(app_handle: &AppHandle, db_state: &DbState) {
     }
 }
 
+/// Moves a login item made the old way (~/Library/LaunchAgents, shown under
+/// the developer's name) to the in-bundle agent shown as TieZ. Only when it
+/// was on: an upgrade never turns launch at login on by itself.
+#[cfg(target_os = "macos")]
+fn migrate_macos_login_item(app_handle: &AppHandle) {
+    use crate::infrastructure::macos_api::login_item;
+    use tauri_plugin_autostart::ManagerExt;
+    if cfg!(debug_assertions) || !login_item::available() {
+        return;
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        let path = exe.to_string_lossy();
+        if path.starts_with("/Volumes/") || path.contains("/AppTranslocation/") {
+            return;
+        }
+    }
+    let autolaunch = app_handle.autolaunch();
+    if !autolaunch.is_enabled().unwrap_or(false) {
+        return;
+    }
+    match login_item::set_enabled(true) {
+        Ok(()) => {
+            let _ = autolaunch.disable();
+        }
+        // Keep the old item rather than lose launch at login.
+        Err(error) => eprintln!(">>> [STARTUP] moving the login item failed: {error}"),
+    }
+}
+
 fn start_services(app: &App, s: &StartupSettings, app_handle: AppHandle) {
     #[cfg(target_os = "macos")]
     crate::infrastructure::macos_api::window_tracker::start_window_tracking(app_handle.clone());
@@ -1022,6 +1051,8 @@ fn start_services(app: &App, s: &StartupSettings, app_handle: AppHandle) {
     crate::app::light_mode::seed_hidden_if_needed(&app_handle);
 
     let db_state = app.state::<DbState>();
+    #[cfg(target_os = "macos")]
+    migrate_macos_login_item(&app_handle);
     enable_autostart_on_first_run(&app_handle, &db_state);
     if db_state
         .settings_repo
