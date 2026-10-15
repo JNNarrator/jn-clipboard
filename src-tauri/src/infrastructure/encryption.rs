@@ -160,7 +160,25 @@ fn load_or_create_master_key() -> Result<[u8; KEY_LEN], String> {
         let dir = data_dir().ok_or_else(|| "encryption data dir not set".to_string())?;
         let path = dir.join(DPAPI_KEY_FILE);
         if path.exists() {
-            return load_key_dpapi(&path);
+            match load_key_dpapi(&path) {
+                Ok(key) => return Ok(key),
+                // The key file came from another Windows install or account
+                // (reinstalled system, data folder restored from a backup).
+                // Nothing on this machine can open it or what it encrypted,
+                // so refusing a new key only left every save failing. Keep
+                // the file, start a new key; the lost values are re-entered.
+                Err(KeyFileError::FromAnotherInstall) if !cfg!(feature = "portable") => {
+                    let kept = keep_unreadable_key_file(&path)?;
+                    eprintln!(
+                        ">>> [ENCRYPTION] master key is from another Windows install; kept as {} and starting a new one",
+                        kept.display()
+                    );
+                    let key = generate_key();
+                    store_key_dpapi(&path, &key)?;
+                    return Ok(key);
+                }
+                Err(error) => return Err(error.to_string()),
+            }
         }
         if cfg!(feature = "portable") {
             return Err("existing master key not found".into());
@@ -281,12 +299,58 @@ fn store_key_dpapi(path: &Path, key: &[u8; KEY_LEN]) -> Result<(), String> {
     std::fs::write(path, protected).map_err(|e| e.to_string())
 }
 
+/// Renames a key file nothing here can open (never deletes it: it is the only
+/// way back to what it encrypted, should the old Windows account return) and
+/// returns where it went.
+#[cfg(any(target_os = "windows", test))]
+fn keep_unreadable_key_file(path: &Path) -> Result<std::path::PathBuf, String> {
+    let name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| "invalid key file name".to_string())?;
+    let mut kept = path.with_file_name(format!("{name}.unreadable"));
+    let mut n = 1;
+    while kept.exists() {
+        kept = path.with_file_name(format!("{name}.unreadable.{n}"));
+        n += 1;
+    }
+    std::fs::rename(path, &kept).map_err(|e| format!("cannot set aside unreadable key: {e}"))?;
+    Ok(kept)
+}
+
+/// NTE_BAD_KEY_STATE, "Key not valid for use in specified state": DPAPI data
+/// protected under a different Windows install or user account.
 #[cfg(target_os = "windows")]
-fn load_key_dpapi(path: &Path) -> Result<[u8; KEY_LEN], String> {
-    let protected = std::fs::read(path).map_err(|e| e.to_string())?;
-    let plain = dpapi_unprotect(&protected)?;
+const NTE_BAD_KEY_STATE: i32 = 0x8009_000B_u32 as i32;
+
+#[cfg(target_os = "windows")]
+enum KeyFileError {
+    FromAnotherInstall,
+    Other(String),
+}
+
+#[cfg(target_os = "windows")]
+impl std::fmt::Display for KeyFileError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::FromAnotherInstall => f.write_str("master key belongs to another Windows install or account"),
+            Self::Other(message) => f.write_str(message),
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn load_key_dpapi(path: &Path) -> Result<[u8; KEY_LEN], KeyFileError> {
+    let protected = std::fs::read(path).map_err(|e| KeyFileError::Other(e.to_string()))?;
+    let plain = dpapi_unprotect_checked(&protected).map_err(|error| {
+        if error.code().0 == NTE_BAD_KEY_STATE {
+            KeyFileError::FromAnotherInstall
+        } else {
+            KeyFileError::Other(format!("CryptUnprotectData: {error}"))
+        }
+    })?;
     if plain.len() != KEY_LEN {
-        return Err("invalid DPAPI key length".into());
+        return Err(KeyFileError::Other("invalid DPAPI key length".into()));
     }
     let mut key = [0u8; KEY_LEN];
     key.copy_from_slice(&plain);
@@ -329,6 +393,11 @@ fn dpapi_protect(data: &[u8]) -> Result<Vec<u8>, String> {
 
 #[cfg(target_os = "windows")]
 fn dpapi_unprotect(data: &[u8]) -> Result<Vec<u8>, String> {
+    dpapi_unprotect_checked(data).map_err(|e| format!("CryptUnprotectData: {e}"))
+}
+
+#[cfg(target_os = "windows")]
+fn dpapi_unprotect_checked(data: &[u8]) -> windows::core::Result<Vec<u8>> {
     use windows::Win32::Foundation::{LocalFree, HLOCAL};
     use windows::Win32::Security::Cryptography::{CryptUnprotectData, CRYPT_INTEGER_BLOB};
 
@@ -350,7 +419,7 @@ fn dpapi_unprotect(data: &[u8]) -> Result<Vec<u8>, String> {
             0,
             &mut output,
         )
-        .map_err(|e| format!("CryptUnprotectData: {e}"))?;
+        ?;
 
         let slice = std::slice::from_raw_parts(output.pbData, output.cbData as usize);
         let result = slice.to_vec();
@@ -598,6 +667,43 @@ fn upgrade_field(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Only Windows saying "another install or account" sets a key aside; a
+    /// damaged file is an ordinary error, so a fresh key never replaces it.
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn a_damaged_key_file_is_not_treated_as_from_another_install() {
+        let dir = std::env::temp_dir().join(format!("tiez-damaged-key-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join(DPAPI_KEY_FILE);
+        std::fs::write(&path, b"not a DPAPI blob").unwrap();
+        assert!(matches!(load_key_dpapi(&path), Err(KeyFileError::Other(_))));
+
+        // A key protected by this account still loads.
+        let key = [7u8; KEY_LEN];
+        store_key_dpapi(&path, &key).unwrap();
+        assert!(matches!(load_key_dpapi(&path), Ok(loaded) if loaded == key));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn unreadable_key_files_are_set_aside_never_deleted() {
+        let dir = std::env::temp_dir().join(format!("tiez-unreadable-key-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("master.key.dpapi");
+
+        std::fs::write(&path, b"old install 1").unwrap();
+        let first = keep_unreadable_key_file(&path).unwrap();
+        std::fs::write(&path, b"old install 2").unwrap();
+        let second = keep_unreadable_key_file(&path).unwrap();
+
+        assert!(!path.exists());
+        assert_eq!(first.file_name().unwrap(), "master.key.dpapi.unreadable");
+        assert_eq!(second.file_name().unwrap(), "master.key.dpapi.unreadable.1");
+        assert_eq!(std::fs::read(&first).unwrap(), b"old install 1");
+        assert_eq!(std::fs::read(&second).unwrap(), b"old install 2");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 
     /// What Windows 0.3.3 stored: "dpapi:" + base64(CryptProtectData(text)),
     /// user scope, CRYPTPROTECT_UI_FORBIDDEN, no entropy.
