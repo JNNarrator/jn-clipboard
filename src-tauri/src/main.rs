@@ -109,7 +109,13 @@ fn main() -> AppResult<()> {
         // Off the callback thread: on Windows it runs inside the second
         // process's WM_COPYDATA SendMessage, where rebuilding the WebView2
         // after light mode could fail or keep that process waiting.
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            // A login-item start (--minimized / --autostart) is not the user
+            // asking for the window. On macOS, registering the login item
+            // starts one right away while TieZ is already running.
+            if args.iter().any(|arg| arg == "--minimized" || arg == "--autostart") {
+                return;
+            }
             let app = app.clone();
             std::thread::spawn(move || {
                 let _ = app::window_manager::focus_clipboard_window(app);
