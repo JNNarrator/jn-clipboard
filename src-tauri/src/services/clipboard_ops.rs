@@ -359,42 +359,26 @@ fn set_windows_formatted_clipboard(
     named_formats: &[crate::infrastructure::windows_api::win_clipboard::NamedClipboardFormat],
     keep_existing: bool,
 ) -> AppResult<()> {
-    use crate::infrastructure::windows_api::win_clipboard::{
-        append_clipboard_text_and_html, set_clipboard_text_and_html,
-    };
+    use crate::infrastructure::windows_api::win_clipboard::set_clipboard_rich;
     use crate::services::clipboard::encode_cf_html;
 
     let cf_html = encode_cf_html(html_fragment);
-    unsafe {
-        let written = if keep_existing {
-            append_clipboard_text_and_html(plain, &cf_html)
+    let mut registered_formats = Vec::new();
+    let mut standard_formats = Vec::new();
+    for format in named_formats {
+        if let Some(id) = format
+            .name
+            .strip_prefix(crate::services::clipboard::WINDOWS_STANDARD_FORMAT_PREFIX)
+            .and_then(|value| value.parse::<u32>().ok())
+        {
+            standard_formats.push((id, format.data.clone()));
         } else {
-            set_clipboard_text_and_html(plain, &cf_html)
-        };
-        written.map_err(AppError::Internal)?;
-        if !named_formats.is_empty() {
-            let mut registered_formats = Vec::new();
-            let mut standard_formats = Vec::new();
-            for format in named_formats {
-                if let Some(id) = format
-                    .name
-                    .strip_prefix(crate::services::clipboard::WINDOWS_STANDARD_FORMAT_PREFIX)
-                    .and_then(|value| value.parse::<u32>().ok())
-                {
-                    standard_formats.push((id, format.data.clone()));
-                } else {
-                    registered_formats.push(format.clone());
-                }
-            }
-            crate::infrastructure::windows_api::win_clipboard::append_named_clipboard_formats(
-                &registered_formats,
-            )
-            .map_err(AppError::Internal)?;
-            crate::infrastructure::windows_api::win_clipboard::append_standard_clipboard_formats(
-                &standard_formats,
-            )
-            .map_err(AppError::Internal)?;
+            registered_formats.push(format.clone());
         }
+    }
+    unsafe {
+        set_clipboard_rich(plain, &cf_html, &registered_formats, &standard_formats, keep_existing)
+            .map_err(AppError::Internal)?;
     }
     Ok(())
 }

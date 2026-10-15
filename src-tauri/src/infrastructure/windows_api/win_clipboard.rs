@@ -731,6 +731,8 @@ unsafe fn set_clipboard_text_and_html_inner(
     text: &str,
     cf_html: &str,
     clear_existing: bool,
+    named_formats: &[NamedClipboardFormat],
+    standard_formats: &[(u32, Vec<u8>)],
 ) -> Result<(), String> {
     use windows::Win32::System::DataExchange::RegisterClipboardFormatW;
 
@@ -788,6 +790,35 @@ unsafe fn set_clipboard_text_and_html_inner(
             Some(windows::Win32::Foundation::HANDLE(h_html.0 as _)),
         );
 
+        // 3) The source app's own formats (WPS / Excel cell data), in this
+        // same session. A separate session after closing let clipboard
+        // listeners in between and wrote without emptying, which Windows can
+        // refuse (ERROR_CLIPBOARD_NOT_OPEN); one refused private format then
+        // failed the whole paste though text and HTML were already there.
+        for format in named_formats {
+            if format.name.trim().is_empty() {
+                continue;
+            }
+            let name_w: Vec<u16> = format.name.encode_utf16().chain(std::iter::once(0)).collect();
+            let id = RegisterClipboardFormatW(windows::core::PCWSTR(name_w.as_ptr()));
+            if id == 0 {
+                continue;
+            }
+            if let Err(error) = set_named_clipboard_format_bytes(id, &format.data) {
+                eprintln!("[clipboard] skipped format {}: {error}", format.name);
+            }
+        }
+        for (id, data) in standard_formats {
+            // Handle-backed formats (bitmap, palette, metafiles) cannot be
+            // rebuilt from stored bytes; these few are plain HGLOBAL data.
+            if !matches!(*id, 4 | 5 | 6 | 10 | 11 | 12) {
+                continue;
+            }
+            if let Err(error) = set_named_clipboard_format_bytes(*id, data) {
+                eprintln!("[clipboard] skipped standard format {id}: {error}");
+            }
+        }
+
         Ok(())
     })();
 
@@ -829,82 +860,22 @@ pub unsafe fn set_clipboard_text_private(text: &str) -> Result<(), String> {
 }
 
 pub unsafe fn set_clipboard_text_and_html(text: &str, cf_html: &str) -> Result<(), String> {
-    set_clipboard_text_and_html_inner(text, cf_html, true)
+    set_clipboard_text_and_html_inner(text, cf_html, true, &[], &[])
 }
 
-/// Append/override Unicode text and CF_HTML while keeping existing non-text formats (e.g. image/DIB).
-pub unsafe fn append_clipboard_text_and_html(text: &str, cf_html: &str) -> Result<(), String> {
-    set_clipboard_text_and_html_inner(text, cf_html, false)
-}
-
-/// Append registered clipboard formats while keeping existing data intact.
-pub unsafe fn append_named_clipboard_formats(
-    formats: &[NamedClipboardFormat],
+/// Text, CF_HTML and the source app's own formats, written in one clipboard
+/// session. `keep_existing` adds them next to what is there (an image just
+/// written for this paste) instead of emptying the clipboard first.
+pub unsafe fn set_clipboard_rich(
+    text: &str,
+    cf_html: &str,
+    named_formats: &[NamedClipboardFormat],
+    standard_formats: &[(u32, Vec<u8>)],
+    keep_existing: bool,
 ) -> Result<(), String> {
-    use windows::Win32::System::DataExchange::RegisterClipboardFormatW;
-
-    if formats.is_empty() {
-        return Ok(());
-    }
-
-    if OpenClipboard(None).is_err() {
-        return Err("Cannot open clipboard".into());
-    }
-
-    let result = (|| {
-        for format in formats {
-            if format.name.trim().is_empty() {
-                continue;
-            }
-
-            let name_w: Vec<u16> = format
-                .name
-                .encode_utf16()
-                .chain(std::iter::once(0))
-                .collect();
-            let format_id = RegisterClipboardFormatW(windows::core::PCWSTR(name_w.as_ptr()));
-            if format_id == 0 {
-                continue;
-            }
-
-            set_named_clipboard_format_bytes(format_id, &format.data)?;
-        }
-
-        Ok(())
-    })();
-
-    let _ = CloseClipboard();
-    result
+    set_clipboard_text_and_html_inner(text, cf_html, !keep_existing, named_formats, standard_formats)
 }
 
-/// Append HGLOBAL-backed standard Windows clipboard formats while preserving
-/// the text and HTML formats already placed on the clipboard.
-pub unsafe fn append_standard_clipboard_formats(formats: &[(u32, Vec<u8>)]) -> Result<(), String> {
-    if formats.is_empty() {
-        return Ok(());
-    }
-
-    if OpenClipboard(None).is_err() {
-        return Err("Cannot open clipboard".into());
-    }
-
-    let result = (|| {
-        for (format_id, data) in formats {
-            // Handle-backed formats (bitmap, palette, metafiles) cannot be
-            // reconstructed by copying their database bytes into HGLOBAL.
-            if !matches!(*format_id, 4 | 5 | 6 | 10 | 11 | 12) {
-                continue;
-            }
-            set_named_clipboard_format_bytes(*format_id, data)?;
-        }
-        Ok(())
-    })();
-
-    let _ = CloseClipboard();
-    result
-}
-
-/// Set image (DIB) and optionally a raw format (like GIF) to clipboard in one go
 pub unsafe fn set_clipboard_image_and_gif(
     image: ImageData,
     raw_format_name: Option<&str>,
