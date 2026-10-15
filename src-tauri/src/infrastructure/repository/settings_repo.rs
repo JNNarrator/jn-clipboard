@@ -10,6 +10,9 @@ pub trait SettingsRepository {
     fn get_all(&self) -> Result<HashMap<String, String>>;
     /// Sensitive settings stored here that can't be decrypted on this device.
     fn undecryptable_keys(&self) -> Result<Vec<String>>;
+    /// Deletes those of `keys` that are sensitive and can't be decrypted here
+    /// (never a readable value); returns the ones removed.
+    fn clear_undecryptable(&self, keys: &[String]) -> Result<Vec<String>>;
     fn clear(&self) -> Result<()>;
 }
 
@@ -137,6 +140,17 @@ impl SettingsRepository for SqliteSettingsRepository {
         Ok(keys)
     }
 
+    fn clear_undecryptable(&self, keys: &[String]) -> Result<Vec<String>> {
+        let unreadable = self.undecryptable_keys()?;
+        let conn = self.conn.lock().unwrap();
+        let mut cleared = Vec::new();
+        for key in keys.iter().filter(|key| is_sensitive_key(key) && unreadable.contains(key)) {
+            conn.execute("DELETE FROM settings WHERE key = ?", params![key])?;
+            cleared.push(key.clone());
+        }
+        Ok(cleared)
+    }
+
     fn clear(&self) -> Result<()> {
         let conn = self.conn.lock().unwrap();
         conn.execute("DELETE FROM settings", [])?;
@@ -180,6 +194,17 @@ mod tests {
         assert_eq!(all.get("app.theme").map(String::as_str), Some("paper"));
         assert!(!all.contains_key("mqtt_password"));
         assert_eq!(repo.undecryptable_keys().unwrap(), vec!["mqtt_password".to_string()]);
+
+        // Clearing touches only unreadable secrets, never a readable value.
+        conn.lock().unwrap().execute("INSERT INTO settings VALUES ('mqtt_username', 'plain:me')", []).unwrap();
+        let cleared = repo
+            .clear_undecryptable(&["mqtt_password".into(), "mqtt_username".into(), "app.theme".into()])
+            .unwrap();
+        assert_eq!(cleared, vec!["mqtt_password".to_string()]);
+        assert_eq!(repo.get("mqtt_username").unwrap().as_deref(), Some("me"));
+        assert_eq!(repo.get("app.theme").unwrap().as_deref(), Some("paper"));
+        assert!(repo.undecryptable_keys().unwrap().is_empty());
+        conn.lock().unwrap().execute("INSERT INTO settings VALUES ('mqtt_password', 'enc1:not-base64')", []).unwrap();
 
         // Typing a new password replaces the unreadable one.
         repo.set("mqtt_password", "new-secret").expect("replace with a new value");
