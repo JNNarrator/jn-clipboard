@@ -246,6 +246,7 @@ fn main() -> AppResult<()> {
             app::commands::register_hotkey,
             app::commands::test_hotkey_available,
             app::commands::get_release_build_info,
+            app::commands::check_beta_update,
             app::commands::toggle_clipboard_pin,
             app::commands::update_tags,
             app::commands::update_entry_note,

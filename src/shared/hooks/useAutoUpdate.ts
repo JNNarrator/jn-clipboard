@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { emit, listen } from "@tauri-apps/api/event";
-import { check, type Update } from "@tauri-apps/plugin-updater";
+import { invoke } from "@tauri-apps/api/core";
+import { check, Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { getReleaseBuildInfo, type ReleaseChannel } from "../lib/releaseBuild";
 import { isTauriRuntime } from "../lib/tauriRuntime";
@@ -26,6 +27,32 @@ interface CheckOutcome extends UpdateCheckResult {
 const CHECK_REQUEST_EVENT = "check-update-manually";
 export const CHECK_RESULT_EVENT = "update-check-result";
 
+// Stable builds also look at the beta channel. With "receive beta updates"
+// off, a newer beta is only shown as a line in Settings (no dialog); clicking
+// it opens the usual dialog, marked as a beta.
+export const RECEIVE_BETA_SETTING = "app.receive_beta_updates";
+export const BETA_AVAILABLE_EVENT = "beta-update-available";
+const OPEN_BETA_UPDATE_EVENT = "open-beta-update";
+let availableBetaVersion: string | null = null;
+export const getAvailableBetaVersion = () => availableBetaVersion;
+export const requestBetaUpdateDialog = () => emit(OPEN_BETA_UPDATE_EVENT);
+
+/** SemVer pre-releases (1.0.0-beta.5) are beta builds. */
+export const isBetaVersion = (version: string) => version.includes("-");
+
+const checkBetaChannel = async (includeStable: boolean): Promise<Update | null> => {
+  const metadata = await invoke<ConstructorParameters<typeof Update>[0] | null>(
+    "check_beta_update",
+    { includeStable }
+  );
+  return metadata ? new Update(metadata) : null;
+};
+
+const receivesBetaUpdates = async () => {
+  const settings = await invoke<Record<string, string>>("get_settings").catch(() => ({} as Record<string, string>));
+  return settings[RECEIVE_BETA_SETTING] === "true";
+};
+
 export const useAutoUpdate = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [status, setStatus] = useState<UpdateStatus>("idle");
@@ -36,6 +63,7 @@ export const useAutoUpdate = () => {
   const [important, setImportant] = useState(false);
   const [releaseChannel, setReleaseChannel] = useState<ReleaseChannel>("stable");
   const checkPromiseRef = useRef<Promise<CheckOutcome> | null>(null);
+  const betaUpdateRef = useRef<Update | null>(null);
   const downloadedBytesRef = useRef(0);
   const totalBytesRef = useRef<number | null>(null);
 
@@ -51,12 +79,25 @@ export const useAutoUpdate = () => {
 
     try {
       setStatus("checking");
-      const update = await check({
-        headers: { "Cache-Control": "no-cache" },
-        timeout: 10000,
-      });
+      const stableBuild = buildInfo.channel === "stable";
+      const optedIntoBeta = stableBuild && await receivesBetaUpdates();
+      // Opted in: the beta channel returns the newer of beta and stable.
+      const update = optedIntoBeta
+        ? await checkBetaChannel(true)
+        : await check({
+            headers: { "Cache-Control": "no-cache" },
+            timeout: 10000,
+          });
 
       if (!update) {
+        if (stableBuild && !optedIntoBeta) {
+          // A failed beta lookup must not turn "up to date" into an error.
+          const beta = await checkBetaChannel(false).catch(() => null);
+          betaUpdateRef.current?.close().catch(() => {});
+          betaUpdateRef.current = beta;
+          availableBetaVersion = beta?.version ?? null;
+          await emit(BETA_AVAILABLE_EVENT, availableBetaVersion);
+        }
         setStatus("idle");
         return { status: "up-to-date" };
       }
@@ -144,6 +185,25 @@ export const useAutoUpdate = () => {
     }
   }, []);
 
+  // From the line in Settings: show the beta in the usual dialog. The update
+  // handle is released when the dialog closes, so look it up again if needed.
+  const openBetaUpdate = useCallback(async () => {
+    if (isOpen || status === "downloading") return;
+    const beta = betaUpdateRef.current ?? await checkBetaChannel(false).catch(() => null);
+    betaUpdateRef.current = null;
+    if (!beta) {
+      availableBetaVersion = null;
+      await emit(BETA_AVAILABLE_EVENT, null);
+      return;
+    }
+    setUpdateObj(beta);
+    setVersion(beta.version);
+    setNotes(beta.body || "");
+    setImportant(false);
+    setStatus("idle");
+    setIsOpen(true);
+  }, [isOpen, status]);
+
   const closeUpdateDialog = useCallback(() => {
     if (status === "downloading") return;
     setIsOpen(false);
@@ -182,6 +242,17 @@ export const useAutoUpdate = () => {
     };
   }, [checkUpdate]);
 
+  useEffect(() => {
+    if (!isTauriRuntime()) return;
+    let unlisten: (() => void) | undefined;
+    listen(OPEN_BETA_UPDATE_EVENT, () => {
+      void openBetaUpdate();
+    }).then((fn) => {
+      unlisten = fn;
+    });
+    return () => unlisten?.();
+  }, [openBetaUpdate]);
+
   return {
     isOpen,
     status,
@@ -189,6 +260,9 @@ export const useAutoUpdate = () => {
     notes,
     important,
     releaseChannel,
+    // The badge in the dialog describes the offered version, not this build:
+    // a beta build being offered 1.0.0 is offered a stable release.
+    offeredChannel: (isBetaVersion(version) ? "beta" : "stable") as ReleaseChannel,
     downloadProgress,
     onManualUpdate: checkUpdate,
     onStartDownload: startUpdate,

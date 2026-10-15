@@ -3,6 +3,7 @@ import { Check, Copy, ExternalLink, Github, Globe, MessageSquare, RotateCcw } fr
 import { openUrl } from "@tauri-apps/plugin-opener";
 import appLogo from "../../../../src-tauri/icons/128x128@2x.png";
 import type { ReleaseChannel } from "../../../shared/lib/releaseBuild";
+import BetaUpdatesSetting from "./BetaUpdatesSetting";
 
 interface SettingsAboutProps {
     t: (key: string) => string;
@@ -39,6 +40,8 @@ const SettingsAbout = ({ t, appVersion, releaseChannel, portable, updateButton, 
             </div>
             {updateButton}
         </div>
+
+        <BetaUpdatesSetting t={t} releaseChannel={releaseChannel} portable={portable} />
 
         <section className="settings-about-resources" aria-labelledby="settings-about-links-title">
             <h3 id="settings-about-links-title">{t("about_links")}</h3>
