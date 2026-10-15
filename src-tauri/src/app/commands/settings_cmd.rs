@@ -326,6 +326,12 @@ pub fn get_settings(
     state.settings_repo.get_all().map_err(AppError::from)
 }
 
+/// Sensitive settings this device can't decrypt; get_settings leaves them out.
+#[tauri::command]
+pub fn get_undecryptable_settings(state: State<'_, DbState>) -> AppResult<Vec<String>> {
+    state.settings_repo.undecryptable_keys().map_err(AppError::from)
+}
+
 #[tauri::command]
 pub fn set_file_server_auto_close(
     state: State<'_, crate::app_state::SettingsState>,
