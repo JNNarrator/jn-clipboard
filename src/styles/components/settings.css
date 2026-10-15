@@ -240,6 +240,56 @@
   background: rgba(var(--tint-purple-rgb), 0.12);
 }
 
+/* "A newer beta is available": a link-like line under the beta switch. */
+.beta-updates-available {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  margin-top: 4px;
+  padding: 2px 0;
+  border: none;
+  background: transparent;
+  color: var(--accent-color);
+  font: inherit;
+  font-size: var(--st-desc-size, var(--font-size-xs));
+  cursor: pointer;
+}
+
+.beta-updates-available:hover span:last-child {
+  text-decoration: underline;
+}
+
+.beta-updates-available:focus-visible {
+  outline: 2px solid rgba(var(--accent-color-rgb), 0.58);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
+.settings-about .beta-updates-setting {
+  padding: var(--st-space-2, 8px) 0;
+  border-bottom: 1px solid var(--st-divider, var(--line-soft));
+}
+
+.beta-updates-group {
+  margin-top: 16px;
+}
+
+/* No group header above it, so no header divider either. */
+.settings-group.beta-updates-group .group-content::before {
+  display: none;
+}
+
+/* The long hint must not push the switch onto its own line. */
+.beta-updates-setting {
+  flex-wrap: nowrap;
+}
+
+.beta-updates-setting .item-label-group {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
 .settings-version-badge.portable {
   color: var(--text-secondary);
   background: var(--bg-input);

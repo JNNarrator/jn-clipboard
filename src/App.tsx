@@ -376,7 +376,7 @@ const App = () => {
     version: updateVersion,
     notes: updateNotes,
     important: updateImportant,
-    releaseChannel: updateReleaseChannel,
+    offeredChannel: updateOfferedChannel,
     downloadProgress: updateProgress,
     onStartDownload,
     onApplyUpdate,
@@ -1402,7 +1402,7 @@ const App = () => {
         version={updateVersion}
         notes={updateNotes}
         important={updateImportant}
-        releaseChannel={updateReleaseChannel}
+        releaseChannel={updateOfferedChannel}
         downloadProgress={updateProgress}
         status={updateStatus}
         onUpdate={updateStatus === "ready" ? onApplyUpdate : onStartDownload}

@@ -6,6 +6,7 @@ import {
     type UpdateCheckResult
 } from "../../../shared/hooks/useAutoUpdate";
 import SettingsAbout from "./SettingsAbout";
+import BetaUpdatesSetting from "./BetaUpdatesSetting";
 import type { ReleaseChannel } from "../../../shared/lib/releaseBuild";
 
 interface SettingsFooterProps {
@@ -167,6 +168,14 @@ const SettingsFooter = ({
                     </div>
                 </div>
             </div>
+
+            {releaseChannel === "stable" && !portable && (
+                <div className="settings-group beta-updates-group">
+                    <div className="group-content">
+                        <BetaUpdatesSetting t={t} releaseChannel={releaseChannel} portable={portable} />
+                    </div>
+                </div>
+            )}
 
             {/* Version Info */}
             <div style={{
