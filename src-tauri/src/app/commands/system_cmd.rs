@@ -13,6 +13,7 @@ fn open_path_in_file_manager(path: &std::path::Path) -> AppResult<()> {
         )));
     }
 
+    #[cfg(not(target_os = "windows"))]
     use std::process::Command;
 
     #[cfg(target_os = "macos")]
@@ -50,22 +51,31 @@ fn open_path_in_file_manager(path: &std::path::Path) -> AppResult<()> {
         )));
     }
 
+    // explorer.exe exits with 1 even when the folder opened, so its exit code
+    // reported every success as a failure. ShellExecute says whether it worked.
     #[cfg(target_os = "windows")]
     {
-        let output = Command::new("explorer")
-            .arg(path)
-            .output()
-            .map_err(|e| AppError::Internal(format!("Failed to open folder: {}", e)))?;
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-            let detail = if stderr.is_empty() {
-                "Explorer returned a non-zero exit status".to_string()
-            } else {
-                stderr
-            };
+        use windows::core::{HSTRING, PCWSTR};
+        use windows::Win32::UI::Shell::ShellExecuteW;
+        use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+
+        let operation = HSTRING::from("open");
+        let target = HSTRING::from(path.as_os_str());
+        let result = unsafe {
+            ShellExecuteW(
+                None,
+                PCWSTR::from_raw(operation.as_ptr()),
+                PCWSTR::from_raw(target.as_ptr()),
+                None,
+                None,
+                SW_SHOWNORMAL,
+            )
+        };
+        // Values up to 32 are error codes (2: not found, 5: access denied).
+        if result.0 as isize <= 32 {
             return Err(AppError::Internal(format!(
-                "Failed to open folder: {}",
-                detail
+                "Failed to open folder (ShellExecute error {})",
+                result.0 as isize
             )));
         }
         return Ok(());
