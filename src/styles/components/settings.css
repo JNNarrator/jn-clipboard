@@ -2771,6 +2771,31 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
   padding-left: 36px;
 }
 
+/* A saved password this device can't read: marks the section to open and
+   fill in again (wide: after the nav label; narrow: top right of the card). */
+.settings-attention-badge {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-pill);
+  background: var(--status-danger);
+  color: var(--on-accent);
+  font-size: var(--font-size-2xs);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.settings-section > .settings-attention-badge {
+  position: absolute;
+  top: 16px;
+  right: 40px;
+  z-index: 1;
+  pointer-events: none;
+}
+
 .settings-section-icon {
   position: absolute;
   top: 14px;

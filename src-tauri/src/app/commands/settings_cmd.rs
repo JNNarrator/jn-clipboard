@@ -332,6 +332,13 @@ pub fn get_undecryptable_settings(state: State<'_, DbState>) -> AppResult<Vec<St
     state.settings_repo.undecryptable_keys().map_err(AppError::from)
 }
 
+/// The user opened the setting marked for re-entry: drop its unreadable value
+/// (it can't be recovered on this device) so the field starts empty.
+#[tauri::command]
+pub fn clear_undecryptable_settings(state: State<'_, DbState>, keys: Vec<String>) -> AppResult<Vec<String>> {
+    state.settings_repo.clear_undecryptable(&keys).map_err(AppError::from)
+}
+
 #[tauri::command]
 pub fn set_file_server_auto_close(
     state: State<'_, crate::app_state::SettingsState>,

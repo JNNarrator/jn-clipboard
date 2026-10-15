@@ -180,6 +180,7 @@ fn main() -> AppResult<()> {
             app::commands::set_window_pinned,
             app::commands::get_settings,
             app::commands::get_undecryptable_settings,
+            app::commands::clear_undecryptable_settings,
             app::commands::set_file_server_auto_close,
             app::commands::set_persistence,
             app::commands::set_capture_files,

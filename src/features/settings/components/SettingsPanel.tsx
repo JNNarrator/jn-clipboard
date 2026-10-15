@@ -36,6 +36,7 @@ import { useE2eKey } from "../hooks/useE2eKey";
 import DefaultAppsSettingsGroup from "./groups/DefaultAppsSettingsGroup";
 import DataSettingsGroup from "./groups/DataSettingsGroup";
 import FileTransferSettingsGroup from "./groups/FileTransferSettingsGroup";
+import { useUnreadableSecrets } from "../useUnreadableSecrets";
 import AiSettingsGroup from "./groups/AiSettingsGroup";
 import SettingsFooter from "./SettingsFooter";
 import { LabelWithHint, SettingsHintProvider } from "./SettingsHint";
@@ -385,6 +386,10 @@ const SettingsPanel = (props: SettingsPanelProps) => {
     const isWide = useWideWindow();
     const wideLayout = splitViewEnabled && isWide;
     const [activeSection, setActiveSection] = useState("general");
+    const { flaggedSections, acknowledge: acknowledgeUnreadable } = useUnreadableSecrets();
+    const attentionBadge = (
+        <span className="settings-attention-badge" role="img" aria-label={t("secret_reenter_hint")} title={t("secret_reenter_hint")}>!</span>
+    );
     const wideRef = useRef<HTMLDivElement | null>(null);
     const navRef = useRef<HTMLElement | null>(null);
     const { value: navWidth, resizing: navResizing, dividerProps: navDividerProps } = usePaneWidth({
@@ -965,7 +970,15 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                                 )];
                             }
                             const section = sections.find((item) => item.id === id);
-                            return section ? [renderNavItem(section.id, section.label, () => setActiveSection(section.id))] : [];
+                            return section ? [renderNavItem(
+                                section.id,
+                                section.label,
+                                () => {
+                                    setActiveSection(section.id);
+                                    acknowledgeUnreadable(section.id);
+                                },
+                                flaggedSections.has(section.id) ? attentionBadge : undefined
+                            )] : [];
                         });
                         if (items.length === 0) return null;
                         return (
@@ -1032,9 +1045,15 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                                 const section = sections.find((item) => item.id === id);
                                 return section
                                     ? [
-                                        <div key={section.id} className="settings-section" data-settings-section={section.id}>
+                                        <div
+                                            key={section.id}
+                                            className="settings-section"
+                                            data-settings-section={section.id}
+                                            onClickCapture={flaggedSections.has(section.id) ? () => acknowledgeUnreadable(section.id) : undefined}
+                                        >
                                             {icon}
                                             {section.node}
+                                            {flaggedSections.has(section.id) && attentionBadge}
                                         </div>
                                     ]
                                     : [];
