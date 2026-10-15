@@ -716,6 +716,7 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
                                     invoke("save_setting", { key: 'app.paste_method', value: val }).catch(console.error);
                                 }}
                             >
+                                <option value="auto">{props.t('paste_method_auto')}</option>
                                 <option value="shift_insert">{props.t('paste_method_shift_insert')}</option>
                                 <option value="ctrl_v">{props.t('paste_method_ctrl_v')}</option>
                                 <option value="game_mode">{props.t('paste_method_game_mode')}</option>

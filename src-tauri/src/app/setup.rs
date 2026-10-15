@@ -237,11 +237,11 @@ fn apply_startup_resets(repo: &impl SettingsRepository) {
     {
         let paste_method = repo
             .get("app.paste_method")
-            .unwrap_or(Some("shift_insert".to_string()))
-            .unwrap_or("shift_insert".to_string());
+            .unwrap_or(Some("auto".to_string()))
+            .unwrap_or("auto".to_string());
         if paste_method == "game_mode" && !crate::app::commands::system_cmd::check_is_admin() {
             info!(">>> [STARTUP] Game Mode active without Admin privileges. Resetting to default.");
-            let _ = repo.set("app.paste_method", "shift_insert");
+            let _ = repo.set("app.paste_method", "auto");
         }
     }
 
