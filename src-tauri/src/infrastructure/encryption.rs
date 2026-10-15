@@ -599,6 +599,70 @@ fn upgrade_field(value: &str) -> String {
 mod tests {
     use super::*;
 
+    /// What Windows 0.3.3 stored: "dpapi:" + base64(CryptProtectData(text)),
+    /// user scope, CRYPTPROTECT_UI_FORBIDDEN, no entropy.
+    #[cfg(target_os = "windows")]
+    fn v0_3_3_ciphertext(plain: &str) -> String {
+        use base64::Engine;
+        use windows::Win32::Foundation::{LocalFree, HLOCAL};
+        use windows::Win32::Security::Cryptography::{
+            CryptProtectData, CRYPTPROTECT_UI_FORBIDDEN, CRYPT_INTEGER_BLOB,
+        };
+        unsafe {
+            let mut input = CRYPT_INTEGER_BLOB { cbData: plain.len() as u32, pbData: plain.as_ptr() as *mut u8 };
+            let mut output = CRYPT_INTEGER_BLOB { cbData: 0, pbData: std::ptr::null_mut() };
+            CryptProtectData(
+                &mut input,
+                windows::core::PCWSTR::null(),
+                None,
+                None,
+                None,
+                CRYPTPROTECT_UI_FORBIDDEN,
+                &mut output,
+            )
+            .expect("CryptProtectData");
+            let bytes = std::slice::from_raw_parts(output.pbData, output.cbData as usize).to_vec();
+            let _ = LocalFree(Some(HLOCAL(output.pbData as *mut _)));
+            format!("dpapi:{}", base64::engine::general_purpose::STANDARD.encode(bytes))
+        }
+    }
+
+    /// An upgrade from Windows 0.3.3 on the same machine: its DPAPI values
+    /// (sensitive settings and records tagged sensitive) must come out readable
+    /// and re-encrypted, not as errors.
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn upgrade_reads_and_reencrypts_windows_0_3_3_dpapi_values() {
+        let secret = "mqtt-密码-123";
+        let legacy = v0_3_3_ciphertext(secret);
+        assert_eq!(decrypt_value(&legacy).as_deref(), Some(secret));
+
+        let conn = rusqlite::Connection::open_in_memory().expect("open database");
+        conn.execute_batch(
+            "CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+             CREATE TABLE clipboard_history (
+                 id INTEGER PRIMARY KEY, content TEXT NOT NULL, preview TEXT NOT NULL, html_content TEXT
+             );",
+        )
+        .unwrap();
+        conn.execute("INSERT INTO settings VALUES ('mqtt_password', ?1)", [&legacy]).unwrap();
+        let record = v0_3_3_ciphertext("银行卡 6222");
+        conn.execute("INSERT INTO clipboard_history VALUES (1, ?1, ?1, NULL)", [&record]).unwrap();
+
+        assert_eq!(migrate_legacy_ciphertexts(&conn).expect("migrate"), 2);
+
+        let setting: String = conn
+            .query_row("SELECT value FROM settings WHERE key = 'mqtt_password'", [], |r| r.get(0))
+            .unwrap();
+        assert!(is_modern_ciphertext(&setting), "{setting}");
+        assert_eq!(decrypt_value(&setting).as_deref(), Some(secret));
+        let (content, preview): (String, String) = conn
+            .query_row("SELECT content, preview FROM clipboard_history WHERE id = 1", [], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap();
+        assert_eq!(decrypt_value(&content).as_deref(), Some("银行卡 6222"));
+        assert_eq!(decrypt_value(&preview).as_deref(), Some("银行卡 6222"));
+    }
+
     #[test]
     fn legacy_plain_decrypts() {
         assert_eq!(decrypt_value("plain:hello").as_deref(), Some("hello"));
