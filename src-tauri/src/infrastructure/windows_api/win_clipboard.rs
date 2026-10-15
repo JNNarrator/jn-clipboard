@@ -665,10 +665,14 @@ pub unsafe fn get_clipboard_raw_format(format_name: &str) -> Option<Vec<u8>> {
 }
 
 /// Enumerate registered clipboard formats with HGLOBAL-backed payloads.
+/// Formats for which `skip` returns true are never read: GetClipboardData
+/// makes the source app render the data, and for some formats that is what
+/// goes wrong (#147).
 pub unsafe fn get_named_clipboard_formats(
     max_formats: usize,
     max_format_bytes: usize,
     max_total_bytes: usize,
+    skip: impl Fn(&str) -> bool,
 ) -> Vec<NamedClipboardFormat> {
     if OpenClipboard(None).is_err() {
         return Vec::new();
@@ -688,6 +692,9 @@ pub unsafe fn get_named_clipboard_formats(
             let Some(name) = clipboard_format_name(current_id) else {
                 continue;
             };
+            if skip(&name) {
+                continue;
+            }
 
             let h_data = match GetClipboardData(current_id) {
                 Ok(handle) => handle,

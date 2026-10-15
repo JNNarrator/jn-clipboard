@@ -1166,7 +1166,8 @@ fn is_ignored_named_clipboard_format(name: &str) -> bool {
     let lower = name.trim().to_ascii_lowercase();
     // OLE link formats: reading them has the source app build a link to its
     // document, which an unsaved WPS document cannot do (#147), and a link
-    // replayed later points at the original document anyway.
+    // replayed later points at the original document anyway. Checked before
+    // the data is requested, not after.
     lower.is_empty()
         || lower == "html format"
         || lower == "native"
@@ -1217,13 +1218,11 @@ pub fn capture_preserved_named_formats_from_clipboard(
                 PRESERVED_NAMED_FORMAT_MAX_COUNT * 2,
                 PRESERVED_NAMED_FORMAT_MAX_BYTES,
                 PRESERVED_NAMED_FORMAT_TOTAL_BYTES,
+                is_ignored_named_clipboard_format,
             )
         }
         .into_iter()
         .filter(|format| {
-            if is_ignored_named_clipboard_format(&format.name) {
-                return false;
-            }
             let lower = format.name.trim().to_ascii_lowercase();
             lower == "rich text format"
                 || source_snapshot.is_none()
