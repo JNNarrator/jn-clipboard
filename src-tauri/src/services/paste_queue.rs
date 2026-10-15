@@ -204,7 +204,7 @@ async fn paste_next_step_inner(app_handle: tauri::AppHandle) {
                     let paste_method = app_handle
                         .try_state::<crate::database::DbState>()
                         .and_then(|db| db.settings_repo.get("app.paste_method").ok().flatten())
-                        .unwrap_or_else(|| "shift_insert".to_string());
+                        .unwrap_or_else(|| "auto".to_string());
                     // Per-app override, as for a normal paste: Shift+Insert does
                     // nothing in WeChat/Chrome on Windows, consoles need Ctrl+Shift+V.
                     let paste_method =

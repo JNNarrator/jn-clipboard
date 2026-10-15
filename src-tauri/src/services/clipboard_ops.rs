@@ -539,7 +539,8 @@ pub async fn paste_text_directly(app_handle: tauri::AppHandle, content: String) 
     let paste_method = app_handle
         .try_state::<DbState>()
         .and_then(|db| db.settings_repo.get("app.paste_method").ok().flatten())
-        .unwrap_or_else(|| "shift_insert".to_string());
+        .unwrap_or_else(|| "auto".to_string());
+    let paste_method = resolve_paste_method_for_target(&paste_method);
     send_paste_keystroke(&paste_method, Some(&content), Some("text"));
     hide_window_after_paste(&app_handle).await;
 
@@ -1368,7 +1369,7 @@ async fn perform_paste_action(
         .get("app.paste_method")
         .ok()
         .flatten()
-        .unwrap_or_else(|| "shift_insert".to_string());
+        .unwrap_or_else(|| "auto".to_string());
     let paste_method = resolve_paste_method_for_target(&paste_method);
     send_paste_keystroke(&paste_method, content, Some(content_type));
 
@@ -1421,11 +1422,14 @@ pub(crate) fn resolve_paste_method_for_target(method: &str) -> String {
     }
 }
 
+/// "auto" (the default) picks the key per target app; any other method is
+/// sent as chosen. Apps not listed below get Shift+Insert.
 #[cfg(target_os = "windows")]
 fn resolve_windows_paste_method(method: &str) -> String {
-    if method != "shift_insert" {
+    if method != "auto" {
         return method.to_string();
     }
+    let method = "shift_insert";
 
     unsafe {
         let hwnd = GetForegroundWindow();

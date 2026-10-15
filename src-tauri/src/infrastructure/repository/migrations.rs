@@ -381,6 +381,26 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
         conn.execute("INSERT INTO schema_migrations (version) VALUES (17)", [])?;
     }
 
+    // Migration 18: the default paste method "shift_insert" already switched
+    // keys per target app on Windows; that is now the explicit "auto", and
+    // "shift_insert" always sends Shift+Insert. It was the default, so a
+    // deliberate choice can't be told apart: everyone on it moves to auto and
+    // keeps the behaviour they had.
+    if current_version < 18 {
+        let has_settings: bool = conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'settings')",
+            [],
+            |row| row.get(0),
+        )?;
+        if has_settings {
+            conn.execute(
+                "UPDATE settings SET value = 'auto' WHERE key = 'app.paste_method' AND value = 'shift_insert'",
+                [],
+            )?;
+        }
+        conn.execute("INSERT INTO schema_migrations (version) VALUES (18)", [])?;
+    }
+
     Ok(())
 }
 
@@ -449,7 +469,7 @@ mod tests {
                 row.get(0)
             })
             .expect("read schema version");
-        assert_eq!(version, 17);
+        assert_eq!(version, 18);
     }
 
     #[test]
@@ -489,5 +509,38 @@ mod tests {
         conn.execute("DELETE FROM schema_migrations WHERE version >= 16", []).unwrap();
         run_migrations(&conn).expect("rerun migration 16");
         assert!((volume(&conn) - 0.5).abs() < 1e-9);
+    }
+
+    #[test]
+    fn migration_18_moves_the_old_default_paste_method_to_auto() {
+        let conn = Connection::open_in_memory().expect("open database");
+        conn.execute_batch(
+            "
+            CREATE TABLE schema_migrations (
+                version INTEGER PRIMARY KEY,
+                applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            INSERT INTO schema_migrations(version) VALUES (17);
+            CREATE TABLE clipboard_history (id INTEGER PRIMARY KEY, note TEXT NOT NULL DEFAULT '');
+            CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+            INSERT INTO settings(key, value) VALUES ('app.paste_method', 'shift_insert');
+            ",
+        )
+        .expect("create version 17 fixture");
+        let method = |conn: &Connection| -> String {
+            conn.query_row("SELECT value FROM settings WHERE key = 'app.paste_method'", [], |row| row.get(0))
+                .expect("read paste method")
+        };
+
+        run_migrations(&conn).expect("run update migrations");
+        assert_eq!(method(&conn), "auto");
+
+        // Other choices are kept.
+        for kept in ["ctrl_v", "game_mode"] {
+            conn.execute("UPDATE settings SET value = ?1 WHERE key = 'app.paste_method'", [kept]).unwrap();
+            conn.execute("DELETE FROM schema_migrations WHERE version >= 18", []).unwrap();
+            run_migrations(&conn).expect("rerun migration 18");
+            assert_eq!(method(&conn), kept);
+        }
     }
 }

@@ -350,7 +350,7 @@ export const useSettingsPostInit = ({
     setFollowMouse(settings["app.follow_mouse"] === "true");
     setShowAppBorder(settings["app.show_app_border"] === "true");
     setRegistryWinVEnabled(settings["app.use_win_v_shortcut"] === "true");
-    setPasteMethod(settings["app.paste_method"] || "shift_insert");
+    setPasteMethod(settings["app.paste_method"] || "auto");
     setShowSourceAppIcon(settings["app.show_source_app_icon"] !== "false");
     setHideUnselectedItemActions(settings["app.hide_unselected_item_actions"] === "true");
     setCompactShowTime(settings["app.compact_show_time"] === "true");
