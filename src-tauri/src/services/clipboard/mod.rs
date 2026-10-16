@@ -238,7 +238,11 @@ fn single_image_file(paths: &[String]) -> Option<(Vec<u8>, String)> {
     Some((bytes, extension))
 }
 
-fn recent_image_echo(hash: u64) -> bool {
+/// Whether `hash` is what TieZ itself just put on the clipboard (a paste).
+/// It stays true for the whole window, not just the first echo: WPS and Office
+/// write the pasted value back once more, with their own formats, after we
+/// already saw our write, and that copy must not become a new record.
+fn recent_app_write(hash: u64) -> bool {
     let last = crate::LAST_APP_SET_HASH.load(Ordering::SeqCst);
     let alternate = crate::LAST_APP_SET_HASH_ALT.load(Ordering::SeqCst);
     let timestamp = crate::LAST_APP_SET_TIMESTAMP.load(Ordering::SeqCst);
@@ -599,8 +603,6 @@ pub fn start_clipboard_monitor(app_handle: AppHandle) {
                 if (last_app_hash != 0 && current_hash == last_app_hash)
                     && (now_secs - last_app_time) < 10
                 {
-                    crate::LAST_APP_SET_HASH.store(0, Ordering::SeqCst);
-                    crate::LAST_APP_SET_HASH_ALT.store(0, Ordering::SeqCst);
                     return;
                 }
 
@@ -642,8 +644,6 @@ pub fn start_clipboard_monitor(app_handle: AppHandle) {
                 if ((last_app_hash != 0 && current_hash == last_app_hash) || own_temp_image)
                     && now_secs.saturating_sub(last_app_time) < 10
                 {
-                    crate::LAST_APP_SET_HASH.store(0, Ordering::SeqCst);
-                    crate::LAST_APP_SET_HASH_ALT.store(0, Ordering::SeqCst);
                     return;
                 }
 
@@ -741,9 +741,7 @@ pub fn start_clipboard_monitor(app_handle: AppHandle) {
 
                     if image_only {
                         // Not handled: the image branch below records it.
-                    } else if recent_image_echo(text_hash) {
-                        crate::LAST_APP_SET_HASH.store(0, Ordering::SeqCst);
-                        crate::LAST_APP_SET_HASH_ALT.store(0, Ordering::SeqCst);
+                    } else if recent_app_write(text_hash) {
                         handled = true;
                     } else {
                         let html_has_images = html.to_ascii_lowercase().contains("<img ");
@@ -818,10 +816,7 @@ pub fn start_clipboard_monitor(app_handle: AppHandle) {
                 raw.hash(&mut hasher);
                 let hash = hasher.finish();
                 if !monitor_state.is_repeat_image(hash, now_ms) {
-                    if recent_image_echo(hash) {
-                        crate::LAST_APP_SET_HASH.store(0, Ordering::SeqCst);
-                        crate::LAST_APP_SET_HASH_ALT.store(0, Ordering::SeqCst);
-                    } else {
+                    if !recent_app_write(hash) {
                         process_new_entry_with_source(
                             &app,
                             ClipboardData::Image {
@@ -874,10 +869,7 @@ pub fn start_clipboard_monitor(app_handle: AppHandle) {
                         bytes.hash(&mut hasher);
                         let hash = hasher.finish();
                         if !monitor_state.is_repeat_image(hash, now_ms) {
-                            if recent_image_echo(hash) {
-                                crate::LAST_APP_SET_HASH.store(0, Ordering::SeqCst);
-                                crate::LAST_APP_SET_HASH_ALT.store(0, Ordering::SeqCst);
-                            } else {
+                            if !recent_app_write(hash) {
                                 process_new_entry(
                                     &app,
                                     ClipboardData::Image {
@@ -900,22 +892,8 @@ pub fn start_clipboard_monitor(app_handle: AppHandle) {
                         let hash = hasher.finish();
 
                         if !monitor_state.is_repeat_image(hash, now_ms) {
-                            let last_app_hash = crate::LAST_APP_SET_HASH.load(Ordering::SeqCst);
-                            let last_app_time =
-                                crate::LAST_APP_SET_TIMESTAMP.load(Ordering::SeqCst);
-                            let now_secs = SystemTime::now()
-                                .duration_since(UNIX_EPOCH)
-                                .unwrap_or_default()
-                                .as_secs();
-                            let last_app_hash_alt =
-                                crate::LAST_APP_SET_HASH_ALT.load(Ordering::SeqCst);
-
-                            if last_app_hash != 0
-                                && (last_app_hash == hash || last_app_hash_alt == hash)
-                                && (now_secs - last_app_time) < 10
-                            {
-                                crate::LAST_APP_SET_HASH.store(0, Ordering::SeqCst);
-                                crate::LAST_APP_SET_HASH_ALT.store(0, Ordering::SeqCst);
+                            if recent_app_write(hash) {
+                                // Our own paste coming back.
                             } else if let Some(png_bytes) = encode_clipboard_image_to_png(
                                 image.width,
                                 image.height,
@@ -949,10 +927,7 @@ pub fn start_clipboard_monitor(app_handle: AppHandle) {
                     if !handled && clipboard_image.is_none() {
                         if let Some((png_bytes, hash)) = native_clipboard_image {
                             if !monitor_state.is_repeat_image(hash, now_ms) {
-                                if recent_image_echo(hash) {
-                                    crate::LAST_APP_SET_HASH.store(0, Ordering::SeqCst);
-                                    crate::LAST_APP_SET_HASH_ALT.store(0, Ordering::SeqCst);
-                                } else {
+                                if !recent_app_write(hash) {
                                     process_new_entry_with_source(
                                         &app,
                                         ClipboardData::Image {
@@ -1015,8 +990,6 @@ pub fn start_clipboard_monitor(app_handle: AppHandle) {
                             || current_hash == crate::LAST_APP_SET_HASH_ALT.load(Ordering::SeqCst)))
                         && (now_secs - last_app_time) < 10
                     {
-                        crate::LAST_APP_SET_HASH.store(0, Ordering::SeqCst);
-                        crate::LAST_APP_SET_HASH_ALT.store(0, Ordering::SeqCst);
                         return;
                     }
 
@@ -1089,8 +1062,6 @@ pub fn start_clipboard_monitor(app_handle: AppHandle) {
                             || current_hash == crate::LAST_APP_SET_HASH_ALT.load(Ordering::SeqCst)))
                         && (now_secs - last_app_time) < 10
                     {
-                        crate::LAST_APP_SET_HASH.store(0, Ordering::SeqCst);
-                        crate::LAST_APP_SET_HASH_ALT.store(0, Ordering::SeqCst);
                         return;
                     }
 
