@@ -132,7 +132,7 @@ async fn paste_next_step_inner(app_handle: tauri::AppHandle) {
                 &content,
                 &c_type,
                 html_content.as_deref(),
-                // Same rule as a normal click (some rich entries must paste as exact text).
+                // No click to choose from: rich entries keep their format (some must paste as exact text).
                 crate::services::clipboard_ops::resolve_paste_with_format(
                     &content,
                     &c_type,
