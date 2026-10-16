@@ -50,25 +50,6 @@ pub fn set_sequential_hotkey(
 }
 
 #[tauri::command]
-pub fn set_rich_paste_hotkey(
-    app_handle: AppHandle,
-    state: State<'_, SettingsState>,
-    hotkey: String,
-) -> AppResult<()> {
-    if let Ok(mut guard) = state.rich_paste_hotkey.lock() {
-        *guard = hotkey.clone();
-    }
-
-    let db_state = app_handle.state::<DbState>();
-    db_state
-        .settings_repo
-        .set("app.rich_paste_hotkey", &hotkey)
-        .map_err(AppError::from)?;
-
-    sync_registered_hotkeys(&app_handle)
-}
-
-#[tauri::command]
 pub fn set_plain_paste_hotkey(
     app_handle: AppHandle,
     state: State<'_, SettingsState>,
@@ -653,11 +634,6 @@ pub fn reset_settings(
         .get("app.sequential_hotkey")
         .unwrap_or(Some("Alt+V".to_string()))
         .unwrap_or("Alt+V".to_string());
-    let rich_hotkey = state
-        .settings_repo
-        .get("app.rich_paste_hotkey")
-        .unwrap_or(Some("Alt+Shift+V".to_string()))
-        .unwrap_or("Alt+Shift+V".to_string());
     let plain_hotkey = state
         .settings_repo
         .get("app.plain_paste_hotkey")
@@ -682,10 +658,6 @@ pub fn reset_settings(
     {
         let mut guard = settings_state.sequential_paste_hotkey.lock().unwrap();
         *guard = seq_hotkey.clone();
-    }
-    {
-        let mut guard = settings_state.rich_paste_hotkey.lock().unwrap();
-        *guard = rich_hotkey.clone();
     }
     {
         let mut guard = settings_state.plain_paste_hotkey.lock().unwrap();

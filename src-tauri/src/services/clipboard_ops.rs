@@ -384,9 +384,9 @@ fn set_windows_formatted_clipboard(
 }
 
 /// Whether a paste keeps the entry's formatting. An explicit choice wins: a
-/// click pastes plain text and a right-click keeps the format. Only callers
-/// with no choice of their own (the sequential paste queue) default to the
-/// format for rich text entries.
+/// click keeps the format, a right-click or the plain text hotkey drops it.
+/// Callers with no choice of their own (the sequential paste queue) keep the
+/// format of rich text entries too.
 pub(crate) fn resolve_paste_with_format(
     content: &str,
     content_type: &str,
@@ -1987,12 +1987,7 @@ fn handle_post_paste_actions(
     Ok(())
 }
 
-#[tauri::command]
-pub fn paste_latest_rich(app_handle: tauri::AppHandle) {
-    paste_latest(app_handle, true);
-}
-
-/// The plain-text counterpart of paste_latest_rich (#148).
+/// A click pastes with the format; this hotkey is the plain text way (#148).
 pub fn paste_latest_plain(app_handle: tauri::AppHandle) {
     paste_latest(app_handle, false);
 }
@@ -2042,7 +2037,7 @@ mod tests {
     const HTML: Option<&str> = Some("<a href=\"https://www.baidu.com\">点击跳转百度</a>");
 
     #[test]
-    fn click_pastes_rich_text_entries_as_plain_text() {
+    fn an_explicit_choice_wins() {
         assert!(!resolve_paste_with_format("点击跳转百度", "rich_text", HTML, Some(false)));
         assert!(resolve_paste_with_format("点击跳转百度", "rich_text", HTML, Some(true)));
     }

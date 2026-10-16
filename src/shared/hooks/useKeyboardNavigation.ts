@@ -22,7 +22,7 @@ interface UseKeyboardNavigationOptions {
   editingTagsId: number | null;
   editingNoteId: number | null;
   arrowKeySelection: boolean;
-  richPasteHotkey: string;
+  plainPasteHotkey: string;
   searchInputRef: RefObject<HTMLInputElement | null>;
   copyToClipboard: (
     id: number,
@@ -49,7 +49,7 @@ export const useKeyboardNavigation = ({
   editingTagsId,
   editingNoteId,
   arrowKeySelection,
-  richPasteHotkey,
+  plainPasteHotkey,
   searchInputRef,
   copyToClipboard,
   setSearch
@@ -66,7 +66,7 @@ export const useKeyboardNavigation = ({
   const editingNoteIdRef = useRef(editingNoteId);
   const arrowKeySelectionRef = useRef(arrowKeySelection);
   const copyToClipboardRef = useRef(copyToClipboard);
-  const richPasteHotkeyRef = useRef(richPasteHotkey);
+  const plainPasteHotkeyRef = useRef(plainPasteHotkey);
   const lastNavigationKeyRef = useRef<{ key: string; time: number }>({ key: "", time: 0 });
   const pasteInFlightRef = useRef(false);
 
@@ -79,7 +79,7 @@ export const useKeyboardNavigation = ({
   editingNoteIdRef.current = editingNoteId;
   arrowKeySelectionRef.current = arrowKeySelection;
   copyToClipboardRef.current = copyToClipboard;
-  richPasteHotkeyRef.current = richPasteHotkey;
+  plainPasteHotkeyRef.current = plainPasteHotkey;
 
   useEffect(() => {
     selectedIndexRef.current = selectedIndex;
@@ -291,16 +291,16 @@ export const useKeyboardNavigation = ({
         return;
       }
 
-      const matchesRichHotkey = matchesHotkey(e, richPasteHotkeyRef.current);
+      const matchesPlainHotkey = matchesHotkey(e, plainPasteHotkeyRef.current);
       const shouldHandleEnter = e.key === "Enter" && isKeyboardModeRef.current;
-      if (shouldHandleEnter || matchesRichHotkey) {
-        if (shouldHandleEnter && !matchesRichHotkey && usesNativeNavigation()) {
+      if (shouldHandleEnter || matchesPlainHotkey) {
+        if (shouldHandleEnter && !matchesPlainHotkey && usesNativeNavigation()) {
           e.preventDefault();
           e.stopPropagation();
           return;
         }
 
-        const isRich = matchesRichHotkey;
+        const isRich = !matchesPlainHotkey;
         e.preventDefault();
         e.stopPropagation();
 
@@ -389,7 +389,7 @@ export const useKeyboardNavigation = ({
 
         const item = resolveSelectedItem(history);
         if (!item) return;
-        await pasteSelectedItem(false, item);
+        await pasteSelectedItem(true, item);
       } else if (action === "escape") {
         setSearch("");
         resetSelectionToTop();

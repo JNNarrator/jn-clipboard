@@ -333,7 +333,7 @@ pub fn seed_defaults(conn: &Connection) -> Result<()> {
         [],
     );
     let _ = conn.execute(
-        "INSERT OR IGNORE INTO settings (key, value) VALUES ('app.rich_paste_hotkey', 'Alt+Shift+V')",
+        "INSERT OR IGNORE INTO settings (key, value) VALUES ('app.plain_paste_hotkey', 'Alt+Shift+V')",
         [],
     );
     let _ = conn.execute(

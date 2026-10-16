@@ -401,6 +401,28 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
         conn.execute("INSERT INTO schema_migrations (version) VALUES (18)", [])?;
     }
 
+    // Migration 19: a click now pastes with the format, so the "paste with
+    // format" hotkey is gone and the plain text one takes its keys. A plain
+    // hotkey the user set stays; otherwise it gets the rich one's (even an
+    // empty one, so the new default doesn't bind keys the user cleared).
+    if current_version < 19 {
+        let has_settings: bool = conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'settings')",
+            [],
+            |row| row.get(0),
+        )?;
+        if has_settings {
+            conn.execute(
+                "INSERT INTO settings (key, value)
+                 SELECT 'app.plain_paste_hotkey', value FROM settings WHERE key = 'app.rich_paste_hotkey'
+                 ON CONFLICT(key) DO UPDATE SET value = excluded.value WHERE trim(settings.value) = ''",
+                [],
+            )?;
+            conn.execute("DELETE FROM settings WHERE key = 'app.rich_paste_hotkey'", [])?;
+        }
+        conn.execute("INSERT INTO schema_migrations (version) VALUES (19)", [])?;
+    }
+
     Ok(())
 }
 
@@ -469,7 +491,7 @@ mod tests {
                 row.get(0)
             })
             .expect("read schema version");
-        assert_eq!(version, 18);
+        assert_eq!(version, 19);
     }
 
     #[test]
@@ -542,5 +564,47 @@ mod tests {
             run_migrations(&conn).expect("rerun migration 18");
             assert_eq!(method(&conn), kept);
         }
+    }
+
+    #[test]
+    fn migration_19_gives_the_rich_paste_hotkey_keys_to_plain_paste() {
+        let conn = Connection::open_in_memory().expect("open database");
+        conn.execute_batch(
+            "
+            CREATE TABLE schema_migrations (
+                version INTEGER PRIMARY KEY,
+                applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            INSERT INTO schema_migrations(version) VALUES (18);
+            CREATE TABLE clipboard_history (id INTEGER PRIMARY KEY, note TEXT NOT NULL DEFAULT '');
+            CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+            ",
+        )
+        .expect("create version 18 fixture");
+        let setting = |conn: &Connection, key: &str| -> Option<String> {
+            conn.query_row("SELECT value FROM settings WHERE key = ?1", [key], |row| row.get(0)).ok()
+        };
+        let rerun = |conn: &Connection, rich: Option<&str>, plain: Option<&str>| {
+            conn.execute("DELETE FROM settings", []).unwrap();
+            for (key, value) in [("app.rich_paste_hotkey", rich), ("app.plain_paste_hotkey", plain)] {
+                if let Some(value) = value {
+                    conn.execute("INSERT INTO settings(key, value) VALUES (?1, ?2)", [key, value]).unwrap();
+                }
+            }
+            conn.execute("DELETE FROM schema_migrations WHERE version >= 19", []).unwrap();
+            run_migrations(conn).expect("run migration 19");
+            assert_eq!(setting(conn, "app.rich_paste_hotkey"), None);
+            setting(conn, "app.plain_paste_hotkey")
+        };
+
+        // Plain hotkey never set (no row) or cleared: it takes the rich keys.
+        assert_eq!(rerun(&conn, Some("Alt+Shift+V"), None).as_deref(), Some("Alt+Shift+V"));
+        assert_eq!(rerun(&conn, Some("Ctrl+Alt+V"), Some("")).as_deref(), Some("Ctrl+Alt+V"));
+        // A cleared rich hotkey stays cleared instead of getting the new default.
+        assert_eq!(rerun(&conn, Some(""), None).as_deref(), Some(""));
+        // A plain hotkey the user set wins.
+        assert_eq!(rerun(&conn, Some("Alt+Shift+V"), Some("Ctrl+Shift+B")).as_deref(), Some("Ctrl+Shift+B"));
+        // Nothing to move on a fresh database: the seed adds the default.
+        assert_eq!(rerun(&conn, None, None), None);
     }
 }

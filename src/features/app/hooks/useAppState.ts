@@ -48,15 +48,13 @@ export const useAppState = (): AppState => {
   const [dataPath, setDataPath] = useState<string>("");
   const [hotkey, setHotkey] = useState<string>("Alt+C");
   const [sequentialHotkey, setSequentialHotkey] = useState<string>("Alt+V");
-  const [richPasteHotkey, setRichPasteHotkey] = useState<string>("Alt+Shift+V");
-  const [plainPasteHotkey, setPlainPasteHotkey] = useState<string>("");
+  const [plainPasteHotkey, setPlainPasteHotkey] = useState<string>("Alt+Shift+V");
   const [searchHotkey, setSearchHotkey] = useState<string>("Alt+F");
   const [quickPasteModifier, setQuickPasteModifier] =
     useState<QuickPasteModifier>("disabled");
   const [sequentialMode, setSequentialModeState] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isRecordingSequential, setIsRecordingSequential] = useState(false);
-  const [isRecordingRich, setIsRecordingRich] = useState(false);
   const [isRecordingPlain, setIsRecordingPlain] = useState(false);
   const [isRecordingSearch, setIsRecordingSearch] = useState(false);
   const [deleteAfterPaste, setDeleteAfterPaste] = useState(false);
@@ -249,9 +247,7 @@ export const useAppState = (): AppState => {
     setHotkey,
     sequentialHotkey,
     setSequentialHotkey,
-    richPasteHotkey,
     plainPasteHotkey,
-    setRichPasteHotkey,
     setPlainPasteHotkey,
     searchHotkey,
     setSearchHotkey,
@@ -263,9 +259,7 @@ export const useAppState = (): AppState => {
     setIsRecording,
     isRecordingSequential,
     setIsRecordingSequential,
-    isRecordingRich,
     isRecordingPlain,
-    setIsRecordingRich,
     setIsRecordingPlain,
     isRecordingSearch,
     setIsRecordingSearch,

@@ -35,13 +35,9 @@ interface ClipboardSettingsGroupProps {
     setCaptureRichText: (val: boolean) => void;
     richTextSnapshotPreview: boolean;
     setRichTextSnapshotPreview: (val: boolean) => void;
-    richPasteHotkey: string;
     plainPasteHotkey: string;
-    isRecordingRich: boolean;
     isRecordingPlain: boolean;
-    setIsRecordingRich: (val: boolean) => void;
     setIsRecordingPlain: (val: boolean) => void;
-    updateRichPasteHotkey: (key: string) => void;
     updatePlainPasteHotkey: (key: string) => void;
     searchHotkey: string;
     isRecordingSearch: boolean;
@@ -65,7 +61,7 @@ interface ClipboardSettingsGroupProps {
     isRecordingSequential: boolean;
     setIsRecordingSequential: (val: boolean) => void;
     updateSequentialHotkey: (key: string) => void;
-    checkHotkeyConflict: (newHotkey: string, mode: 'main' | 'sequential' | 'rich' | 'search') => boolean;
+    checkHotkeyConflict: (newHotkey: string, mode: 'main' | 'sequential' | 'plain' | 'search') => boolean;
     privacyProtection: boolean;
     setPrivacyProtection: (val: boolean) => void;
     privacyProtectionKinds: string[];
@@ -507,34 +503,6 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
                         </div>
                     )}
 
-                    <div className="setting-item">
-                        <div className="item-label-group">
-                            <span className="item-label">{props.t('rich_paste_hotkey_label')}</span>
-                            <span className="hint hotkey-hint">{renderHotkeyHint(props.isRecordingRich)}</span>
-                        </div>
-                        <div
-                            className={`key-group ${props.isRecordingRich ? 'recording' : ''}`}
-                            role="button"
-                            aria-label={props.t('rich_paste_hotkey_label')}
-                            onClick={(event) => {
-                                props.setIsRecordingRich(true);
-                                event.currentTarget.focus();
-                            }}
-                            tabIndex={0}
-                            onKeyDown={(event) => handleHotkeyKeyDown(
-                                event,
-                                props.isRecordingRich,
-                                props.setIsRecordingRich,
-                                props.updateRichPasteHotkey
-                            )}
-                        >
-                            {props.isRecordingRich ? (
-                                <div className="key-cap key-cap-recording">{props.t('waiting_for_input')}</div>
-                            ) : (
-                                renderHotkeyCaps(props.richPasteHotkey)
-                            )}
-                        </div>
-                    </div>
                     <div className="setting-item">
                         <div className="item-label-group">
                             <span className="item-label">{props.t('plain_paste_hotkey_label')}</span>

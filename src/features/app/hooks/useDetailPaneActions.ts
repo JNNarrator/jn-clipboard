@@ -53,7 +53,7 @@ export const useDetailPaneActions = ({
   useMemo(() => {
     return {
       paste: (item) =>
-        void copyToClipboard(item.id, item.content, item.content_type, false, item.is_pinned, item.tags || []),
+        void copyToClipboard(item.id, item.content, item.content_type, true, item.is_pinned, item.tags || []),
       togglePin: (event, item) => togglePin(event, item.id, item.is_pinned),
       setTagEditor: (item, open) => {
         setEditingNoteId(null);

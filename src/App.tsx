@@ -196,9 +196,7 @@ const App = () => {
     setHotkey,
     sequentialHotkey,
     setSequentialHotkey,
-    richPasteHotkey,
     plainPasteHotkey,
-    setRichPasteHotkey,
     setPlainPasteHotkey,
     searchHotkey,
     setSearchHotkey,
@@ -210,9 +208,7 @@ const App = () => {
     setIsRecording,
     isRecordingSequential,
     setIsRecordingSequential,
-    isRecordingRich,
     isRecordingPlain,
-    setIsRecordingRich,
     setIsRecordingPlain,
     isRecordingSearch,
     setIsRecordingSearch,
@@ -570,7 +566,7 @@ const App = () => {
 
   useEffect(() => {
     const handleKeydown = (event: KeyboardEvent) => {
-      if (isRecording || isRecordingSequential || isRecordingRich || isRecordingPlain || isRecordingSearch) return;
+      if (isRecording || isRecordingSequential || isRecordingPlain || isRecordingSearch) return;
       if (!hotkey || hotkey === t('not_set')) return;
 
       const activeEl = document.activeElement as HTMLElement | null;
@@ -594,7 +590,7 @@ const App = () => {
 
     window.addEventListener('keydown', handleKeydown, true);
     return () => window.removeEventListener('keydown', handleKeydown, true);
-  }, [hotkey, isRecording, isRecordingSequential, isRecordingRich, isRecordingPlain, isRecordingSearch, t]);
+  }, [hotkey, isRecording, isRecordingSequential, isRecordingPlain, isRecordingSearch, t]);
 
 
   const { toasts, pushToast, confirmDialog, openConfirm, closeConfirm } = useOverlays(t);
@@ -704,7 +700,6 @@ const App = () => {
     setFileTransferAutoCopy,
     setFileServerPort,
     setSequentialHotkey,
-    setRichPasteHotkey,
     setPlainPasteHotkey,
     setSearchHotkey,
     setQuickPasteModifier,
@@ -763,7 +758,7 @@ const App = () => {
 
   useEffect(() => {
     const handleSearchKeydown = (event: KeyboardEvent) => {
-      if (isRecording || isRecordingSequential || isRecordingRich || isRecordingPlain || isRecordingSearch) return;
+      if (isRecording || isRecordingSequential || isRecordingPlain || isRecordingSearch) return;
       if (!searchHotkey || searchHotkey === t('not_set')) return;
       if (matchesHotkey(event, searchHotkey)) {
         event.preventDefault();
@@ -773,12 +768,12 @@ const App = () => {
 
     window.addEventListener('keydown', handleSearchKeydown, true);
     return () => window.removeEventListener('keydown', handleSearchKeydown, true);
-  }, [searchHotkey, isRecording, isRecordingSequential, isRecordingRich, isRecordingPlain, isRecordingSearch, t, focusSearchBox]);
+  }, [searchHotkey, isRecording, isRecordingSequential, isRecordingPlain, isRecordingSearch, t, focusSearchBox]);
 
   // Ctrl/Cmd+F → TieZ search (browser find is already blocked globally; this routes it).
   useEffect(() => {
     const onFind = (event: KeyboardEvent) => {
-      if (isRecording || isRecordingSequential || isRecordingRich || isRecordingPlain || isRecordingSearch) return;
+      if (isRecording || isRecordingSequential || isRecordingPlain || isRecordingSearch) return;
       if (showSettings || effectiveShowTagManager || chatMode || effectiveShowEmojiPanel) return;
 
       const key = event.key.toLowerCase();
@@ -797,7 +792,6 @@ const App = () => {
   }, [
     isRecording,
     isRecordingSequential,
-    isRecordingRich,
     isRecordingPlain,
     isRecordingSearch,
     showSettings,
@@ -986,7 +980,6 @@ const App = () => {
     checkHotkeyConflict,
     updateHotkey,
     updateSequentialHotkey,
-    updateRichPasteHotkey,
     updatePlainPasteHotkey,
     updateSearchHotkey
   } =
@@ -995,9 +988,7 @@ const App = () => {
       setHotkey,
       sequentialHotkey,
       setSequentialHotkey,
-      richPasteHotkey,
       plainPasteHotkey,
-      setRichPasteHotkey,
       setPlainPasteHotkey,
       searchHotkey,
       setSearchHotkey,
@@ -1006,9 +997,7 @@ const App = () => {
       setIsRecording,
       isRecordingSequential,
       setIsRecordingSequential,
-      isRecordingRich,
       isRecordingPlain,
-      setIsRecordingRich,
       setIsRecordingPlain,
       isRecordingSearch,
       setIsRecordingSearch,
@@ -1167,7 +1156,7 @@ const App = () => {
     editingTagsId,
     editingNoteId,
     arrowKeySelection,
-    richPasteHotkey,
+    plainPasteHotkey,
     searchInputRef,
     copyToClipboard,
     setSearch
@@ -1230,7 +1219,6 @@ const App = () => {
     checkHotkeyConflict,
     updateHotkey,
     updateSequentialHotkey,
-    updateRichPasteHotkey,
     updatePlainPasteHotkey,
     updateSearchHotkey,
     saveAppSetting,
