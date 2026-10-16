@@ -748,6 +748,22 @@ fn infer_edge_dock_from_geometry(
     }
 }
 
+/// Edge tuck and reveal change always-on-top while the user works in another
+/// app. On Windows that must not activate TieZ: a hover-reveal took focus from
+/// the app underneath, which closed an Explorer / Directory Opus rename box.
+/// Tauri's own flag is left as is, so it keeps tracking the user's pin.
+fn set_edge_dock_topmost(window: &tauri::WebviewWindow, topmost: bool) {
+    #[cfg(target_os = "windows")]
+    if let Ok(hwnd) = window.hwnd() {
+        crate::infrastructure::windows_ext::WindowExt::set_topmost_no_activate(
+            HWND(hwnd.0),
+            topmost,
+        );
+        return;
+    }
+    let _ = window.set_always_on_top(topmost);
+}
+
 fn restore_pin_state_after_edge_expand(app_handle: &AppHandle, window: &tauri::WebviewWindow) {
     let mut user_pinned = WINDOW_PINNED.load(Ordering::Relaxed);
     if let Some(db_state) = app_handle.try_state::<DbState>() {
@@ -763,7 +779,7 @@ fn restore_pin_state_after_edge_expand(app_handle: &AppHandle, window: &tauri::W
         crate::infrastructure::macos_api::window::set_window_focusable(&window, !user_pinned);
         let _ = app_handle.emit("window-pinned-changed", user_pinned);
     } else {
-        let _ = window.set_always_on_top(user_pinned);
+        set_edge_dock_topmost(window, user_pinned);
     }
 }
 
@@ -1605,9 +1621,7 @@ fn start_edge_docking_monitor(app_handle: AppHandle) {
                         // Edge tuck needs top-most z-order, but must not flip WINDOW_PINNED:
                         // click-outside-to-hide checks WINDOW_PINNED (user pin only).
                         if !WINDOW_PINNED.load(Ordering::Relaxed) {
-                            let _ = window.set_always_on_top(true);
-                            #[cfg(target_os = "macos")]
-                            crate::infrastructure::macos_api::window::set_window_focusable(&window, false);
+                            set_edge_dock_topmost(&window, true);
                             #[cfg(windows)]
                             if let Ok(hwnd) = window.hwnd() {
                                 unsafe {
@@ -1660,9 +1674,7 @@ fn start_edge_docking_monitor(app_handle: AppHandle) {
 
                     // Restore always-on-top / focus from user pin (WINDOW_PINNED was never toggled by tuck).
                     let user_pinned = WINDOW_PINNED.load(Ordering::Relaxed);
-                    let _ = window.set_always_on_top(user_pinned);
-                    #[cfg(target_os = "macos")]
-                    crate::infrastructure::macos_api::window::set_window_focusable(&window, !user_pinned);
+                    set_edge_dock_topmost(&window, user_pinned);
                     #[cfg(windows)]
                     if let Ok(hwnd) = window.hwnd() {
                         unsafe {

@@ -6,9 +6,9 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     BringWindowToTop, GetForegroundWindow, GetWindowRect, GetWindowThreadProcessId, IsIconic,
-    IsWindowVisible, MessageBoxW, SetForegroundWindow, SetWindowPos, ShowWindow, HWND_TOPMOST,
-    MB_ICONERROR, MB_OK, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_SHOWWINDOW, SW_RESTORE,
-    SW_SHOWNA,
+    IsWindowVisible, MessageBoxW, SetForegroundWindow, SetWindowPos, ShowWindow, HWND_NOTOPMOST,
+    HWND_TOPMOST, MB_ICONERROR, MB_OK, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_SHOWWINDOW,
+    SW_RESTORE, SW_SHOWNA,
 };
 
 /// 安全封装的窗口辅助工具
@@ -87,6 +87,27 @@ impl WindowExt {
                     let _ = BringWindowToTop(hwnd);
                 }
             }
+        }
+    }
+
+    /// Turn always-on-top on or off without activating the window. Tauri's
+    /// set_always_on_top re-shows the window with SW_SHOW, which takes focus
+    /// from whatever the user is typing in (and ends an Explorer rename).
+    pub fn set_topmost_no_activate(hwnd: HWND, topmost: bool) {
+        unsafe {
+            let _ = SetWindowPos(
+                hwnd,
+                Some(if topmost {
+                    HWND_TOPMOST
+                } else {
+                    HWND_NOTOPMOST
+                }),
+                0,
+                0,
+                0,
+                0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
+            );
         }
     }
 
