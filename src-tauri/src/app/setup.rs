@@ -767,6 +767,47 @@ fn restore_pin_state_after_edge_expand(app_handle: &AppHandle, window: &tauri::W
     }
 }
 
+/// The window-state plugin restores the last position, which is off-screen
+/// when TieZ quit while tucked into an edge, but nothing marked the window as
+/// tucked on Windows. The hotkey then hid and "showed" it out of sight, and
+/// only a tray click (which infers the dock from geometry) brought it back.
+/// Adopt such a position as a tuck. Returns true if it did.
+#[cfg(target_os = "windows")]
+pub fn adopt_offscreen_tuck(app_handle: &AppHandle, window: &tauri::WebviewWindow) -> bool {
+    if IS_HIDDEN.load(Ordering::Relaxed) {
+        return false;
+    }
+    let edge_docking = app_handle
+        .try_state::<SettingsState>()
+        .is_some_and(|s| s.edge_docking.load(Ordering::Relaxed));
+    if !edge_docking {
+        return false;
+    }
+    let (Ok(pos), Ok(size), Ok(Some(monitor))) = (
+        window.outer_position(),
+        window.outer_size(),
+        window.current_monitor(),
+    ) else {
+        return false;
+    };
+    // A tuck leaves a 3 px sliver; allow a little slack for DPI rounding.
+    let slack = 10;
+    let screen = monitor.position();
+    let screen_right = screen.x + monitor.size().width as i32;
+    let dock = if pos.y + size.height as i32 <= screen.y + slack {
+        1
+    } else if pos.x + size.width as i32 <= screen.x + slack {
+        2
+    } else if pos.x >= screen_right - slack {
+        3
+    } else {
+        return false;
+    };
+    CURRENT_DOCK.store(dock, Ordering::Relaxed);
+    IS_HIDDEN.store(true, Ordering::Relaxed);
+    true
+}
+
 /// Pull the window fully on-screen after edge tuck. Returns true if a tuck was expanded.
 pub fn expand_from_edge_dock(app_handle: &AppHandle, window: &tauri::WebviewWindow) -> bool {
     let mut dock = CURRENT_DOCK.load(Ordering::Relaxed);
@@ -1570,6 +1611,10 @@ fn start_edge_docking_monitor(app_handle: AppHandle) {
                     && window_center_x < screen_right
                     && window_center_y >= screen_top
                     && window_center_y < screen_bottom;
+
+                if !is_hidden_by_edge && adopt_offscreen_tuck(&app_handle, &window) {
+                    continue;
+                }
 
                 if !is_hidden_by_edge && !is_on_current_monitor {
                     if IS_HIDDEN.load(Ordering::Relaxed) {

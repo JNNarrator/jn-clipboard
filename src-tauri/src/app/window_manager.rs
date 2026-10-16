@@ -500,6 +500,7 @@ fn toggle_window_windows(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         #[cfg(windows)]
         let mut active_center: Option<(i32, i32)> = None;
+        crate::app::setup::adopt_offscreen_tuck(app, &window);
         let is_visible = window.is_visible().unwrap_or(false);
         let is_hidden_by_edge = IS_HIDDEN.load(Ordering::Relaxed);
 
