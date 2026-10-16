@@ -35,7 +35,7 @@ export const useClipboardActions = ({
       id: number,
       content: string,
       contentType: string,
-      pasteWithFormat = false,
+      pasteWithFormat = true,
       isPinned = false,
       tags: string[] = []
     ) => {

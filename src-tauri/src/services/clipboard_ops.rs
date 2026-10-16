@@ -383,6 +383,10 @@ fn set_windows_formatted_clipboard(
     Ok(())
 }
 
+/// Whether a paste keeps the entry's formatting. An explicit choice wins: a
+/// click keeps the format, a right-click or the plain text hotkey drops it.
+/// Callers with no choice of their own (the sequential paste queue) keep the
+/// format of rich text entries too.
 pub(crate) fn resolve_paste_with_format(
     content: &str,
     content_type: &str,
@@ -392,10 +396,8 @@ pub(crate) fn resolve_paste_with_format(
     let Some(_html) = html_content else {
         return false;
     };
-    if paste_with_format.unwrap_or(false) {
-        return true;
-    }
-    content_type == "rich_text" && !plain_text_requires_exact_paste(content)
+    paste_with_format
+        .unwrap_or_else(|| content_type == "rich_text" && !plain_text_requires_exact_paste(content))
 }
 
 /// Simulating Cmd+V needs Accessibility on macOS; elsewhere it always works.
@@ -1985,12 +1987,7 @@ fn handle_post_paste_actions(
     Ok(())
 }
 
-#[tauri::command]
-pub fn paste_latest_rich(app_handle: tauri::AppHandle) {
-    paste_latest(app_handle, true);
-}
-
-/// The plain-text counterpart of paste_latest_rich (#148).
+/// A click pastes with the format; this hotkey is the plain text way (#148).
 pub fn paste_latest_plain(app_handle: tauri::AppHandle) {
     paste_latest(app_handle, false);
 }
@@ -2031,4 +2028,24 @@ fn paste_latest(app_handle: tauri::AppHandle, with_format: bool) {
             }
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::resolve_paste_with_format;
+
+    const HTML: Option<&str> = Some("<a href=\"https://www.baidu.com\">点击跳转百度</a>");
+
+    #[test]
+    fn an_explicit_choice_wins() {
+        assert!(!resolve_paste_with_format("点击跳转百度", "rich_text", HTML, Some(false)));
+        assert!(resolve_paste_with_format("点击跳转百度", "rich_text", HTML, Some(true)));
+    }
+
+    #[test]
+    fn no_choice_keeps_the_format_of_rich_text_entries() {
+        assert!(resolve_paste_with_format("点击跳转百度", "rich_text", HTML, None));
+        assert!(!resolve_paste_with_format(" 点击跳转百度", "rich_text", HTML, None));
+        assert!(!resolve_paste_with_format("点击跳转百度", "rich_text", None, Some(true)));
+    }
 }

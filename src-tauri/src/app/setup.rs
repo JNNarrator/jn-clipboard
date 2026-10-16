@@ -282,7 +282,7 @@ fn apply_startup_resets(repo: &impl SettingsRepository) {
         );
         migrate_hotkey_default(
             repo,
-            "app.rich_paste_hotkey",
+            "app.plain_paste_hotkey",
             &["Ctrl+Shift+Z", "Command+Alt+Shift+V", "Command+Shift+V"],
             "Alt+Shift+V",
         );
@@ -312,7 +312,6 @@ pub struct StartupSettings {
     pub app_cleanup_policies: String,
     pub sequential_mode: bool,
     pub sequential_hotkey: String,
-    pub rich_paste_hotkey: String,
     pub plain_paste_hotkey: String,
     pub search_hotkey: String,
     pub quick_paste_modifier: String,
@@ -410,10 +409,6 @@ fn load_settings(repo: &impl SettingsRepository) -> StartupSettings {
             .get("app.sequential_hotkey")
             .unwrap_or(Some("Alt+V".to_string()))
             .unwrap_or("Alt+V".to_string()),
-        rich_paste_hotkey: repo
-            .get("app.rich_paste_hotkey")
-            .unwrap_or(Some("Alt+Shift+V".to_string()))
-            .unwrap_or("Alt+Shift+V".to_string()),
         plain_paste_hotkey: repo
             .get("app.plain_paste_hotkey")
             .ok()
@@ -553,7 +548,6 @@ fn setup_state(
         app_cleanup_policies: std::sync::Mutex::new(s.app_cleanup_policies.clone()),
         sequential_mode: AtomicBool::new(s.sequential_mode),
         sequential_paste_hotkey: std::sync::Mutex::new(s.sequential_hotkey.clone()),
-        rich_paste_hotkey: std::sync::Mutex::new(s.rich_paste_hotkey.clone()),
         plain_paste_hotkey: std::sync::Mutex::new(s.plain_paste_hotkey.clone()),
         search_hotkey: std::sync::Mutex::new(s.search_hotkey.clone()),
         quick_paste_modifier: std::sync::Mutex::new(s.quick_paste_modifier.clone()),
@@ -1934,16 +1928,6 @@ pub fn handle_global_shortcut(
                 if settings.sequential_mode.load(Ordering::Relaxed) {
                     crate::services::paste_queue::paste_next_step(app.clone());
                 }
-            }
-        }
-
-        if let Ok(rich_s) = {
-            let val = settings.rich_paste_hotkey.lock().unwrap().clone();
-            val.replace("Win", "Super").parse::<Shortcut>()
-        } {
-            if shortcut == &rich_s {
-                crate::services::clipboard_ops::paste_latest_rich(app.clone());
-                return;
             }
         }
 

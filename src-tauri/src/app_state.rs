@@ -22,8 +22,8 @@ pub struct SettingsState {
     pub app_cleanup_policies: Mutex<String>,
     pub sequential_mode: AtomicBool,
     pub sequential_paste_hotkey: Mutex<String>,
-    pub rich_paste_hotkey: Mutex<String>,
-    /// Pastes the latest item as plain text (#148). Empty: off.
+    /// Pastes as plain text: the latest item, or the selected one while the
+    /// window is open (#148). Empty: off.
     pub plain_paste_hotkey: Mutex<String>,
     pub search_hotkey: Mutex<String>,
     pub quick_paste_modifier: Mutex<String>,

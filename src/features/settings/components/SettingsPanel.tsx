@@ -89,9 +89,7 @@ interface SettingsPanelProps {
     sequentialMode: boolean;
     sequentialHotkey: string;
     isRecordingSequential: boolean;
-    richPasteHotkey: string;
     plainPasteHotkey: string;
-    isRecordingRich: boolean;
     isRecordingPlain: boolean;
     searchHotkey: string;
     isRecordingSearch: boolean;
@@ -217,9 +215,7 @@ interface SettingsPanelProps {
     setSequentialModeState: (val: boolean) => void;
     setIsRecordingSequential: (val: boolean) => void;
     updateSequentialHotkey: (key: string) => void;
-    setIsRecordingRich: (val: boolean) => void;
     setIsRecordingPlain: (val: boolean) => void;
-    updateRichPasteHotkey: (key: string) => void;
     updatePlainPasteHotkey: (key: string) => void;
     setIsRecordingSearch: (val: boolean) => void;
     updateSearchHotkey: (key: string) => void;
@@ -241,7 +237,7 @@ interface SettingsPanelProps {
     setCompactShowTime: (val: boolean) => void;
     splitViewEnabled: boolean;
     setSplitViewEnabled: (val: boolean) => void;
-    checkHotkeyConflict: (newHotkey: string, mode: 'main' | 'sequential' | 'rich' | 'search') => boolean;
+    checkHotkeyConflict: (newHotkey: string, mode: 'main' | 'sequential' | 'plain' | 'search') => boolean;
 
 
     setMqttEnabled: (val: boolean) => void;
@@ -325,7 +321,7 @@ const SettingsPanel = (props: SettingsPanelProps) => {
         t, theme, nativePalette, nativeCustomColor, setNativePalette, language, colorMode, showAppBorder, setShowAppBorder, showSourceAppIcon, setShowSourceAppIcon, hideUnselectedItemActions, setHideUnselectedItemActions,
         collapsedGroups, settingsSubpage, autoStart, elevatedAutostart, silentStart, persistent, persistentLimitEnabled, persistentLimit, deduplicate, captureFiles, captureRichText, richTextSnapshotPreview, deleteAfterPaste, moveToTopAfterPaste, clickCopyOnly, pasteMethod, setPasteMethod, registryWinVEnabled, setRegistryWinVEnabled,
         sequentialMode, sequentialHotkey, isRecordingSequential,
-        richPasteHotkey, isRecordingRich, plainPasteHotkey, isRecordingPlain, searchHotkey, isRecordingSearch, quickPasteModifier, setQuickPasteModifier,
+        plainPasteHotkey, isRecordingPlain, searchHotkey, isRecordingSearch, quickPasteModifier, setQuickPasteModifier,
         privacyProtection, privacyProtectionKinds, setPrivacyProtectionKinds, privacyProtectionCustomRules, setPrivacyProtectionCustomRules, sensitiveMaskPrefixVisible, setSensitiveMaskPrefixVisible, sensitiveMaskSuffixVisible, setSensitiveMaskSuffixVisible, sensitiveMaskEmailDomain, setSensitiveMaskEmailDomain, cleanupRules, setCleanupRules, appCleanupPolicies, setAppCleanupPolicies, setShowSearchBox, searchBoxPinned, setSearchBoxPinned, scrollTopButtonEnabled, setScrollTopButtonEnabled, arrowKeySelection, setArrowKeySelection,
         lightModeEnabled, setLightModeEnabled, lightModeIdleMinutes, setLightModeIdleMinutes,
         soundEnabled, setSoundEnabled, pasteSoundEnabled, setPasteSoundEnabled,
@@ -344,7 +340,6 @@ const SettingsPanel = (props: SettingsPanelProps) => {
 
         toggleGroup, setSettingsSubpage, setAutoStart, setElevatedAutostart, setSilentStart, setPersistent, setPersistentLimitEnabled, setPersistentLimit, setDeduplicate, setCaptureFiles, setCaptureRichText, setRichTextSnapshotPreview, setDeleteAfterPaste, setMoveToTopAfterPaste, setClickCopyOnly, saveAppSetting,
         setSequentialModeState, setIsRecordingSequential, updateSequentialHotkey,
-        setIsRecordingRich, updateRichPasteHotkey,
         setIsRecordingPlain, updatePlainPasteHotkey,
         setIsRecordingSearch, updateSearchHotkey,
         setPrivacyProtection,
@@ -606,13 +601,9 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                     setCaptureRichText={setCaptureRichText}
                     richTextSnapshotPreview={richTextSnapshotPreview}
                     setRichTextSnapshotPreview={setRichTextSnapshotPreview}
-                    richPasteHotkey={richPasteHotkey}
                     plainPasteHotkey={plainPasteHotkey}
-                    isRecordingRich={isRecordingRich}
                     isRecordingPlain={isRecordingPlain}
-                    setIsRecordingRich={setIsRecordingRich}
                     setIsRecordingPlain={setIsRecordingPlain}
-                    updateRichPasteHotkey={updateRichPasteHotkey}
                     updatePlainPasteHotkey={updatePlainPasteHotkey}
                     searchHotkey={searchHotkey}
                     isRecordingSearch={isRecordingSearch}

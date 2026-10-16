@@ -2076,7 +2076,7 @@ const ClipboardItem = ({
 
                 e.preventDefault();
                 void hideCompactPreview();
-                onCopy(false);
+                onCopy(true);
                 onSelect();
             }}
             onClick={(e) => {
@@ -2101,7 +2101,7 @@ const ClipboardItem = ({
                 lastPasteTriggeredRef.current = now;
 
                 void hideCompactPreview();
-                onCopy(false);
+                onCopy(true);
                 onSelect();
             }}
             onContextMenu={(e) => {
@@ -2123,7 +2123,7 @@ const ClipboardItem = ({
                 }
                 const now = Date.now();
                 lastPasteTriggeredRef.current = now;
-                onCopy(true); // Formatted text for right-click
+                onCopy(false); // Right-click pastes plain text; a click keeps the format
                 onSelect();
             }}
             onMouseEnter={(e) => {
@@ -2340,7 +2340,7 @@ const ClipboardItem = ({
                                                 className="compact-action-menu-item"
                                                 onClick={() => {
                                                     setIsMoreMenuOpen(false);
-                                                    onCopy(false);
+                                                    onCopy(true);
                                                 }}
                                             >
                                                 <Copy size={13} />

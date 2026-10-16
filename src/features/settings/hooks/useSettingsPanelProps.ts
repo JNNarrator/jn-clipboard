@@ -11,10 +11,9 @@ interface UseSettingsPanelPropsOptions {
   language: Locale;
   colorMode: string;
   hotkeyParts: string[];
-  checkHotkeyConflict: (newHotkey: string, mode: "main" | "sequential" | "rich" | "search") => boolean;
+  checkHotkeyConflict: (newHotkey: string, mode: "main" | "sequential" | "plain" | "search") => boolean;
   updateHotkey: (key: string) => void;
   updateSequentialHotkey: (key: string) => void;
-  updateRichPasteHotkey: (key: string) => void;
   updatePlainPasteHotkey: (key: string) => void;
   updateSearchHotkey: (key: string) => void;
   saveAppSetting: (key: string, val: string) => void;
@@ -37,7 +36,6 @@ export const useSettingsPanelProps = ({
   checkHotkeyConflict,
   updateHotkey,
   updateSequentialHotkey,
-  updateRichPasteHotkey,
   updatePlainPasteHotkey,
   updateSearchHotkey,
   saveAppSetting,
@@ -74,9 +72,7 @@ export const useSettingsPanelProps = ({
     sequentialMode,
     sequentialHotkey,
     isRecordingSequential,
-    richPasteHotkey,
     plainPasteHotkey,
-    isRecordingRich,
     isRecordingPlain,
     searchHotkey,
     isRecordingSearch,
@@ -185,7 +181,6 @@ export const useSettingsPanelProps = ({
     setClickCopyOnly,
     setSequentialModeState,
     setIsRecordingSequential,
-    setIsRecordingRich,
     setIsRecordingPlain,
     setIsRecordingSearch,
     setPrivacyProtection,
@@ -289,9 +284,7 @@ export const useSettingsPanelProps = ({
     sequentialMode,
     sequentialHotkey,
     isRecordingSequential,
-    richPasteHotkey,
     plainPasteHotkey,
-    isRecordingRich,
     isRecordingPlain,
     searchHotkey,
     isRecordingSearch,
@@ -404,9 +397,7 @@ export const useSettingsPanelProps = ({
     setSequentialModeState,
     setIsRecordingSequential,
     updateSequentialHotkey,
-    setIsRecordingRich,
     setIsRecordingPlain,
-    updateRichPasteHotkey,
     updatePlainPasteHotkey,
     setIsRecordingSearch,
     updateSearchHotkey,

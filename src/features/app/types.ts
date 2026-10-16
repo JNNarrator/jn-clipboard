@@ -89,9 +89,7 @@ export interface AppState {
   setHotkey: StateSetter<string>;
   sequentialHotkey: string;
   setSequentialHotkey: StateSetter<string>;
-  richPasteHotkey: string;
   plainPasteHotkey: string;
-  setRichPasteHotkey: StateSetter<string>;
   setPlainPasteHotkey: StateSetter<string>;
   searchHotkey: string;
   setSearchHotkey: StateSetter<string>;
@@ -103,9 +101,7 @@ export interface AppState {
   setIsRecording: StateSetter<boolean>;
   isRecordingSequential: boolean;
   setIsRecordingSequential: StateSetter<boolean>;
-  isRecordingRich: boolean;
   isRecordingPlain: boolean;
-  setIsRecordingRich: StateSetter<boolean>;
   setIsRecordingPlain: StateSetter<boolean>;
   isRecordingSearch: boolean;
   setIsRecordingSearch: StateSetter<boolean>;
