@@ -23,6 +23,7 @@ import type { Locale } from "../../../shared/types";
 import { formatError } from "../../../shared/lib/errorMessage";
 import type { DefaultAppsMap, InstalledAppOption, SettingsSubpage, CloudSyncContentPrefs } from "../../app/types";
 import type { AiProfile, AiProfileStatusMap, AppCleanupPolicy, EditableAiProfile } from "../types";
+import { resolveTaskProfile } from "../aiPresets";
 import AppSelectorModal from "./AppSelectorModal";
 // Removed UpdateModal imports
 import AiProfileModal from "./AiProfileModal";
@@ -442,6 +443,26 @@ const SettingsPanel = (props: SettingsPanelProps) => {
         }
     };
 
+    const aiTaskAssignments = [
+        { value: aiAssignedProfileTask, set: setAiAssignedProfileTask, key: 'ai_assigned_profile_task' },
+        { value: aiAssignedProfileMouthpiece, set: setAiAssignedProfileMouthpiece, key: 'ai_assigned_profile_mouthpiece' },
+        { value: aiAssignedProfileTranslate, set: setAiAssignedProfileTranslate, key: 'ai_assigned_profile_translate' },
+    ];
+
+    /** Saves the model list and moves tasks left with nothing to run on. */
+    const commitAiProfiles = (newProfiles: AiProfile[], deletedId?: string) => {
+        setAiProfiles(newProfiles);
+        saveSetting('ai_profiles', JSON.stringify(newProfiles));
+        for (const task of aiTaskAssignments) {
+            let next = resolveTaskProfile(task.value, newProfiles);
+            if (next === deletedId) next = 'default';
+            if (next !== task.value) {
+                task.set(next);
+                saveSetting(task.key, next);
+            }
+        }
+    };
+
     const handleSaveProfile = (profile: EditableAiProfile) => {
         let newProfiles: AiProfile[];
         if (profile.isNew) {
@@ -453,25 +474,13 @@ const SettingsPanel = (props: SettingsPanelProps) => {
             const updatedProfile: AiProfile = { ...rest, id: profile.id };
             newProfiles = aiProfiles.map(p => p.id === profile.id ? updatedProfile : p);
         }
-        setAiProfiles(newProfiles);
-        saveSetting('ai_profiles', JSON.stringify(newProfiles));
+        commitAiProfiles(newProfiles);
         setEditingProfile(null);
     };
 
     const handleDeleteProfile = (id: string) => {
-        // Prevent deleting presets
-        if (['ds_v4_pro_v1', 'ds_flash_v1'].includes(id)) return;
-
-        const newProfiles = aiProfiles.filter(p => p.id !== id);
-        setAiProfiles(newProfiles);
-        saveSetting('ai_profiles', JSON.stringify(newProfiles));
-        // Reset assignments if deleted
-        if (aiAssignedProfileTask === id) { setAiAssignedProfileTask('default'); saveSetting('ai_assigned_profile_task', 'default'); }
-        if (aiAssignedProfileMouthpiece === id) { setAiAssignedProfileMouthpiece('default'); saveSetting('ai_assigned_profile_mouthpiece', 'default'); }
-        if (aiAssignedProfileTranslate === id) { setAiAssignedProfileTranslate('default'); saveSetting('ai_assigned_profile_translate', 'default'); }
+        commitAiProfiles(aiProfiles.filter(p => p.id !== id), id);
     };
-
-
 
     useEffect(() => {
         getVersion()

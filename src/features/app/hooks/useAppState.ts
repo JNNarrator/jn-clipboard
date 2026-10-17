@@ -13,6 +13,7 @@ import type {
 import { DEFAULT_CLOUD_SYNC_CONTENT_PREFS } from "../types";
 import type { AiProfile, AppCleanupPolicy } from "../../settings/types";
 import { DEFAULT_COLLAPSED_GROUPS } from "../../settings/types";
+import { PRESET_AI_PROFILES } from "../../settings/aiPresets";
 
 export const useAppState = (): AppState => {
   const [showSettings, setShowSettings] = useState(false);
@@ -158,24 +159,7 @@ export const useAppState = (): AppState => {
   const [soundVolume, setSoundVolume] = useState(1.0);
   const [aiEnabled, setAiEnabled] = useState(true);
   const [aiTargetLang, setAiTargetLang] = useState("zh");
-  const [aiProfiles, setAiProfiles] = useState<AiProfile[]>([
-    {
-      id: "ds_v4_pro_v1",
-      provider: "deepseek",
-      baseUrl: "https://api.deepseek.com/v1",
-      apiKey: "",
-      model: "deepseek-v4-pro",
-      enableThinking: true
-    },
-    {
-      id: "ds_flash_v1",
-      provider: "deepseek",
-      baseUrl: "https://api.deepseek.com/v1",
-      apiKey: "",
-      model: "deepseek-flash",
-      enableThinking: false
-    }
-  ]);
+  const [aiProfiles, setAiProfiles] = useState<AiProfile[]>(PRESET_AI_PROFILES);
   const [aiAssignedProfileTask, setAiAssignedProfileTask] = useState("default");
   const [aiAssignedProfileMouthpiece, setAiAssignedProfileMouthpiece] = useState("default");
   const [aiAssignedProfileTranslate, setAiAssignedProfileTranslate] = useState("default");

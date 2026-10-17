@@ -102,9 +102,7 @@ const AiSettingsGroup = ({
                                                 <RotateCcw size={13} className={profileStatus === 'loading' ? 'animate-spin' : ''} />
                                             </button>
                                             <button type="button" className="btn-icon" onClick={() => setEditingProfile(profile)}><Edit2 size={13} /></button>
-                                            {!['ds_v4_pro_v1', 'ds_flash_v1'].includes(profile.id) && (
-                                                <button type="button" className="btn-icon is-danger" onClick={() => handleDeleteProfile(profile.id)}><Trash2 size={13} /></button>
-                                            )}
+                                            <button type="button" className="btn-icon is-danger" onClick={() => handleDeleteProfile(profile.id)}><Trash2 size={13} /></button>
                                         </div>
                                     </div>
                                 );
