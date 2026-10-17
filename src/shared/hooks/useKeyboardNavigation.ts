@@ -18,6 +18,7 @@ interface UseKeyboardNavigationOptions {
   setIsKeyboardMode: (val: boolean | ((prev: boolean) => boolean)) => void;
   showSettings: boolean;
   showTagManager: boolean;
+  showEmojiPanel: boolean;
   chatMode: boolean;
   editingTagsId: number | null;
   editingNoteId: number | null;
@@ -32,6 +33,8 @@ interface UseKeyboardNavigationOptions {
     isPinned?: boolean,
     tags?: string[]
   ) => Promise<void>;
+  /** Tab / Shift+Tab: moves to the next / previous category tab. */
+  cycleCategory: (step: 1 | -1) => void;
   setSearch: (val: string) => void;
   /** Deletes an entry from the keyboard; false if it was refused or failed. */
   deleteItem: (item: ClipboardEntry) => Promise<boolean>;
@@ -47,6 +50,7 @@ export const useKeyboardNavigation = ({
   setIsKeyboardMode,
   showSettings,
   showTagManager,
+  showEmojiPanel,
   chatMode,
   editingTagsId,
   editingNoteId,
@@ -54,6 +58,7 @@ export const useKeyboardNavigation = ({
   plainPasteHotkey,
   searchInputRef,
   copyToClipboard,
+  cycleCategory,
   setSearch,
   deleteItem
 }: UseKeyboardNavigationOptions) => {
@@ -64,6 +69,7 @@ export const useKeyboardNavigation = ({
   const isKeyboardModeRef = useRef(isKeyboardMode);
   const showSettingsRef = useRef(showSettings);
   const showTagManagerRef = useRef(showTagManager);
+  const showEmojiPanelRef = useRef(showEmojiPanel);
   const chatModeRef = useRef(chatMode);
   const editingTagsIdRef = useRef(editingTagsId);
   const editingNoteIdRef = useRef(editingNoteId);
@@ -77,6 +83,7 @@ export const useKeyboardNavigation = ({
   isKeyboardModeRef.current = isKeyboardMode;
   showSettingsRef.current = showSettings;
   showTagManagerRef.current = showTagManager;
+  showEmojiPanelRef.current = showEmojiPanel;
   chatModeRef.current = chatMode;
   editingTagsIdRef.current = editingTagsId;
   editingNoteIdRef.current = editingNoteId;
@@ -189,6 +196,19 @@ export const useKeyboardNavigation = ({
     return value.length === 0;
   };
 
+  const cycleCategoryRef = useRef(cycleCategory);
+  cycleCategoryRef.current = cycleCategory;
+
+  // Tab cycles the category tabs from the search box or from no field at all.
+  // Other fields, and any open dialog or menu, keep their normal Tab focus.
+  const isCategoryTab = (e: KeyboardEvent, target: HTMLElement, isEditable: boolean) => {
+    if (e.key !== "Tab" || e.ctrlKey || e.altKey || e.metaKey) return false;
+    if (showEmojiPanelRef.current) return false;
+    if (isEditable && !target.classList.contains("search-input")) return false;
+    if (document.querySelector("[aria-modal='true']")) return false;
+    return !target.closest("[role='dialog'], [role='menu'], [role='listbox']");
+  };
+
   const resetSelectionToTop = () => {
     const history = filteredHistoryRef.current;
     const firstId = history[0]?.id ?? null;
@@ -274,6 +294,15 @@ export const useKeyboardNavigation = ({
       const isSearchInput = target.classList.contains("search-input");
       const isAnyInput = tagName === "INPUT" || tagName === "TEXTAREA";
       const isEditable = isAnyInput || target.isContentEditable === true;
+
+      if (isCategoryTab(e, target, isEditable)) {
+        e.preventDefault();
+        e.stopPropagation();
+        cycleCategoryRef.current(e.shiftKey ? -1 : 1);
+        // The list changes under the selection: start again from the top.
+        resetSelectionToTop();
+        return;
+      }
 
       if (e.key === "Escape") {
         e.preventDefault();
