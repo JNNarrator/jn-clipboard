@@ -287,7 +287,15 @@ impl TagRepository for SqliteTagRepository {
 
         let mut history = Vec::new();
         for row in rows {
-            history.push(row.map_err(|e| e.to_string())?);
+            match row {
+                Ok(entry) => history.push(entry),
+                // maybe_decrypt_text's error: this device can't decrypt the
+                // entry. Skip it rather than hide the whole tag's list.
+                Err(rusqlite::Error::ToSqlConversionFailure(e)) => {
+                    eprintln!(">>> [TAGS] skipping unreadable entry: {e}");
+                }
+                Err(e) => return Err(e.to_string()),
+            }
         }
         Ok(history)
     }
@@ -422,5 +430,19 @@ mod tests {
         };
         assert_eq!(content(1), "secret");
         assert!(encryption::is_encrypted_value(&content(2)), "still tagged sensitive");
+    }
+
+    #[test]
+    fn entries_by_tag_skip_unreadable_rows() {
+        let corrupt = format!("{}{}", crate::database::ENCRYPT_PREFIX, "A".repeat(48));
+        let repo = repo_with(&format!(
+            "INSERT INTO clipboard_history
+                 (id, content_type, content, source_app, timestamp, sort_at, preview, tags)
+             VALUES
+                 (1, 'text', 'kept', 'App', 1, 1, 'kept', '[\"sensitive\"]'),
+                 (2, 'text', '{corrupt}', 'App', 2, 2, '{corrupt}', '[\"sensitive\"]');"
+        ));
+        let entries = repo.get_entries_by_tag("sensitive").expect("list still loads");
+        assert_eq!(entries.iter().map(|e| e.id).collect::<Vec<_>>(), vec![1]);
     }
 }
