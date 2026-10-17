@@ -1990,6 +1990,8 @@ fn handle_post_paste_actions(
 }
 
 /// A click pastes with the format; this hotkey is the plain text way (#148).
+/// It pastes the newest copy, not the top of the list: pins sit above newer
+/// entries there, and the hotkey would keep pasting the same pin.
 pub fn paste_latest_plain(app_handle: tauri::AppHandle) {
     paste_latest(app_handle, false);
 }
@@ -2002,14 +2004,14 @@ fn paste_latest(app_handle: tauri::AppHandle, with_format: bool) {
             settings.delete_after_paste.load(Ordering::Relaxed)
         };
 
-        let history = crate::app::commands::history_cmd::get_clipboard_history(
-            app_handle_clone.state::<DbState>(),
-            app_handle_clone.state::<SessionHistory>(),
-            app_handle_clone.state::<crate::app_state::AppDataDir>(),
+        let history = crate::app::commands::history_cmd::history_page(
+            &app_handle_clone.state::<DbState>(),
+            &app_handle_clone.state::<SessionHistory>(),
+            &app_handle_clone.state::<crate::app_state::AppDataDir>(),
             1,
             0, // offset
             None,
-            None,
+            crate::infrastructure::repository::clipboard_repo::ClipboardSortMode::Recent,
         );
 
         if let Ok(items) = history {
