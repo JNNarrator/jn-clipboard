@@ -380,6 +380,12 @@ pub fn start_clipboard_monitor(app_handle: AppHandle) {
             monitor_state.last_sequence = sequence;
         }
 
+        // TieZ is writing, or just wrote, the clipboard for a paste.
+        #[cfg(target_os = "windows")]
+        if crate::infrastructure::windows_api::win_clipboard::is_own_write() {
+            return;
+        }
+
         #[cfg(target_os = "windows")]
         let source_snapshot =
             crate::infrastructure::windows_api::window_tracker::get_clipboard_source_app_info();

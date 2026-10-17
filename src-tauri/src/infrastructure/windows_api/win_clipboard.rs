@@ -598,6 +598,42 @@ pub fn get_clipboard_sequence_number() -> u32 {
     unsafe { windows::Win32::System::DataExchange::GetClipboardSequenceNumber() }
 }
 
+/// Clipboard writes TieZ makes for a paste must not come back as new entries.
+/// Matching their content isn't enough: a rich paste writes in steps (image,
+/// then text and HTML) and re-derives the text from the HTML, so a pasted
+/// formula came back as "1 1 1" plus a blank entry, credited to the app in
+/// front (TIM, WPS). The listener skips every update while a write is under
+/// way and the one it leaves behind, whatever it contains; any later write by
+/// another app has a newer sequence number.
+static OWN_WRITES_IN_PROGRESS: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+static OWN_WRITE_SEQUENCE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(u64::MAX);
+
+pub struct OwnClipboardWrite(());
+
+/// Hold while writing the clipboard for a paste.
+pub fn begin_own_write() -> OwnClipboardWrite {
+    OWN_WRITES_IN_PROGRESS.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    OwnClipboardWrite(())
+}
+
+impl Drop for OwnClipboardWrite {
+    fn drop(&mut self) {
+        // Record the result before leaving "in progress": no gap between them.
+        OWN_WRITE_SEQUENCE.store(
+            get_clipboard_sequence_number() as u64,
+            std::sync::atomic::Ordering::SeqCst,
+        );
+        OWN_WRITES_IN_PROGRESS.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+    }
+}
+
+/// The clipboard holds (or is getting) a write TieZ made for a paste.
+pub fn is_own_write() -> bool {
+    OWN_WRITES_IN_PROGRESS.load(std::sync::atomic::Ordering::SeqCst) > 0
+        || OWN_WRITE_SEQUENCE.load(std::sync::atomic::Ordering::SeqCst)
+            == get_clipboard_sequence_number() as u64
+}
+
 /// Password managers (KeePass, 1Password, Bitwarden, ...) add these formats so
 /// clipboard history tools never record the content.
 pub fn is_clipboard_marked_private() -> bool {

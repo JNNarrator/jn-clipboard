@@ -830,6 +830,8 @@ pub async fn prepare_clipboard_payload(
     html_content: Option<&str>,
     paste_with_format: bool,
 ) -> AppResult<()> {
+    #[cfg(target_os = "windows")]
+    let _own_write = crate::infrastructure::windows_api::win_clipboard::begin_own_write();
     let (content_hash, current_time) = calculate_content_hash(content);
     crate::LAST_APP_SET_HASH.store(content_hash, Ordering::SeqCst);
     crate::LAST_APP_SET_HASH_ALT.store(0, Ordering::SeqCst);
