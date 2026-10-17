@@ -601,6 +601,9 @@ fn is_setting_sync_eligible(key: &str) -> bool {
             | "file_server_port"
             | "file_transfer_path"
             | "app.last_edge_dock"
+            // Startup differs per platform: on by default on Windows, off on macOS.
+            | "app.silent_start"
+            | "app.silent_start_mac_reset"
     )
 }
 
@@ -4499,6 +4502,9 @@ mod tests {
             assert!(crate::database::has_sensitive_tag(&[tag.to_string()]));
         }
         assert!(super::is_setting_sync_eligible("app.theme"));
+        // Per device: a Windows peer's 「后台启动」 must not hide a Mac's window.
+        assert!(!super::is_setting_sync_eligible("app.silent_start"));
+        assert!(!super::is_setting_sync_eligible(crate::app::setup::SILENT_START_MAC_RESET_KEY));
     }
     #[test]
     fn sensitive_entries_are_excluded_from_snapshots_and_deltas() {
