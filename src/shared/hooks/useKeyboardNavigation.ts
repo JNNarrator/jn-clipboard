@@ -33,6 +33,8 @@ interface UseKeyboardNavigationOptions {
     isPinned?: boolean,
     tags?: string[]
   ) => Promise<void>;
+  /** Shift+Enter: copies an entry without pasting; the window stays open. */
+  copyWithoutPaste: (item: ClipboardEntry) => Promise<void>;
   /** Tab / Shift+Tab: moves to the next / previous category tab. */
   cycleCategory: (step: 1 | -1) => void;
   setSearch: (val: string) => void;
@@ -58,6 +60,7 @@ export const useKeyboardNavigation = ({
   plainPasteHotkey,
   searchInputRef,
   copyToClipboard,
+  copyWithoutPaste,
   cycleCategory,
   setSearch,
   deleteItem
@@ -196,8 +199,25 @@ export const useKeyboardNavigation = ({
     return value.length === 0;
   };
 
+  const copyInFlightRef = useRef(false);
+  const copyWithoutPasteRef = useRef(copyWithoutPaste);
+  copyWithoutPasteRef.current = copyWithoutPaste;
   const cycleCategoryRef = useRef(cycleCategory);
   cycleCategoryRef.current = cycleCategory;
+
+  // Shift+Enter: copy the selected entry and leave the window and the
+  // selection as they are.
+  const copySelectedItem = async () => {
+    if (copyInFlightRef.current) return;
+    const item = resolveSelectedItem(filteredHistoryRef.current);
+    if (!item) return;
+    copyInFlightRef.current = true;
+    try {
+      await copyWithoutPasteRef.current(item);
+    } finally {
+      copyInFlightRef.current = false;
+    }
+  };
 
   // Tab cycles the category tabs from the search box or from no field at all.
   // Other fields, and any open dialog or menu, keep their normal Tab focus.
@@ -375,6 +395,18 @@ export const useKeyboardNavigation = ({
       }
 
       const matchesPlainHotkey = matchesHotkey(e, plainPasteHotkeyRef.current);
+      const isCopyEnter =
+        e.key === "Enter" && e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey &&
+        !matchesPlainHotkey && isKeyboardModeRef.current;
+      if (isCopyEnter) {
+        e.preventDefault();
+        e.stopPropagation();
+        // Windows' keyboard hook sends this as a "copy" navigation action.
+        if (usesNativeNavigation() || e.repeat) return;
+        await copySelectedItem();
+        return;
+      }
+
       const shouldHandleEnter = e.key === "Enter" && isKeyboardModeRef.current;
       if (shouldHandleEnter || matchesPlainHotkey) {
         if (shouldHandleEnter && !matchesPlainHotkey && usesNativeNavigation()) {
@@ -473,6 +505,15 @@ export const useKeyboardNavigation = ({
         const item = resolveSelectedItem(history);
         if (!item) return;
         await pasteSelectedItem(true, item);
+      } else if (action === "copy") {
+        if (!isNavMode) return;
+        const now = performance.now();
+        const lastNavigationKey = lastNavigationKeyRef.current;
+        if (lastNavigationKey.key === action && now - lastNavigationKey.time < 350) {
+          return;
+        }
+        lastNavigationKeyRef.current = { key: action, time: now };
+        await copySelectedItem();
       } else if (action === "delete") {
         if (!isNavMode) return;
         await deleteSelectedItem();

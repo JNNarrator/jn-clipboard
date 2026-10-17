@@ -1009,7 +1009,7 @@ const App = () => {
 
   useNavigationSync({ showSettings, showTagManager: effectiveShowTagManager, chatMode, showEmojiPanel: effectiveShowEmojiPanel });
 
-  const { copyToClipboard, openContent, deleteEntry, deleteEntryById, togglePin, handleUpdateTags, handleUpdateNote } =
+  const { copyToClipboard, copyWithoutPaste, openContent, deleteEntry, deleteEntryById, togglePin, handleUpdateTags, handleUpdateNote } =
     useClipboardActions({
       t,
       pushToast,
@@ -1177,6 +1177,7 @@ const App = () => {
     plainPasteHotkey,
     searchInputRef,
     copyToClipboard,
+    copyWithoutPaste,
     cycleCategory,
     setSearch,
     deleteItem: deleteFromKeyboard

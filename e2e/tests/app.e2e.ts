@@ -239,6 +239,33 @@ test('键盘：Tab / Shift+Tab 切换分类，在搜索框里也能切且焦点�
   expect(await browser.evaluate(() => document.activeElement?.classList.contains('search-input') ?? false)).toBe(true);
 });
 
+test('键盘：选中后 Shift+Enter 只复制不粘贴，窗口不关，选中项不变', async ({ app, screen, browser }) => {
+  await app.open('/');
+  const isMac = await browser.evaluate(() => /Mac/i.test(navigator.userAgent) || /Mac/i.test(navigator.platform));
+  test.skip(!isMac, 'arrow navigation runs in the native hook outside macOS');
+  await expect(screen.getByRole('main').getByText(SAMPLE.chat.text).first()).toBeVisible();
+  await resetCalls(browser);
+  await browser.keyboard.press('ArrowDown');
+  await sleep(150);
+  await browser.keyboard.press('ArrowDown');
+  await sleep(150);
+  await browser.keyboard.press('Shift+Enter');
+  await expect.poll(() => callsTo(browser, 'copy_to_clipboard')).toEqual([
+    expect.objectContaining({ args: expect.objectContaining({ id: SAMPLE.chat.id, paste: false }) }),
+  ]);
+  await expect(screen.getByText('已复制')).toBeVisible();
+  expect(await callsTo(browser, 'hide_window_cmd')).toEqual([]);
+
+  // Still selected: Enter now pastes the same entry.
+  await browser.keyboard.press('Enter');
+  await expect
+    .poll(async () => (await callsTo(browser, 'copy_to_clipboard')).map((c) => [c.args?.id, c.args?.paste]))
+    .toEqual([
+      [SAMPLE.chat.id, false],
+      [SAMPLE.chat.id, true],
+    ]);
+});
+
 test('删除：详情栏删除按钮删除当前项，列表中随之消失', async ({ app, screen, browser }) => {
   await app.open('/');
   const main = screen.getByRole('main');
