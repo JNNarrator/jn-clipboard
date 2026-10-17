@@ -284,6 +284,7 @@ body:has(.modal-overlay) #root {
 }
 
 .modal-panel-app-selector .modal-panel-actions {
+  flex-wrap: wrap;
   margin-top: 4px;
 }
 
@@ -430,6 +431,12 @@ body:has(.modal-overlay) #root {
 
 .modal-panel-actions.split .modal-button {
   flex: 1;
+}
+
+/* The app picker's 「系统默认」 gets a line of its own: three labels don't
+   fit side by side in the narrow window. */
+.modal-panel-actions.split .app-selector-reset {
+  flex-basis: 100%;
 }
 
 .modal-button,

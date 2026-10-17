@@ -24,6 +24,7 @@ import { formatError } from "../../../shared/lib/errorMessage";
 import type { DefaultAppsMap, InstalledAppOption, SettingsSubpage, CloudSyncContentPrefs } from "../../app/types";
 import type { AiProfile, AiProfileStatusMap, AppCleanupPolicy, EditableAiProfile } from "../types";
 import { resolveTaskProfile } from "../aiPresets";
+import { chosenApp, unchosenFallback } from "../utils/defaultApps";
 import AppSelectorModal from "./AppSelectorModal";
 // Removed UpdateModal imports
 import AiProfileModal from "./AiProfileModal";
@@ -927,6 +928,9 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                 t={t}
                 onClose={() => setShowAppSelector(null)}
                 onSave={saveAppSetting}
+                resetLabel={showAppSelector && chosenApp(appSettings, showAppSelector)
+                    ? t(unchosenFallback(appSettings, showAppSelector) === "text" ? "same_as_text_app" : "system_default")
+                    : undefined}
             />
         </>
     );

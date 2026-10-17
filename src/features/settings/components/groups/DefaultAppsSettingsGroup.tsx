@@ -1,5 +1,6 @@
 import { ChevronDown, ChevronRight } from "lucide-react";
 import type { DefaultAppsMap, InstalledAppOption } from "../../../app/types";
+import { chosenApp, unchosenFallback } from "../../utils/defaultApps";
 
 interface DefaultAppsSettingsGroupProps {
     t: (key: string) => string;
@@ -39,6 +40,18 @@ const DefaultAppsSettingsGroup = ({
         }
     };
 
+    const appName = (path: string) =>
+        installedApps.find(app => app.value === path)?.label ?? getAppDisplayName(path);
+
+    const describe = (type: string) => {
+        const chosen = chosenApp(appSettings, type);
+        if (chosen) return appName(chosen);
+        if (unchosenFallback(appSettings, type) === "text") {
+            return `${t('same_as_text_app')} (${appName(chosenApp(appSettings, "text"))})`;
+        }
+        return defaultApps[type] ? `${t('system_default')} (${getAppDisplayName(defaultApps[type])})` : t('not_configured');
+    };
+
     return (
         <div className={`settings-group ${collapsed ? 'collapsed' : ''}`}>
             <button type="button" className="group-header" aria-expanded={!collapsed} onClick={onToggle}>
@@ -59,18 +72,7 @@ const DefaultAppsSettingsGroup = ({
                                 title={t('change_app')}
                                 aria-label={`${getTypeName(type)} · ${t('change_app')}`}
                             >
-                                <span className="settings-picker-value">
-                                {appSettings[`app.${type}`]
-                                    ? (() => {
-                                        const path = appSettings[`app.${type}`];
-                                        // Try to find friendly name from installed apps list
-                                        const found = installedApps.find(app => app.value === path);
-                                        if (found) return found.label;
-                                        // Fallback: extract a readable app name from the path
-                                        return getAppDisplayName(path);
-                                    })()
-                                    : (defaultApps[type] ? `${t('system_default')} (${getAppDisplayName(defaultApps[type])})` : t('not_configured'))}
-                                </span>
+                                <span className="settings-picker-value">{describe(type)}</span>
                                 <ChevronRight size={14} aria-hidden="true" />
                             </button>
                         </div>

@@ -13,9 +13,11 @@ interface AppSelectorModalProps {
     t: (key: string) => string;
     onClose: () => void;
     onSave: (type: string, val: string) => void;
+    /** Label of the button that clears the chosen app; hidden when none is chosen. */
+    resetLabel?: string;
 }
 
-const AppSelectorModal = ({ show, installedApps, theme, colorMode, t, onClose, onSave }: AppSelectorModalProps) => (
+const AppSelectorModal = ({ show, installedApps, theme, colorMode, t, onClose, onSave, resetLabel }: AppSelectorModalProps) => (
     <AppModal
         open={Boolean(show)}
         onClose={onClose}
@@ -45,6 +47,19 @@ const AppSelectorModal = ({ show, installedApps, theme, colorMode, t, onClose, o
         </div>
 
         <div className="modal-panel-actions split">
+            {resetLabel && (
+                <button
+                    type="button"
+                    className="modal-button app-selector-reset"
+                    onClick={() => {
+                        // An empty value is "nothing chosen": the backend opens the default.
+                        if (show) onSave(show, "");
+                        onClose();
+                    }}
+                >
+                    {resetLabel}
+                </button>
+            )}
             <button
                 type="button"
                 className="modal-button"

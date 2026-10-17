@@ -405,6 +405,7 @@ export const translations = {
         // Settings - Default Apps
         change_app: "更改",
         system_default: "系统默认",
+        same_as_text_app: "同文字",
         not_configured: "选择应用",
 
         // Settings - Data
@@ -1334,6 +1335,7 @@ export const translations = {
         // Settings - Default Apps
         change_app: "Change",
         system_default: "System Default",
+        same_as_text_app: "Same as Text",
         not_configured: "Not Configured (Click to select)",
 
         // Settings - Data
@@ -2253,6 +2255,7 @@ export const translations = {
         // Settings - Default Apps
         change_app: "更改",
         system_default: "系統預設",
+        same_as_text_app: "同文字",
         not_configured: "選擇應用",
 
         // Settings - Data
