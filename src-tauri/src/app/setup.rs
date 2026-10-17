@@ -1105,6 +1105,10 @@ fn start_services(app: &App, s: &StartupSettings, app_handle: AppHandle) {
     #[cfg(target_os = "macos")]
     migrate_macos_login_item(&app_handle);
     enable_autostart_on_first_run(&app_handle, &db_state);
+    #[cfg(target_os = "windows")]
+    if crate::app::commands::system_cmd::check_is_admin() {
+        std::thread::spawn(crate::infrastructure::windows_api::elevated_autostart::refresh_outdated_task);
+    }
     if db_state
         .settings_repo
         .get("file_server_enabled")

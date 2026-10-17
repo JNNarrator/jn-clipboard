@@ -41,6 +41,9 @@ fn main() -> AppResult<()> {
                 }
             }
         }
+        if crate::infrastructure::windows_api::elevated_autostart::hand_off_to_task(&args) {
+            std::process::exit(0);
+        }
         if args.iter().any(|a| a == "--uninstall-elevated-autostart") {
             match crate::infrastructure::windows_api::elevated_autostart::uninstall_elevated_autostart_task()
             {
