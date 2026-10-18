@@ -486,6 +486,29 @@ pub fn get_clipboard_content(
         .ok_or_else(|| AppError::Validation("Entry not found".to_string()))
 }
 
+/// Full text and HTML of an entry: the list holds shortened copies of long
+/// ones, and dragging an entry out must carry all of it.
+#[tauri::command]
+pub fn get_clipboard_content_with_html(
+    state: State<'_, DbState>,
+    session: State<'_, SessionHistory>,
+    id: i64,
+) -> AppResult<(String, Option<String>)> {
+    {
+        let session_items = session.inner().0.lock().unwrap();
+        if let Some(item) = session_items.iter().find(|i| i.id == id) {
+            return Ok((item.content.clone(), item.html_content.clone()));
+        }
+    }
+
+    state
+        .repo
+        .get_entry_content_with_html(id)
+        .map_err(AppError::from)?
+        .map(|(content, _, html)| (content, html))
+        .ok_or_else(|| AppError::Validation("Entry not found".to_string()))
+}
+
 #[tauri::command]
 pub fn update_pinned_order(
     app_handle: AppHandle,

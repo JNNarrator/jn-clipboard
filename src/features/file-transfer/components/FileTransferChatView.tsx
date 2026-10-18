@@ -50,6 +50,7 @@ import { TransferComposer } from "./TransferComposer";
 import { TransferContextMenu } from "./TransferContextMenu";
 import ConfirmDialog from "../../../shared/components/ConfirmDialog";
 import { formatError } from "../../../shared/lib/errorMessage";
+import { unfinishedPending } from "../utils/pendingMatch";
 
 const FileTransferChatView = ({
     t,
@@ -460,7 +461,12 @@ const FileTransferChatView = ({
             }
         });
 
-        if (results.some((result) => result.status === "fulfilled")) {
+        // Sent: the history has the real message now, drop its bubble.
+        const sentIds = new Set(
+            tempMessages.filter((_, index) => results[index].status === "fulfilled").map((m) => m.id)
+        );
+        if (sentIds.size > 0) {
+            setMessages((prev) => prev.filter((msg) => !sentIds.has(msg.id)));
             setTimeout(fetchMessages, 300);
         }
     };
@@ -474,6 +480,13 @@ const FileTransferChatView = ({
         }
         void chooseFilesToSend(mode);
     };
+
+    // The drop listeners are set up once: they call the current version, which
+    // knows the send mode (packaged or one by one) chosen since.
+    const queueFilesForSendingRef = useRef(queueFilesForSending);
+    useEffect(() => {
+        queueFilesForSendingRef.current = queueFilesForSending;
+    });
 
     const chooseFilesToSend = async (sendMode: MultiFileSendMode = multiFileSendMode) => {
         if (isChoosingFiles) return;
@@ -714,6 +727,10 @@ const FileTransferChatView = ({
 
         void emit("toast", t("ft_drop_unrecognized"));
     };
+    const handleProcessDroppedDataTransferRef = useRef(handleProcessDroppedDataTransfer);
+    useEffect(() => {
+        handleProcessDroppedDataTransferRef.current = handleProcessDroppedDataTransfer;
+    });
 
     const send = async () => {
         if (!input.trim()) return;
@@ -732,19 +749,7 @@ const FileTransferChatView = ({
             setMessages((prev) => {
                 const pending = prev.filter((m) => m._preparing || m._error);
                 if (pending.length === 0) return msgs;
-                const remainingPending = pending.filter((p) => {
-                    const match = msgs.some((m) => {
-                        if (p._uploadId && m.content.includes(p._uploadId)) return true;
-                        if (
-                            p._fileName &&
-                            (m.file_path?.endsWith(p._fileName) || m.content.includes(p._fileName))
-                        )
-                            return true;
-                        return false;
-                    });
-                    return !match;
-                });
-                return [...msgs, ...remainingPending];
+                return [...msgs, ...unfinishedPending(pending, msgs)];
             });
         } catch (e) {
             console.warn("fetchMessages failed", e);
@@ -787,14 +792,14 @@ const FileTransferChatView = ({
                     }
 
                     for (const [folderName, items] of folderGroups.entries()) {
-                        await queueFilesForSending(items, "package", `${folderName} (${items.length} 个文件)`);
+                        await queueFilesForSendingRef.current(items, "package", `${folderName} (${items.length} 个文件)`);
                     }
                     if (looseItems.length > 0) {
-                        await queueFilesForSending(looseItems);
+                        await queueFilesForSendingRef.current(looseItems);
                     }
                 } catch (err) {
                     console.error("Failed to expand dropped paths", err);
-                    void queueFilesForSending(
+                    void queueFilesForSendingRef.current(
                         paths.map((path) => ({
                             name: path.split(/[/\\]/).pop() || "File",
                             path,
@@ -814,6 +819,10 @@ const FileTransferChatView = ({
         const unlistenDevices = listen<FileTransferDevice[]>("online-devices-updated", (event) => {
             setOnlineDevices(event.payload || []);
         });
+        // Phones that connected before this window opened.
+        invoke<FileTransferDevice[]>("get_online_devices")
+            .then((devices) => setOnlineDevices(devices || []))
+            .catch(console.error);
 
         const unlistenNewMsg = listen<FileTransferMessage>("new-chat-message", () => {
             fetchMessages();
@@ -1012,7 +1021,7 @@ const FileTransferChatView = ({
             event.preventDefault();
             event.stopPropagation();
             setDragging(false);
-            void handleProcessDroppedDataTransfer(event.dataTransfer);
+            void handleProcessDroppedDataTransferRef.current(event.dataTransfer);
         };
 
         window.addEventListener("dragover", handleWindowDragOver);
@@ -1424,6 +1433,8 @@ const FileTransferChatView = ({
                 saveBatchAs={saveBatchAs}
                 openTransferContent={openTransferContent}
                 t={t}
+                localIp={activeIp}
+                actualPort={actualPort}
             />
         </div>
     );

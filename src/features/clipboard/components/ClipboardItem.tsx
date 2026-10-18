@@ -79,7 +79,7 @@ import {
 import { openPinStickerWindow } from "../lib/pinStickerControls";
 import { activateForInput } from "../../../shared/lib/focus";
 import { getNotePlaceholder, isMacPlatform } from "../../../shared/lib/platform";
-import { setupDragDataTransfer, createDragGhostBadge, shouldHideAfterExternalDrop } from "../lib/dragDrop";
+import { setupDragDataTransfer, createDragGhostBadge, shouldHideAfterExternalDrop, isShortenedForList } from "../lib/dragDrop";
 
 const COMPACT_PREVIEW_LABEL = "compact-preview";
 const COMPACT_PREVIEW_HOVER_DELAY_MS = 320;
@@ -858,6 +858,7 @@ const ClipboardItem = ({
     const [isReordering, setIsReordering] = useState(false);
     const isReorderingRef = useRef(false);
     const canExportDragRef = useRef(false);
+    const fullDragEntryRef = useRef<ClipboardItemProps["item"] | null>(null);
     const dragReleaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const dragGuardOwner = `drag:${useId()}`;
     const dragGuardRef = useRef<{ owner: string; acquired: Promise<unknown> } | null>(null);
@@ -1932,6 +1933,14 @@ const ClipboardItem = ({
                 // handle/button where the pointer went down. Remember origin.
                 const target = e.target as HTMLElement;
                 canExportDragRef.current = e.button === 0 && !target.closest('button, input, textarea, [role="button"], .drag-handle');
+                // A drag can only use data at hand: fetch the full entry now.
+                if (canExportDragRef.current && isShortenedForList(item) && fullDragEntryRef.current?.id !== item.id) {
+                    invoke<[string, string | null]>("get_clipboard_content_with_html", { id: item.id })
+                        .then(([content, html]) => {
+                            fullDragEntryRef.current = { ...item, content, html_content: html ?? undefined };
+                        })
+                        .catch(console.error);
+                }
             }}
             onMouseDownCapture={(e) => {
                 const target = e.target as HTMLElement;
@@ -2001,7 +2010,8 @@ const ClipboardItem = ({
                 dragGuardRef.current = { owner, acquired: invoke("acquire_blur_guard", { owner }).catch(console.error) };
 
                 // Setup payload for external windows (Finder, VSCode, Browser, Slack, etc.)
-                setupDragDataTransfer(e.dataTransfer, item, filePaths);
+                const fullEntry = fullDragEntryRef.current?.id === item.id ? fullDragEntryRef.current : null;
+                setupDragDataTransfer(e.dataTransfer, fullEntry ?? item, filePaths);
 
                 // Set custom drag preview badge
                 try {

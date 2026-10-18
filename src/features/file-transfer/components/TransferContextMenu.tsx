@@ -31,6 +31,9 @@ interface TransferContextMenuProps {
         type?: string;
     }) => Promise<void>;
     t: (key: string) => string;
+    /** Address phones reach this computer at, for copied links. */
+    localIp?: string;
+    actualPort?: string;
 }
 
 export const TransferContextMenu = ({
@@ -42,6 +45,8 @@ export const TransferContextMenu = ({
     saveBatchAs,
     openTransferContent,
     t,
+    localIp,
+    actualPort,
 }: TransferContextMenuProps) => {
     const contextMenuRef = useRef<HTMLDivElement>(null);
     const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null);
@@ -319,7 +324,9 @@ export const TransferContextMenu = ({
                                     const selected = contextMenu;
                                     onClose();
                                     const link = resolveShareableDownloadUrl(
-                                        selected.content || selected.filePath || ""
+                                        selected.content || selected.filePath || "",
+                                        localIp,
+                                        actualPort
                                     );
                                     if (link) await copyPrivateText(link);
                                 }}
@@ -413,7 +420,9 @@ export const TransferContextMenu = ({
                                     const selected = contextMenu;
                                     onClose();
                                     const link = resolveShareableDownloadUrl(
-                                        selected.content || selected.filePath || ""
+                                        selected.content || selected.filePath || "",
+                                        localIp,
+                                        actualPort
                                     );
                                     if (link) await copyPrivateText(link);
                                 }}
@@ -479,7 +488,9 @@ export const TransferContextMenu = ({
                                 const selected = contextMenu;
                                 onClose();
                                 const link = resolveShareableDownloadUrl(
-                                    selected.content || selected.filePath || ""
+                                    selected.content || selected.filePath || "",
+                                    localIp,
+                                    actualPort
                                 );
                                 if (link) await copyPrivateText(link);
                             }}

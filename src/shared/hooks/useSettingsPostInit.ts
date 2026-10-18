@@ -297,12 +297,14 @@ export const useSettingsPostInit = ({
     setCaptureRichText(settings["app.capture_rich_text"] === "true");
     setRichTextSnapshotPreview(settings["app.rich_text_snapshot_preview"] === "true");
     setPrivacyProtection(settings["app.privacy_protection"] === "true");
-    if (settings["app.privacy_protection_kinds"]) {
-      const list = settings["app.privacy_protection_kinds"]
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
-      if (list.length > 0) setPrivacyProtectionKinds(list);
+    // Empty is a choice too (every type unticked), not a missing setting.
+    if (settings["app.privacy_protection_kinds"] !== undefined) {
+      setPrivacyProtectionKinds(
+        settings["app.privacy_protection_kinds"]
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      );
     }
     if (settings["app.privacy_protection_custom_rules"] !== undefined) {
       setPrivacyProtectionCustomRules(settings["app.privacy_protection_custom_rules"] || "");
@@ -428,7 +430,7 @@ export const useSettingsPostInit = ({
     setFileTransferAutoOpen(settings["file_transfer_auto_open"] === "true");
     setFileTransferAutoCopy(settings["file_transfer_auto_copy"] === "true");
     if (settings["file_server_port"]) setFileServerPort(settings["file_server_port"]);
-    if (settings["app.sequential_hotkey"]) setSequentialHotkey(settings["app.sequential_hotkey"]);
+    if (settings["app.sequential_hotkey"] !== undefined) setSequentialHotkey(settings["app.sequential_hotkey"]);
     if (settings["app.plain_paste_hotkey"] !== undefined) setPlainPasteHotkey(settings["app.plain_paste_hotkey"]);
     if (settings["app.search_hotkey"] !== undefined) setSearchHotkey(settings["app.search_hotkey"]);
     setQuickPasteModifier(normalizeQuickPasteModifier(settings["app.quick_paste_modifier"]));

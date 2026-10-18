@@ -86,6 +86,9 @@ export const TransferComposer = ({
     }, [showFileSendOptions]);
 
     const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+        // Enter that picks an input method candidate isn't "send". WebKit ends
+        // the composition before that keydown, so check its keyCode (229) too.
+        if (e.nativeEvent.isComposing || e.keyCode === 229) return;
         if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
             handleSend();
