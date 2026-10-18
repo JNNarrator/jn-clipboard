@@ -26,6 +26,19 @@ struct BITMAPINFOHEADER {
     bi_clr_important: u32,
 }
 
+/// Hands `h_global` to the clipboard. The clipboard owns it only when this
+/// works; on failure it's still ours to free (it leaked before).
+unsafe fn set_clipboard_hglobal(
+    format: u32,
+    h_global: windows::Win32::Foundation::HGLOBAL,
+) -> windows::core::Result<()> {
+    let result = SetClipboardData(format, Some(windows::Win32::Foundation::HANDLE(h_global.0 as _)));
+    if result.is_err() {
+        let _ = windows::Win32::Foundation::GlobalFree(Some(h_global));
+    }
+    result.map(|_| ())
+}
+
 fn read_u32_le(raw_data: &[u8], offset: usize) -> Option<u32> {
     let bytes = raw_data.get(offset..offset + 4)?;
     Some(u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]))
@@ -137,11 +150,7 @@ unsafe fn set_named_clipboard_format_bytes(format_id: u32, data: &[u8]) -> Resul
     }
 
     let _ = GlobalUnlock(h_global);
-    SetClipboardData(
-        format_id,
-        Some(windows::Win32::Foundation::HANDLE(h_global.0 as _)),
-    )
-    .map_err(|e| e.to_string())?;
+    set_clipboard_hglobal(format_id, h_global).map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -542,56 +551,56 @@ pub unsafe fn set_clipboard_files(paths: Vec<String>) -> Result<(), String> {
     if OpenClipboard(None).is_err() {
         return Err("Cannot open clipboard".into());
     }
+    // Closed whatever happens: a failed allocation used to return with the
+    // clipboard still open, so no app could use it until TieZ quit.
+    let result = (|| {
 
-    // Prepare payload (Double null terminated list of wide strings)
-    let mut buffer: Vec<u16> = Vec::new();
-    for path in paths {
-        buffer.extend(path.encode_utf16());
-        buffer.push(0);
-    }
-    buffer.push(0); // Double null terminator
+        // Prepare payload (Double null terminated list of wide strings)
+        let mut buffer: Vec<u16> = Vec::new();
+        for path in paths {
+            buffer.extend(path.encode_utf16());
+            buffer.push(0);
+        }
+        buffer.push(0); // Double null terminator
 
-    // Calculate size needed
-    // DROPFILES struct size + buffer size in bytes
-    // pFiles(4) + pt.x(4) + pt.y(4) + fNC(4) + fWide(4) = 20 bytes
-    let dropfiles_size = 20;
-    let buffer_size = buffer.len() * 2;
-    let total_size = dropfiles_size + buffer_size;
+        // Calculate size needed
+        // DROPFILES struct size + buffer size in bytes
+        // pFiles(4) + pt.x(4) + pt.y(4) + fNC(4) + fWide(4) = 20 bytes
+        let dropfiles_size = 20;
+        let buffer_size = buffer.len() * 2;
+        let total_size = dropfiles_size + buffer_size;
 
-    let h_global = GlobalAlloc(GHND, total_size).map_err(|e| e.to_string())?;
+        let h_global = GlobalAlloc(GHND, total_size).map_err(|e| e.to_string())?;
 
-    let p_mem = GlobalLock(h_global);
-    if p_mem.is_null() {
-        let _ = CloseClipboard();
-        return Err("GlobalLock failed".into());
-    }
+        let p_mem = GlobalLock(h_global);
+        if p_mem.is_null() {
+            let _ = windows::Win32::Foundation::GlobalFree(Some(h_global));
+            return Err("GlobalLock failed".into());
+        }
 
-    // Write DROPFILES struct
-    // Offset 0: pFiles = 20 (size of struct)
-    *(p_mem as *mut u32) = 20;
+        // Write DROPFILES struct
+        // Offset 0: pFiles = 20 (size of struct)
+        *(p_mem as *mut u32) = 20;
 
-    // Offset 16: fWide = 1
-    *(p_mem.add(16) as *mut i32) = 1;
+        // Offset 16: fWide = 1
+        *(p_mem.add(16) as *mut i32) = 1;
 
-    // Write file paths
-    let p_files = p_mem.add(20) as *mut u16;
-    std::ptr::copy_nonoverlapping(buffer.as_ptr(), p_files, buffer.len());
+        // Write file paths
+        let p_files = p_mem.add(20) as *mut u16;
+        std::ptr::copy_nonoverlapping(buffer.as_ptr(), p_files, buffer.len());
 
-    let _ = GlobalUnlock(h_global);
+        let _ = GlobalUnlock(h_global);
 
-    let _ = EmptyClipboard();
-    if SetClipboardData(
-        CF_HDROP,
-        Some(windows::Win32::Foundation::HANDLE(h_global.0 as _)),
-    )
-    .is_err()
-    {
-        let _ = CloseClipboard();
-        return Err("SetClipboardData failed".into());
-    }
+        let _ = EmptyClipboard();
+        if set_clipboard_hglobal(CF_HDROP, h_global).is_err() {
+            return Err("SetClipboardData failed".into());
+        }
+
+        Ok(())
+    })();
 
     let _ = CloseClipboard();
-    Ok(())
+    result
 }
 
 pub fn get_clipboard_sequence_number() -> u32 {
@@ -792,12 +801,7 @@ unsafe fn set_clipboard_text_and_html_inner(
         }
         std::ptr::copy_nonoverlapping(wide.as_ptr() as *const u8, p_text as *mut u8, byte_len);
         let _ = GlobalUnlock(h_text);
-        if SetClipboardData(
-            CF_UNICODETEXT,
-            Some(windows::Win32::Foundation::HANDLE(h_text.0 as _)),
-        )
-        .is_err()
-        {
+        if set_clipboard_hglobal(CF_UNICODETEXT, h_text).is_err() {
             return Err("SetClipboardData (CF_UNICODETEXT) failed".to_string());
         }
 
@@ -821,10 +825,7 @@ unsafe fn set_clipboard_text_and_html_inner(
         std::ptr::copy_nonoverlapping(html_bytes.as_ptr(), p_html as *mut u8, html_bytes.len());
         *(p_html.add(html_bytes.len()) as *mut u8) = 0;
         let _ = GlobalUnlock(h_html);
-        let _ = SetClipboardData(
-            format_id,
-            Some(windows::Win32::Foundation::HANDLE(h_html.0 as _)),
-        );
+        let _ = set_clipboard_hglobal(format_id, h_html);
 
         // 3) The source app's own formats (WPS / Excel cell data), in this
         // same session. A separate session after closing let clipboard
@@ -953,10 +954,7 @@ pub unsafe fn set_clipboard_image_and_gif(
                                 data.len(),
                             );
                             let _ = GlobalUnlock(h_global);
-                            let _ = SetClipboardData(
-                                format_id,
-                                Some(windows::Win32::Foundation::HANDLE(h_global.0 as _)),
-                            );
+                            let _ = set_clipboard_hglobal(format_id, h_global);
                         }
                     }
                 }
@@ -1015,12 +1013,7 @@ pub unsafe fn set_clipboard_image_and_gif(
         }
 
         let _ = GlobalUnlock(h_global);
-        if SetClipboardData(
-            CF_DIB,
-            Some(windows::Win32::Foundation::HANDLE(h_global.0 as _)),
-        )
-        .is_err()
-        {
+        if set_clipboard_hglobal(CF_DIB, h_global).is_err() {
             return Err("SetClipboardData (CF_DIB) failed".to_string());
         }
 
@@ -1042,12 +1035,7 @@ unsafe fn set_clipboard_unicode_text_locked(text: &str) -> Result<(), String> {
     }
     std::ptr::copy_nonoverlapping(wide.as_ptr() as *const u8, p_text as *mut u8, byte_len);
     let _ = GlobalUnlock(h_text);
-    if SetClipboardData(
-        CF_UNICODETEXT,
-        Some(windows::Win32::Foundation::HANDLE(h_text.0 as _)),
-    )
-    .is_err()
-    {
+    if set_clipboard_hglobal(CF_UNICODETEXT, h_text).is_err() {
         return Err("SetClipboardData (CF_UNICODETEXT) failed".to_string());
     }
     Ok(())
@@ -1074,12 +1062,7 @@ unsafe fn set_clipboard_hdrop_path_locked(path: &str) -> Result<(), String> {
     std::ptr::copy_nonoverlapping(buffer.as_ptr(), p_files, buffer.len());
 
     let _ = GlobalUnlock(h_global);
-    if SetClipboardData(
-        CF_HDROP,
-        Some(windows::Win32::Foundation::HANDLE(h_global.0 as _)),
-    )
-    .is_err()
-    {
+    if set_clipboard_hglobal(CF_HDROP, h_global).is_err() {
         return Err("SetClipboardData (CF_HDROP) failed".to_string());
     }
     Ok(())
@@ -1161,10 +1144,7 @@ pub unsafe fn set_clipboard_image_with_formats(
                                 gif_bytes.len(),
                             );
                             let _ = GlobalUnlock(h_global);
-                            let _ = SetClipboardData(
-                                format_id,
-                                Some(windows::Win32::Foundation::HANDLE(h_global.0 as _)),
-                            );
+                            let _ = set_clipboard_hglobal(format_id, h_global);
                         }
                     }
                 }
@@ -1188,10 +1168,7 @@ pub unsafe fn set_clipboard_image_with_formats(
                                 png_bytes.len(),
                             );
                             let _ = GlobalUnlock(h_global);
-                            let _ = SetClipboardData(
-                                format_id,
-                                Some(windows::Win32::Foundation::HANDLE(h_global.0 as _)),
-                            );
+                            let _ = set_clipboard_hglobal(format_id, h_global);
                         }
                     }
                 }
@@ -1246,12 +1223,7 @@ pub unsafe fn set_clipboard_image_with_formats(
         }
 
         let _ = GlobalUnlock(h_global);
-        if SetClipboardData(
-            CF_DIB,
-            Some(windows::Win32::Foundation::HANDLE(h_global.0 as _)),
-        )
-        .is_err()
-        {
+        if set_clipboard_hglobal(CF_DIB, h_global).is_err() {
             return Err("SetClipboardData (CF_DIB) failed".to_string());
         }
 
