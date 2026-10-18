@@ -1659,7 +1659,7 @@ mod tests {
         normalize_clipboard_plain_text, parse_app_cleanup_policies, parse_cf_html,
         html_is_image_only, parse_cleanup_rules, plain_text_from_tabular_html, sanitize_tabular_html_for_paste,
         split_rich_html_and_image_fallback, split_rich_html_and_named_formats,
-        truncate_html_for_preview, visible_whitespace_preview, AppCleanupPolicy,
+        truncate_html_for_preview, visible_whitespace_preview, AppCleanupPolicy, CleanupAction,
         HTML_TRUNCATION_SUFFIX,
     };
     use crate::domain::models::ClipboardEntry;
@@ -2319,7 +2319,23 @@ mod tests {
 
         let cleaned = apply_cleanup_rules("token: abc123 13812345678", &rules);
 
-        assert_eq!(cleaned, "token: [REDACTED] [PHONE]");
+        assert_eq!(cleaned.as_deref(), Some("token: [REDACTED] [PHONE]"));
+    }
+
+    #[test]
+    fn cleanup_rule_marked_ignore_skips_matching_content() {
+        // As the settings page writes it; the leftover replacement is unused.
+        let rules = parse_cleanup_rules(
+            "# label: API keys\n# action: ignore\nsk-[A-Za-z0-9]+ => old\n\n(?i)token => [T]",
+        );
+
+        assert_eq!(rules.len(), 2);
+        assert_eq!(rules[0].1, CleanupAction::Ignore);
+        assert_eq!(apply_cleanup_rules("key sk-abc123", &rules), None);
+        assert_eq!(
+            apply_cleanup_rules("Token here", &rules).as_deref(),
+            Some("[T] here")
+        );
     }
 
     #[test]
@@ -2548,35 +2564,70 @@ pub fn contains_sensitive_info(text: &str, kinds: &[String], custom_rules: &[Str
     false
 }
 
-pub fn parse_cleanup_rules(raw_rules: &str) -> Vec<(Regex, String)> {
-    raw_rules
-        .lines()
-        .map(str::trim)
-        .filter(|line| !line.is_empty() && !line.starts_with('#'))
-        .filter_map(|line| {
-            let (pattern, replacement) = line.split_once("=>")?;
-            let pattern = pattern.trim();
-            if pattern.is_empty() {
-                return None;
-            }
-
-            let replacement = replacement
-                .trim()
-                .replace(r"\n", "\n")
-                .replace(r"\r", "\r")
-                .replace(r"\t", "\t");
-
-            Regex::new(pattern).ok().map(|regex| (regex, replacement))
-        })
-        .collect()
+#[derive(Debug, Clone, PartialEq)]
+pub enum CleanupAction {
+    Replace(String),
+    /// 「不记录」: content the pattern matches is not recorded.
+    Ignore,
 }
 
-pub fn apply_cleanup_rules(text: &str, rules: &[(Regex, String)]) -> String {
+/// One rule per `pattern => replacement` line. A `# action: ignore` comment
+/// line (written by the settings page) applies to the rule line after it.
+pub fn parse_cleanup_rules(raw_rules: &str) -> Vec<(Regex, CleanupAction)> {
+    let mut rules = Vec::new();
+    let mut ignore_next = false;
+    for line in raw_rules.lines().map(str::trim) {
+        if line.is_empty() {
+            continue;
+        }
+        if let Some(comment) = line.strip_prefix('#') {
+            if let Some((key, value)) = comment.split_once(':') {
+                if key.trim().eq_ignore_ascii_case("action") {
+                    ignore_next = value.trim().eq_ignore_ascii_case("ignore");
+                }
+            }
+            continue;
+        }
+
+        let ignore = std::mem::take(&mut ignore_next);
+        let Some((pattern, replacement)) = line.split_once("=>") else {
+            continue;
+        };
+        let pattern = pattern.trim();
+        if pattern.is_empty() {
+            continue;
+        }
+        let action = if ignore {
+            CleanupAction::Ignore
+        } else {
+            CleanupAction::Replace(
+                replacement
+                    .trim()
+                    .replace(r"\n", "\n")
+                    .replace(r"\r", "\r")
+                    .replace(r"\t", "\t"),
+            )
+        };
+        if let Ok(regex) = Regex::new(pattern) {
+            rules.push((regex, action));
+        }
+    }
     rules
-        .iter()
-        .fold(text.to_string(), |acc, (regex, replacement)| {
-            regex.replace_all(&acc, replacement.as_str()).into_owned()
-        })
+}
+
+/// Runs the rules top to bottom; None when an ignore rule matches.
+pub fn apply_cleanup_rules(text: &str, rules: &[(Regex, CleanupAction)]) -> Option<String> {
+    let mut text = text.to_string();
+    for (regex, action) in rules {
+        match action {
+            CleanupAction::Ignore if regex.is_match(&text) => return None,
+            CleanupAction::Ignore => {}
+            CleanupAction::Replace(replacement) => {
+                text = regex.replace_all(&text, replacement.as_str()).into_owned();
+            }
+        }
+    }
+    Some(text)
 }
 
 #[derive(Debug, Clone, Deserialize)]

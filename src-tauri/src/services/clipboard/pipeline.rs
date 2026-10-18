@@ -226,7 +226,10 @@ impl PipelineStage for TransformationStage {
                 if is_text_type(&entry.content_type) && !policy.cleanup_rules.trim().is_empty() {
                     let rules = parse_cleanup_rules(&policy.cleanup_rules);
                     if !rules.is_empty() {
-                        let cleaned = apply_cleanup_rules(&entry.content, &rules);
+                        let Some(cleaned) = apply_cleanup_rules(&entry.content, &rules) else {
+                            ctx.should_stop = true;
+                            return;
+                        };
                         if cleaned.trim().is_empty() || cleaned == "__IGNORE_CAPTURE__" {
                             ctx.should_stop = true;
                             return;
@@ -291,7 +294,10 @@ impl PipelineStage for TransformationStage {
             if !cleanup_rules_raw.trim().is_empty() {
                 let cleanup_rules = parse_cleanup_rules(&cleanup_rules_raw);
                 if !cleanup_rules.is_empty() {
-                    let cleaned = apply_cleanup_rules(&entry.content, &cleanup_rules);
+                    let Some(cleaned) = apply_cleanup_rules(&entry.content, &cleanup_rules) else {
+                        ctx.should_stop = true;
+                        return;
+                    };
                     if cleaned.trim().is_empty() || cleaned == "__IGNORE_CAPTURE__" {
                         ctx.should_stop = true;
                         return;
