@@ -1007,7 +1007,13 @@ const App = () => {
       pushToast
     });
 
-  useNavigationSync({ showSettings, showTagManager: effectiveShowTagManager, chatMode, showEmojiPanel: effectiveShowEmojiPanel });
+  useNavigationSync({
+    showSettings,
+    showTagManager: effectiveShowTagManager,
+    chatMode,
+    showEmojiPanel: effectiveShowEmojiPanel,
+    editingInline: editingTagsId !== null || editingNoteId !== null
+  });
 
   const { copyToClipboard, copyWithoutPaste, openContent, deleteEntry, deleteEntryById, togglePin, handleUpdateTags, handleUpdateNote } =
     useClipboardActions({

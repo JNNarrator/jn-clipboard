@@ -505,6 +505,13 @@ export const useKeyboardNavigation = ({
         const item = resolveSelectedItem(history);
         if (!item) return;
         await pasteSelectedItem(true, item);
+      } else if (action === "plain") {
+        // The plain text hotkey, sent by the backend because a registered
+        // hotkey never reaches this keydown handler.
+        if (!isNavMode) return;
+        const item = resolveSelectedItem(history);
+        if (!item) return;
+        await pasteSelectedItem(false, item);
       } else if (action === "copy") {
         if (!isNavMode) return;
         const now = performance.now();
