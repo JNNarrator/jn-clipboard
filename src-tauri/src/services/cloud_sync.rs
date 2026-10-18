@@ -38,6 +38,8 @@ const RICH_IMAGE_FALLBACK_PREFIX: &str = "<!--TIEZ_RICH_IMAGE:";
 const RICH_IMAGE_FALLBACK_SUFFIX: &str = "-->";
 const WEBDAV_OP_BATCH_SIZE: usize = 400;
 const EMOJI_FAVORITES_SETTING_KEY: &str = "app.emoji_favorites";
+/// Favorites as of the last emoji sync on this device (see merge_favorites).
+const CLOUD_SYNC_EMOJI_BASE_KEY: &str = "cloud_sync_emoji_favorites_base";
 const CLOUD_SYNC_WEBDAV_LOCAL_SEQ_KEY: &str = "cloud_sync_webdav_local_seq";
 const CLOUD_SYNC_WEBDAV_OP_CURSOR_MAP_KEY: &str = "cloud_sync_webdav_op_cursor_map";
 const CLOUD_SYNC_WEBDAV_BLOB_CACHE_KEY: &str = "cloud_sync_webdav_blob_cache";
@@ -67,7 +69,6 @@ static CLOUD_SYNC_TASK_ACTIVE: AtomicBool = AtomicBool::new(false);
 static CLOUD_SYNC_REQUESTED: AtomicBool = AtomicBool::new(false);
 static CLOUD_SYNC_CANCEL_REQUESTED: AtomicBool = AtomicBool::new(false);
 static CLOUD_SYNC_LAST_SYNC_AT: AtomicI64 = AtomicI64::new(0);
-static LAST_PUSHED_EMOJI_HASH: AtomicI64 = AtomicI64::new(0);
 static CLOUD_SYNC_BACKOFF_UNTIL: AtomicI64 = AtomicI64::new(0);
 
 // 用于记录在本次运行中，哪些 WebDAV 目录已经确认存在，避免重复发网络请求
@@ -3982,10 +3983,11 @@ async fn sync_once_webdav(
 
     // Incremental Emoji Sync check
     if let Ok(emoji_op) = check_and_create_emoji_sync_op(app) {
-        if let Some(op) = emoji_op {
+        if let Some((op, sent_list)) = emoji_op {
             let next_seq = get_local_webdav_op_seq(app).saturating_add(1);
             upload_webdav_ops_batch(&client, cfg, &paths.ops_path, next_seq, &[op]).await?;
             set_local_webdav_op_seq(app, next_seq)?;
+            save_emoji_base(app, &sent_list)?;
             uploaded_items += 1;
             update_webdav_head_device(&mut sync_head, &cfg.device_id, |device| {
                 device.latest_op_seq = device.latest_op_seq.max(next_seq);
@@ -4410,7 +4412,8 @@ pub async fn cloud_sync_now(app: AppHandle) -> AppResult<CloudSyncStatus> {
     sync_once(&app, &cfg, true).await
 }
 
-fn check_and_create_emoji_sync_op(app: &AppHandle) -> AppResult<Option<CloudSyncItem>> {
+/// The favorites op to send, with the list to record as synced once it's sent.
+fn check_and_create_emoji_sync_op(app: &AppHandle) -> AppResult<Option<(CloudSyncItem, Vec<String>)>> {
     let db_state = app
         .try_state::<DbState>()
         .ok_or_else(|| AppError::Internal("DB unavailable".to_string()))?;
@@ -4432,31 +4435,27 @@ fn check_and_create_emoji_sync_op(app: &AppHandle) -> AppResult<Option<CloudSync
         .ok()
         .flatten()
         .unwrap_or_default();
-
-    if emoji_json.trim().is_empty() || emoji_json == "[]" {
+    let mut local: Vec<String> = serde_json::from_str(&emoji_json).unwrap_or_default();
+    local.sort();
+    local.dedup();
+    // Only what changed here since the last sync goes out: a new device's
+    // empty list must not count as removing everyone's favorites.
+    if local == load_emoji_base(app) {
         return Ok(None);
     }
 
-    let Some(sync_payload) = encode_emoji_favorites_setting(&emoji_json) else {
+    let local_json = serde_json::to_string(&local).unwrap_or_else(|_| "[]".to_string());
+    let Some(sync_payload) = encode_emoji_favorites_setting(&local_json) else {
         return Ok(None);
     };
-    if sync_payload.trim().is_empty() || sync_payload == "[]" {
-        return Ok(None);
-    }
 
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     use std::hash::{Hash, Hasher};
     sync_payload.hash(&mut hasher);
     let current_hash = hasher.finish() as i64;
 
-    if current_hash == LAST_PUSHED_EMOJI_HASH.load(Ordering::Relaxed) {
-        return Ok(None);
-    }
-
-    LAST_PUSHED_EMOJI_HASH.store(current_hash, Ordering::Relaxed);
-
     let timestamp = now_ms();
-    Ok(Some(CloudSyncItem {
+    Ok(Some((CloudSyncItem {
         content_type: "emoji_sync".to_string(),
         content: sync_payload,
         content_hash: current_hash,
@@ -4475,7 +4474,7 @@ fn check_and_create_emoji_sync_op(app: &AppHandle) -> AppResult<Option<CloudSync
         tags: vec![],
         use_count: 0,
         tags_updated_at: 0,
-    }))
+    }, local)))
 }
 
 fn merge_remote_emojis(app: &AppHandle, remote_json: &str) -> AppResult<()> {
@@ -4496,14 +4495,7 @@ fn merge_remote_emojis(app: &AppHandle, remote_json: &str) -> AppResult<()> {
     };
     let remote_paths = materialize_emoji_favorite_paths(app, remote_json)?;
     let normalized_local_json = serde_json::to_string(&local_paths).unwrap_or_default();
-
-    let mut merged: std::collections::HashSet<String> = local_paths.iter().cloned().collect();
-    for path in remote_paths {
-        merged.insert(path);
-    }
-
-    let mut merged_paths: Vec<String> = merged.into_iter().collect();
-    merged_paths.sort();
+    let merged_paths = merge_favorites(&load_emoji_base(app), &local_paths, &remote_paths);
 
     if merged_paths != local_paths || normalized_local_json != local_json {
         let new_json = serde_json::to_string(&merged_paths).unwrap_or_default();
@@ -4511,19 +4503,37 @@ fn merge_remote_emojis(app: &AppHandle, remote_json: &str) -> AppResult<()> {
             .settings_repo
             .set(EMOJI_FAVORITES_SETTING_KEY, &new_json)
             .map_err(AppError::from)?;
-
-        // Update local hash to prevent echoing back the same data.
-        let sync_payload =
-            encode_emoji_favorites_setting(&new_json).unwrap_or_else(|| "[]".to_string());
-        let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        use std::hash::{Hash, Hasher};
-        sync_payload.hash(&mut hasher);
-        LAST_PUSHED_EMOJI_HASH.store(hasher.finish() as i64, Ordering::Relaxed);
-
         let _ = app.emit("settings-changed", ());
     }
+    // The sync knows the sender's list now. What differs from it here (local
+    // changes not sent yet) goes out next time; nothing else echoes back.
+    save_emoji_base(app, &remote_paths)
+}
 
-    Ok(())
+/// Favorites both sides kept since `base`, plus what either side added: a
+/// favorite removed on one device stays removed (a plain union brought it back).
+fn merge_favorites(base: &[String], local: &[String], remote: &[String]) -> Vec<String> {
+    let base: HashSet<&String> = base.iter().collect();
+    let local_set: HashSet<&String> = local.iter().collect();
+    let remote_set: HashSet<&String> = remote.iter().collect();
+    let mut merged: Vec<String> = local
+        .iter()
+        .filter(|path| !base.contains(path) || remote_set.contains(path))
+        .chain(remote.iter().filter(|path| !base.contains(path) || local_set.contains(path)))
+        .cloned()
+        .collect();
+    merged.sort();
+    merged.dedup();
+    merged
+}
+
+fn load_emoji_base(app: &AppHandle) -> Vec<String> {
+    serde_json::from_str(&get_setting_string(app, CLOUD_SYNC_EMOJI_BASE_KEY)).unwrap_or_default()
+}
+
+fn save_emoji_base(app: &AppHandle, paths: &[String]) -> AppResult<()> {
+    let json = serde_json::to_string(paths).map_err(|e| AppError::Internal(e.to_string()))?;
+    set_setting_string(app, CLOUD_SYNC_EMOJI_BASE_KEY, &json)
 }
 
 #[cfg(test)]
@@ -4551,6 +4561,20 @@ mod tests {
         .await
         .unwrap();
         assert!(requested.load(Ordering::Relaxed));
+    }
+
+    #[test]
+    fn a_removed_emoji_favorite_stays_removed() {
+        use super::merge_favorites;
+        let list = |items: &[&str]| items.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        let base = list(&["a", "b", "c"]);
+
+        // Removed on the other device, added here: both kept.
+        assert_eq!(merge_favorites(&base, &list(&["a", "b", "c", "d"]), &list(&["a", "c"])), list(&["a", "c", "d"]));
+        // Removed here; the other device still has it: stays removed.
+        assert_eq!(merge_favorites(&base, &list(&["a"]), &base), list(&["a"]));
+        // A device that never synced takes everything.
+        assert_eq!(merge_favorites(&[], &[], &base), base);
     }
 
     #[tokio::test]
