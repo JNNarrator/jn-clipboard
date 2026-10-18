@@ -1044,14 +1044,29 @@ fn enable_autostart_on_first_run(app_handle: &AppHandle, db_state: &DbState) {
             return;
         }
     }
-    use crate::app::commands::system_cmd::{is_autostart_enabled, toggle_autostart};
-    // toggle_autostart ignores the launcher's error on macOS; check the result.
-    let _ = toggle_autostart(app_handle.clone(), true);
+    use crate::app::commands::system_cmd::{apply_autostart, is_autostart_enabled};
+    // apply_autostart ignores the launcher's error on macOS; check the result.
+    let _ = apply_autostart(app_handle, true);
     if is_autostart_enabled(app_handle.clone()).unwrap_or(false) {
+        done();
+    } else if login_item_switched_off() {
+        // Registered, but the user switched TieZ off in System Settings
+        // before (a reinstall): their choice, and nothing left to retry.
         done();
     } else {
         eprintln!(">>> [STARTUP] enabling launch at login failed; retrying next start");
     }
+}
+
+#[cfg(target_os = "macos")]
+fn login_item_switched_off() -> bool {
+    use crate::infrastructure::macos_api::login_item;
+    login_item::available() && login_item::requires_approval()
+}
+
+#[cfg(not(target_os = "macos"))]
+fn login_item_switched_off() -> bool {
+    false
 }
 
 /// Moves a login item made the old way (~/Library/LaunchAgents, shown under
@@ -1076,6 +1091,10 @@ fn migrate_macos_login_item(app_handle: &AppHandle) {
     }
     match login_item::set_enabled(true) {
         Ok(()) => {
+            let _ = autolaunch.disable();
+        }
+        // Moved, but switched off in System Settings: the user's choice.
+        Err(_) if login_item::requires_approval() => {
             let _ = autolaunch.disable();
         }
         // Keep the old item rather than lose launch at login.

@@ -294,6 +294,21 @@ pub fn open_file_location(file_path: String) -> AppResult<()> {
 
 #[tauri::command]
 pub fn toggle_autostart(app_handle: AppHandle, enabled: bool) -> AppResult<()> {
+    let result = apply_autostart(&app_handle, enabled);
+    #[cfg(target_os = "macos")]
+    {
+        use crate::infrastructure::macos_api::login_item;
+        if enabled && result.is_err() && login_item::available() && login_item::requires_approval() {
+            // Switched off in System Settings, where only the user can switch
+            // it back on: take them there instead of failing silently.
+            login_item::open_settings();
+        }
+    }
+    result
+}
+
+/// `toggle_autostart` without sending the user anywhere; for TieZ's own use.
+pub(crate) fn apply_autostart(app_handle: &AppHandle, enabled: bool) -> AppResult<()> {
     #[cfg(target_os = "windows")]
     {
         use crate::infrastructure::windows_api::elevated_autostart;
