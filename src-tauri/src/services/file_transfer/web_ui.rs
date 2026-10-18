@@ -1776,12 +1776,17 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
             document.getElementById('expand-btn').style.display = 'none';
 
             try {{
-                await fetch('/s/send-text', {{
+                const res = await fetch('/s/send-text', {{
                     method: 'POST',
                     headers: {{ 'Content-Type': 'application/octet-stream' }},
                     body: sealJson('text', {{ content: text, sender_id: deviceId, sender_name: deviceName }})
                 }});
-            }} catch(e) {{ alert('Send failed'); }}
+                if (!res.ok) throw new Error(String(res.status));
+            }} catch(e) {{
+                // Keep what was typed: an expired connection answers 401.
+                if (!textInput.value) textInput.value = text;
+                alert('Send failed');
+            }}
         }};
 
         fileInput.onchange = async () => {{
