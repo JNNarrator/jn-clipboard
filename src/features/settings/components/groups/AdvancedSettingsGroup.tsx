@@ -6,6 +6,7 @@ import type { AppCleanupPolicy, AppCleanupPolicyAction } from "../../types";
 import PaneDivider from "../../../../shared/components/PaneDivider";
 import ExpandableSearch from "../../../../shared/components/ExpandableSearch";
 import { usePaneWidth } from "../../../../shared/hooks/usePaneWidth";
+import { parseRules, serializeRules, type EditableRule } from "../../utils/cleanupRules";
 
 interface AdvancedSettingsGroupProps {
     t: (key: string) => string;
@@ -14,13 +15,6 @@ interface AdvancedSettingsGroupProps {
     appCleanupPolicies: AppCleanupPolicy[];
     setAppCleanupPolicies: (val: AppCleanupPolicy[]) => void;
     installedApps: InstalledAppOption[];
-}
-
-interface EditableRule {
-    match: string;
-    replace: string;
-    label?: string;
-    action?: "clean" | "ignore";
 }
 
 interface SourceTarget {
@@ -38,57 +32,6 @@ const DEFAULT_POLICY_CONTENT_TYPES = ["text", "code", "url", "rich_text"];
 
 const createPolicyId = () =>
     `policy_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-
-const parseRules = (rawRules: string): EditableRule[] => {
-    const lines = rawRules.split(/\r?\n/).map((line) => line.trim());
-    const rules: EditableRule[] = [];
-    let currentLabel: string | null = null;
-    let currentAction: "clean" | "ignore" | undefined = undefined;
-
-    for (const line of lines) {
-        if (line.length === 0) continue;
-        if (line.startsWith("#")) {
-            const labelMatch = line.match(/^#\s*label:\s*(.*)$/i);
-            if (labelMatch) {
-                currentLabel = labelMatch[1].trim();
-            }
-            const actionMatch = line.match(/^#\s*action:\s*(.*)$/i);
-            if (actionMatch) {
-                const actValue = actionMatch[1].trim().toLowerCase();
-                currentAction = actValue === "ignore" ? "ignore" : "clean";
-            }
-            continue;
-        }
-
-        const [matchPart, replacePart = ""] = line.split(/=>/, 2);
-        rules.push({
-            match: matchPart.trim(),
-            replace: replacePart.trim(),
-            label: currentLabel ?? undefined,
-            action: currentAction ?? "clean"
-        });
-        currentLabel = null;
-        currentAction = undefined;
-    }
-
-    return rules;
-};
-
-const serializeRules = (rules: EditableRule[]): string =>
-    rules
-        .filter((rule) => rule.match.trim().length > 0)
-        .map((rule) => {
-            const lines = [];
-            if (rule.label?.trim()) {
-                lines.push(`# label: ${rule.label.trim()}`);
-            }
-            if (rule.action === "ignore") {
-                lines.push("# action: ignore");
-            }
-            lines.push(`${rule.match.trim()} => ${rule.replace}`);
-            return lines.join("\n");
-        })
-        .join("\n\n");
 
 const AdvancedSettingsGroup = ({
     t,
