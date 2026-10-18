@@ -3765,11 +3765,16 @@ async fn sync_once_webdav(
     let sync_cursor = get_setting_i64(app, "cloud_sync_cursor", 0);
 
     let candidate_entries = blocking(|| fetch_syncable_entries(app, Some(sync_cursor)))?;
-    let candidate_items = entries_to_sync_items(
+    let mut candidate_items = entries_to_sync_items(
         candidate_entries,
         &cfg.content_prefs,
         &load_tag_edit_times(app, None)?,
     );
+    // Deletions go out with this round's ops too; left to the next snapshot,
+    // they reached other devices up to 12 hours late.
+    candidate_items.extend(blocking(|| {
+        collect_local_tombstones(app, &cfg.content_prefs, Some(sync_cursor))
+    })?);
     let (delta_items, _) = collect_local_incremental_items(app, &candidate_items)?;
 
     // Turning end-to-end encryption on or off, or changing the key, makes this
