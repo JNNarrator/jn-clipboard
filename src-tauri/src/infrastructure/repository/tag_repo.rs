@@ -29,6 +29,18 @@ impl SqliteTagRepository {
         encryption::decrypt_stored_value(value).map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::new(std::io::ErrorKind::InvalidData, e))))
     }
 
+    fn entry_tags_with_conn(conn: &Connection, entry_id: i64) -> Result<Vec<String>, String> {
+        let mut stmt = conn
+            .prepare("SELECT tag FROM entry_tags WHERE entry_id = ?")
+            .map_err(|e| e.to_string())?;
+        let tags = stmt
+            .query_map(params![entry_id], |row| row.get::<_, String>(0))
+            .map_err(|e| e.to_string())?
+            .filter_map(Result::ok)
+            .collect();
+        Ok(tags)
+    }
+
     fn refresh_entry_tags_json(conn: &Connection, entry_id: i64) -> Result<(), String> {
         let mut stmt = conn
             .prepare("SELECT tag FROM entry_tags WHERE entry_id = ? ORDER BY tag")
@@ -53,6 +65,43 @@ impl SqliteTagRepository {
         )
         .map_err(|e| e.to_string())?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod rename_tests {
+    use super::*;
+
+    fn repo_with_entry(tag: &str) -> SqliteTagRepository {
+        let conn = Connection::open_in_memory().expect("open database");
+        crate::infrastructure::repository::migrations::run_migrations(&conn).expect("migrate");
+        conn.execute(
+            "INSERT INTO clipboard_history (id, content_type, content, source_app, timestamp, sort_at, preview, tags)
+             VALUES (1, 'text', 'hunter2', 'App', 1, 1, 'hunter2', ?1)",
+            params![serde_json::to_string(&[tag]).unwrap()],
+        )
+        .unwrap();
+        conn.execute("INSERT INTO entry_tags (entry_id, tag) VALUES (1, ?1)", params![tag]).unwrap();
+        SqliteTagRepository::new(Arc::new(Mutex::new(conn)))
+    }
+
+    fn stored_content(repo: &SqliteTagRepository) -> String {
+        repo.conn
+            .lock()
+            .unwrap()
+            .query_row("SELECT content FROM clipboard_history WHERE id = 1", [], |r| r.get(0))
+            .unwrap()
+    }
+
+    #[test]
+    fn renaming_a_tag_to_a_sensitive_name_encrypts_its_entries() {
+        let repo = repo_with_entry("work");
+
+        repo.rename("work", "Password").unwrap();
+        assert!(encryption::is_encrypted_value(&stored_content(&repo)));
+
+        repo.rename("Password", "work").unwrap();
+        assert_eq!(stored_content(&repo), "hunter2");
     }
 }
 
@@ -161,6 +210,12 @@ impl TagRepository for SqliteTagRepository {
 
         let _ = conn.execute("DELETE FROM saved_tags WHERE name = ?", params![old_name]);
 
+        // Entries with a sensitive tag are stored encrypted (see update_entry_tags).
+        let sensitivity_changes = crate::database::has_sensitive_tag(&[old_name.to_string()])
+            != crate::database::has_sensitive_tag(&[new_name.to_string()]);
+        let clipboard_repo =
+            crate::infrastructure::repository::clipboard_repo::SqliteClipboardRepository::new(self.conn.clone());
+
         // Update entry_tags and refresh JSON cache
         let mut stmt = conn
             .prepare("SELECT entry_id FROM entry_tags WHERE tag = ?")
@@ -183,6 +238,13 @@ impl TagRepository for SqliteTagRepository {
             )
             .map_err(|e| e.to_string())?;
             Self::refresh_entry_tags_json(&conn, id)?;
+            if sensitivity_changes {
+                if crate::database::has_sensitive_tag(&Self::entry_tags_with_conn(&conn, id)?) {
+                    clipboard_repo.encrypt_entry_with_conn(&conn, id)?;
+                } else {
+                    clipboard_repo.decrypt_entry_with_conn(&conn, id)?;
+                }
+            }
         }
         Ok(())
     }

@@ -26,6 +26,8 @@ interface DataSettingsGroupProps {
     collapsed: boolean;
     onToggle: () => void;
     dataPath: string;
+    /** Portable build: the data stays in the folder next to the app. */
+    portable: boolean;
 }
 
 interface ImportReport {
@@ -99,7 +101,8 @@ const DataSettingsGroup = ({
     theme,
     collapsed,
     onToggle,
-    dataPath
+    dataPath,
+    portable
 }: DataSettingsGroupProps) => {
     const [modalOpen, setModalOpen] = useState(false);
     const [step, setStep] = useState<ImportStep>("apps");
@@ -424,44 +427,46 @@ const DataSettingsGroup = ({
                                     <span className="item-label">{t("data_path")}</span>
                                 </div>
                                 <div className="settings-action-group">
-                                    <button
-                                        type="button"
-                                        className="settings-action-button settings-action-button--small"
-                                        onClick={async () => {
-                                            await withNativeDialog(async () => {
-                                                const selected = await open({
-                                                    directory: true,
-                                                    multiple: false,
-                                                    title: t("change_data_path")
-                                                });
-                                                if (!selected) return;
+                                    {!portable && (
+                                        <button
+                                            type="button"
+                                            className="settings-action-button settings-action-button--small"
+                                            onClick={async () => {
+                                                await withNativeDialog(async () => {
+                                                    const selected = await open({
+                                                        directory: true,
+                                                        multiple: false,
+                                                        title: t("change_data_path")
+                                                    });
+                                                    if (!selected) return;
 
-                                                const newPath = selected as string;
-                                                const confirmed = await ask(
-                                                    t("data_move_confirm").replace("{path}", newPath),
-                                                    { title: t("change_data_path"), kind: "warning", okLabel: t("confirm"), cancelLabel: t("cancel") }
-                                                );
-                                                if (!confirmed) return;
+                                                    const newPath = selected as string;
+                                                    const confirmed = await ask(
+                                                        t("data_move_confirm").replace("{path}", newPath),
+                                                        { title: t("change_data_path"), kind: "warning", okLabel: t("confirm"), cancelLabel: t("cancel") }
+                                                    );
+                                                    if (!confirmed) return;
 
-                                                try {
-                                                    await invoke("set_data_path", { newPath });
-                                                    await message(
-                                                        t("data_move_success"),
-                                                        { title: t("notice"), kind: "info" }
-                                                    );
-                                                    await invoke("relaunch");
-                                                } catch (error: unknown) {
-                                                    console.error(error);
-                                                    await message(
-                                                        t("data_move_failed").replace("{e}", formatError(error, t)),
-                                                        { title: t("error"), kind: "error" }
-                                                    );
-                                                }
-                                            }, "settings:change-data-path");
-                                        }}
-                                    >
-                                        {t("change_app")}
-                                    </button>
+                                                    try {
+                                                        await invoke("set_data_path", { newPath });
+                                                        await message(
+                                                            t("data_move_success"),
+                                                            { title: t("notice"), kind: "info" }
+                                                        );
+                                                        await invoke("relaunch");
+                                                    } catch (error: unknown) {
+                                                        console.error(error);
+                                                        await message(
+                                                            t("data_move_failed").replace("{e}", formatError(error, t)),
+                                                            { title: t("error"), kind: "error" }
+                                                        );
+                                                    }
+                                                }, "settings:change-data-path");
+                                            }}
+                                        >
+                                            {t("change_app")}
+                                        </button>
+                                    )}
                                     <button
                                         type="button"
                                         className="settings-action-button settings-action-button--small"
@@ -486,6 +491,9 @@ const DataSettingsGroup = ({
                             <div className="data-panel settings-path-panel is-static">
                                 {dataPath}
                             </div>
+                            {portable && (
+                                <span className="item-desc">{t("data_path_portable_hint")}</span>
+                            )}
                         </div>
                         <div className="setting-item clipboard-import-entry">
                             <div className="item-label-group">

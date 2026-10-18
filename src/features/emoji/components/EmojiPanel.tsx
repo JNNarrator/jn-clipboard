@@ -618,19 +618,6 @@ const EmojiPanel = ({ t, language = "zh", favorites, setFavorites, activeTab, se
   useEffect(() => {
     const appWindow = getCurrentWindow();
 
-    const unlistenDrop = appWindow.listen("tauri://file-drop", (e) => {
-      const paths = resolveDropPaths(e.payload);
-      if (paths.length > 0) {
-        void addFavoritePaths(paths);
-      }
-      setIsDragging(false);
-    });
-    const unlistenHover = appWindow.listen("tauri://file-drop-hover", () => {
-      setIsDragging(true);
-    });
-    const unlistenCancel = appWindow.listen("tauri://file-drop-cancelled", () => {
-      setIsDragging(false);
-    });
     const unlistenV2Drop = appWindow.listen("tauri://drag-drop", (e) => {
       const paths = resolveDropPaths(e.payload);
       if (paths.length > 0) {
@@ -662,9 +649,6 @@ const EmojiPanel = ({ t, language = "zh", favorites, setFavorites, activeTab, se
     });
 
     return () => {
-      unlistenDrop.then((f) => f());
-      unlistenHover.then((f) => f());
-      unlistenCancel.then((f) => f());
       unlistenV2Drop.then((f) => f());
       unlistenV2Enter.then((f) => f());
       unlistenV2Leave.then((f) => f());

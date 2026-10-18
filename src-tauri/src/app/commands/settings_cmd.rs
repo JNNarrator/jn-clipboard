@@ -634,57 +634,13 @@ pub fn reset_settings(
         .set("app.anon_id", &new_id)
         .map_err(AppError::from)?;
 
-    let main_hotkey = state
-        .settings_repo
-        .get("app.hotkey")
-        .unwrap_or(Some("Alt+C".to_string()))
-        .unwrap_or("Alt+C".to_string());
-    let seq_hotkey = state
-        .settings_repo
-        .get("app.sequential_hotkey")
-        .unwrap_or(Some("Alt+V".to_string()))
-        .unwrap_or("Alt+V".to_string());
-    let plain_hotkey = state
-        .settings_repo
-        .get("app.plain_paste_hotkey")
-        .ok()
-        .flatten()
-        .unwrap_or_default();
-    let search_hotkey = state
-        .settings_repo
-        .get("app.search_hotkey")
-        .unwrap_or(Some("Alt+F".to_string()))
-        .unwrap_or("Alt+F".to_string());
-    let quick_paste_modifier = state
-        .settings_repo
-        .get("app.quick_paste_modifier")
-        .unwrap_or(Some("disabled".to_string()))
-        .unwrap_or("disabled".to_string());
-
-    {
-        let mut guard = settings_state.main_hotkey.lock().unwrap();
-        *guard = main_hotkey.clone();
-    }
-    {
-        let mut guard = settings_state.sequential_paste_hotkey.lock().unwrap();
-        *guard = seq_hotkey.clone();
-    }
-    {
-        let mut guard = settings_state.plain_paste_hotkey.lock().unwrap();
-        *guard = plain_hotkey;
-    }
-    {
-        let mut guard = settings_state.search_hotkey.lock().unwrap();
-        *guard = search_hotkey.clone();
-    }
-    {
-        let mut guard = settings_state.quick_paste_modifier.lock().unwrap();
-        *guard = quick_paste_modifier;
-    }
-    {
-        let mut guard = crate::global_state::HOTKEY_STRING.lock().unwrap();
-        *guard = main_hotkey.clone();
-    }
+    // Running state follows the defaults now, not after the next start.
+    let fresh = crate::app::setup::load_settings(&state.settings_repo);
+    settings_state.take_values_from(crate::app::setup::settings_state_from(&fresh));
+    *crate::global_state::HOTKEY_STRING.lock().unwrap() = fresh.main_hotkey.clone();
+    // The window applies the rest when it reloads, but not these two.
+    let _ = set_tray_visible(app.clone(), app.state(), !fresh.hide_tray_icon);
+    let _ = set_dock_visible(app.clone(), app.state(), !fresh.hide_dock_icon);
 
     sync_registered_hotkeys(&app)
 }

@@ -788,6 +788,19 @@ impl SqliteClipboardRepository {
         id: i64,
         data_dir: Option<&std::path::Path>,
     ) -> Result<Vec<std::path::PathBuf>, String> {
+        self.delete_collecting_files_syncing(conn, id, data_dir, true)
+    }
+
+    /// `sync_deletion`: leave a tombstone so synced devices delete the entry
+    /// too. Not for entries over this device's history limit: the limit is
+    /// set per device, and another device may keep more.
+    fn delete_collecting_files_syncing(
+        &self,
+        conn: &Connection,
+        id: i64,
+        data_dir: Option<&std::path::Path>,
+        sync_deletion: bool,
+    ) -> Result<Vec<std::path::PathBuf>, String> {
         self.validate_entry_with_conn(conn, id)?;
         let mut tombstone: Option<(String, i64)> = None;
         let mut candidates = Vec::new();
@@ -832,7 +845,7 @@ impl SqliteClipboardRepository {
             }
         }
 
-        if let Some((content_type, content_hash)) = tombstone {
+        if let Some((content_type, content_hash)) = tombstone.filter(|_| sync_deletion) {
             self.upsert_tombstone_with_conn(conn, &content_type, content_hash, now_ms())?;
         }
 
@@ -1018,7 +1031,7 @@ impl SqliteClipboardRepository {
                     // Actually delete records (and files if needed)
                     let mut candidates = Vec::new();
                     for id in &deleted_ids {
-                        if let Ok(files) = self.delete_collecting_files(conn, *id, data_dir) {
+                        if let Ok(files) = self.delete_collecting_files_syncing(conn, *id, data_dir, false) {
                             candidates.extend(files);
                         }
                     }
@@ -1186,6 +1199,16 @@ impl SqliteClipboardRepository {
                 ).map_err(|e| e.to_string())?;
             }
             return Ok(());
+        }
+        if content_type == "image" {
+            // Duplicate checks find images by this hash: left at the original's,
+            // copying the original again overwrote the edited image.
+            if let Some(hash) = calc_image_hash(content) {
+                conn.execute(
+                    "UPDATE clipboard_history SET content_hash = ? WHERE id = ?",
+                    params![hash, id],
+                ).map_err(|e| e.to_string())?;
+            }
         }
         if should_encrypt {
             let encrypted_content = self.maybe_encrypt_text(content)?;
@@ -1816,6 +1839,25 @@ mod tests {
     "#;
 
     #[test]
+    fn entries_over_the_history_limit_are_not_deleted_on_other_devices() {
+        let repo = search_repository(
+            "INSERT INTO settings (key, value) VALUES ('app.persistent_limit_enabled', 'true'), ('app.persistent_limit', '1');
+             INSERT INTO clipboard_history (id, content_type, content, source_app, timestamp, sort_at, preview, tags)
+             VALUES (1, 'text', 'older', 'App', 1, 1, 'older', '[]'), (2, 'text', 'newer', 'App', 2, 2, 'newer', '[]');",
+        );
+        let conn = repo.conn.lock().unwrap();
+        let tombstones = |conn: &Connection| -> i64 {
+            conn.query_row("SELECT COUNT(*) FROM cloud_sync_tombstones", [], |r| r.get(0)).unwrap()
+        };
+
+        assert_eq!(repo.enforce_limit_with_conn(&conn, None).unwrap(), vec![1]);
+        assert_eq!(tombstones(&conn), 0);
+
+        repo.delete_with_conn(&conn, 2, None).unwrap();
+        assert_eq!(tombstones(&conn), 1, "a deletion by the user still syncs");
+    }
+
+    #[test]
     fn saving_a_session_image_copies_it_out_of_session_storage() {
         let data_dir = std::env::temp_dir().join(format!("tiez-session-save-{}", std::process::id()));
         let session_dir = data_dir.join("session").join("attachments");
@@ -1851,6 +1893,33 @@ mod tests {
         assert_eq!(std::fs::read(stored).unwrap(), png);
 
         let _ = std::fs::remove_dir_all(&data_dir);
+    }
+
+    #[test]
+    fn an_edited_image_is_not_found_as_its_original() {
+        let dir = std::env::temp_dir().join(format!("tiez-image-edit-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let original = dir.join("original.png");
+        let edited = dir.join("edited.png");
+        std::fs::write(&original, b"\x89PNG original").unwrap();
+        std::fs::write(&edited, b"\x89PNG edited").unwrap();
+        let (original, edited) = (original.to_string_lossy().to_string(), edited.to_string_lossy().to_string());
+
+        let repo = search_repository("");
+        let entry: ClipboardEntry = serde_json::from_value(serde_json::json!({
+            "id": 0, "content_type": "image", "content": original, "source_app": "App",
+            "timestamp": 1, "preview": "", "is_pinned": false, "is_external": true,
+        }))
+        .unwrap();
+        let conn = repo.conn.lock().unwrap();
+        let id = repo.save_with_conn(&conn, &entry, None, None).unwrap();
+
+        repo.update_entry_content_with_conn(&conn, id, &edited, "").unwrap();
+
+        assert_eq!(repo.find_by_content_with_conn(&conn, &original, Some("image")).unwrap(), None);
+        assert_eq!(repo.find_by_content_with_conn(&conn, &edited, Some("image")).unwrap(), Some(id));
+        drop(conn);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

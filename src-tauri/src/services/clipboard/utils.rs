@@ -1442,9 +1442,18 @@ pub fn plain_text_from_tabular_html(html: &str) -> Option<String> {
     Some(rows.join("\r\n"))
 }
 
+/// Spaces or tabs at the ends would be lost in HTML (#97). Line breaks at the
+/// ends don't count: copies from Excel and Word end with one.
 pub fn plain_text_requires_exact_paste(text: &str) -> bool {
     let normalized = normalize_clipboard_line_endings(text);
-    is_whitespace_only(&normalized) || has_edge_whitespace(&normalized)
+    is_whitespace_only(&normalized) || has_edge_whitespace(normalized.trim_matches('\n'))
+}
+
+/// Paste `text` exactly instead of its HTML. Never for a table: the HTML has
+/// the cells (an empty last cell leaves a tab at the end of the text), and
+/// swapping it for plain text dropped the formatting.
+pub fn rich_paste_needs_exact_text(text: &str, html: &str) -> bool {
+    !html.to_ascii_lowercase().contains("<tr") && plain_text_requires_exact_paste(text)
 }
 
 fn escape_html_for_paste(text: &str) -> String {
@@ -1907,6 +1916,18 @@ mod tests {
         assert!(super::plain_text_requires_exact_paste("test "));
         assert!(super::plain_text_requires_exact_paste("   "));
         assert!(!super::plain_text_requires_exact_paste("hello world"));
+        assert!(super::plain_text_requires_exact_paste("  indented\n"));
+        assert!(super::plain_text_requires_exact_paste("\n"));
+        // Excel rows and Word paragraphs end with a line break.
+        assert!(!super::plain_text_requires_exact_paste("a\tb\r\n"));
+        assert!(!super::plain_text_requires_exact_paste("Paragraph\r\n"));
+    }
+
+    #[test]
+    fn tables_keep_their_html_when_pasted() {
+        let row = "<table><tr><td>a</td><td></td></tr></table>";
+        assert!(!super::rich_paste_needs_exact_text("a\t\r\n", row));
+        assert!(super::rich_paste_needs_exact_text("  code", "<span>  code</span>"));
     }
 
     #[test]
