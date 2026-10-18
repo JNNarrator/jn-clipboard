@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { Dispatch, SetStateAction } from "react";
 import type { ClipboardEntry } from "../types";
+import { reorderedPinnedOrders } from "../lib/pinnedReorder";
 
 interface UsePinnedSortOptions {
   filteredHistory: ClipboardEntry[];
@@ -92,10 +93,11 @@ export const usePinnedSort = ({
       return;
     }
 
-    const orderMap = new Map<number, number>();
-    finalIds.forEach((id, index) => {
-      orderMap.set(id, finalIds.length - index);
-    });
+    const orders = reorderedPinnedOrders(
+      finalIds,
+      new Map(rawPinnedItems.map((item) => [item.id, item.pinned_order ?? 0]))
+    );
+    const orderMap = new Map<number, number>(orders);
 
     const nextHistory = history.map((item) => {
       const nextOrder = orderMap.get(item.id);
@@ -117,8 +119,7 @@ export const usePinnedSort = ({
 
     setHistory(nextHistory);
 
-    const dbOrders = finalIds.map((id, index) => [id, finalIds.length - index]);
-    invoke("update_pinned_order", { orders: dbOrders }).catch(console.error);
+    invoke("update_pinned_order", { orders }).catch(console.error);
   }, [history, rawPinnedItems, setHistory]);
 
   return {
