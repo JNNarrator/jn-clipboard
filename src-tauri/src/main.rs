@@ -214,6 +214,7 @@ fn main() -> AppResult<()> {
             app::commands::set_edge_docking,
             app::commands::set_follow_mouse,
             app::commands::get_data_path,
+            app::commands::get_ping_id,
             app::commands::scan_installed_apps,
             app::commands::get_system_default_app,
             app::commands::get_associated_apps,

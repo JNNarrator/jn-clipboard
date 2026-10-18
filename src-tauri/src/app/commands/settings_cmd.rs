@@ -611,10 +611,20 @@ pub fn reset_settings(
 ) -> AppResult<()> {
     use crate::database::seed_defaults;
 
+    // A reset must not make this device count as a new one.
+    let ping_id = state
+        .settings_repo
+        .get(crate::app::system::PING_ID_KEY)
+        .unwrap_or(None);
     state.settings_repo.clear().map_err(AppError::from)?;
     {
         let conn = state.conn.lock().unwrap();
         seed_defaults(&conn).map_err(AppError::from)?;
+    }
+    if let Some(ping_id) = ping_id {
+        let _ = state
+            .settings_repo
+            .set(crate::app::system::PING_ID_KEY, &ping_id);
     }
 
     let machine_id = crate::app::system::get_machine_id();

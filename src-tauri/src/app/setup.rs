@@ -1758,6 +1758,18 @@ fn init_analytics(app: &App, repo: &impl SettingsRepository) {
         let _ = repo.set("app.anon_id", &anon_id);
     }
 
+    // The window's ping id (see resolve_ping_id). On the first start after an
+    // update it isn't stored yet: only the window pings, and stores it, so
+    // the device keeps the id it had.
+    let Some(ping_id) = repo
+        .get(crate::app::system::PING_ID_KEY)
+        .unwrap_or(None)
+        .as_deref()
+        .and_then(crate::app::system::valid_ping_id)
+    else {
+        return;
+    };
+
     let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
     if repo.get("app.last_ping_date").unwrap_or(None).as_deref() != Some(&today) {
         let _ = repo.set("app.last_ping_date", &today);
@@ -1768,7 +1780,7 @@ fn init_analytics(app: &App, repo: &impl SettingsRepository) {
         std::thread::spawn(move || {
             let _ = reqwest::blocking::get(format!(
                 "{}?v={}&id={}",
-                ping_url_base, version, anon_id
+                ping_url_base, version, ping_id
             ));
         });
     }

@@ -47,6 +47,13 @@ async function getDismissedAnnouncements(): Promise<string[]> {
   }
 }
 
+export function buildPingUrl(pingUrl: string, version: string, pingId: string | null): string {
+  const url = new URL(pingUrl);
+  if (pingId) url.searchParams.set("id", pingId);
+  url.searchParams.set("v", version);
+  return url.toString();
+}
+
 export function useAnnouncements() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,14 +71,15 @@ export function useAnnouncements() {
         import.meta.env.VITE_PING_URL ||
         `${import.meta.env.VITE_API_BASE_URL || "https://tiez.name666.top"}/api/v1/ping`;
       
-      let deviceId = localStorage.getItem("device_id");
-      if (!deviceId) {
-        deviceId = Math.random().toString(36).substring(7);
-        localStorage.setItem("device_id", deviceId);
-      }
+      // One id per device, shared with the startup ping. A device keeps the
+      // id this window made before, so an update doesn't count it as new; the
+      // data folder keeps a copy in case WebView storage is cleared.
+      const windowId = localStorage.getItem("device_id");
+      const pingId = await invoke<string>("get_ping_id", { windowId }).catch(() => windowId);
+      if (pingId) localStorage.setItem("device_id", pingId);
 
       const version = await getVersion();
-      const url = `${pingUrl}?id=${deviceId}&v=${version}`;
+      const url = buildPingUrl(pingUrl, version, pingId);
 
       const response = await fetch(url, {
         signal: AbortSignal.timeout(5000),
