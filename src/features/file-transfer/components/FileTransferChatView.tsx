@@ -50,6 +50,7 @@ import { TransferComposer } from "./TransferComposer";
 import { TransferContextMenu } from "./TransferContextMenu";
 import ConfirmDialog from "../../../shared/components/ConfirmDialog";
 import { formatError } from "../../../shared/lib/errorMessage";
+import { unfinishedPending } from "../utils/pendingMatch";
 
 const FileTransferChatView = ({
     t,
@@ -460,7 +461,12 @@ const FileTransferChatView = ({
             }
         });
 
-        if (results.some((result) => result.status === "fulfilled")) {
+        // Sent: the history has the real message now, drop its bubble.
+        const sentIds = new Set(
+            tempMessages.filter((_, index) => results[index].status === "fulfilled").map((m) => m.id)
+        );
+        if (sentIds.size > 0) {
+            setMessages((prev) => prev.filter((msg) => !sentIds.has(msg.id)));
             setTimeout(fetchMessages, 300);
         }
     };
@@ -732,19 +738,7 @@ const FileTransferChatView = ({
             setMessages((prev) => {
                 const pending = prev.filter((m) => m._preparing || m._error);
                 if (pending.length === 0) return msgs;
-                const remainingPending = pending.filter((p) => {
-                    const match = msgs.some((m) => {
-                        if (p._uploadId && m.content.includes(p._uploadId)) return true;
-                        if (
-                            p._fileName &&
-                            (m.file_path?.endsWith(p._fileName) || m.content.includes(p._fileName))
-                        )
-                            return true;
-                        return false;
-                    });
-                    return !match;
-                });
-                return [...msgs, ...remainingPending];
+                return [...msgs, ...unfinishedPending(pending, msgs)];
             });
         } catch (e) {
             console.warn("fetchMessages failed", e);
