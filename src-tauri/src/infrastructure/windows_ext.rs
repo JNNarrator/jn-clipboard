@@ -132,6 +132,8 @@ impl WindowExt {
         unsafe {
             let _ = ShowWindow(hwnd, SW_SHOWNA);
             // Bring to front without activation by temporarily toggling TOPMOST.
+            // Back with HWND_NOTOPMOST: HWND_TOP (None) keeps the window
+            // top-most, so an unpinned window stayed above every app.
             let _ = SetWindowPos(
                 hwnd,
                 Some(HWND_TOPMOST),
@@ -143,7 +145,7 @@ impl WindowExt {
             );
             let _ = SetWindowPos(
                 hwnd,
-                None,
+                Some(HWND_NOTOPMOST),
                 0,
                 0,
                 0,
