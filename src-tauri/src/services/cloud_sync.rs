@@ -3490,6 +3490,13 @@ async fn pull_remote_webdav_ops_from_head(
     Ok(received)
 }
 
+/// One device's unreadable snapshot (cut short by an interrupted upload, say)
+/// used to fail every sync for everyone. Skip it; a problem with the server
+/// itself still fails the steps after this.
+fn skip_unreadable_snapshot(device_id: &str, err: &AppError) {
+    error!(">>> [CloudSync] Skipping device {}'s snapshot: {}", device_id, err);
+}
+
 async fn pull_remote_device_snapshots(
     app: &AppHandle,
     client: &Client,
@@ -3523,11 +3530,12 @@ async fn pull_remote_device_snapshots(
         {
             continue;
         }
-        if let Some(snapshot) = fetch_webdav_snapshot(client, cfg, devices_path, &device_id).await?
-        {
-            if snapshot.updated_at > 0 {
+        match fetch_webdav_snapshot(client, cfg, devices_path, &device_id).await {
+            Ok(Some(snapshot)) if snapshot.updated_at > 0 => {
                 candidates.push((device_id, snapshot.updated_at));
             }
+            Ok(_) => {}
+            Err(err) => skip_unreadable_snapshot(&device_id, &err),
         }
     }
 
@@ -3541,10 +3549,13 @@ async fn pull_remote_device_snapshots(
             break;
         }
         let last_pulled = snapshot_cursor.get(&device_id).copied().unwrap_or(0);
-        let Some(mut snapshot) =
-            fetch_webdav_snapshot(client, cfg, devices_path, &device_id).await?
-        else {
-            continue;
+        let mut snapshot = match fetch_webdav_snapshot(client, cfg, devices_path, &device_id).await {
+            Ok(Some(snapshot)) => snapshot,
+            Ok(None) => continue,
+            Err(err) => {
+                skip_unreadable_snapshot(&device_id, &err);
+                continue;
+            }
         };
         if snapshot.updated_at <= last_pulled {
             continue;
