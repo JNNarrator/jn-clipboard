@@ -26,8 +26,35 @@ pub fn get_file_size(path: String) -> AppResult<FileSize> {
 
 #[tauri::command]
 pub async fn save_file_copy(source_path: String, target_path: String) -> AppResult<()> {
-    std::fs::copy(source_path, target_path).map_err(AppError::from)?;
+    copy_file_to(Path::new(&source_path), Path::new(&target_path))
+}
+
+/// Saving a file onto itself (same folder, "Replace") leaves it as it is:
+/// copying a file onto itself empties it on macOS.
+fn copy_file_to(source: &Path, target: &Path) -> AppResult<()> {
+    if is_same_file(source, target) {
+        return Ok(());
+    }
+    std::fs::copy(source, target).map_err(AppError::from)?;
     Ok(())
+}
+
+fn is_same_file(a: &Path, b: &Path) -> bool {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        match (std::fs::metadata(a), std::fs::metadata(b)) {
+            (Ok(x), Ok(y)) => x.dev() == y.dev() && x.ino() == y.ino(),
+            _ => false,
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        matches!(
+            (std::fs::canonicalize(a), std::fs::canonicalize(b)),
+            (Ok(x), Ok(y)) if x == y
+        )
+    }
 }
 
 #[tauri::command]
@@ -455,4 +482,27 @@ pub async fn read_text_file_preview(path: String) -> Result<TextFilePreview, Str
         };
         Ok(TextFilePreview { text, truncated })
     }).await.map_err(|e| e.to_string())?
+}
+
+#[cfg(test)]
+mod tests {
+    use super::copy_file_to;
+
+    #[test]
+    fn saving_a_file_onto_itself_keeps_its_content() {
+        let dir = std::env::temp_dir().join(format!("tiez-save-as-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("photo.png");
+        std::fs::write(&file, b"image bytes").unwrap();
+
+        copy_file_to(&file, &file).unwrap();
+        copy_file_to(&file, &dir.join(".").join("photo.png")).unwrap();
+        assert_eq!(std::fs::read(&file).unwrap(), b"image bytes");
+
+        let copy = dir.join("copy.png");
+        copy_file_to(&file, &copy).unwrap();
+        assert_eq!(std::fs::read(&copy).unwrap(), b"image bytes");
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }
