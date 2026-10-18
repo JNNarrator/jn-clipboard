@@ -52,7 +52,8 @@ export const useSettingsInit = ({
               .catch(error => console.error("Theme migration failed", error));
           }
           setAppSettings(migrated);
-          if (result["app.hotkey"]) setHotkey(result["app.hotkey"]);
+          // Empty: the user cleared it (as for the other hotkeys).
+          if (result["app.hotkey"] !== undefined) setHotkey(result["app.hotkey"]);
 
           const { theme: loadedTheme, nativePalette } = resolveThemeAppearance(migrated["app.theme"] || DEFAULT_THEME, migrated["app.native_palette"]);
           const loadedColorMode = result["app.color_mode"] || "system";

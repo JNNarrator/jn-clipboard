@@ -430,7 +430,7 @@ export const useSettingsPostInit = ({
     setFileTransferAutoOpen(settings["file_transfer_auto_open"] === "true");
     setFileTransferAutoCopy(settings["file_transfer_auto_copy"] === "true");
     if (settings["file_server_port"]) setFileServerPort(settings["file_server_port"]);
-    if (settings["app.sequential_hotkey"]) setSequentialHotkey(settings["app.sequential_hotkey"]);
+    if (settings["app.sequential_hotkey"] !== undefined) setSequentialHotkey(settings["app.sequential_hotkey"]);
     if (settings["app.plain_paste_hotkey"] !== undefined) setPlainPasteHotkey(settings["app.plain_paste_hotkey"]);
     if (settings["app.search_hotkey"] !== undefined) setSearchHotkey(settings["app.search_hotkey"]);
     setQuickPasteModifier(normalizeQuickPasteModifier(settings["app.quick_paste_modifier"]));
