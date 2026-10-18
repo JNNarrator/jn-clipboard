@@ -1321,7 +1321,7 @@ pub use utils::{
     plain_text_requires_exact_paste, repair_html_fragment, rich_paste_needs_exact_text,
     rtf_bytes_from_named_formats,
     sanitize_tabular_html_for_paste, should_attach_rich_image_fallback_on_capture,
-    should_use_rich_image_clipboard_fallback, split_rich_html_and_image_fallback,
+    split_rich_html_and_image_fallback,
     split_rich_html_and_named_formats, truncate_html_for_preview, WINDOWS_STANDARD_FORMAT_PREFIX,
 };
 
