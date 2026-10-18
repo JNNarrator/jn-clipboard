@@ -297,12 +297,14 @@ export const useSettingsPostInit = ({
     setCaptureRichText(settings["app.capture_rich_text"] === "true");
     setRichTextSnapshotPreview(settings["app.rich_text_snapshot_preview"] === "true");
     setPrivacyProtection(settings["app.privacy_protection"] === "true");
-    if (settings["app.privacy_protection_kinds"]) {
-      const list = settings["app.privacy_protection_kinds"]
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
-      if (list.length > 0) setPrivacyProtectionKinds(list);
+    // Empty is a choice too (every type unticked), not a missing setting.
+    if (settings["app.privacy_protection_kinds"] !== undefined) {
+      setPrivacyProtectionKinds(
+        settings["app.privacy_protection_kinds"]
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      );
     }
     if (settings["app.privacy_protection_custom_rules"] !== undefined) {
       setPrivacyProtectionCustomRules(settings["app.privacy_protection_custom_rules"] || "");
