@@ -49,6 +49,7 @@ const CLOUD_SYNC_SETTINGS_MTIMES_KEY: &str = "cloud_sync_settings_mtimes";
 /// Fingerprint of the end-to-end key this device's server files were last
 /// written with ("" = unencrypted).
 const CLOUD_SYNC_E2E_FINGERPRINT_KEY: &str = "cloud_sync_e2e_fingerprint";
+const CLOUD_SYNC_PULLED_CONTENT_PREFS_KEY: &str = "cloud_sync_pulled_content_prefs";
 const BLOB_KIND_IMAGE: &str = "image";
 const BLOB_KIND_CONTENT: &str = "content";
 const BLOB_KIND_HTML: &str = "html";
@@ -126,6 +127,14 @@ impl Default for CloudSyncContentPrefs {
 }
 
 impl CloudSyncContentPrefs {
+    /// A content type that `before` left out is synced now.
+    fn widens(&self, before: &CloudSyncContentPrefs) -> bool {
+        (self.text && !before.text)
+            || (self.image && !before.image)
+            || (self.file_path && !before.file_path)
+            || (self.emoji && !before.emoji)
+    }
+
     fn includes_content_type(&self, content_type: &str) -> bool {
         if !is_cloud_clipboard_content_type(content_type) {
             return false;
@@ -1439,6 +1448,24 @@ fn save_webdav_snapshot_cursor_map(app: &AppHandle, map: &HashMap<String, i64>) 
     let db_state = app.try_state::<DbState>().ok_or_else(|| AppError::Internal("DB state unavailable".into()))?;
     let payload = serde_json::to_string(map).map_err(|e| AppError::Internal(e.to_string()))?;
     db_state.settings_repo.set(CLOUD_SYNC_WEBDAV_SNAPSHOT_CURSOR_MAP_KEY, &payload).map_err(AppError::from)
+}
+
+/// Snapshots are pulled again from scratch once a 「同步内容」 type is turned
+/// on: what it left out was never applied, and unchanged snapshots aren't
+/// read again otherwise.
+fn repull_snapshots_if_prefs_widened(app: &AppHandle, prefs: &CloudSyncContentPrefs) -> AppResult<()> {
+    let current = serde_json::to_string(prefs).map_err(|e| AppError::Internal(e.to_string()))?;
+    let stored = get_setting_string(app, CLOUD_SYNC_PULLED_CONTENT_PREFS_KEY);
+    if stored == current {
+        return Ok(());
+    }
+    if let Ok(before) = serde_json::from_str::<CloudSyncContentPrefs>(&stored) {
+        if prefs.widens(&before) {
+            save_webdav_snapshot_cursor_map(app, &HashMap::new())?;
+            save_webdav_snapshot_digests(app, &HashMap::new())?;
+        }
+    }
+    set_setting_string(app, CLOUD_SYNC_PULLED_CONTENT_PREFS_KEY, &current)
 }
 
 fn merge_webdav_sync_heads(base: &mut WebDavSyncHead, incoming: WebDavSyncHead) {
@@ -3463,7 +3490,10 @@ async fn pull_remote_webdav_ops_from_head(
             };
             match fetch_webdav_ops_batch(client, cfg, ops_path, &op_ref).await? {
                 Some(mut batch) if batch.device_id == op_ref.device_id => {
-                    batch.entries.retain(|entry| !crate::database::has_sensitive_tag(&entry.tags));
+                    batch.entries.retain(|entry| {
+                        !crate::database::has_sensitive_tag(&entry.tags)
+                            && cfg.content_prefs.includes_content_type(&entry.content_type)
+                    });
                     // A blob that fails here is retried via the owner's next snapshot.
                     enrich_item_blobs_after_pull(app, client, cfg, blobs_path, &mut batch.entries)
                         .await;
@@ -3561,7 +3591,11 @@ async fn pull_remote_device_snapshots(
             continue;
         }
 
-        snapshot.entries.retain(|entry| !crate::database::has_sensitive_tag(&entry.tags));
+        // Types 「同步内容」 leaves out aren't downloaded, nor marked as pulled.
+        snapshot.entries.retain(|entry| {
+            !crate::database::has_sensitive_tag(&entry.tags)
+                && cfg.content_prefs.includes_content_type(&entry.content_type)
+        });
         // A changed snapshot is mostly the same entries as last time, and those
         // were applied then: skip them, and with them their blob downloads.
         let previous = snapshot_digests.remove(&device_id).unwrap_or_default();
@@ -3877,6 +3911,7 @@ async fn sync_once_webdav(
     let mut sync_head_dirty = false;
     let mut webdav_blob_cache = load_webdav_blob_cache(app);
 
+    repull_snapshots_if_prefs_widened(app, &cfg.content_prefs)?;
     // 1) Pull authoritative per-device snapshots every cycle (bounded devices/ listing).
     let mut received_items = pull_remote_device_snapshots(
         app,
@@ -4670,6 +4705,15 @@ mod tests {
 
         let contents: Vec<&str> = kept.iter().map(|item| item.content.as_str()).collect();
         assert_eq!(contents, ["keep me", "me too"]);
+    }
+
+    #[test]
+    fn turning_a_content_type_on_widens_the_sync() {
+        let prefs = |image: bool| super::CloudSyncContentPrefs { text: true, image, file_path: true, emoji: true };
+
+        assert!(prefs(true).widens(&prefs(false)));
+        assert!(!prefs(false).widens(&prefs(true)));
+        assert!(!prefs(true).widens(&prefs(true)));
     }
 
     #[test]
