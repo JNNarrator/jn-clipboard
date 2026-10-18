@@ -488,7 +488,9 @@ pub async fn handle_socket(socket: WebSocket, state: Arc<AppState>, sealed_mode:
     let (mut sender, mut receiver) = socket.split();
     let mut rx = state.ws_tx.subscribe();
     let mut shutdown = state.shutdown.clone();
-    let mut current_device_id: Option<String> = None;
+    // Set once the phone says who it is. Removed from the device list after
+    // both tasks end, however they end: one is aborted when the other stops.
+    let connected_device: Arc<std::sync::Mutex<Option<String>>> = Arc::default();
     let key = state.lan_key;
 
     let mut send_task = tokio::spawn(async move {
@@ -508,6 +510,7 @@ pub async fn handle_socket(socket: WebSocket, state: Arc<AppState>, sealed_mode:
     });
 
     let state_inner = state.clone();
+    let connected = connected_device.clone();
     let mut recv_task = tokio::spawn(async move {
         while let Some(Ok(msg)) = receiver.next().await {
             let text = match (sealed_mode, msg) {
@@ -520,6 +523,7 @@ pub async fn handle_socket(socket: WebSocket, state: Arc<AppState>, sealed_mode:
                 if let Ok(incoming) = serde_json::from_str::<WsIncoming>(&text) {
                     match incoming {
                         WsIncoming::Ping => {
+                            let current_device_id = connected.lock().unwrap().clone();
                             if let Some(ref id) = current_device_id {
                                 let online_devices = state_inner.app_handle.state::<OnlineDevices>();
                                 if let Ok(mut guard) = online_devices.0.lock() {
@@ -536,6 +540,7 @@ pub async fn handle_socket(socket: WebSocket, state: Arc<AppState>, sealed_mode:
                         } => {
                             let device_id = safe_identity(&device_id, "mobile");
                             let device_name = safe_identity(&device_name, "手机");
+                            *connected.lock().unwrap() = Some(device_id.clone());
                             let online_devices = state_inner.app_handle.state::<OnlineDevices>();
                             {
                                 let mut guard = online_devices.0.lock().unwrap();
@@ -547,7 +552,6 @@ pub async fn handle_socket(socket: WebSocket, state: Arc<AppState>, sealed_mode:
                                         last_seen: chrono::Utc::now().timestamp_millis(),
                                     },
                                 );
-                                current_device_id = Some(device_id);
 
                                 let devices: Vec<DeviceInfo> = guard.values().cloned().collect();
                                 let update = serde_json::json!({
@@ -565,22 +569,6 @@ pub async fn handle_socket(socket: WebSocket, state: Arc<AppState>, sealed_mode:
             }
         }
 
-        if let Some(id) = current_device_id {
-            let online_devices = state_inner.app_handle.state::<OnlineDevices>();
-            {
-                let mut guard = online_devices.0.lock().unwrap();
-                guard.remove(&id);
-                let devices: Vec<DeviceInfo> = guard.values().cloned().collect();
-                let update = serde_json::json!({
-                    "type": "devices_update",
-                    "devices": devices
-                });
-                let _ = state_inner.ws_tx.send(update.to_string());
-                let _ = state_inner
-                    .app_handle
-                    .emit("online-devices-updated", devices);
-            }
-        }
     });
 
     tokio::select! {
@@ -591,6 +579,20 @@ pub async fn handle_socket(socket: WebSocket, state: Arc<AppState>, sealed_mode:
             send_task.abort();
             recv_task.abort();
         }
+    }
+
+    let left = connected_device.lock().unwrap().take();
+    if let Some(id) = left {
+        let online_devices = state.app_handle.state::<OnlineDevices>();
+        let mut guard = online_devices.0.lock().unwrap();
+        guard.remove(&id);
+        let devices: Vec<DeviceInfo> = guard.values().cloned().collect();
+        let update = serde_json::json!({
+            "type": "devices_update",
+            "devices": devices
+        });
+        let _ = state.ws_tx.send(update.to_string());
+        let _ = state.app_handle.emit("online-devices-updated", devices);
     }
 }
 
