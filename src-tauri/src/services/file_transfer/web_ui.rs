@@ -1403,15 +1403,17 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
             list.push(el);
             pendingUploads.set(fileName, list);
         }}
-        function takePendingUpload(maybeName) {{
-            for (const [name, list] of pendingUploads.entries()) {{
-                if (maybeName.endsWith(name) && list.length > 0) {{
-                    const el = list.shift();
-                    if (list.length === 0) pendingUploads.delete(name);
-                    return el;
-                }}
-            }}
-            return null;
+        function takePendingUpload(fileName) {{
+            // Same name first, else the oldest: the computer may rename the
+            // file (characters it can't use, " (2)" next to one with that name).
+            const key = (pendingUploads.get(fileName) || []).length
+                ? fileName
+                : pendingUploads.keys().next().value;
+            const list = key === undefined ? null : pendingUploads.get(key);
+            if (!list || list.length === 0) return null;
+            const el = list.shift();
+            if (list.length === 0) pendingUploads.delete(key);
+            return el;
         }}
         function formatBytes(bytes) {{
             if (!bytes || bytes <= 0) return '';
@@ -1643,7 +1645,7 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
             if (msg.batch_id) {{
                 if (msg.direction === 'in' && msg.sender_id === deviceId) {{
                     const rawName = extractNameFromContent(msg.content, msg.file_path);
-                    const pending = takePendingUpload(normalizeFileName(rawName));
+                    const pending = takePendingUpload(plainFileName(rawName));
                     if (pending) pending.remove();
                 }}
                 const mine = msg.direction === 'in' && msg.sender_id === deviceId;
@@ -1652,8 +1654,7 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
             }}
             if (msg.direction === 'in' && msg.sender_id === deviceId && (msg.msg_type === 'file' || msg.msg_type === 'image' || msg.msg_type === 'video')) {{
                 const rawName = extractNameFromContent(msg.content, msg.file_path);
-                const maybeName = normalizeFileName(rawName);
-                const pending = takePendingUpload(maybeName);
+                const pending = takePendingUpload(plainFileName(rawName));
                 if (pending) {{
                     const replacement = createMessageElement('sent', msg.content, null, msg.msg_type, msg.file_path, msg.id, msg.file_size);
                     pending.replaceWith(replacement);
