@@ -454,6 +454,9 @@ impl PipelineStage for DeduplicationStage {
                     }
                 }
             }
+            // Never wait for another lock while holding the connection:
+            // get_clipboard_history holds the session lock while it queries.
+            drop(conn);
 
             // Session history cleanup
             let session_history = ctx.app_handle.state::<SessionHistory>();
