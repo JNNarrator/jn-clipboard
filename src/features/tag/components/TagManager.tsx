@@ -15,6 +15,7 @@ import { toTauriLocalImageSrc, withImageCacheBust } from "../../../shared/lib/lo
 import { activateForInput } from "../../../shared/lib/focus";
 import { getNotePlaceholder } from "../../../shared/lib/platform";
 import type { ClipboardEntry } from "../../../shared/types";
+import { visibleSelection } from "../lib/selection";
 
 interface TagManagerProps {
     t: (key: string) => string;
@@ -187,6 +188,11 @@ export default function TagManager({ t, theme }: TagManagerProps) {
     };
 
     const loadTagItems = async (tagName: string) => {
+        if (tagName !== selectedTagRef.current) {
+            // A selection belongs to the tag it was made in.
+            setIsManageMode(false);
+            setSelectedItemIds(new Set());
+        }
         setLoading(true);
         setSelectedTag(tagName);
         try {
@@ -940,7 +946,7 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                         onClick={async () => {
                             if (itemDeleteConfirmation.id === -1) {
                                 try {
-                                    for (const id of Array.from(selectedItemIds)) {
+                                    for (const id of visibleSelection(tagItems, selectedItemIds)) {
                                         await invoke("delete_clipboard_entry", { id });
                                     }
                                     setIsManageMode(false);
