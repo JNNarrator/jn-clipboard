@@ -1,5 +1,5 @@
 use crate::app_state::{AppDataDir, PasteQueue, SessionHistory};
-use crate::app::commands::hotkey_cmd::sync_registered_hotkeys;
+use crate::app::commands::hotkey_cmd::{sync_registered_hotkeys, sync_registered_hotkeys_on_main_thread};
 use crate::database::DbState;
 use crate::error::AppResult;
 use crate::infrastructure::repository::clipboard_repo::ClipboardRepository;
@@ -260,6 +260,7 @@ async fn paste_next_step_inner(app_handle: tauri::AppHandle) {
         queue.items.is_empty()
     };
     if queue_empty {
-        let _ = sync_registered_hotkeys(&app_handle);
+        // This runs on the async runtime.
+        sync_registered_hotkeys_on_main_thread(&app_handle);
     }
 }
