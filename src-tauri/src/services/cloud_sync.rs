@@ -950,71 +950,106 @@ fn sync_digest_for_item(item: &CloudSyncItem) -> String {
     crate::database::calc_text_hash(&meta).to_string()
 }
 
+/// Upload blob payloads and put their hashes in the items. An item whose blob
+/// can't be uploaded (refused by the server as too large, a network error) is
+/// left out instead of failing the whole push: one image the server refused
+/// used to block every later change from this device. The sync keys of the
+/// items left out are returned so they aren't recorded as synced; the next
+/// snapshot tries them again.
 async fn process_items_blobs_before_push(
     client: &reqwest::Client,
     cfg: &CloudSyncConfig,
     blobs_path: &str,
     blob_cache: &mut HashMap<String, i64>,
-    items: &mut [CloudSyncItem],
-) -> AppResult<()> {
-    for item in items {
-        if item.deleted_at > 0 {
-            continue;
+    items: &mut Vec<CloudSyncItem>,
+) -> HashSet<String> {
+    let mut skipped = HashSet::new();
+    let mut kept = Vec::with_capacity(items.len());
+    for mut item in std::mem::take(items) {
+        let sync_key = sync_key_for_item(&item);
+        match upload_item_blobs(client, cfg, blobs_path, blob_cache, &mut item).await {
+            Ok(()) => kept.push(item),
+            Err(err) => {
+                error!(">>> [CloudSync] Skipping an item whose blob failed to upload: {}", err);
+                skipped.extend(sync_key);
+            }
         }
+    }
+    *items = kept;
+    skipped
+}
 
-        if item.content_type == "image" {
-            if !item.content.starts_with("data:image/") {
-                item.content = to_data_url_from_path_limited(&item.content, MAX_SYNC_IMAGE_BYTES).ok_or_else(|| {
-                    AppError::Internal("convert image path to data url failed".to_string())
-                })?;
+fn without_sync_keys(items: &[CloudSyncItem], skipped: &HashSet<String>) -> Vec<CloudSyncItem> {
+    items
+        .iter()
+        .filter(|item| sync_key_for_item(item).map_or(true, |key| !skipped.contains(&key)))
+        .cloned()
+        .collect()
+}
+
+async fn upload_item_blobs(
+    client: &reqwest::Client,
+    cfg: &CloudSyncConfig,
+    blobs_path: &str,
+    blob_cache: &mut HashMap<String, i64>,
+    item: &mut CloudSyncItem,
+) -> AppResult<()> {
+    if item.deleted_at > 0 {
+        return Ok(());
+    }
+
+    if item.content_type == "image" {
+        if !item.content.starts_with("data:image/") {
+            item.content = to_data_url_from_path_limited(&item.content, MAX_SYNC_IMAGE_BYTES).ok_or_else(|| {
+                AppError::Internal("convert image path to data url failed".to_string())
+            })?;
+        }
+        if !item.content.is_empty() {
+            let relative_hash = blob_name_for(cfg, item.content.as_bytes());
+            let relative = get_blob_path(blobs_path, BLOB_KIND_IMAGE, &relative_hash);
+            let cache_key = blob_cache_storage_key(cfg, &relative);
+            if !blob_cache.contains_key(&cache_key) {
+                upload_webdav_blob(
+                    client,
+                    cfg,
+                    blobs_path,
+                    BLOB_KIND_IMAGE,
+                    item.content.as_bytes(),
+                )
+                .await?;
             }
-            if !item.content.is_empty() {
-                let relative_hash = blob_name_for(cfg, item.content.as_bytes());
-                let relative = get_blob_path(blobs_path, BLOB_KIND_IMAGE, &relative_hash);
+            blob_cache.insert(cache_key, now_ms());
+            let hash = relative_hash;
+            item.content_blob_hash = Some(hash);
+            item.content = String::new();
+        }
+    } else {
+        let bytes = item.content.as_bytes();
+        if bytes.len() > BLOB_THRESHOLD_CONTENT {
+            let relative_hash = blob_name_for(cfg, bytes);
+            let relative = get_blob_path(blobs_path, BLOB_KIND_CONTENT, &relative_hash);
+            let cache_key = blob_cache_storage_key(cfg, &relative);
+            if !blob_cache.contains_key(&cache_key) {
+                upload_webdav_blob(client, cfg, blobs_path, BLOB_KIND_CONTENT, bytes).await?;
+            }
+            blob_cache.insert(cache_key, now_ms());
+            let hash = relative_hash;
+            item.content_blob_hash = Some(hash);
+            item.content = String::new();
+        }
+        if let Some(html) = item.html_content.as_ref() {
+            let hbytes = html.as_bytes();
+            if hbytes.len() > BLOB_THRESHOLD_HTML {
+                let relative_hash = blob_name_for(cfg, hbytes);
+                let relative = get_blob_path(blobs_path, BLOB_KIND_HTML, &relative_hash);
                 let cache_key = blob_cache_storage_key(cfg, &relative);
                 if !blob_cache.contains_key(&cache_key) {
-                    upload_webdav_blob(
-                        client,
-                        cfg,
-                        blobs_path,
-                        BLOB_KIND_IMAGE,
-                        item.content.as_bytes(),
-                    )
-                    .await?;
+                    upload_webdav_blob(client, cfg, blobs_path, BLOB_KIND_HTML, hbytes).await?;
                 }
                 blob_cache.insert(cache_key, now_ms());
                 let hash = relative_hash;
-                item.content_blob_hash = Some(hash);
-                item.content = String::new();
-            }
-        } else {
-            let bytes = item.content.as_bytes();
-            if bytes.len() > BLOB_THRESHOLD_CONTENT {
-                let relative_hash = blob_name_for(cfg, bytes);
-                let relative = get_blob_path(blobs_path, BLOB_KIND_CONTENT, &relative_hash);
-                let cache_key = blob_cache_storage_key(cfg, &relative);
-                if !blob_cache.contains_key(&cache_key) {
-                    upload_webdav_blob(client, cfg, blobs_path, BLOB_KIND_CONTENT, bytes).await?;
-                }
-                blob_cache.insert(cache_key, now_ms());
-                let hash = relative_hash;
-                item.content_blob_hash = Some(hash);
-                item.content = String::new();
-            }
-            if let Some(html) = item.html_content.as_ref() {
-                let hbytes = html.as_bytes();
-                if hbytes.len() > BLOB_THRESHOLD_HTML {
-                    let relative_hash = blob_name_for(cfg, hbytes);
-                    let relative = get_blob_path(blobs_path, BLOB_KIND_HTML, &relative_hash);
-                    let cache_key = blob_cache_storage_key(cfg, &relative);
-                    if !blob_cache.contains_key(&cache_key) {
-                        upload_webdav_blob(client, cfg, blobs_path, BLOB_KIND_HTML, hbytes).await?;
-                    }
-                    blob_cache.insert(cache_key, now_ms());
-                    let hash = relative_hash;
-                    item.html_blob_hash = Some(hash);
-                    item.html_content = None;
-                }
+                item.html_blob_hash = Some(hash);
+                item.html_content = None;
             }
         }
     }
@@ -3844,28 +3879,31 @@ async fn sync_once_webdav(
     if !delta_items.is_empty() {
         let mut next_seq = get_local_webdav_op_seq(app);
         let mut processed_delta = delta_items.clone();
-        process_items_blobs_before_push(
+        let skipped = process_items_blobs_before_push(
             &client,
             cfg,
             &paths.blobs_path,
             &mut webdav_blob_cache,
             &mut processed_delta,
         )
-        .await?;
-        for chunk in processed_delta.chunks(WEBDAV_OP_BATCH_SIZE) {
-            if cloud_sync_cancel_requested() {
-                return Ok(disabled_status());
+        .await;
+        if !processed_delta.is_empty() {
+            for chunk in processed_delta.chunks(WEBDAV_OP_BATCH_SIZE) {
+                if cloud_sync_cancel_requested() {
+                    return Ok(disabled_status());
+                }
+                next_seq = next_seq.saturating_add(1);
+                upload_webdav_ops_batch(&client, cfg, &paths.ops_path, next_seq, chunk).await?;
             }
-            next_seq = next_seq.saturating_add(1);
-            upload_webdav_ops_batch(&client, cfg, &paths.ops_path, next_seq, chunk).await?;
+            set_local_webdav_op_seq(app, next_seq)?;
+            let pushed = without_sync_keys(&delta_items, &skipped);
+            upsert_local_sync_index(app, &pushed)?;
+            uploaded_items += pushed.len();
+            update_webdav_head_device(&mut sync_head, &cfg.device_id, |device| {
+                device.latest_op_seq = device.latest_op_seq.max(next_seq);
+            });
+            sync_head_dirty = true;
         }
-        set_local_webdav_op_seq(app, next_seq)?;
-        upsert_local_sync_index(app, &delta_items)?;
-        uploaded_items += delta_items.len();
-        update_webdav_head_device(&mut sync_head, &cfg.device_id, |device| {
-            device.latest_op_seq = device.latest_op_seq.max(next_seq);
-        });
-        sync_head_dirty = true;
     }
 
     if cloud_sync_cancel_requested() {
@@ -3897,14 +3935,14 @@ async fn sync_once_webdav(
         // blob cache) like delta ops do; inline they made every snapshot carry
         // the whole image history as base64.
         let mut snapshot_items = local_items.clone();
-        process_items_blobs_before_push(
+        let skipped = process_items_blobs_before_push(
             &client,
             cfg,
             &paths.blobs_path,
             &mut webdav_blob_cache,
             &mut snapshot_items,
         )
-        .await?;
+        .await;
         save_webdav_blob_cache(app, &webdav_blob_cache);
         upload_webdav_snapshot(
             &client,
@@ -3914,7 +3952,7 @@ async fn sync_once_webdav(
             &snapshot_items,
         )
         .await?;
-        uploaded_items += local_items.len();
+        uploaded_items += snapshot_items.len();
         update_webdav_head_device(&mut sync_head, &cfg.device_id, |device| {
             device.latest_op_seq = device.latest_op_seq.max(latest_op_seq);
             device.snapshot_updated_at = device.snapshot_updated_at.max(now_ms());
@@ -3930,7 +3968,10 @@ async fn sync_once_webdav(
         set_setting_i64(app, CLOUD_SYNC_WEBDAV_LAST_SNAPSHOT_PUSH_AT_KEY, now)?;
         set_setting_string(app, CLOUD_SYNC_E2E_FINGERPRINT_KEY, &e2e_fingerprint)?;
         let _ = cleanup_local_webdav_ops(&client, cfg, &paths.ops_path, latest_op_seq).await;
-        replace_local_sync_index(app, &collapse_items_by_sync_key(&local_items))?;
+        replace_local_sync_index(
+            app,
+            &collapse_items_by_sync_key(&without_sync_keys(&local_items, &skipped)),
+        )?;
     }
 
     if sync_head_dirty {
@@ -4559,6 +4600,112 @@ mod tests {
         assert!(!rewritten.contains(&format!("file://{}", image_path_str)));
 
         let _ = fs::remove_dir_all(dir);
+    }
+
+    #[tokio::test]
+    async fn a_blob_the_server_refuses_leaves_out_its_item_not_the_push() {
+        use super::*;
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        // A WebDAV server that refuses bodies over 40 KB, as nginx does with 413.
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            while let Ok((mut socket, _)) = listener.accept().await {
+                tokio::spawn(async move {
+                    let mut buf = Vec::new();
+                    let mut chunk = [0u8; 16 * 1024];
+                    let head_end = loop {
+                        let n = socket.read(&mut chunk).await.unwrap_or(0);
+                        if n == 0 {
+                            return;
+                        }
+                        buf.extend_from_slice(&chunk[..n]);
+                        if let Some(i) = buf.windows(4).position(|w| w == b"\r\n\r\n") {
+                            break i + 4;
+                        }
+                    };
+                    let head = String::from_utf8_lossy(&buf[..head_end]).to_ascii_lowercase();
+                    let length: usize = head
+                        .lines()
+                        .find_map(|line| line.strip_prefix("content-length:"))
+                        .and_then(|value| value.trim().parse().ok())
+                        .unwrap_or(0);
+                    while buf.len() < head_end + length {
+                        let n = socket.read(&mut chunk).await.unwrap_or(0);
+                        if n == 0 {
+                            return;
+                        }
+                        buf.extend_from_slice(&chunk[..n]);
+                    }
+                    let status = if head.starts_with("put ") && length > 40 * 1024 {
+                        "413 Payload Too Large"
+                    } else {
+                        "201 Created"
+                    };
+                    let response =
+                        format!("HTTP/1.1 {status}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+                    let _ = socket.write_all(response.as_bytes()).await;
+                });
+            }
+        });
+
+        let cfg = CloudSyncConfig {
+            enabled: true,
+            auto_sync: true,
+            provider: CloudSyncProvider::WebDav,
+            base_url: String::new(),
+            api_key: String::new(),
+            device_id: "test-device".to_string(),
+            interval_secs: 120,
+            snapshot_interval_secs: 0,
+            cursor: 0,
+            webdav_url: format!("http://{addr}"),
+            webdav_username: String::new(),
+            webdav_password: String::new(),
+            webdav_base_path: "tiez-sync".to_string(),
+            content_prefs: CloudSyncContentPrefs::default(),
+            e2e: None,
+        };
+        let item = |content: String| CloudSyncItem {
+            content_type: "text".to_string(),
+            preview: content.chars().take(20).collect(),
+            content,
+            content_hash: 0,
+            deleted_at: 0,
+            html_content: None,
+            content_blob_hash: None,
+            html_blob_hash: None,
+            source_app: "Test".to_string(),
+            timestamp: 1,
+            created_at: 1,
+            last_used_at: 0,
+            sort_at: 1,
+            is_pinned: false,
+            tags: vec![],
+            use_count: 0,
+            pinned_order: 0,
+            tags_updated_at: 0,
+        };
+        let refused = item("a".repeat(60 * 1024));
+        let refused_key = sync_key_for_item(&refused).unwrap();
+        let mut items = vec![refused, item("b".repeat(20 * 1024)), item("small".to_string())];
+        let _ = rustls::crypto::ring::default_provider().install_default();
+        let client = reqwest::Client::builder().no_proxy().build().unwrap();
+
+        let skipped = process_items_blobs_before_push(
+            &client,
+            &cfg,
+            "tiez-sync/blobs",
+            &mut HashMap::new(),
+            &mut items,
+        )
+        .await;
+
+        assert_eq!(skipped, HashSet::from([refused_key]));
+        assert_eq!(items.len(), 2);
+        assert!(items[0].content_blob_hash.is_some() && items[0].content.is_empty());
+        assert_eq!(items[1].content, "small");
     }
 
     #[test]
