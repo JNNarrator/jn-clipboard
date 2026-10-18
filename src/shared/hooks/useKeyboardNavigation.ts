@@ -35,6 +35,11 @@ interface UseKeyboardNavigationOptions {
   setSearch: (val: string) => void;
 }
 
+const hasOpenPopup = () =>
+  Array.from(
+    document.querySelectorAll<HTMLElement>('[role="menu"], [role="dialog"], [role="listbox"], .detail-action-popover')
+  ).some((element) => element.getClientRects().length > 0);
+
 export const useKeyboardNavigation = ({
   filteredHistory,
   selectedIndex,
@@ -231,6 +236,9 @@ export const useKeyboardNavigation = ({
       const isEditable = isAnyInput || target.isContentEditable === true;
 
       if (e.key === "Escape") {
+        // An open menu, dialog or popover closes on its own Escape handler;
+        // this listener runs first and would hide the window as well.
+        if (hasOpenPopup()) return;
         e.preventDefault();
         if (isEditable) {
           searchInputRef.current?.blur();
