@@ -3961,6 +3961,13 @@ async fn sync_once_webdav(
 
     save_webdav_blob_cache(app, &webdav_blob_cache);
 
+    // Publish the ops before trying the snapshot: if the snapshot fails, peers
+    // still see them instead of waiting for this device's next change.
+    if should_push_snapshot && sync_head_dirty {
+        sync_head.updated_at = now_ms();
+        upload_webdav_sync_head(&client, cfg, &paths.head_path, &sync_head).await?;
+    }
+
     if should_push_snapshot {
         if cloud_sync_cancel_requested() {
             return Ok(disabled_status());
