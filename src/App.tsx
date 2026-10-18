@@ -1011,7 +1011,7 @@ const App = () => {
 
   useNavigationSync({ showSettings, showTagManager: effectiveShowTagManager, chatMode, showEmojiPanel: effectiveShowEmojiPanel });
 
-  const { copyToClipboard, openContent, deleteEntry, togglePin, handleUpdateTags, handleUpdateNote } =
+  const { copyToClipboard, openContent, deleteEntry, deleteEntryById, togglePin, handleUpdateTags, handleUpdateNote } =
     useClipboardActions({
       t,
       pushToast,
@@ -1145,6 +1145,16 @@ const App = () => {
     virtualListRef
   });
 
+  // Keyboard delete skips pinned entries: a stray keypress shouldn't remove
+  // something the user chose to keep.
+  const deleteFromKeyboard = useCallback(async (item: ClipboardEntry) => {
+    if (item.is_pinned) {
+      pushToast(t("keyboard_delete_pinned"), 2500);
+      return false;
+    }
+    return deleteEntryById(item.id);
+  }, [deleteEntryById, pushToast, t]);
+
   const { selectItemByIndex } = useKeyboardNavigation({
     filteredHistory: navigableHistory,
     selectedIndex,
@@ -1162,7 +1172,8 @@ const App = () => {
     plainPasteHotkey,
     searchInputRef,
     copyToClipboard,
-    setSearch
+    setSearch,
+    deleteItem: deleteFromKeyboard
   });
 
 
