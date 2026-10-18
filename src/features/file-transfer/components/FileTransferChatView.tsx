@@ -1424,6 +1424,8 @@ const FileTransferChatView = ({
                 saveBatchAs={saveBatchAs}
                 openTransferContent={openTransferContent}
                 t={t}
+                localIp={activeIp}
+                actualPort={actualPort}
             />
         </div>
     );
