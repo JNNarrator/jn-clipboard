@@ -271,7 +271,9 @@ mod merged_page_tests {
     }
 }
 
-#[tauri::command]
+// async: off the main thread. A search reads every row of a large history
+// (0.1-0.2 s at 100k entries) and froze typing and scrolling meanwhile.
+#[tauri::command(async)]
 pub fn search_clipboard_history(
     state: State<'_, DbState>,
     session: State<'_, SessionHistory>,
@@ -338,7 +340,9 @@ pub fn search_clipboard_history(
     Ok(history)
 }
 
-#[tauri::command]
+// async for the same reason: deleting an image looks for other references
+// to its file across the whole history.
+#[tauri::command(async)]
 pub fn delete_clipboard_entry(
     app_handle: AppHandle,
     state: State<'_, DbState>,
@@ -362,7 +366,8 @@ pub fn delete_clipboard_entry(
     Ok(())
 }
 
-#[tauri::command]
+// async: clearing a large history takes seconds.
+#[tauri::command(async)]
 pub fn clear_clipboard_history(
     app_handle: AppHandle,
     state: State<'_, DbState>,
@@ -382,7 +387,7 @@ pub fn clear_clipboard_history(
     Ok(())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn get_tag_items(state: State<'_, DbState>, tag: String) -> AppResult<Vec<ClipboardEntry>> {
     let mut history = state
         .tag_repo

@@ -423,6 +423,23 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
         conn.execute("INSERT INTO schema_migrations (version) VALUES (19)", [])?;
     }
 
+    // Migration 20: search, tag and note views and the encrypted-entry scan
+    // list newest first by (sort_at, id). Without an index on that order
+    // SQLite sorted every match before taking the first page, and each batch
+    // of the encrypted scan re-read the whole table. With it, a search stops
+    // once the page is full.
+    if current_version < 20 {
+        if has_column(conn, "clipboard_history", "sort_at")? {
+            conn.execute_batch(
+                "
+                CREATE INDEX IF NOT EXISTS idx_clipboard_history_recent
+                    ON clipboard_history (sort_at DESC, id DESC);
+                ",
+            )?;
+        }
+        conn.execute("INSERT INTO schema_migrations (version) VALUES (20)", [])?;
+    }
+
     Ok(())
 }
 
@@ -491,7 +508,41 @@ mod tests {
                 row.get(0)
             })
             .expect("read schema version");
-        assert_eq!(version, 19);
+        assert_eq!(version, 20);
+    }
+
+    #[test]
+    fn newest_first_queries_walk_the_recent_index_instead_of_sorting() {
+        let conn = Connection::open_in_memory().expect("open database");
+        run_migrations(&conn).expect("run migrations");
+        let plan = |sql: &str| -> String {
+            conn.prepare(&format!("EXPLAIN QUERY PLAN {sql}"))
+                .expect("prepare plan")
+                .query_map([], |row| row.get::<_, String>(3))
+                .expect("query plan")
+                .collect::<Result<Vec<_>>>()
+                .expect("collect plan")
+                .join(" | ")
+        };
+
+        // Shaped like the search query: a LIKE nothing can index, newest first.
+        let search = plan(
+            "SELECT ch.id FROM clipboard_history ch
+             WHERE ch.content LIKE '%' || 'x' || '%' OR ch.note LIKE '%' || 'x' || '%'
+             ORDER BY ch.sort_at DESC, ch.id DESC LIMIT 200",
+        );
+        assert!(search.contains("idx_clipboard_history_recent"), "{search}");
+        assert!(!search.contains("TEMP B-TREE"), "{search}");
+
+        // The encrypted-entry scan pages with a (sort_at, id) cursor.
+        let batch = plan(
+            "SELECT ch.id FROM clipboard_history ch
+             WHERE ch.content LIKE 'enc1:%'
+               AND ((ch.sort_at < 5) OR (ch.sort_at = 5 AND ch.id < 9))
+             ORDER BY ch.sort_at DESC, ch.id DESC LIMIT 500",
+        );
+        assert!(batch.contains("idx_clipboard_history_recent (sort_at<?)"), "{batch}");
+        assert!(!batch.contains("TEMP B-TREE"), "{batch}");
     }
 
     #[test]
