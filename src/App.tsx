@@ -67,6 +67,7 @@ import { useSplitView } from "./features/app/hooks/useSplitView";
 import { useDetailPaneActions } from "./features/app/hooks/useDetailPaneActions";
 import { usePaneWidth } from "./shared/hooks/usePaneWidth";
 import PaneDivider from "./shared/components/PaneDivider";
+import { quickPasteOrder } from "./shared/lib/quickPasteOrder";
 
 const SENSITIVE_TAGS = ["sensitive", "密码", "password"];
 
@@ -105,7 +106,8 @@ const QUICK_PASTE_KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"] as c
 
 const buildQuickPasteHintsById = (
   items: ClipboardEntry[],
-  quickPasteModifier: QuickPasteModifier
+  quickPasteModifier: QuickPasteModifier,
+  listIsFiltered: boolean
 ): Record<number, QuickPasteHint> => {
   if (quickPasteModifier === "disabled") {
     return {};
@@ -124,7 +126,7 @@ const buildQuickPasteHintsById = (
         shift: "Shift+",
         win: "Win+"
       };
-  const pinnedItems = items.filter((item) => item.is_pinned).slice(0, QUICK_PASTE_KEYS.length);
+  const pinnedItems = quickPasteOrder(items, listIsFiltered, QUICK_PASTE_KEYS.length);
 
   return pinnedItems.reduce<Record<number, QuickPasteHint>>((acc, item, index) => {
     acc[item.id] = {
@@ -408,9 +410,10 @@ const App = () => {
   const virtualListRef = useRef<VirtualClipboardListHandle | null>(null);
   const appContainerRef = useRef<HTMLDivElement | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const listIsFiltered = typeFilter !== null || debouncedSearch.trim() !== "";
   const quickPasteHintsById = useMemo(
-    () => buildQuickPasteHintsById(history, quickPasteModifier),
-    [history, quickPasteModifier]
+    () => buildQuickPasteHintsById(history, quickPasteModifier, listIsFiltered),
+    [history, quickPasteModifier, listIsFiltered]
   );
   const PAGE_SIZE = 80;
   const { fetchHistory, loadMoreHistory } = useHistoryFetch({
