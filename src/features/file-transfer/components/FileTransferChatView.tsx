@@ -481,6 +481,13 @@ const FileTransferChatView = ({
         void chooseFilesToSend(mode);
     };
 
+    // The drop listeners are set up once: they call the current version, which
+    // knows the send mode (packaged or one by one) chosen since.
+    const queueFilesForSendingRef = useRef(queueFilesForSending);
+    useEffect(() => {
+        queueFilesForSendingRef.current = queueFilesForSending;
+    });
+
     const chooseFilesToSend = async (sendMode: MultiFileSendMode = multiFileSendMode) => {
         if (isChoosingFiles) return;
         setIsChoosingFiles(true);
@@ -720,6 +727,10 @@ const FileTransferChatView = ({
 
         void emit("toast", t("ft_drop_unrecognized"));
     };
+    const handleProcessDroppedDataTransferRef = useRef(handleProcessDroppedDataTransfer);
+    useEffect(() => {
+        handleProcessDroppedDataTransferRef.current = handleProcessDroppedDataTransfer;
+    });
 
     const send = async () => {
         if (!input.trim()) return;
@@ -781,14 +792,14 @@ const FileTransferChatView = ({
                     }
 
                     for (const [folderName, items] of folderGroups.entries()) {
-                        await queueFilesForSending(items, "package", `${folderName} (${items.length} 个文件)`);
+                        await queueFilesForSendingRef.current(items, "package", `${folderName} (${items.length} 个文件)`);
                     }
                     if (looseItems.length > 0) {
-                        await queueFilesForSending(looseItems);
+                        await queueFilesForSendingRef.current(looseItems);
                     }
                 } catch (err) {
                     console.error("Failed to expand dropped paths", err);
-                    void queueFilesForSending(
+                    void queueFilesForSendingRef.current(
                         paths.map((path) => ({
                             name: path.split(/[/\\]/).pop() || "File",
                             path,
@@ -1016,7 +1027,7 @@ const FileTransferChatView = ({
             event.preventDefault();
             event.stopPropagation();
             setDragging(false);
-            void handleProcessDroppedDataTransfer(event.dataTransfer);
+            void handleProcessDroppedDataTransferRef.current(event.dataTransfer);
         };
 
         window.addEventListener("dragover", handleWindowDragOver);
