@@ -775,7 +775,13 @@ pub async fn upload(
             if let Ok(mut file) = File::create(&target_path).await {
                 let mut stream = field;
                 let mut write_success = true;
-                while let Some(Ok(chunk)) = stream.next().await {
+                while let Some(next) = stream.next().await {
+                    // A broken stream (body over the limit, sender gone) is a
+                    // failed upload, not a finished one.
+                    let Ok(chunk) = next else {
+                        write_success = false;
+                        break;
+                    };
                     if ensure_disk_capacity(&save_dir, chunk.len() as u64).is_err() {
                         write_success = false;
                         break;
