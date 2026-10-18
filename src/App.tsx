@@ -902,7 +902,7 @@ const App = () => {
       setHistory(prev => prev.filter(item => item.id !== id));
     },
     onChanged: () => {
-      fetchHistory(true);
+      fetchHistory(true, true);
     }
   });
 

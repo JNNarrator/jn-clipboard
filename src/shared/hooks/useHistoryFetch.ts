@@ -48,7 +48,9 @@ export const useHistoryFetch = ({
   }, [currentOffset]);
 
   const fetchHistory = useCallback(
-    async (reset = false) => {
+    // keepLoaded: reload as many entries as are loaded now (after a change),
+    // instead of the first page, so the list doesn't jump back to the top.
+    async (reset = false, keepLoaded = false) => {
       if (!isTauriRuntime()) {
         if (reset) {
           setHistory([]);
@@ -94,7 +96,10 @@ export const useHistoryFetch = ({
           setCurrentOffset(data.length);
           setHasMore(false);
         } else {
-          const requestedLimit = pageSize + 1; // Use standard page size for DB limit
+          const loadCount = reset && keepLoaded
+            ? Math.max(pageSize, currentOffsetRef.current)
+            : pageSize;
+          const requestedLimit = loadCount + 1;
           const rawData = await invoke<ClipboardEntry[]>("get_clipboard_history", {
             limit: requestedLimit,
             offset: baseOffset,
@@ -104,8 +109,8 @@ export const useHistoryFetch = ({
 
           if (seq !== fetchSeqRef.current) return;
 
-          const hasMoreNow = rawData.length > pageSize;
-          const data = hasMoreNow ? rawData.slice(0, pageSize) : rawData;
+          const hasMoreNow = rawData.length > loadCount;
+          const data = hasMoreNow ? rawData.slice(0, loadCount) : rawData;
 
           // Track total retrieved items across both session and DB items
           const itemsCount = data.length;
