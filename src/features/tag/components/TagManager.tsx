@@ -14,6 +14,7 @@ import { getTagColor } from "../../../shared/lib/utils";
 import { toTauriLocalImageSrc, withImageCacheBust } from "../../../shared/lib/localImageSrc";
 import { activateForInput } from "../../../shared/lib/focus";
 import { getNotePlaceholder } from "../../../shared/lib/platform";
+import { isSensitiveTagName } from "../../../shared/lib/sensitiveTags";
 import type { ClipboardEntry } from "../../../shared/types";
 
 interface TagManagerProps {
@@ -213,7 +214,7 @@ export default function TagManager({ t, theme }: TagManagerProps) {
         const trimmed = newTagName.trim();
         if (!trimmed || trimmed === oldName) { setEditingTag(null); return; }
 
-        if (oldName === 'sensitive' || oldName === '密码') {
+        if (isSensitiveTagName(oldName)) {
             setEditingTag(null);
             return;
         }
@@ -229,7 +230,7 @@ export default function TagManager({ t, theme }: TagManagerProps) {
     };
 
     const handleDeleteTag = async (tagName: string) => {
-        if (tagName === 'sensitive' || tagName === '密码') return;
+        if (isSensitiveTagName(tagName)) return;
         setIsDeleting(true);
         try {
             await invoke('delete_tag_from_all', { tagName });
@@ -388,7 +389,7 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                     <div className="tag-manager-chip-row custom-scrollbar">
                         {filteredTags.map((tag) => {
                             const isSelected = selectedTag === tag.name;
-                            const canEditTag = tag.name !== "sensitive" && tag.name !== "密码";
+                            const canEditTag = !isSensitiveTagName(tag.name);
                             return (
                                 <div
                                     key={tag.name}
