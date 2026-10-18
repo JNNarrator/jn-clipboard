@@ -10,7 +10,7 @@ use crate::services::clipboard::{
     capture_preserved_named_formats_from_clipboard, clipboard_image_fallback_data_url,
     derive_rich_text_content, extract_animated_image_data_url_from_html,
     html_has_renderable_rich_body, normalize_plain_text_for_clipboard_paste, parse_cf_html,
-    plain_text_from_tabular_html, plain_text_requires_exact_paste, repair_html_fragment,
+    plain_text_from_tabular_html, repair_html_fragment, rich_paste_needs_exact_text,
     rtf_bytes_from_named_formats, sanitize_tabular_html_for_paste,
     should_attach_rich_image_fallback_on_capture, should_use_rich_image_clipboard_fallback,
     split_rich_html_and_image_fallback, split_rich_html_and_named_formats,
@@ -393,11 +393,11 @@ pub(crate) fn resolve_paste_with_format(
     html_content: Option<&str>,
     paste_with_format: Option<bool>,
 ) -> bool {
-    let Some(_html) = html_content else {
+    let Some(html) = html_content else {
         return false;
     };
     paste_with_format
-        .unwrap_or_else(|| content_type == "rich_text" && !plain_text_requires_exact_paste(content))
+        .unwrap_or_else(|| content_type == "rich_text" && !rich_paste_needs_exact_text(content, html))
 }
 
 /// Simulating Cmd+V needs Accessibility on macOS; elsewhere it always works.
@@ -989,7 +989,7 @@ async fn copy_content_to_system_clipboard(
                     let mut paste_plain = plain_text_from_tabular_html(&paste_html)
                         .filter(|value| !value.is_empty())
                         .unwrap_or_else(|| normalize_plain_text_for_clipboard_paste(content));
-                    if plain_text_requires_exact_paste(content) {
+                    if rich_paste_needs_exact_text(content, &paste_html) {
                         paste_plain = normalize_plain_text_for_clipboard_paste(content);
                         paste_html =
                             sanitize_tabular_html_for_paste(&build_exact_paste_html(content));
