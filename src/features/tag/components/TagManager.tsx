@@ -261,6 +261,14 @@ export default function TagManager({ t, theme }: TagManagerProps) {
         } catch (err) { console.error(err); }
     };
 
+    const openItemEditor = async (item: ClipboardEntry) => {
+        // The list holds a shortened copy of long entries; edit the full text.
+        try {
+            const content = await invoke<string>('get_clipboard_content', { id: item.id });
+            setEditingItem({ id: item.id, content });
+        } catch (err) { console.error(err); }
+    };
+
     const handleUpdateItemContent = async () => {
         if (!editingItem || !editingItem.content.trim()) return;
         try {
@@ -682,7 +690,7 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                                                                 title={t("edit")}
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
-                                                                    setEditingItem({ id: item.id, content: item.content });
+                                                                    void openItemEditor(item);
                                                                 }}
                                                             >
                                                                 <Edit2 size={10} />
