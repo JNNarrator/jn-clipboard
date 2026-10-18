@@ -172,6 +172,32 @@ pub trait ClipboardRepository {
     ) -> Result<Option<(String, String, Option<String>)>, String>;
 }
 
+/// Device-local list of edited entry ids the next WebDAV sync sends.
+pub const SYNC_EDITED_IDS_KEY: &str = "cloud_sync_edited_ids";
+
+pub fn edited_ids_for_sync(conn: &Connection) -> std::collections::BTreeSet<i64> {
+    SqliteSettingsRepository::get_raw(conn, SYNC_EDITED_IDS_KEY)
+        .ok()
+        .flatten()
+        .unwrap_or_default()
+        .split(',')
+        .filter_map(|id| id.trim().parse().ok())
+        .collect()
+}
+
+pub fn set_edited_ids_for_sync(
+    conn: &Connection,
+    ids: &std::collections::BTreeSet<i64>,
+) -> Result<(), String> {
+    let value = ids.iter().map(i64::to_string).collect::<Vec<_>>().join(",");
+    conn.execute(
+        "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2)",
+        params![SYNC_EDITED_IDS_KEY, value],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 pub struct SqliteClipboardRepository {
     conn: Arc<Mutex<Connection>>,
 }
@@ -308,6 +334,28 @@ impl SqliteClipboardRepository {
         )
         .map_err(|e| e.to_string())?;
         Ok(())
+    }
+
+    /// An edited entry is new content to other devices: the old content gets a
+    /// tombstone, and the entry is listed for the next sync to send (its sort
+    /// time doesn't change, so the sync wouldn't pick it up otherwise).
+    fn record_edit_for_sync(
+        &self,
+        conn: &Connection,
+        id: i64,
+        (old_type, old_content): (&str, &str),
+        (new_type, new_content): (&str, &str),
+    ) -> Result<(), String> {
+        let old_hash = calc_sync_content_hash(old_type, old_content);
+        let new_hash = calc_sync_content_hash(new_type, new_content);
+        if (old_type, old_hash) == (new_type, new_hash) {
+            return Ok(());
+        }
+        self.upsert_tombstone_with_conn(conn, old_type, old_hash, now_ms())?;
+        self.clear_tombstone_with_conn(conn, new_type, new_hash)?;
+        let mut ids = edited_ids_for_sync(conn);
+        ids.insert(id);
+        set_edited_ids_for_sync(conn, &ids)
     }
 
     fn clear_tombstone_with_conn(
@@ -1177,6 +1225,10 @@ impl SqliteClipboardRepository {
 
         let tags: Vec<String> = serde_json::from_str(&tags_json).unwrap_or_default();
         let should_encrypt = has_sensitive_tag(&tags);
+        if old_content != content {
+            let new_type = if content_type == "rich_text" { "text" } else { content_type.as_str() };
+            self.record_edit_for_sync(conn, id, (&content_type, &old_content), (new_type, content))?;
+        }
 
         if is_text_type(&content_type) {
             let hash = calc_text_hash(content) as i64;
@@ -1953,6 +2005,28 @@ mod tests {
         assert_eq!(search_ids(&repo, "work", 1, true, false), vec![1]);
         assert_eq!(search_ids(&repo, "work%", 20, true, false), vec![4]);
         assert_eq!(search_ids(&repo, "wor", 20, true, false), Vec::<i64>::new());
+    }
+
+    #[test]
+    fn an_edit_replaces_the_old_text_on_other_devices() {
+        let repo = search_repository(
+            "INSERT INTO clipboard_history (id, content_type, content, source_app, timestamp, sort_at, preview, tags)
+             VALUES (7, 'text', 'draft', 'App', 1, 1, 'draft', '[]');",
+        );
+        let conn = repo.conn.lock().unwrap();
+
+        repo.update_entry_content_with_conn(&conn, 7, "final", "final").unwrap();
+
+        let old_hash = calc_sync_content_hash("text", "draft");
+        let tombstoned: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM cloud_sync_tombstones WHERE content_type = 'text' AND content_hash = ?",
+                [old_hash],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(tombstoned, 1);
+        assert_eq!(edited_ids_for_sync(&conn), std::collections::BTreeSet::from([7]));
     }
 
     #[test]

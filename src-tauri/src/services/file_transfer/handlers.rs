@@ -488,7 +488,9 @@ pub async fn handle_socket(socket: WebSocket, state: Arc<AppState>, sealed_mode:
     let (mut sender, mut receiver) = socket.split();
     let mut rx = state.ws_tx.subscribe();
     let mut shutdown = state.shutdown.clone();
-    let mut current_device_id: Option<String> = None;
+    // Set once the phone says who it is. Removed from the device list after
+    // both tasks end, however they end: one is aborted when the other stops.
+    let connected_device: Arc<std::sync::Mutex<Option<String>>> = Arc::default();
     let key = state.lan_key;
 
     let mut send_task = tokio::spawn(async move {
@@ -508,6 +510,7 @@ pub async fn handle_socket(socket: WebSocket, state: Arc<AppState>, sealed_mode:
     });
 
     let state_inner = state.clone();
+    let connected = connected_device.clone();
     let mut recv_task = tokio::spawn(async move {
         while let Some(Ok(msg)) = receiver.next().await {
             let text = match (sealed_mode, msg) {
@@ -520,6 +523,7 @@ pub async fn handle_socket(socket: WebSocket, state: Arc<AppState>, sealed_mode:
                 if let Ok(incoming) = serde_json::from_str::<WsIncoming>(&text) {
                     match incoming {
                         WsIncoming::Ping => {
+                            let current_device_id = connected.lock().unwrap().clone();
                             if let Some(ref id) = current_device_id {
                                 let online_devices = state_inner.app_handle.state::<OnlineDevices>();
                                 if let Ok(mut guard) = online_devices.0.lock() {
@@ -536,6 +540,7 @@ pub async fn handle_socket(socket: WebSocket, state: Arc<AppState>, sealed_mode:
                         } => {
                             let device_id = safe_identity(&device_id, "mobile");
                             let device_name = safe_identity(&device_name, "手机");
+                            *connected.lock().unwrap() = Some(device_id.clone());
                             let online_devices = state_inner.app_handle.state::<OnlineDevices>();
                             {
                                 let mut guard = online_devices.0.lock().unwrap();
@@ -547,7 +552,6 @@ pub async fn handle_socket(socket: WebSocket, state: Arc<AppState>, sealed_mode:
                                         last_seen: chrono::Utc::now().timestamp_millis(),
                                     },
                                 );
-                                current_device_id = Some(device_id);
 
                                 let devices: Vec<DeviceInfo> = guard.values().cloned().collect();
                                 let update = serde_json::json!({
@@ -565,22 +569,6 @@ pub async fn handle_socket(socket: WebSocket, state: Arc<AppState>, sealed_mode:
             }
         }
 
-        if let Some(id) = current_device_id {
-            let online_devices = state_inner.app_handle.state::<OnlineDevices>();
-            {
-                let mut guard = online_devices.0.lock().unwrap();
-                guard.remove(&id);
-                let devices: Vec<DeviceInfo> = guard.values().cloned().collect();
-                let update = serde_json::json!({
-                    "type": "devices_update",
-                    "devices": devices
-                });
-                let _ = state_inner.ws_tx.send(update.to_string());
-                let _ = state_inner
-                    .app_handle
-                    .emit("online-devices-updated", devices);
-            }
-        }
     });
 
     tokio::select! {
@@ -591,6 +579,20 @@ pub async fn handle_socket(socket: WebSocket, state: Arc<AppState>, sealed_mode:
             send_task.abort();
             recv_task.abort();
         }
+    }
+
+    let left = connected_device.lock().unwrap().take();
+    if let Some(id) = left {
+        let online_devices = state.app_handle.state::<OnlineDevices>();
+        let mut guard = online_devices.0.lock().unwrap();
+        guard.remove(&id);
+        let devices: Vec<DeviceInfo> = guard.values().cloned().collect();
+        let update = serde_json::json!({
+            "type": "devices_update",
+            "devices": devices
+        });
+        let _ = state.ws_tx.send(update.to_string());
+        let _ = state.app_handle.emit("online-devices-updated", devices);
     }
 }
 
@@ -773,7 +775,13 @@ pub async fn upload(
             if let Ok(mut file) = File::create(&target_path).await {
                 let mut stream = field;
                 let mut write_success = true;
-                while let Some(Ok(chunk)) = stream.next().await {
+                while let Some(next) = stream.next().await {
+                    // A broken stream (body over the limit, sender gone) is a
+                    // failed upload, not a finished one.
+                    let Ok(chunk) = next else {
+                        write_success = false;
+                        break;
+                    };
                     if ensure_disk_capacity(&save_dir, chunk.len() as u64).is_err() {
                         write_success = false;
                         break;
@@ -875,6 +883,9 @@ async fn process_upload_chunk(
     update_activity(&state.app_handle);
     if let Err(message) = validate_chunk(&meta, data.len()) {
         return (StatusCode::BAD_REQUEST, message).into_response();
+    }
+    if upload_already_completed(&meta.upload_id) {
+        return (StatusCode::OK, "Upload complete").into_response();
     }
     let safe_name = safe_file_name(&meta.file_name);
 
@@ -980,6 +991,7 @@ async fn process_upload_chunk(
         {
             let mut sessions_map = sessions.0.lock().unwrap();
             sessions_map.remove(&meta.upload_id);
+            remember_completed_upload(&meta.upload_id);
             release_upload_lock(&meta.upload_id);
         }
 
@@ -1058,6 +1070,9 @@ pub async fn share_chunk(
     };
     if let Err(message) = validate_chunk(&meta, data.len()) {
         return with_cors((StatusCode::BAD_REQUEST, message).into_response());
+    }
+    if upload_already_completed(&meta.upload_id) {
+        return with_cors((StatusCode::OK, "Upload complete").into_response());
     }
     let safe_name = safe_file_name(&meta.file_name);
 
@@ -1157,6 +1172,7 @@ pub async fn share_chunk(
         {
             let mut sessions_map = sessions.0.lock().unwrap();
             sessions_map.remove(&meta.upload_id);
+            remember_completed_upload(&meta.upload_id);
             release_upload_lock(&meta.upload_id);
         }
 
@@ -1550,6 +1566,13 @@ mod tests {
     use super::*;
 
     #[test]
+    fn a_retried_last_chunk_finds_its_upload_done() {
+        assert!(!upload_already_completed("upload-retry-test"));
+        remember_completed_upload("upload-retry-test");
+        assert!(upload_already_completed("upload-retry-test"));
+    }
+
+    #[test]
     fn only_the_app_window_may_call_cross_origin() {
         assert!(is_app_origin("tauri://localhost"));
         assert!(is_app_origin("http://tauri.localhost"));
@@ -1709,6 +1732,30 @@ fn release_upload_lock(upload_id: &str) {
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner())
         .remove(upload_id);
+}
+
+/// Uploads finished in the last few minutes. A phone that lost the reply to
+/// the last chunk sends it again; answer that it's done instead of saving the
+/// file a second time (one chunk) or reporting a failure (several).
+static COMPLETED_UPLOADS: std::sync::LazyLock<
+    std::sync::Mutex<HashMap<String, std::time::Instant>>,
+> = std::sync::LazyLock::new(Default::default);
+const COMPLETED_UPLOAD_MEMORY: std::time::Duration = std::time::Duration::from_secs(10 * 60);
+
+fn remember_completed_upload(upload_id: &str) {
+    let mut completed = COMPLETED_UPLOADS
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    completed.retain(|_, at| at.elapsed() < COMPLETED_UPLOAD_MEMORY);
+    completed.insert(upload_id.to_string(), std::time::Instant::now());
+}
+
+fn upload_already_completed(upload_id: &str) -> bool {
+    COMPLETED_UPLOADS
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .get(upload_id)
+        .is_some_and(|at| at.elapsed() < COMPLETED_UPLOAD_MEMORY)
 }
 
 // ---- Sealed routes: the same operations with encrypted bodies (sealed.rs) ----

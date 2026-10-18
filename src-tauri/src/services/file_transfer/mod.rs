@@ -643,6 +643,11 @@ pub async fn toggle_file_server(
             *server_info.lan_key.lock().unwrap() = None;
             clear_shared_files(&app_handle);
             clear_upload_sessions(&app_handle);
+            // Connections may be dropped with the server before they clean up.
+            if let Some(devices) = app_handle.try_state::<OnlineDevices>() {
+                devices.0.lock().unwrap().clear();
+            }
+            let _ = app_handle.emit("online-devices-updated", Vec::<DeviceInfo>::new());
             let _ = app_handle.emit(
                 "file-server-status-changed",
                 StatusPayload {

@@ -12,7 +12,7 @@ use regex::Regex;
 use rusqlite::OptionalExtension;
 use reqwest::{Client, Method, RequestBuilder, Response, StatusCode};
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU32, Ordering};
 use std::sync::{Mutex, OnceLock};
@@ -38,6 +38,8 @@ const RICH_IMAGE_FALLBACK_PREFIX: &str = "<!--TIEZ_RICH_IMAGE:";
 const RICH_IMAGE_FALLBACK_SUFFIX: &str = "-->";
 const WEBDAV_OP_BATCH_SIZE: usize = 400;
 const EMOJI_FAVORITES_SETTING_KEY: &str = "app.emoji_favorites";
+/// Favorites as of the last emoji sync on this device (see merge_favorites).
+const CLOUD_SYNC_EMOJI_BASE_KEY: &str = "cloud_sync_emoji_favorites_base";
 const CLOUD_SYNC_WEBDAV_LOCAL_SEQ_KEY: &str = "cloud_sync_webdav_local_seq";
 const CLOUD_SYNC_WEBDAV_OP_CURSOR_MAP_KEY: &str = "cloud_sync_webdav_op_cursor_map";
 const CLOUD_SYNC_WEBDAV_BLOB_CACHE_KEY: &str = "cloud_sync_webdav_blob_cache";
@@ -49,6 +51,7 @@ const CLOUD_SYNC_SETTINGS_MTIMES_KEY: &str = "cloud_sync_settings_mtimes";
 /// Fingerprint of the end-to-end key this device's server files were last
 /// written with ("" = unencrypted).
 const CLOUD_SYNC_E2E_FINGERPRINT_KEY: &str = "cloud_sync_e2e_fingerprint";
+const CLOUD_SYNC_PULLED_CONTENT_PREFS_KEY: &str = "cloud_sync_pulled_content_prefs";
 const BLOB_KIND_IMAGE: &str = "image";
 const BLOB_KIND_CONTENT: &str = "content";
 const BLOB_KIND_HTML: &str = "html";
@@ -66,7 +69,6 @@ static CLOUD_SYNC_TASK_ACTIVE: AtomicBool = AtomicBool::new(false);
 static CLOUD_SYNC_REQUESTED: AtomicBool = AtomicBool::new(false);
 static CLOUD_SYNC_CANCEL_REQUESTED: AtomicBool = AtomicBool::new(false);
 static CLOUD_SYNC_LAST_SYNC_AT: AtomicI64 = AtomicI64::new(0);
-static LAST_PUSHED_EMOJI_HASH: AtomicI64 = AtomicI64::new(0);
 static CLOUD_SYNC_BACKOFF_UNTIL: AtomicI64 = AtomicI64::new(0);
 
 // 用于记录在本次运行中，哪些 WebDAV 目录已经确认存在，避免重复发网络请求
@@ -126,6 +128,14 @@ impl Default for CloudSyncContentPrefs {
 }
 
 impl CloudSyncContentPrefs {
+    /// A content type that `before` left out is synced now.
+    fn widens(&self, before: &CloudSyncContentPrefs) -> bool {
+        (self.text && !before.text)
+            || (self.image && !before.image)
+            || (self.file_path && !before.file_path)
+            || (self.emoji && !before.emoji)
+    }
+
     fn includes_content_type(&self, content_type: &str) -> bool {
         if !is_cloud_clipboard_content_type(content_type) {
             return false;
@@ -1309,6 +1319,47 @@ fn fetch_syncable_entries(
     Ok(entries)
 }
 
+/// Entries whose content was edited since they last synced (see
+/// record_edit_for_sync): an edit keeps the sort time, so the cursor misses it.
+fn load_edited_ids(app: &AppHandle) -> AppResult<BTreeSet<i64>> {
+    let db_state = app
+        .try_state::<DbState>()
+        .ok_or_else(|| AppError::Internal("DB state unavailable".to_string()))?;
+    let conn = db_state.conn.lock().map_err(|e| AppError::Internal(e.to_string()))?;
+    Ok(crate::infrastructure::repository::clipboard_repo::edited_ids_for_sync(&conn))
+}
+
+fn add_edited_entries(
+    app: &AppHandle,
+    ids: &BTreeSet<i64>,
+    entries: &mut Vec<ClipboardEntry>,
+) -> AppResult<()> {
+    let db_state = app
+        .try_state::<DbState>()
+        .ok_or_else(|| AppError::Internal("DB state unavailable".to_string()))?;
+    let known: HashSet<i64> = entries.iter().map(|entry| entry.id).collect();
+    for id in ids.iter().filter(|id| !known.contains(id)) {
+        if let Some(entry) = db_state.repo.get_entry_by_id(*id).map_err(AppError::Internal)? {
+            entries.push(entry);
+        }
+    }
+    Ok(())
+}
+
+/// After a round that sent them; edits made during the round stay listed.
+fn forget_synced_edits(app: &AppHandle, sent: &BTreeSet<i64>) -> AppResult<()> {
+    use crate::infrastructure::repository::clipboard_repo::{edited_ids_for_sync, set_edited_ids_for_sync};
+    if sent.is_empty() {
+        return Ok(());
+    }
+    let db_state = app
+        .try_state::<DbState>()
+        .ok_or_else(|| AppError::Internal("DB state unavailable".to_string()))?;
+    let conn = db_state.conn.lock().map_err(|e| AppError::Internal(e.to_string()))?;
+    let left: BTreeSet<i64> = edited_ids_for_sync(&conn).difference(sent).copied().collect();
+    set_edited_ids_for_sync(&conn, &left).map_err(AppError::Internal)
+}
+
 /// Entry id -> when its tags were last edited, for entries edited after `since`.
 fn load_tag_edit_times(app: &AppHandle, since: Option<i64>) -> AppResult<HashMap<i64, i64>> {
     let db_state = app
@@ -1434,6 +1485,24 @@ fn save_webdav_snapshot_cursor_map(app: &AppHandle, map: &HashMap<String, i64>) 
     let db_state = app.try_state::<DbState>().ok_or_else(|| AppError::Internal("DB state unavailable".into()))?;
     let payload = serde_json::to_string(map).map_err(|e| AppError::Internal(e.to_string()))?;
     db_state.settings_repo.set(CLOUD_SYNC_WEBDAV_SNAPSHOT_CURSOR_MAP_KEY, &payload).map_err(AppError::from)
+}
+
+/// Snapshots are pulled again from scratch once a 「同步内容」 type is turned
+/// on: what it left out was never applied, and unchanged snapshots aren't
+/// read again otherwise.
+fn repull_snapshots_if_prefs_widened(app: &AppHandle, prefs: &CloudSyncContentPrefs) -> AppResult<()> {
+    let current = serde_json::to_string(prefs).map_err(|e| AppError::Internal(e.to_string()))?;
+    let stored = get_setting_string(app, CLOUD_SYNC_PULLED_CONTENT_PREFS_KEY);
+    if stored == current {
+        return Ok(());
+    }
+    if let Ok(before) = serde_json::from_str::<CloudSyncContentPrefs>(&stored) {
+        if prefs.widens(&before) {
+            save_webdav_snapshot_cursor_map(app, &HashMap::new())?;
+            save_webdav_snapshot_digests(app, &HashMap::new())?;
+        }
+    }
+    set_setting_string(app, CLOUD_SYNC_PULLED_CONTENT_PREFS_KEY, &current)
 }
 
 fn merge_webdav_sync_heads(base: &mut WebDavSyncHead, incoming: WebDavSyncHead) {
@@ -3244,6 +3313,15 @@ fn touch_webdav_head_rebuild_at(app: &AppHandle, now: i64) -> AppResult<()> {
     set_setting_i64(app, CLOUD_SYNC_WEBDAV_LAST_HEAD_REBUILD_AT_KEY, now)
 }
 
+/// The local op counter, moved up to what the head already shows for this
+/// device. 「恢复默认设置」 or a reinstall on the same machine restarts it at 0
+/// with the same device id, and peers past those numbers skipped new ops.
+fn op_seq_after_head(local_seq: i64, head: &WebDavSyncHead, device_id: &str) -> i64 {
+    head.devices.get(device_id).map_or(local_seq, |device| {
+        local_seq.max(device.latest_op_seq).max(device.snapshot_op_seq)
+    })
+}
+
 fn update_webdav_head_device<F>(head: &mut WebDavSyncHead, device_id: &str, mut update: F)
 where
     F: FnMut(&mut WebDavDeviceHead),
@@ -3449,7 +3527,10 @@ async fn pull_remote_webdav_ops_from_head(
             };
             match fetch_webdav_ops_batch(client, cfg, ops_path, &op_ref).await? {
                 Some(mut batch) if batch.device_id == op_ref.device_id => {
-                    batch.entries.retain(|entry| !crate::database::has_sensitive_tag(&entry.tags));
+                    batch.entries.retain(|entry| {
+                        !crate::database::has_sensitive_tag(&entry.tags)
+                            && cfg.content_prefs.includes_content_type(&entry.content_type)
+                    });
                     // A blob that fails here is retried via the owner's next snapshot.
                     enrich_item_blobs_after_pull(app, client, cfg, blobs_path, &mut batch.entries)
                         .await;
@@ -3474,6 +3555,13 @@ async fn pull_remote_webdav_ops_from_head(
 
     save_webdav_op_cursor_map(app, &cursor_map)?;
     Ok(received)
+}
+
+/// One device's unreadable snapshot (cut short by an interrupted upload, say)
+/// used to fail every sync for everyone. Skip it; a problem with the server
+/// itself still fails the steps after this.
+fn skip_unreadable_snapshot(device_id: &str, err: &AppError) {
+    error!(">>> [CloudSync] Skipping device {}'s snapshot: {}", device_id, err);
 }
 
 async fn pull_remote_device_snapshots(
@@ -3509,11 +3597,12 @@ async fn pull_remote_device_snapshots(
         {
             continue;
         }
-        if let Some(snapshot) = fetch_webdav_snapshot(client, cfg, devices_path, &device_id).await?
-        {
-            if snapshot.updated_at > 0 {
+        match fetch_webdav_snapshot(client, cfg, devices_path, &device_id).await {
+            Ok(Some(snapshot)) if snapshot.updated_at > 0 => {
                 candidates.push((device_id, snapshot.updated_at));
             }
+            Ok(_) => {}
+            Err(err) => skip_unreadable_snapshot(&device_id, &err),
         }
     }
 
@@ -3527,16 +3616,23 @@ async fn pull_remote_device_snapshots(
             break;
         }
         let last_pulled = snapshot_cursor.get(&device_id).copied().unwrap_or(0);
-        let Some(mut snapshot) =
-            fetch_webdav_snapshot(client, cfg, devices_path, &device_id).await?
-        else {
-            continue;
+        let mut snapshot = match fetch_webdav_snapshot(client, cfg, devices_path, &device_id).await {
+            Ok(Some(snapshot)) => snapshot,
+            Ok(None) => continue,
+            Err(err) => {
+                skip_unreadable_snapshot(&device_id, &err);
+                continue;
+            }
         };
         if snapshot.updated_at <= last_pulled {
             continue;
         }
 
-        snapshot.entries.retain(|entry| !crate::database::has_sensitive_tag(&entry.tags));
+        // Types 「同步内容」 leaves out aren't downloaded, nor marked as pulled.
+        snapshot.entries.retain(|entry| {
+            !crate::database::has_sensitive_tag(&entry.tags)
+                && cfg.content_prefs.includes_content_type(&entry.content_type)
+        });
         // A changed snapshot is mostly the same entries as last time, and those
         // were applied then: skip them, and with them their blob downloads.
         let previous = snapshot_digests.remove(&device_id).unwrap_or_default();
@@ -3800,12 +3896,19 @@ async fn sync_once_webdav(
     let now = now_ms();
     let sync_cursor = get_setting_i64(app, "cloud_sync_cursor", 0);
 
-    let candidate_entries = blocking(|| fetch_syncable_entries(app, Some(sync_cursor)))?;
-    let candidate_items = entries_to_sync_items(
+    let edited_ids = blocking(|| load_edited_ids(app))?;
+    let mut candidate_entries = blocking(|| fetch_syncable_entries(app, Some(sync_cursor)))?;
+    blocking(|| add_edited_entries(app, &edited_ids, &mut candidate_entries))?;
+    let mut candidate_items = entries_to_sync_items(
         candidate_entries,
         &cfg.content_prefs,
         &load_tag_edit_times(app, None)?,
     );
+    // Deletions go out with this round's ops too; left to the next snapshot,
+    // they reached other devices up to 12 hours late.
+    candidate_items.extend(blocking(|| {
+        collect_local_tombstones(app, &cfg.content_prefs, Some(sync_cursor))
+    })?);
     let (delta_items, _) = collect_local_incremental_items(app, &candidate_items)?;
 
     // Turning end-to-end encryption on or off, or changing the key, makes this
@@ -3837,9 +3940,15 @@ async fn sync_once_webdav(
     let paths = ensure_webdav_directories(&client, cfg).await?;
     let mut sync_head = resolve_webdav_sync_head(app, &client, cfg, &paths, now).await?;
     ensure_head_covers_known_devices(&client, cfg, &paths.devices_path, &mut sync_head).await?;
+    let local_seq = get_local_webdav_op_seq(app);
+    let recovered_seq = op_seq_after_head(local_seq, &sync_head, &cfg.device_id);
+    if recovered_seq != local_seq {
+        set_local_webdav_op_seq(app, recovered_seq)?;
+    }
     let mut sync_head_dirty = false;
     let mut webdav_blob_cache = load_webdav_blob_cache(app);
 
+    repull_snapshots_if_prefs_widened(app, &cfg.content_prefs)?;
     // 1) Pull authoritative per-device snapshots every cycle (bounded devices/ listing).
     let mut received_items = pull_remote_device_snapshots(
         app,
@@ -3913,10 +4022,11 @@ async fn sync_once_webdav(
 
     // Incremental Emoji Sync check
     if let Ok(emoji_op) = check_and_create_emoji_sync_op(app) {
-        if let Some(op) = emoji_op {
+        if let Some((op, sent_list)) = emoji_op {
             let next_seq = get_local_webdav_op_seq(app).saturating_add(1);
             upload_webdav_ops_batch(&client, cfg, &paths.ops_path, next_seq, &[op]).await?;
             set_local_webdav_op_seq(app, next_seq)?;
+            save_emoji_base(app, &sent_list)?;
             uploaded_items += 1;
             update_webdav_head_device(&mut sync_head, &cfg.device_id, |device| {
                 device.latest_op_seq = device.latest_op_seq.max(next_seq);
@@ -3926,6 +4036,13 @@ async fn sync_once_webdav(
     }
 
     save_webdav_blob_cache(app, &webdav_blob_cache);
+
+    // Publish the ops before trying the snapshot: if the snapshot fails, peers
+    // still see them instead of waiting for this device's next change.
+    if should_push_snapshot && sync_head_dirty {
+        sync_head.updated_at = now_ms();
+        upload_webdav_sync_head(&client, cfg, &paths.head_path, &sync_head).await?;
+    }
 
     if should_push_snapshot {
         if cloud_sync_cancel_requested() {
@@ -3993,6 +4110,7 @@ async fn sync_once_webdav(
     CLOUD_SYNC_LAST_SYNC_AT.store(now, Ordering::Relaxed);
 
     set_setting_i64(app, "cloud_sync_cursor", now)?;
+    blocking(|| forget_synced_edits(app, &edited_ids))?;
 
     Ok(CloudSyncStatus {
         state: "idle".to_string(),
@@ -4336,7 +4454,8 @@ pub async fn cloud_sync_now(app: AppHandle) -> AppResult<CloudSyncStatus> {
     sync_once(&app, &cfg, true).await
 }
 
-fn check_and_create_emoji_sync_op(app: &AppHandle) -> AppResult<Option<CloudSyncItem>> {
+/// The favorites op to send, with the list to record as synced once it's sent.
+fn check_and_create_emoji_sync_op(app: &AppHandle) -> AppResult<Option<(CloudSyncItem, Vec<String>)>> {
     let db_state = app
         .try_state::<DbState>()
         .ok_or_else(|| AppError::Internal("DB unavailable".to_string()))?;
@@ -4358,31 +4477,27 @@ fn check_and_create_emoji_sync_op(app: &AppHandle) -> AppResult<Option<CloudSync
         .ok()
         .flatten()
         .unwrap_or_default();
-
-    if emoji_json.trim().is_empty() || emoji_json == "[]" {
+    let mut local: Vec<String> = serde_json::from_str(&emoji_json).unwrap_or_default();
+    local.sort();
+    local.dedup();
+    // Only what changed here since the last sync goes out: a new device's
+    // empty list must not count as removing everyone's favorites.
+    if local == load_emoji_base(app) {
         return Ok(None);
     }
 
-    let Some(sync_payload) = encode_emoji_favorites_setting(&emoji_json) else {
+    let local_json = serde_json::to_string(&local).unwrap_or_else(|_| "[]".to_string());
+    let Some(sync_payload) = encode_emoji_favorites_setting(&local_json) else {
         return Ok(None);
     };
-    if sync_payload.trim().is_empty() || sync_payload == "[]" {
-        return Ok(None);
-    }
 
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     use std::hash::{Hash, Hasher};
     sync_payload.hash(&mut hasher);
     let current_hash = hasher.finish() as i64;
 
-    if current_hash == LAST_PUSHED_EMOJI_HASH.load(Ordering::Relaxed) {
-        return Ok(None);
-    }
-
-    LAST_PUSHED_EMOJI_HASH.store(current_hash, Ordering::Relaxed);
-
     let timestamp = now_ms();
-    Ok(Some(CloudSyncItem {
+    Ok(Some((CloudSyncItem {
         content_type: "emoji_sync".to_string(),
         content: sync_payload,
         content_hash: current_hash,
@@ -4401,7 +4516,7 @@ fn check_and_create_emoji_sync_op(app: &AppHandle) -> AppResult<Option<CloudSync
         tags: vec![],
         use_count: 0,
         tags_updated_at: 0,
-    }))
+    }, local)))
 }
 
 fn merge_remote_emojis(app: &AppHandle, remote_json: &str) -> AppResult<()> {
@@ -4422,14 +4537,7 @@ fn merge_remote_emojis(app: &AppHandle, remote_json: &str) -> AppResult<()> {
     };
     let remote_paths = materialize_emoji_favorite_paths(app, remote_json)?;
     let normalized_local_json = serde_json::to_string(&local_paths).unwrap_or_default();
-
-    let mut merged: std::collections::HashSet<String> = local_paths.iter().cloned().collect();
-    for path in remote_paths {
-        merged.insert(path);
-    }
-
-    let mut merged_paths: Vec<String> = merged.into_iter().collect();
-    merged_paths.sort();
+    let merged_paths = merge_favorites(&load_emoji_base(app), &local_paths, &remote_paths);
 
     if merged_paths != local_paths || normalized_local_json != local_json {
         let new_json = serde_json::to_string(&merged_paths).unwrap_or_default();
@@ -4437,19 +4545,37 @@ fn merge_remote_emojis(app: &AppHandle, remote_json: &str) -> AppResult<()> {
             .settings_repo
             .set(EMOJI_FAVORITES_SETTING_KEY, &new_json)
             .map_err(AppError::from)?;
-
-        // Update local hash to prevent echoing back the same data.
-        let sync_payload =
-            encode_emoji_favorites_setting(&new_json).unwrap_or_else(|| "[]".to_string());
-        let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        use std::hash::{Hash, Hasher};
-        sync_payload.hash(&mut hasher);
-        LAST_PUSHED_EMOJI_HASH.store(hasher.finish() as i64, Ordering::Relaxed);
-
         let _ = app.emit("settings-changed", ());
     }
+    // The sync knows the sender's list now. What differs from it here (local
+    // changes not sent yet) goes out next time; nothing else echoes back.
+    save_emoji_base(app, &remote_paths)
+}
 
-    Ok(())
+/// Favorites both sides kept since `base`, plus what either side added: a
+/// favorite removed on one device stays removed (a plain union brought it back).
+fn merge_favorites(base: &[String], local: &[String], remote: &[String]) -> Vec<String> {
+    let base: HashSet<&String> = base.iter().collect();
+    let local_set: HashSet<&String> = local.iter().collect();
+    let remote_set: HashSet<&String> = remote.iter().collect();
+    let mut merged: Vec<String> = local
+        .iter()
+        .filter(|path| !base.contains(path) || remote_set.contains(path))
+        .chain(remote.iter().filter(|path| !base.contains(path) || local_set.contains(path)))
+        .cloned()
+        .collect();
+    merged.sort();
+    merged.dedup();
+    merged
+}
+
+fn load_emoji_base(app: &AppHandle) -> Vec<String> {
+    serde_json::from_str(&get_setting_string(app, CLOUD_SYNC_EMOJI_BASE_KEY)).unwrap_or_default()
+}
+
+fn save_emoji_base(app: &AppHandle, paths: &[String]) -> AppResult<()> {
+    let json = serde_json::to_string(paths).map_err(|e| AppError::Internal(e.to_string()))?;
+    set_setting_string(app, CLOUD_SYNC_EMOJI_BASE_KEY, &json)
 }
 
 #[cfg(test)]
@@ -4477,6 +4603,20 @@ mod tests {
         .await
         .unwrap();
         assert!(requested.load(Ordering::Relaxed));
+    }
+
+    #[test]
+    fn a_removed_emoji_favorite_stays_removed() {
+        use super::merge_favorites;
+        let list = |items: &[&str]| items.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        let base = list(&["a", "b", "c"]);
+
+        // Removed on the other device, added here: both kept.
+        assert_eq!(merge_favorites(&base, &list(&["a", "b", "c", "d"]), &list(&["a", "c"])), list(&["a", "c", "d"]));
+        // Removed here; the other device still has it: stays removed.
+        assert_eq!(merge_favorites(&base, &list(&["a"]), &base), list(&["a"]));
+        // A device that never synced takes everything.
+        assert_eq!(merge_favorites(&[], &[], &base), base);
     }
 
     #[tokio::test]
@@ -4747,6 +4887,15 @@ mod tests {
     }
 
     #[test]
+    fn turning_a_content_type_on_widens_the_sync() {
+        let prefs = |image: bool| super::CloudSyncContentPrefs { text: true, image, file_path: true, emoji: true };
+
+        assert!(prefs(true).widens(&prefs(false)));
+        assert!(!prefs(false).widens(&prefs(true)));
+        assert!(!prefs(true).widens(&prefs(true)));
+    }
+
+    #[test]
     fn normalize_item_for_sync_rewrites_rich_html_local_resources() {
         let dir = make_temp_dir("normalize-item");
         let image_path = dir.join("entry.png");
@@ -4783,6 +4932,20 @@ mod tests {
         assert!(!html.contains("entry.png"));
 
         let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn the_op_counter_catches_up_with_the_head_after_a_reset() {
+        use super::*;
+        let mut head = WebDavSyncHead::default();
+        update_webdav_head_device(&mut head, "mac", |device| {
+            device.latest_op_seq = 40;
+            device.snapshot_op_seq = 38;
+        });
+
+        assert_eq!(op_seq_after_head(0, &head, "mac"), 40);
+        assert_eq!(op_seq_after_head(55, &head, "mac"), 55);
+        assert_eq!(op_seq_after_head(3, &head, "new-device"), 3);
     }
 
     #[test]
