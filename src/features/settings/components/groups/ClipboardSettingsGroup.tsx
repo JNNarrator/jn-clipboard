@@ -124,6 +124,16 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
         setPersistentLimitDraft(props.persistentLimit.toString());
     }, [props.persistentLimit, props.persistentLimitEnabled]);
 
+    // Recording pauses capture and, on Windows, takes every key press: it
+    // ends with its field (blur covers the window hiding; this, settings closing).
+    const { setIsRecording, setIsRecordingPlain, setIsRecordingSearch, setIsRecordingSequential } = props;
+    useEffect(() => () => {
+        setIsRecording(false);
+        setIsRecordingPlain(false);
+        setIsRecordingSearch(false);
+        setIsRecordingSequential(false);
+    }, [setIsRecording, setIsRecordingPlain, setIsRecordingSearch, setIsRecordingSequential]);
+
     const commitPersistentLimit = (rawValue?: string) => {
         const source = rawValue ?? persistentLimitDraft;
         const parsed = parseInt(source, 10);
@@ -407,6 +417,7 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
                                 props.setIsRecording,
                                 props.updateHotkey
                             )}
+                            onBlur={() => props.setIsRecording(false)}
                         >
                             {props.isRecording ? (
                                 <div className="key-cap key-cap-recording">{props.t('waiting_for_input')}</div>
@@ -523,6 +534,7 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
                                 props.setIsRecordingPlain,
                                 props.updatePlainPasteHotkey
                             )}
+                            onBlur={() => props.setIsRecordingPlain(false)}
                         >
                             {props.isRecordingPlain ? (
                                 <div className="key-cap key-cap-recording">{props.t('waiting_for_input')}</div>
@@ -551,6 +563,7 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
                                 props.setIsRecordingSearch,
                                 props.updateSearchHotkey
                             )}
+                            onBlur={() => props.setIsRecordingSearch(false)}
                         >
                             {props.isRecordingSearch ? (
                                 <div className="key-cap key-cap-recording">{props.t('waiting_for_input')}</div>
@@ -745,6 +758,7 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
                                 props.setIsRecordingSequential,
                                 props.updateSequentialHotkey
                             )}
+                            onBlur={() => props.setIsRecordingSequential(false)}
                         >
                             {props.isRecordingSequential ? (
                                 <div className="key-cap key-cap-recording">{props.t('waiting_for_input')}</div>
