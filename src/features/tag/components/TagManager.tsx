@@ -14,12 +14,14 @@ import { getTagColor } from "../../../shared/lib/utils";
 import { toTauriLocalImageSrc, withImageCacheBust } from "../../../shared/lib/localImageSrc";
 import { activateForInput } from "../../../shared/lib/focus";
 import { getNotePlaceholder } from "../../../shared/lib/platform";
-import { isSensitiveTagName } from "../../../shared/lib/sensitiveTags";
+import { hasSensitiveTag, isSensitiveTagName } from "../../../shared/lib/sensitiveTags";
 import type { ClipboardEntry } from "../../../shared/types";
 
 interface TagManagerProps {
     t: (key: string) => string;
     theme: string;
+    /** 隐藏隐私: sensitive entries are hidden here too, as in the list. */
+    privacyProtection: boolean;
 }
 
 interface TagInfo {
@@ -27,7 +29,7 @@ interface TagInfo {
     count: number;
 }
 
-export default function TagManager({ t, theme }: TagManagerProps) {
+export default function TagManager({ t, theme, privacyProtection }: TagManagerProps) {
     const TAG_MANAGER_VIEW_MODE_KEY = "tiez_tag_manager_view_mode";
     const TAG_MANAGER_SPLIT_MIN_WIDTH = 320;
     const [tags, setTags] = useState<TagInfo[]>([]);
@@ -740,10 +742,15 @@ export default function TagManager({ t, theme }: TagManagerProps) {
                                                     alt=""
                                                     className="image-preview"
                                                     loading="lazy"
+                                                    style={privacyProtection && hasSensitiveTag(item.tags) ? { filter: "blur(8px)" } : undefined}
                                                 />
                                             </div>
                                         ) : (
-                                            <div className="card-body-text">{item.preview || item.content}</div>
+                                            <div className="card-body-text">
+                                                {privacyProtection && hasSensitiveTag(item.tags)
+                                                    ? t("detail_sensitive_hidden")
+                                                    : item.preview || item.content}
+                                            </div>
                                         )}
 
                                         {(editingNoteId === item.id || !!item.note) && (

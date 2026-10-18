@@ -1306,6 +1306,7 @@ const App = () => {
           <AppMainContent
             t={t}
             theme={theme}
+            privacyProtection={privacyProtection}
             showSettings={showSettings}
             showTagManager={effectiveShowTagManager}
             tagManagerEnabled={tagManagerEnabled}

@@ -21,6 +21,7 @@ type RenderItem = (
 interface AppMainContentProps {
   t: (key: string) => string;
   theme: string;
+  privacyProtection: boolean;
   showSettings: boolean;
   showTagManager: boolean;
   tagManagerEnabled: boolean;
@@ -100,6 +101,7 @@ const SortableItem = memo(({
 const AppMainContent = ({
   t,
   theme,
+  privacyProtection,
   showSettings,
   showTagManager,
   tagManagerEnabled,
@@ -161,7 +163,7 @@ const AppMainContent = ({
         animate={{ opacity: 1, x: 0 }}
         style={{ height: "100%", overflow: "hidden", boxSizing: "border-box", display: "flex", flexDirection: "column" }}
       >
-        <TagManager t={t} theme={theme} />
+        <TagManager t={t} theme={theme} privacyProtection={privacyProtection} />
       </motion.div>
     );
   }
