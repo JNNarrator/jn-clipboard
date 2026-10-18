@@ -4,9 +4,9 @@ use std::sync::atomic::Ordering;
 use windows::Win32::Foundation::CloseHandle;
 use windows::Win32::Foundation::HWND;
 use windows::Win32::System::DataExchange::GetClipboardOwner;
-use windows::Win32::System::ProcessStatus::GetModuleFileNameExW;
 use windows::Win32::System::Threading::{
-    GetCurrentProcessId, OpenProcess, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ,
+    GetCurrentProcessId, OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_WIN32,
+    PROCESS_QUERY_LIMITED_INFORMATION,
 };
 use windows::Win32::UI::Accessibility::{SetWinEventHook, HWINEVENTHOOK};
 use windows::Win32::UI::WindowsAndMessaging::{
@@ -39,15 +39,25 @@ fn resolve_app_info_from_hwnd(hwnd: HWND) -> Option<ActiveAppInfo> {
             return None;
         }
 
-        let process_handle = OpenProcess(
-            PROCESS_QUERY_INFORMATION | PROCESS_VM_READ,
-            false,
-            process_id,
-        );
+        // Limited access is all a path lookup needs, and unlike reading the
+        // process's memory it's granted for elevated processes too: copies from
+        // an app run as administrator were credited to "Unknown", so per-app
+        // rules didn't apply to them.
+        let process_handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, process_id);
 
         if let Ok(handle) = process_handle {
             let mut path_buf = [0u16; 1024];
-            let path_len = GetModuleFileNameExW(Some(handle), None, &mut path_buf);
+            let mut path_len = path_buf.len() as u32;
+            if QueryFullProcessImageNameW(
+                handle,
+                PROCESS_NAME_WIN32,
+                windows::core::PWSTR(path_buf.as_mut_ptr()),
+                &mut path_len,
+            )
+            .is_err()
+            {
+                path_len = 0;
+            }
             let info = if path_len > 0 {
                 let path_str = String::from_utf16_lossy(&path_buf[..path_len as usize]);
                 ActiveAppInfo {
