@@ -24,6 +24,11 @@ const normalizeFileUri = (rawPath: string): string => {
   return `file://${normalized.startsWith("/") ? "" : "/"}${encoded}`;
 };
 
+/** The list's copy was shortened (get_clipboard_history), so a drag needs the full entry. */
+export const isShortenedForList = (item: ClipboardEntry): boolean =>
+  item.content.includes("... [Truncated for speed]")
+  || Boolean(item.html_content?.includes("... [HTML Truncated]"));
+
 /**
  * Configure standard dataTransfer payload for dragging items to external windows.
  */
