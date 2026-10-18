@@ -210,36 +210,7 @@ pub unsafe extern "system" fn keyboard_proc(
                         return LRESULT(1);
                     }
 
-                    let key_name = match vk {
-                        0x20 => "Space".to_string(),
-                        0x0D => "Enter".to_string(),
-                        0x09 => "Tab".to_string(),
-                        0x2D => "Insert".to_string(),
-                        0x21 => "PageUp".to_string(),
-                        0x22 => "PageDown".to_string(),
-                        0x23 => "End".to_string(),
-                        0x24 => "Home".to_string(),
-                        0x25 => "Left".to_string(),
-                        0x26 => "Up".to_string(),
-                        0x27 => "Right".to_string(),
-                        0x28 => "Down".to_string(),
-                        0xBB => "Plus".to_string(),
-                        0xBC => "Comma".to_string(),
-                        0xBD => "Minus".to_string(),
-                        0xBE => "Period".to_string(),
-                        0xBF => "/".to_string(),
-                        0xC0 => "`".to_string(),
-                        0xBA => ";".to_string(),
-                        0xDB => "[".to_string(),
-                        0xDC => "\\".to_string(),
-                        0xDD => "]".to_string(),
-                        0xDE => "'".to_string(),
-                        k if k >= 0x70 && k <= 0x87 => format!("F{}", k - 0x6F),
-                        k if (k >= 0x30 && k <= 0x39) || (k >= 0x41 && k <= 0x5A) => {
-                            format!("{}", char::from_u32(k).unwrap())
-                        }
-                        _ => format!("Key_{}", vk),
-                    };
+                    let key_name = recorded_key_name(vk);
 
                     let final_hotkey = format!(
                         "{}{}{}{}{}",
@@ -524,6 +495,48 @@ struct HookHotkey {
     win: bool,
 }
 
+/// The name a recorded key is saved under: one the shortcut parser
+/// (global-hotkey) and parse_hotkey_for_hook both read. "Plus" for the =/+ key
+/// and "Key_96" for the number pad were neither, so those keys couldn't be set.
+pub(crate) fn recorded_key_name(vk: u32) -> String {
+    match vk {
+        0x20 => "Space".to_string(),
+        0x0D => "Enter".to_string(),
+        0x09 => "Tab".to_string(),
+        0x2D => "Insert".to_string(),
+        0x21 => "PageUp".to_string(),
+        0x22 => "PageDown".to_string(),
+        0x23 => "End".to_string(),
+        0x24 => "Home".to_string(),
+        0x25 => "Left".to_string(),
+        0x26 => "Up".to_string(),
+        0x27 => "Right".to_string(),
+        0x28 => "Down".to_string(),
+        0xBB => "=".to_string(),
+        0xBC => "Comma".to_string(),
+        0xBD => "Minus".to_string(),
+        0xBE => "Period".to_string(),
+        0xBF => "/".to_string(),
+        0xC0 => "`".to_string(),
+        0xBA => ";".to_string(),
+        0xDB => "[".to_string(),
+        0xDC => "\\".to_string(),
+        0xDD => "]".to_string(),
+        0xDE => "'".to_string(),
+        k @ 0x60..=0x69 => format!("Numpad{}", k - 0x60),
+        0x6A => "NumpadMultiply".to_string(),
+        0x6B => "NumpadAdd".to_string(),
+        0x6D => "NumpadSubtract".to_string(),
+        0x6E => "NumpadDecimal".to_string(),
+        0x6F => "NumpadDivide".to_string(),
+        k if (0x70..=0x87).contains(&k) => format!("F{}", k - 0x6F),
+        k if (0x30..=0x39).contains(&k) || (0x41..=0x5A).contains(&k) => {
+            char::from_u32(k).unwrap().to_string()
+        }
+        _ => format!("Key_{}", vk),
+    }
+}
+
 pub fn parse_hotkey_for_hook(hotkey: &str) -> Option<HookHotkey> {
     let parts: Vec<&str> = hotkey.split('+').collect();
     let mut vk = 0u32;
@@ -564,6 +577,14 @@ pub fn parse_hotkey_for_hook(hotkey: &str) -> Option<HookHotkey> {
             "\\" | "BACKSLASH" => vk = 0xDC,
             "]" | "RBRACKET" => vk = 0xDD,
             "'" | "QUOTE" => vk = 0xDE,
+            "NUMPADMULTIPLY" => vk = 0x6A,
+            "NUMPADADD" => vk = 0x6B,
+            "NUMPADSUBTRACT" => vk = 0x6D,
+            "NUMPADDECIMAL" => vk = 0x6E,
+            "NUMPADDIVIDE" => vk = 0x6F,
+            key if key.len() == 7 && key.starts_with("NUMPAD") && key.as_bytes()[6].is_ascii_digit() => {
+                vk = 0x60 + u32::from(key.as_bytes()[6] - b'0');
+            }
             key if key.starts_with('F') && key.len() > 1 => {
                 if let Ok(num) = key[1..].parse::<u32>() {
                     if (1..=24).contains(&num) {
@@ -619,6 +640,17 @@ pub fn is_win_v_hotkey(hotkey: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn recorded_keys_can_be_registered() {
+        use tauri_plugin_global_shortcut::Shortcut;
+        // =/+ key, number pad digits and operators, and a few others.
+        for vk in [0xBB, 0xBD, 0x60, 0x69, 0x6A, 0x6B, 0x6D, 0x6E, 0x6F, 0x41, 0x70, 0xDC] {
+            let hotkey = format!("Ctrl+{}", super::recorded_key_name(vk));
+            assert!(hotkey.parse::<Shortcut>().is_ok(), "{hotkey}");
+            assert_eq!(super::parse_hotkey_for_hook(&hotkey).map(|h| h.vk), Some(vk), "{hotkey}");
+        }
+    }
+
     use super::is_recording_clear_key;
 
     #[test]
