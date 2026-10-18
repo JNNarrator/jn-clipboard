@@ -37,6 +37,7 @@ import { matchesHotkey } from "./shared/hooks/useHotkeyMatching";
 import { usePinnedSort } from "./shared/hooks/usePinnedSort";
 import { useFilteredHistory } from "./shared/hooks/useFilteredHistory";
 import { useKeyboardNavigation } from "./shared/hooks/useKeyboardNavigation";
+import { cycleTypeFilter } from "./shared/lib/typeFilters";
 import { useListSelectionReset } from "./shared/hooks/useListSelectionReset";
 import { useSearchFetchTrigger } from "./shared/hooks/useSearchFetchTrigger";
 import { useScrollToSelection } from "./shared/hooks/useScrollToSelection";
@@ -1009,9 +1010,15 @@ const App = () => {
       pushToast
     });
 
-  useNavigationSync({ showSettings, showTagManager: effectiveShowTagManager, chatMode, showEmojiPanel: effectiveShowEmojiPanel });
+  useNavigationSync({
+    showSettings,
+    showTagManager: effectiveShowTagManager,
+    chatMode,
+    showEmojiPanel: effectiveShowEmojiPanel,
+    editingInline: editingTagsId !== null || editingNoteId !== null
+  });
 
-  const { copyToClipboard, openContent, deleteEntry, deleteEntryById, togglePin, handleUpdateTags, handleUpdateNote } =
+  const { copyToClipboard, copyWithoutPaste, openContent, deleteEntry, deleteEntryById, togglePin, handleUpdateTags, handleUpdateNote } =
     useClipboardActions({
       t,
       pushToast,
@@ -1155,6 +1162,12 @@ const App = () => {
     return deleteEntryById(item.id);
   }, [deleteEntryById, pushToast, t]);
 
+  const cycleCategory = useCallback((step: 1 | -1) => {
+    setTypeFilter((current) => cycleTypeFilter(current, step));
+    // The tabs hide with the search box; show them so the change is visible.
+    setShowSearchBox(true);
+  }, [setTypeFilter, setShowSearchBox]);
+
   const { selectItemByIndex } = useKeyboardNavigation({
     filteredHistory: navigableHistory,
     selectedIndex,
@@ -1165,6 +1178,7 @@ const App = () => {
     setIsKeyboardMode,
     showSettings,
     showTagManager: effectiveShowTagManager,
+    showEmojiPanel: effectiveShowEmojiPanel,
     chatMode,
     editingTagsId,
     editingNoteId,
@@ -1172,6 +1186,8 @@ const App = () => {
     plainPasteHotkey,
     searchInputRef,
     copyToClipboard,
+    copyWithoutPaste,
+    cycleCategory,
     setSearch,
     deleteItem: deleteFromKeyboard
   });
