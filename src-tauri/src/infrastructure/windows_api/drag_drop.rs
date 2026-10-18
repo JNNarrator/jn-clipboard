@@ -329,22 +329,18 @@ impl EmojiDropTarget {
         None
     }
 
+    // Tauri 2 event names only, as Tauri's own drop handling emits them.
+    // Sending the 1.x names as well made each drop arrive twice.
     fn emit_file_drop(app_handle: &AppHandle, paths: Vec<String>) {
-        let payload = DropPayload { paths };
-        let _ = app_handle.emit("tauri://file-drop", payload.clone());
-        let _ = app_handle.emit("tauri://drag-drop", payload);
+        let _ = app_handle.emit("tauri://drag-drop", DropPayload { paths });
     }
 
     fn emit_drag_enter(app_handle: &AppHandle) {
-        let payload = DropPayload { paths: Vec::new() };
-        let _ = app_handle.emit("tauri://file-drop-hover", payload.clone());
-        let _ = app_handle.emit("tauri://drag-enter", payload);
+        let _ = app_handle.emit("tauri://drag-enter", DropPayload { paths: Vec::new() });
     }
 
     fn emit_drag_leave(app_handle: &AppHandle) {
-        let payload = DropPayload { paths: Vec::new() };
-        let _ = app_handle.emit("tauri://file-drop-cancelled", payload.clone());
-        let _ = app_handle.emit("tauri://drag-leave", payload);
+        let _ = app_handle.emit("tauri://drag-leave", DropPayload { paths: Vec::new() });
     }
 
     fn ensure_temp_dir() -> Option<PathBuf> {

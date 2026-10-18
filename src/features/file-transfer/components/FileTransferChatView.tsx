@@ -807,9 +807,6 @@ const FileTransferChatView = ({
         const handleDragEnter = () => setDragging(true);
         const handleDragLeave = () => setDragging(false);
 
-        const unlistenV1Drop = appWindow.listen("tauri://file-drop", handleDragDrop);
-        const unlistenV1Hover = appWindow.listen("tauri://file-drop-hover", handleDragEnter);
-        const unlistenV1Cancel = appWindow.listen("tauri://file-drop-cancelled", handleDragLeave);
         const unlistenV2Drop = appWindow.listen("tauri://drag-drop", handleDragDrop);
         const unlistenV2Enter = appWindow.listen("tauri://drag-enter", handleDragEnter);
         const unlistenV2Leave = appWindow.listen("tauri://drag-leave", handleDragLeave);
@@ -894,9 +891,6 @@ const FileTransferChatView = ({
         );
 
         return () => {
-            unlistenV1Drop.then((f) => f());
-            unlistenV1Hover.then((f) => f());
-            unlistenV1Cancel.then((f) => f());
             unlistenV2Drop.then((f) => f());
             unlistenV2Enter.then((f) => f());
             unlistenV2Leave.then((f) => f());
