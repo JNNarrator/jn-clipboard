@@ -907,8 +907,9 @@ pub fn normalize_clipboard_plain_text(text: &str) -> String {
         return normalized;
     }
 
-    // Try parsing as CF_HTML first to get any legitimate fragments
-    if let Some(html) = parse_cf_html(normalized.as_bytes()) {
+    // Try parsing as CF_HTML first to get any legitimate fragments. Parse the
+    // original text: the header's byte offsets count its CRLFs.
+    if let Some(html) = parse_cf_html(text.as_bytes()) {
         let plain = extract_plain_text_from_htmlish(&html);
         if !plain.trim().is_empty() {
             return plain;
@@ -987,7 +988,8 @@ pub fn infer_rich_html_from_plain_text(
         return None;
     }
 
-    let html = parse_cf_html(trimmed.as_bytes())?;
+    // Untrimmed: the header's byte offsets count from the start of the text.
+    let html = parse_cf_html(text.as_bytes())?;
     let plain_text = extract_plain_text_from_htmlish(&html);
     if plain_text.is_empty() {
         return None;
@@ -2263,6 +2265,34 @@ mod tests {
     }
 
     #[test]
+    fn parse_cf_html_offsets_inside_a_character_fall_back_to_markers() {
+        // StartFragment points one byte into 你 (and EndFragment into 界).
+        let header = "Version:0.9\r\nStartFragment:0000000000\r\nEndFragment:0000000000\r\n";
+        let start = header.len() + "<!--StartFragment-->".len() + 1;
+        let end = start + "你好世界".len() - 2;
+        let raw = format!(
+            "Version:0.9\r\nStartFragment:{start:010}\r\nEndFragment:{end:010}\r\n<!--StartFragment-->你好世界<!--EndFragment-->"
+        );
+
+        let parsed = parse_cf_html(raw.as_bytes()).expect("markers should still parse");
+
+        assert!(parsed.contains("你好世界"), "parsed={parsed:?}");
+    }
+
+    #[test]
+    fn normalize_clipboard_plain_text_reads_cf_html_offsets_of_the_crlf_text() {
+        // Four CRLFs: offsets read against LF-only text would land inside 好.
+        let header = "Version:0.9\r\nSourceURL:about:blank\r\nStartFragment:0000000000\r\nEndFragment:0000000000\r\n";
+        let start = header.len() + "<!--StartFragment-->".len();
+        let end = start + "你好世界".len();
+        let text = format!(
+            "Version:0.9\r\nSourceURL:about:blank\r\nStartFragment:{start:010}\r\nEndFragment:{end:010}\r\n<!--StartFragment-->你好世界<!--EndFragment-->"
+        );
+
+        assert_eq!(normalize_clipboard_plain_text(&text), "你好世界");
+    }
+
+    #[test]
     fn normalize_clipboard_plain_text_strips_cf_html_header_prefix() {
         let text = "Version:0.9 StartHTML:0000000105 EndHTML:0000000829 StartFragment:0000000141 EndFragment:0000000793 ddd";
 
@@ -2952,13 +2982,12 @@ pub fn parse_cf_html(raw: &[u8]) -> Option<String> {
 
     if s < e {
         let content = match encoding {
-            HtmlEncoding::Utf8 => {
-                if e <= raw_str.len() {
-                    Some(raw_str[s..e].to_string())
-                } else {
-                    None
-                }
-            }
+            // The offsets count bytes of the original data. Ones that are out
+            // of range or split a character are wrong; use the markers below.
+            HtmlEncoding::Utf8 => raw
+                .get(s..e)
+                .and_then(|bytes| std::str::from_utf8(bytes).ok())
+                .map(str::to_string),
             HtmlEncoding::Utf16Le => {
                 if e <= raw.len() {
                     let u16_buf: Vec<u16> = raw[s..e]
