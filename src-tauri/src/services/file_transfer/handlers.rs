@@ -878,6 +878,9 @@ async fn process_upload_chunk(
     if let Err(message) = validate_chunk(&meta, data.len()) {
         return (StatusCode::BAD_REQUEST, message).into_response();
     }
+    if upload_already_completed(&meta.upload_id) {
+        return (StatusCode::OK, "Upload complete").into_response();
+    }
     let safe_name = safe_file_name(&meta.file_name);
 
     let sessions = state.app_handle.state::<UploadSessions>();
@@ -982,6 +985,7 @@ async fn process_upload_chunk(
         {
             let mut sessions_map = sessions.0.lock().unwrap();
             sessions_map.remove(&meta.upload_id);
+            remember_completed_upload(&meta.upload_id);
             release_upload_lock(&meta.upload_id);
         }
 
@@ -1060,6 +1064,9 @@ pub async fn share_chunk(
     };
     if let Err(message) = validate_chunk(&meta, data.len()) {
         return with_cors((StatusCode::BAD_REQUEST, message).into_response());
+    }
+    if upload_already_completed(&meta.upload_id) {
+        return with_cors((StatusCode::OK, "Upload complete").into_response());
     }
     let safe_name = safe_file_name(&meta.file_name);
 
@@ -1159,6 +1166,7 @@ pub async fn share_chunk(
         {
             let mut sessions_map = sessions.0.lock().unwrap();
             sessions_map.remove(&meta.upload_id);
+            remember_completed_upload(&meta.upload_id);
             release_upload_lock(&meta.upload_id);
         }
 
@@ -1552,6 +1560,13 @@ mod tests {
     use super::*;
 
     #[test]
+    fn a_retried_last_chunk_finds_its_upload_done() {
+        assert!(!upload_already_completed("upload-retry-test"));
+        remember_completed_upload("upload-retry-test");
+        assert!(upload_already_completed("upload-retry-test"));
+    }
+
+    #[test]
     fn only_the_app_window_may_call_cross_origin() {
         assert!(is_app_origin("tauri://localhost"));
         assert!(is_app_origin("http://tauri.localhost"));
@@ -1711,6 +1726,30 @@ fn release_upload_lock(upload_id: &str) {
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner())
         .remove(upload_id);
+}
+
+/// Uploads finished in the last few minutes. A phone that lost the reply to
+/// the last chunk sends it again; answer that it's done instead of saving the
+/// file a second time (one chunk) or reporting a failure (several).
+static COMPLETED_UPLOADS: std::sync::LazyLock<
+    std::sync::Mutex<HashMap<String, std::time::Instant>>,
+> = std::sync::LazyLock::new(Default::default);
+const COMPLETED_UPLOAD_MEMORY: std::time::Duration = std::time::Duration::from_secs(10 * 60);
+
+fn remember_completed_upload(upload_id: &str) {
+    let mut completed = COMPLETED_UPLOADS
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    completed.retain(|_, at| at.elapsed() < COMPLETED_UPLOAD_MEMORY);
+    completed.insert(upload_id.to_string(), std::time::Instant::now());
+}
+
+fn upload_already_completed(upload_id: &str) -> bool {
+    COMPLETED_UPLOADS
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .get(upload_id)
+        .is_some_and(|at| at.elapsed() < COMPLETED_UPLOAD_MEMORY)
 }
 
 // ---- Sealed routes: the same operations with encrypted bodies (sealed.rs) ----
