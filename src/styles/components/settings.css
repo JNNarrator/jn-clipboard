@@ -280,14 +280,12 @@
   display: none;
 }
 
-/* A long hint must not push the switch onto its own line. */
-.beta-updates-setting,
-.usage-stats-setting {
+/* The long hint must not push the switch onto its own line. */
+.beta-updates-setting {
   flex-wrap: nowrap;
 }
 
-.beta-updates-setting .item-label-group,
-.usage-stats-setting .item-label-group {
+.beta-updates-setting .item-label-group {
   flex: 1 1 0;
   min-width: 0;
 }

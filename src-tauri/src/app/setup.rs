@@ -1773,9 +1773,13 @@ fn init_analytics(app: &App, repo: &impl SettingsRepository) {
         let _ = repo.set("app.anon_id", &anon_id);
     }
 
-    if claim_daily_ping(repo, &chrono::Utc::now().format("%Y-%m-%d").to_string()) {
+    let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
+    if repo.get("app.last_ping_date").unwrap_or(None).as_deref() != Some(&today) {
+        let _ = repo.set("app.last_ping_date", &today);
         let version = app.package_info().version.to_string();
+        
         let ping_url_base = crate::build_config::announcement_ping_url();
+        
         std::thread::spawn(move || {
             let _ = reqwest::blocking::get(format!(
                 "{}?v={}&id={}",
@@ -1783,23 +1787,6 @@ fn init_analytics(app: &App, repo: &impl SettingsRepository) {
             ));
         });
     }
-}
-
-/// 设置 → 数据管理 →「发送匿名使用统计」(on unless saved as "false").
-const USAGE_STATS_KEY: &str = "app.send_usage_stats";
-
-/// Whether to send today's usage ping, recording it as sent. Nothing is sent
-/// or recorded while usage statistics are off. Update checks don't use this.
-fn claim_daily_ping(repo: &impl SettingsRepository, today: &str) -> bool {
-    match repo.get(USAGE_STATS_KEY) {
-        Ok(value) if value.as_deref() != Some("false") => {}
-        _ => return false, // off, or the setting can't be read
-    }
-    if repo.get("app.last_ping_date").unwrap_or(None).as_deref() == Some(today) {
-        return false;
-    }
-    let _ = repo.set("app.last_ping_date", today);
-    true
 }
 
 fn setup_tray(app: &App, hide_tray: bool) {
@@ -2178,40 +2165,5 @@ mod silent_start_tests {
         repo.set("app.silent_start", "true").unwrap();
         migrate_silent_start_once(&repo);
         assert_eq!(repo.get("app.silent_start").unwrap().as_deref(), Some("true"));
-    }
-}
-
-#[cfg(test)]
-mod usage_ping_tests {
-    use super::{claim_daily_ping, USAGE_STATS_KEY};
-    use crate::infrastructure::repository::settings_repo::{
-        SettingsRepository, SqliteSettingsRepository,
-    };
-    use std::sync::{Arc, Mutex};
-
-    fn repo() -> SqliteSettingsRepository {
-        let conn = Arc::new(Mutex::new(rusqlite::Connection::open_in_memory().unwrap()));
-        conn.lock()
-            .unwrap()
-            .execute_batch("CREATE TABLE settings(key TEXT PRIMARY KEY, value TEXT NOT NULL);")
-            .unwrap();
-        SqliteSettingsRepository::new(conn)
-    }
-
-    #[test]
-    fn pings_once_a_day_while_on() {
-        let repo = repo();
-        assert!(claim_daily_ping(&repo, "2026-10-18"));
-        assert!(!claim_daily_ping(&repo, "2026-10-18"));
-        repo.set(USAGE_STATS_KEY, "true").unwrap();
-        assert!(claim_daily_ping(&repo, "2026-10-19"));
-    }
-
-    #[test]
-    fn never_pings_while_off() {
-        let repo = repo();
-        repo.set(USAGE_STATS_KEY, "false").unwrap();
-        assert!(!claim_daily_ping(&repo, "2026-10-18"));
-        assert_eq!(repo.get("app.last_ping_date").unwrap(), None);
     }
 }

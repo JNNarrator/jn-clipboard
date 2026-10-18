@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { open, ask, message } from "@tauri-apps/plugin-dialog";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
     AlertTriangle,
     ArchiveRestore,
@@ -19,8 +19,6 @@ import AppModal from "../../../../shared/components/AppModal";
 import { withNativeDialog } from "../../../../shared/lib/focus";
 import { isMacPlatform, isWindowsPlatform } from "../../../../shared/lib/platform";
 import { formatError } from "../../../../shared/lib/errorMessage";
-import { USAGE_STATS_SETTING } from "../../../../shared/hooks/useAnnouncements";
-import { SettingSwitch } from "../SettingControls";
 
 interface DataSettingsGroupProps {
     t: (key: string) => string;
@@ -103,12 +101,6 @@ const DataSettingsGroup = ({
     onToggle,
     dataPath
 }: DataSettingsGroupProps) => {
-    const [usageStats, setUsageStats] = useState(true);
-    useEffect(() => {
-        invoke<Record<string, string>>("get_settings")
-            .then((settings) => setUsageStats(settings[USAGE_STATS_SETTING] !== "false"))
-            .catch(console.error);
-    }, []);
     const [modalOpen, setModalOpen] = useState(false);
     const [step, setStep] = useState<ImportStep>("apps");
     const [discovering, setDiscovering] = useState(false);
@@ -510,21 +502,6 @@ const DataSettingsGroup = ({
                                 <ArchiveRestore size={14} aria-hidden="true" />
                                 {t("third_party_import_choose_app")}
                             </button>
-                        </div>
-                        <div className="setting-item usage-stats-setting">
-                            <div className="item-label-group">
-                                <span className="item-label">{t("usage_stats")}</span>
-                                <span className="item-desc">{t("usage_stats_hint")}</span>
-                            </div>
-                            <SettingSwitch
-                                checked={usageStats}
-                                aria-label={t("usage_stats")}
-                                onChange={(e) => {
-                                    const value = e.target.checked;
-                                    setUsageStats(value);
-                                    invoke("save_setting", { key: USAGE_STATS_SETTING, value: String(value) }).catch(console.error);
-                                }}
-                            />
                         </div>
                     </div>
                 )}

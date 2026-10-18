@@ -4,8 +4,6 @@ import { invoke } from "@tauri-apps/api/core";
 import { isTauriRuntime } from "../lib/tauriRuntime";
 import type { Announcement } from "../types/announcement";
 
-/** 设置 → 数据管理 →「发送匿名使用统计」; on unless saved as "false". */
-export const USAGE_STATS_SETTING = "app.send_usage_stats";
 const DISMISSED_ANNOUNCEMENTS_KEY = "app.dismissed_announcements";
 const LEGACY_DISMISSED_ANNOUNCEMENTS_KEY = "dismissed_announcements";
 
@@ -66,20 +64,14 @@ export function useAnnouncements() {
         import.meta.env.VITE_PING_URL ||
         `${import.meta.env.VITE_API_BASE_URL || "https://tiez.name666.top"}/api/v1/ping`;
       
-      // The server counts a request with an id as usage; without one it only
-      // returns the announcements. Unreadable settings send no id.
-      const settings = await invoke<Record<string, string>>("get_settings").catch(() => null);
-      let deviceId: string | null = null;
-      if (settings && settings[USAGE_STATS_SETTING] !== "false") {
-        deviceId = localStorage.getItem("device_id");
-        if (!deviceId) {
-          deviceId = Math.random().toString(36).substring(7);
-          localStorage.setItem("device_id", deviceId);
-        }
+      let deviceId = localStorage.getItem("device_id");
+      if (!deviceId) {
+        deviceId = Math.random().toString(36).substring(7);
+        localStorage.setItem("device_id", deviceId);
       }
 
       const version = await getVersion();
-      const url = deviceId ? `${pingUrl}?id=${deviceId}&v=${version}` : `${pingUrl}?v=${version}`;
+      const url = `${pingUrl}?id=${deviceId}&v=${version}`;
 
       const response = await fetch(url, {
         signal: AbortSignal.timeout(5000),
