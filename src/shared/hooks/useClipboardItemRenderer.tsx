@@ -5,6 +5,7 @@ import type { Dispatch, SetStateAction, MouseEvent, ReactNode } from "react";
 import type { DragControls } from "framer-motion";
 import ClipboardItem from "../../features/clipboard/components/ClipboardItem";
 import { isKeyboardSelectedItem } from "../../features/clipboard/lib/itemInteraction";
+import { hasSensitiveTag } from "../lib/sensitiveTags";
 import type { QuickPasteHint } from "../../features/clipboard/types";
 import type { ClipboardEntry } from "../types";
 import type { Locale } from "../types";
@@ -120,12 +121,9 @@ export const useClipboardItemRenderer = ({
 }: UseClipboardItemRendererOptions): { renderItemContent: RenderItemContent } => {
   const renderItemContent = useCallback(
     (item: ClipboardEntry, index: number, dragControls?: DragControls, disableLayout?: boolean) => {
-      const isSensitiveHidden =
-        privacyProtection &&
-        (item.tags?.includes("sensitive") ||
-          item.tags?.includes("密码") ||
-          item.tags?.includes("password")) &&
-        !revealedIds.has(item.id);
+      // With 隐藏隐私 off nothing is hidden, so there is nothing to reveal.
+      const canReveal = privacyProtection && hasSensitiveTag(item.tags);
+      const isSensitiveHidden = canReveal && !revealedIds.has(item.id);
       const isEditingTags = !splitActive && editingTagsId === item.id;
       const isEditingNote = !splitActive && editingNoteId === item.id;
       // The detail pane offers the same choice for the entry it shows.
@@ -143,6 +141,7 @@ export const useClipboardItemRenderer = ({
           windowPinned={isWindowPinned}
           isSensitiveHidden={!!isSensitiveHidden}
           isRevealed={revealedIds.has(item.id)}
+          canReveal={canReveal}
           isEditingTags={isEditingTags}
           isEditingNote={isEditingNote}
           noteDraft={isEditingNote ? noteDraft : undefined}

@@ -38,6 +38,7 @@ import { usePinnedSort } from "./shared/hooks/usePinnedSort";
 import { useFilteredHistory } from "./shared/hooks/useFilteredHistory";
 import { useKeyboardNavigation } from "./shared/hooks/useKeyboardNavigation";
 import { cycleTypeFilter } from "./shared/lib/typeFilters";
+import { hasSensitiveTag } from "./shared/lib/sensitiveTags";
 import { useListSelectionReset } from "./shared/hooks/useListSelectionReset";
 import { useSearchFetchTrigger } from "./shared/hooks/useSearchFetchTrigger";
 import { useScrollToSelection } from "./shared/hooks/useScrollToSelection";
@@ -70,7 +71,6 @@ import { usePaneWidth } from "./shared/hooks/usePaneWidth";
 import PaneDivider from "./shared/components/PaneDivider";
 import { quickPasteOrder } from "./shared/lib/quickPasteOrder";
 
-const SENSITIVE_TAGS = ["sensitive", "密码", "password"];
 
 const insertHistoryItem = (list: ClipboardEntry[], item: ClipboardEntry) => {
   const next = list.slice();
@@ -1113,7 +1113,8 @@ const App = () => {
     minRest: 280,
     unit: "ratio"
   });
-  const detailIsSensitive = !!detailItem && SENSITIVE_TAGS.some((tag) => detailItem.tags?.includes(tag));
+  // Show / hide only means something while 隐藏隐私 is on.
+  const detailCanReveal = !!detailItem && privacyProtection && hasSensitiveTag(detailItem.tags);
   const detailIsRevealed = !!detailItem && revealedIds.has(detailItem.id);
   const detailActions = useDetailPaneActions({
     items: navigableHistory,
@@ -1382,8 +1383,8 @@ const App = () => {
               t={t}
               language={language}
               actions={detailActions}
-              isSensitive={detailIsSensitive}
-              isSensitiveHidden={detailIsSensitive && privacyProtection && !detailIsRevealed}
+              canReveal={detailCanReveal}
+              isSensitiveHidden={detailCanReveal && !detailIsRevealed}
               isRevealed={detailIsRevealed}
               isEditingTags={!!detailItem && editingTagsId === detailItem.id}
               isEditingNote={!!detailItem && editingNoteId === detailItem.id}

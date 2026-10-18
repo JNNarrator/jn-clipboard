@@ -17,6 +17,8 @@ export interface ClipboardItemProps {
   windowPinned: boolean;
   isSensitiveHidden: boolean;
   isRevealed: boolean;
+  /** Offers show / hide: a sensitive entry while 隐藏隐私 is on. */
+  canReveal: boolean;
   isEditingTags: boolean;
   isEditingNote: boolean;
   noteDraft?: string;
