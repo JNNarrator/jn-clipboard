@@ -1552,12 +1552,12 @@ fn start_edge_docking_monitor(app_handle: AppHandle) {
                 continue;
             }
 
-            let cursor = match window.cursor_position() {
-                Ok(c) => c,
-                Err(_) => tauri::PhysicalPosition::new(-9999.0, -9999.0),
-            };
-            let cursor_x = cursor.x.round() as i32;
-            let cursor_y = cursor.y.round() as i32;
+            // In this screen's pixels, like its edges and the window; tao
+            // scales the raw cursor by the primary screen's factor instead.
+            let monitor_scale = monitor.scale_factor();
+            let (cursor_x, cursor_y) = crate::app::window_manager::global_cursor_layout(&window)
+                .map(|(x, y)| ((x * monitor_scale).round() as i32, (y * monitor_scale).round() as i32))
+                .unwrap_or((-9999, -9999));
 
             let threshold = 5;
             let is_mouse_near_edge = if is_hidden_by_edge {

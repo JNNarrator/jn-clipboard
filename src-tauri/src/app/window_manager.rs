@@ -356,23 +356,42 @@ fn remap_fixed_window_position(
     )
 }
 
-fn global_cursor_physical(window: &WebviewWindow) -> Option<(i32, i32)> {
+/// Screens, the cursor and the window measured in one unit: points on macOS,
+/// pixels on Windows. On macOS tao gives each screen in its own scale's
+/// pixels, the window in its current screen's and the cursor in the primary
+/// screen's, so with a Retina and a 1x screen the raw numbers don't line up.
+#[cfg(target_os = "macos")]
+pub(crate) fn layout_scale(scale_factor: f64) -> f64 {
+    scale_factor
+}
+
+#[cfg(not(target_os = "macos"))]
+pub(crate) fn layout_scale(_scale_factor: f64) -> f64 {
+    1.0
+}
+
+/// The cursor in layout units (see `layout_scale`).
+pub(crate) fn global_cursor_layout(window: &WebviewWindow) -> Option<(f64, f64)> {
     #[cfg(windows)]
     {
+        let _ = window;
         let mut point = POINT::default();
         unsafe {
             if GetCursorPos(&mut point).is_err() {
                 return None;
             }
         }
-        Some((point.x, point.y))
+        Some((point.x as f64, point.y as f64))
     }
     #[cfg(target_os = "macos")]
     {
-        window
-            .cursor_position()
+        let cursor = window.cursor_position().ok()?;
+        let scale = window
+            .primary_monitor()
             .ok()
-            .map(|cursor| (cursor.x.round() as i32, cursor.y.round() as i32))
+            .flatten()
+            .map_or(1.0, |monitor| monitor.scale_factor());
+        Some((cursor.x / scale, cursor.y / scale))
     }
     #[cfg(not(any(windows, target_os = "macos")))]
     {
@@ -381,85 +400,95 @@ fn global_cursor_physical(window: &WebviewWindow) -> Option<(i32, i32)> {
     }
 }
 
-fn position_window_follow_mouse(
-    window: &WebviewWindow,
-    cursor_x: i32,
-    cursor_y: i32,
-    w: i32,
-    h: i32,
-) {
-    let mut target_x = cursor_x - (w / 2);
-    let mut target_y = cursor_y + 12;
+/// A screen in layout units: left, top, width, height.
+type LayoutScreen = (f64, f64, f64, f64);
 
-    let mut target_monitor: Option<tauri::Monitor> = None;
-    if let Ok(monitors) = window.available_monitors() {
-        for m in &monitors {
-            let m_pos = m.position();
-            let m_size = m.size();
-            let mx = m_pos.x;
-            let my = m_pos.y;
-            let mw = m_size.width as i32;
-            let mh = m_size.height as i32;
-            if cursor_x >= mx && cursor_x < mx + mw && cursor_y >= my && cursor_y < my + mh {
-                target_monitor = Some(m.clone());
-                break;
-            }
-        }
-        if target_monitor.is_none() && !monitors.is_empty() {
-            target_monitor = Some(monitors[0].clone());
-        }
-    }
+/// Where a `size` window opens for the cursor: centred below it, kept on the
+/// cursor's screen (above the cursor if there is no room below).
+fn follow_mouse_target(cursor: (f64, f64), size: (f64, f64), screens: &[LayoutScreen]) -> (f64, f64) {
+    let (cursor_x, cursor_y) = cursor;
+    let (w, h) = size;
+    let mut target_x = cursor_x - w / 2.0;
+    let mut target_y = cursor_y + 12.0;
 
-    if let Some(m) = target_monitor.as_ref() {
-        let m_pos = m.position();
-        let m_size = m.size();
-        let mx = m_pos.x;
-        let my = m_pos.y;
-        let mw = m_size.width as i32;
-        let mh = m_size.height as i32;
+    let screen = screens
+        .iter()
+        .find(|(x, y, width, height)| {
+            cursor_x >= *x && cursor_x < x + width && cursor_y >= *y && cursor_y < y + height
+        })
+        .or(screens.first());
+
+    if let Some(&(mx, my, mw, mh)) = screen {
         if target_x < mx {
-            target_x = mx + 5;
+            target_x = mx + 5.0;
         }
         if target_x + w > mx + mw {
-            target_x = mx + mw - w - 5;
+            target_x = mx + mw - w - 5.0;
         }
         if target_y + h > my + mh {
-            let above_y = cursor_y - h - 12;
+            let above_y = cursor_y - h - 12.0;
             if above_y >= my {
                 target_y = above_y;
             } else {
-                target_y = my + mh - h - 5;
+                target_y = my + mh - h - 5.0;
             }
         }
         if target_y < my {
-            target_y = my + 5;
+            target_y = my + 5.0;
         }
     }
 
-    let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition {
-        x: target_x,
-        y: target_y,
-    }));
+    (target_x, target_y)
+}
+
+fn position_window_follow_mouse(window: &WebviewWindow) {
+    let Ok(size) = window.outer_size() else {
+        return;
+    };
+    let Some(cursor) = global_cursor_layout(window) else {
+        return;
+    };
+    let window_scale = layout_scale(window.scale_factor().unwrap_or(1.0));
+    let screens: Vec<LayoutScreen> = window
+        .available_monitors()
+        .map(|monitors| {
+            monitors
+                .iter()
+                .map(|monitor| {
+                    let scale = layout_scale(monitor.scale_factor());
+                    let pos = monitor.position();
+                    let size = monitor.size();
+                    (
+                        pos.x as f64 / scale,
+                        pos.y as f64 / scale,
+                        size.width as f64 / scale,
+                        size.height as f64 / scale,
+                    )
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let (x, y) = follow_mouse_target(
+        cursor,
+        (size.width as f64 / window_scale, size.height as f64 / window_scale),
+        &screens,
+    );
+
+    #[cfg(target_os = "macos")]
+    let position = tauri::Position::Logical(tauri::LogicalPosition { x, y });
+    #[cfg(not(target_os = "macos"))]
+    let position = tauri::Position::Physical(tauri::PhysicalPosition {
+        x: x.round() as i32,
+        y: y.round() as i32,
+    });
+    let _ = window.set_position(position);
 }
 
 fn maybe_position_window_follow_mouse(app: &AppHandle, window: &WebviewWindow) {
     let settings = app.state::<SettingsState>();
-    if !settings.follow_mouse.load(Ordering::Relaxed) {
-        return;
+    if settings.follow_mouse.load(Ordering::Relaxed) {
+        position_window_follow_mouse(window);
     }
-    let Ok(size) = window.outer_size() else {
-        return;
-    };
-    let Some((cursor_x, cursor_y)) = global_cursor_physical(window) else {
-        return;
-    };
-    position_window_follow_mouse(
-        window,
-        cursor_x,
-        cursor_y,
-        size.width as i32,
-        size.height as i32,
-    );
 }
 
 pub fn toggle_window(app: &AppHandle) {
@@ -549,15 +578,7 @@ fn toggle_window_windows(app: &AppHandle) {
         if let Ok(size) = window.outer_size() {
             let settings = app.state::<SettingsState>();
             if settings.follow_mouse.load(Ordering::Relaxed) {
-                if let Some((cursor_x, cursor_y)) = global_cursor_physical(&window) {
-                    position_window_follow_mouse(
-                        &window,
-                        cursor_x,
-                        cursor_y,
-                        size.width as i32,
-                        size.height as i32,
-                    );
-                }
+                position_window_follow_mouse(&window);
             } else if was_docked {
                 let mut target_monitor = window.current_monitor().ok().flatten();
 
@@ -1094,7 +1115,21 @@ pub fn is_main_window_focused() -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{remap_fixed_window_position, MonitorBounds};
+    use super::{follow_mouse_target, remap_fixed_window_position, MonitorBounds};
+
+    // A Retina main screen (1440x900 points) with a 1x screen to its right.
+    const SCREENS: [(f64, f64, f64, f64); 2] =
+        [(0.0, 0.0, 1440.0, 900.0), (1440.0, 0.0, 1920.0, 1080.0)];
+
+    #[test]
+    fn follow_mouse_opens_on_the_cursors_screen() {
+        assert_eq!(follow_mouse_target((2000.0, 300.0), (400.0, 600.0), &SCREENS), (1800.0, 312.0));
+        // No room below or above: pinned to the bottom of that screen.
+        assert_eq!(follow_mouse_target((2000.0, 500.0), (400.0, 600.0), &SCREENS), (1800.0, 475.0));
+        // Near the shared edge, kept on the cursor's screen.
+        assert_eq!(follow_mouse_target((1450.0, 100.0), (400.0, 600.0), &SCREENS), (1445.0, 112.0));
+        assert_eq!(follow_mouse_target((1430.0, 100.0), (400.0, 600.0), &SCREENS), (1035.0, 112.0));
+    }
 
     #[test]
     fn keeps_bottom_right_anchor_when_switching_monitors() {
