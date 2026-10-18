@@ -571,6 +571,7 @@ fn is_setting_sync_eligible(key: &str) -> bool {
         "app.anon_id"
             | "app.emoji_favorites"
             | "app.last_ping_date"
+            | "app.ping_id"
             | "app.window_width"
             | "app.window_height"
             | "app.tag_manager_size"
@@ -4530,6 +4531,13 @@ mod tests {
         })
         .await
         .unwrap();
+    }
+    #[test]
+    fn device_ids_stay_local() {
+        // Synced, every device would share one id.
+        for key in ["app.anon_id", "app.ping_id"] {
+            assert!(!super::is_setting_sync_eligible(key));
+        }
     }
     #[test]
     fn sensitive_settings_and_tags_stay_local() {
