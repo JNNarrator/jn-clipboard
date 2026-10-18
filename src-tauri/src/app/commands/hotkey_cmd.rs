@@ -156,6 +156,17 @@ pub fn sync_registered_hotkeys(app_handle: &AppHandle) -> AppResult<()> {
     first_error.map_or(Ok(()), Err)
 }
 
+/// `sync_registered_hotkeys` for background threads. The shortcut plugin
+/// holds its lock while it waits for the main thread, and the main thread
+/// takes that lock to deliver a hotkey press, so a press at the wrong moment
+/// froze both. On the main thread the two can't overlap.
+pub fn sync_registered_hotkeys_on_main_thread(app_handle: &AppHandle) {
+    let handle = app_handle.clone();
+    let _ = app_handle.run_on_main_thread(move || {
+        let _ = sync_registered_hotkeys(&handle);
+    });
+}
+
 #[tauri::command]
 pub fn register_hotkey(app_handle: AppHandle, hotkey: String) -> AppResult<()> {
     {

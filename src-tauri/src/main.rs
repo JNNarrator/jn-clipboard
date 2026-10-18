@@ -56,6 +56,21 @@ fn main() -> AppResult<()> {
         }
     }
 
+    let context = tauri::generate_context!();
+
+    // A normal start while TieZ runs as administrator: the single-instance
+    // plugin can't reach that instance (see single_instance.rs).
+    #[cfg(target_os = "windows")]
+    {
+        let args: Vec<String> = std::env::args().collect();
+        if crate::infrastructure::windows_api::single_instance::hand_off_to_elevated_instance(
+            &context.config().identifier,
+            &args,
+        ) {
+            std::process::exit(0);
+        }
+    }
+
     // Prefer overlay scrollbars (no classic Win32 arrows) in WebView2.
     #[cfg(target_os = "windows")]
     {
@@ -130,6 +145,11 @@ fn main() -> AppResult<()> {
         ))
         .setup(|app| {
             setup::init(app)?;
+            #[cfg(target_os = "windows")]
+            crate::infrastructure::windows_api::single_instance::accept_show_from_normal_starts(
+                app.handle(),
+                &app.config().identifier,
+            );
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -302,7 +322,7 @@ fn main() -> AppResult<()> {
         .on_window_event(|window, event| {
             setup::handle_window_event(window, event);
         })
-        .build(tauri::generate_context!());
+        .build(context);
 
     match app {
         Ok(app) => {

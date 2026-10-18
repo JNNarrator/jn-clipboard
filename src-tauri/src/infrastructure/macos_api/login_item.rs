@@ -52,19 +52,37 @@ pub fn is_enabled() -> bool {
     agent_service().is_some_and(|service| status(&service) == STATUS_ENABLED)
 }
 
+/// Registered, but switched off in System Settings › Login Items. Only the
+/// user can switch it back on, over there; registering again changes nothing.
+pub fn requires_approval() -> bool {
+    agent_service().is_some_and(|service| status(&service) == STATUS_REQUIRES_APPROVAL)
+}
+
+/// Opens System Settings at Login Items.
+pub fn open_settings() {
+    if let Some(class) = AnyClass::get(c"SMAppService") {
+        let _: () = unsafe { msg_send![class, openSystemSettingsLoginItems] };
+    }
+}
+
+/// Turning it on fails while the user has it switched off in System Settings
+/// (see `requires_approval`): it is registered but won't launch.
 pub fn set_enabled(enabled: bool) -> Result<(), String> {
     let service = agent_service().ok_or("SMAppService unavailable")?;
     let current = status(&service);
     let registered = current == STATUS_ENABLED || current == STATUS_REQUIRES_APPROVAL;
-    if enabled == registered {
-        return Ok(());
+    if enabled != registered {
+        let result: Result<(), Retained<NSError>> = unsafe {
+            if enabled {
+                msg_send![&service, registerAndReturnError: _]
+            } else {
+                msg_send![&service, unregisterAndReturnError: _]
+            }
+        };
+        result.map_err(|error| error.localizedDescription().to_string())?;
     }
-    let result: Result<(), Retained<NSError>> = unsafe {
-        if enabled {
-            msg_send![&service, registerAndReturnError: _]
-        } else {
-            msg_send![&service, unregisterAndReturnError: _]
-        }
-    };
-    result.map_err(|error| error.localizedDescription().to_string())
+    if enabled && status(&service) == STATUS_REQUIRES_APPROVAL {
+        return Err("Launch at login is turned off in System Settings".to_string());
+    }
+    Ok(())
 }

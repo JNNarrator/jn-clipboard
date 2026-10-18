@@ -749,6 +749,53 @@ fn infer_edge_dock_from_geometry(
     }
 }
 
+/// The edge a window is tucked into: pushed past it, with only a sliver (3 px,
+/// plus slack for DPI rounding) left on screen. 0 when it isn't.
+fn offscreen_tuck_edge(
+    rect_left: i32,
+    rect_right: i32,
+    rect_bottom: i32,
+    screen_left: i32,
+    screen_top: i32,
+    screen_right: i32,
+) -> i32 {
+    let slack = 10;
+    if rect_bottom <= screen_top + slack {
+        1
+    } else if rect_right <= screen_left + slack {
+        2
+    } else if rect_left >= screen_right - slack {
+        3
+    } else {
+        0
+    }
+}
+
+#[cfg(test)]
+mod edge_tuck_tests {
+    use super::{infer_edge_dock_from_geometry, offscreen_tuck_edge};
+
+    // A 1920-wide screen at the origin and a 400-wide, 600-tall window.
+    #[test]
+    fn a_window_by_the_edge_is_not_a_tuck() {
+        // Left edge, fully on screen: docking reads it as docked left...
+        assert_eq!(infer_edge_dock_from_geometry(2, 300, 402, 0, 0, 1920), 2);
+        // ...but it isn't tucked, so without docking it stays where it is.
+        assert_eq!(offscreen_tuck_edge(2, 402, 900, 0, 0, 1920), 0);
+        assert_eq!(offscreen_tuck_edge(800, 1200, 600, 0, 0, 1920), 0);
+        assert_eq!(offscreen_tuck_edge(1518, 1918, 900, 0, 0, 1920), 0);
+    }
+
+    #[test]
+    fn a_tucked_window_is_found_on_its_edge() {
+        assert_eq!(offscreen_tuck_edge(800, 1200, 3, 0, 0, 1920), 1);
+        assert_eq!(offscreen_tuck_edge(-397, 3, 900, 0, 0, 1920), 2);
+        assert_eq!(offscreen_tuck_edge(1917, 2317, 900, 0, 0, 1920), 3);
+        // On a second screen to the right.
+        assert_eq!(offscreen_tuck_edge(1523, 1923, 900, 1920, 0, 3840), 2);
+    }
+}
+
 /// Edge tuck and reveal change always-on-top while the user works in another
 /// app. On Windows that must not activate TieZ: a hover-reveal took focus from
 /// the app underneath, which closed an Explorer / Directory Opus rename box.
@@ -807,19 +854,18 @@ pub fn adopt_offscreen_tuck(app_handle: &AppHandle, window: &tauri::WebviewWindo
     ) else {
         return false;
     };
-    // A tuck leaves a 3 px sliver; allow a little slack for DPI rounding.
-    let slack = 10;
     let screen = monitor.position();
-    let screen_right = screen.x + monitor.size().width as i32;
-    let dock = if pos.y + size.height as i32 <= screen.y + slack {
-        1
-    } else if pos.x + size.width as i32 <= screen.x + slack {
-        2
-    } else if pos.x >= screen_right - slack {
-        3
-    } else {
+    let dock = offscreen_tuck_edge(
+        pos.x,
+        pos.x + size.width as i32,
+        pos.y + size.height as i32,
+        screen.x,
+        screen.y,
+        screen.x + monitor.size().width as i32,
+    );
+    if dock == 0 {
         return false;
-    };
+    }
     CURRENT_DOCK.store(dock, Ordering::Relaxed);
     IS_HIDDEN.store(true, Ordering::Relaxed);
     true
@@ -845,17 +891,36 @@ pub fn expand_from_edge_dock(app_handle: &AppHandle, window: &tauri::WebviewWind
     let rect_left = pos.x;
     let rect_top = pos.y;
     let rect_right = pos.x + size.width as i32;
+    let rect_bottom = pos.y + size.height as i32;
     let window_width = size.width as i32;
 
     if dock == 0 {
-        dock = infer_edge_dock_from_geometry(
-            rect_left,
-            rect_top,
-            rect_right,
-            screen_left,
-            screen_top,
-            screen_right,
-        );
+        let edge_docking = app_handle
+            .try_state::<SettingsState>()
+            .is_some_and(|s| s.edge_docking.load(Ordering::Relaxed));
+        dock = if edge_docking {
+            infer_edge_dock_from_geometry(
+                rect_left,
+                rect_top,
+                rect_right,
+                screen_left,
+                screen_top,
+                screen_right,
+            )
+        } else {
+            // Without edge docking a window by the screen edge was just left
+            // there, and showing it moves it to the mouse if that is on. Only
+            // one still pushed off screen (tucked before docking was turned
+            // off) needs pulling back.
+            offscreen_tuck_edge(
+                rect_left,
+                rect_right,
+                rect_bottom,
+                screen_left,
+                screen_top,
+                screen_right,
+            )
+        };
     }
 
     if dock == 0 {
@@ -1051,14 +1116,29 @@ fn enable_autostart_on_first_run(app_handle: &AppHandle, db_state: &DbState) {
             return;
         }
     }
-    use crate::app::commands::system_cmd::{is_autostart_enabled, toggle_autostart};
-    // toggle_autostart ignores the launcher's error on macOS; check the result.
-    let _ = toggle_autostart(app_handle.clone(), true);
+    use crate::app::commands::system_cmd::{apply_autostart, is_autostart_enabled};
+    // apply_autostart ignores the launcher's error on macOS; check the result.
+    let _ = apply_autostart(app_handle, true);
     if is_autostart_enabled(app_handle.clone()).unwrap_or(false) {
+        done();
+    } else if login_item_switched_off() {
+        // Registered, but the user switched TieZ off in System Settings
+        // before (a reinstall): their choice, and nothing left to retry.
         done();
     } else {
         eprintln!(">>> [STARTUP] enabling launch at login failed; retrying next start");
     }
+}
+
+#[cfg(target_os = "macos")]
+fn login_item_switched_off() -> bool {
+    use crate::infrastructure::macos_api::login_item;
+    login_item::available() && login_item::requires_approval()
+}
+
+#[cfg(not(target_os = "macos"))]
+fn login_item_switched_off() -> bool {
+    false
 }
 
 /// Moves a login item made the old way (~/Library/LaunchAgents, shown under
@@ -1083,6 +1163,10 @@ fn migrate_macos_login_item(app_handle: &AppHandle) {
     }
     match login_item::set_enabled(true) {
         Ok(()) => {
+            let _ = autolaunch.disable();
+        }
+        // Moved, but switched off in System Settings: the user's choice.
+        Err(_) if login_item::requires_approval() => {
             let _ = autolaunch.disable();
         }
         // Keep the old item rather than lose launch at login.
@@ -1184,6 +1268,116 @@ fn visibility_ratio_on_monitor(
     let wh = (rect_bottom.saturating_sub(rect_top)).max(1) as u64;
     let total_area = ww.saturating_mul(wh).max(1);
     visible_area as f64 / total_area as f64
+}
+
+/// A screen in the units screens are laid out in: points on macOS, where each
+/// screen's pixels are scaled by its own factor, pixels on Windows.
+#[derive(Clone, Copy, Debug)]
+struct LayoutRect {
+    left: f64,
+    top: f64,
+    right: f64,
+    bottom: f64,
+}
+
+fn layout_scale(monitor: &tauri::Monitor) -> f64 {
+    if cfg!(target_os = "macos") {
+        monitor.scale_factor()
+    } else {
+        1.0
+    }
+}
+
+fn layout_rect(monitor: &tauri::Monitor) -> LayoutRect {
+    let scale = layout_scale(monitor);
+    let pos = monitor.position();
+    let size = monitor.size();
+    LayoutRect {
+        left: pos.x as f64 / scale,
+        top: pos.y as f64 / scale,
+        right: (pos.x as f64 + size.width as f64) / scale,
+        bottom: (pos.y as f64 + size.height as f64) / scale,
+    }
+}
+
+/// Whether another screen borders `screen` along the `dock` edge (1 top,
+/// 2 left, 3 right) where the window lies, `from..to` along that edge.
+fn edge_borders_screen(
+    screen: LayoutRect,
+    others: &[LayoutRect],
+    dock: i32,
+    from: f64,
+    to: f64,
+) -> bool {
+    const SLACK: f64 = 2.0;
+    others.iter().any(|other| {
+        let (touches, other_from, other_to) = match dock {
+            1 => ((other.bottom - screen.top).abs() <= SLACK, other.left, other.right),
+            2 => ((other.right - screen.left).abs() <= SLACK, other.top, other.bottom),
+            3 => ((other.left - screen.right).abs() <= SLACK, other.top, other.bottom),
+            _ => return false,
+        };
+        touches && other_from < to && other_to > from
+    })
+}
+
+/// Whether the window may tuck into `dock`'s edge of `monitor`. Not where
+/// another screen continues: tucked past that edge the window sits on the
+/// neighbour in plain sight, which then counts as its screen, so the tuck
+/// can't be revealed (it stuck on Windows and bounced on macOS).
+fn can_dock_on_edge(
+    window: &tauri::WebviewWindow,
+    monitor: &tauri::Monitor,
+    dock: i32,
+    rect: (i32, i32, i32, i32),
+) -> bool {
+    let Ok(monitors) = window.available_monitors() else {
+        return true;
+    };
+    let others: Vec<LayoutRect> = monitors.iter().map(layout_rect).collect();
+    let scale = layout_scale(monitor);
+    let (left, top, right, bottom) = rect;
+    let (from, to) = if dock == 1 { (left, right) } else { (top, bottom) };
+    !edge_borders_screen(
+        layout_rect(monitor),
+        &others,
+        dock,
+        from as f64 / scale,
+        to as f64 / scale,
+    )
+}
+
+#[cfg(test)]
+mod edge_tests {
+    use super::{edge_borders_screen, LayoutRect};
+
+    fn rect(left: f64, top: f64, width: f64, height: f64) -> LayoutRect {
+        LayoutRect { left, top, right: left + width, bottom: top + height }
+    }
+
+    #[test]
+    fn edges_shared_with_another_screen_are_found() {
+        let main = rect(0.0, 0.0, 1440.0, 900.0);
+        let right = rect(1440.0, 0.0, 1920.0, 1080.0);
+        let screens = [main, right];
+        assert!(edge_borders_screen(main, &screens, 3, 100.0, 700.0));
+        assert!(edge_borders_screen(right, &screens, 2, 100.0, 700.0));
+        // Outer edges.
+        assert!(!edge_borders_screen(main, &screens, 2, 100.0, 700.0));
+        assert!(!edge_borders_screen(main, &screens, 1, 100.0, 500.0));
+        assert!(!edge_borders_screen(right, &screens, 3, 100.0, 700.0));
+        // The taller screen's left edge continues only down to 900.
+        assert!(!edge_borders_screen(right, &screens, 2, 920.0, 1070.0));
+    }
+
+    #[test]
+    fn a_screen_above_blocks_the_top_edge() {
+        let main = rect(0.0, 0.0, 1920.0, 1080.0);
+        let above = rect(200.0, -1080.0, 1920.0, 1080.0);
+        let screens = [main, above];
+        assert!(edge_borders_screen(main, &screens, 1, 600.0, 1000.0));
+        assert!(!edge_borders_screen(main, &screens, 1, 0.0, 150.0));
+    }
 }
 
 /// Drop stale edge-hide state when it disagrees with real geometry (resume, monitor layout, startup restore).
@@ -1365,12 +1559,12 @@ fn start_edge_docking_monitor(app_handle: AppHandle) {
                 continue;
             }
 
-            let cursor = match window.cursor_position() {
-                Ok(c) => c,
-                Err(_) => tauri::PhysicalPosition::new(-9999.0, -9999.0),
-            };
-            let cursor_x = cursor.x.round() as i32;
-            let cursor_y = cursor.y.round() as i32;
+            // In this screen's pixels, like its edges and the window; tao
+            // scales the raw cursor by the primary screen's factor instead.
+            let monitor_scale = monitor.scale_factor();
+            let (cursor_x, cursor_y) = crate::app::window_manager::global_cursor_layout(&window)
+                .map(|(x, y)| ((x * monitor_scale).round() as i32, (y * monitor_scale).round() as i32))
+                .unwrap_or((-9999, -9999));
 
             let threshold = 5;
             let is_mouse_near_edge = if is_hidden_by_edge {
@@ -1422,12 +1616,19 @@ fn start_edge_docking_monitor(app_handle: AppHandle) {
             }
 
             let hide_size = 3;
+            let window_rect = (rect_left, rect_top, rect_right, rect_bottom);
             let mut dock = DockPosition::None;
-            if rect_top <= screen_top + threshold {
+            if rect_top <= screen_top + threshold
+                && can_dock_on_edge(&window, &monitor, 1, window_rect)
+            {
                 dock = DockPosition::Top;
-            } else if rect_left <= screen_left + threshold {
+            } else if rect_left <= screen_left + threshold
+                && can_dock_on_edge(&window, &monitor, 2, window_rect)
+            {
                 dock = DockPosition::Left;
-            } else if rect_right >= screen_right - threshold {
+            } else if rect_right >= screen_right - threshold
+                && can_dock_on_edge(&window, &monitor, 3, window_rect)
+            {
                 dock = DockPosition::Right;
             }
 
@@ -1647,12 +1848,19 @@ fn start_edge_docking_monitor(app_handle: AppHandle) {
 
                 let hide_size = 3;
 
+                let window_rect = (rect.left, rect.top, rect.right, rect.bottom);
                 let mut dock = DockPosition::None;
-                if rect.top <= screen_top + threshold {
+                if rect.top <= screen_top + threshold
+                    && can_dock_on_edge(&window, &monitor, 1, window_rect)
+                {
                     dock = DockPosition::Top;
-                } else if rect.left <= screen_left + threshold {
+                } else if rect.left <= screen_left + threshold
+                    && can_dock_on_edge(&window, &monitor, 2, window_rect)
+                {
                     dock = DockPosition::Left;
-                } else if rect.right >= screen_right - threshold {
+                } else if rect.right >= screen_right - threshold
+                    && can_dock_on_edge(&window, &monitor, 3, window_rect)
+                {
                     dock = DockPosition::Right;
                 }
 
