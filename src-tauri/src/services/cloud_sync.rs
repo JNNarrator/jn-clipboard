@@ -3249,6 +3249,15 @@ fn touch_webdav_head_rebuild_at(app: &AppHandle, now: i64) -> AppResult<()> {
     set_setting_i64(app, CLOUD_SYNC_WEBDAV_LAST_HEAD_REBUILD_AT_KEY, now)
 }
 
+/// The local op counter, moved up to what the head already shows for this
+/// device. 「恢复默认设置」 or a reinstall on the same machine restarts it at 0
+/// with the same device id, and peers past those numbers skipped new ops.
+fn op_seq_after_head(local_seq: i64, head: &WebDavSyncHead, device_id: &str) -> i64 {
+    head.devices.get(device_id).map_or(local_seq, |device| {
+        local_seq.max(device.latest_op_seq).max(device.snapshot_op_seq)
+    })
+}
+
 fn update_webdav_head_device<F>(head: &mut WebDavSyncHead, device_id: &str, mut update: F)
 where
     F: FnMut(&mut WebDavDeviceHead),
@@ -3849,6 +3858,11 @@ async fn sync_once_webdav(
     let paths = ensure_webdav_directories(&client, cfg).await?;
     let mut sync_head = resolve_webdav_sync_head(app, &client, cfg, &paths, now).await?;
     ensure_head_covers_known_devices(&client, cfg, &paths.devices_path, &mut sync_head).await?;
+    let local_seq = get_local_webdav_op_seq(app);
+    let recovered_seq = op_seq_after_head(local_seq, &sync_head, &cfg.device_id);
+    if recovered_seq != local_seq {
+        set_local_webdav_op_seq(app, recovered_seq)?;
+    }
     let mut sync_head_dirty = false;
     let mut webdav_blob_cache = load_webdav_blob_cache(app);
 
@@ -4677,6 +4691,20 @@ mod tests {
         assert!(!html.contains("entry.png"));
 
         let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn the_op_counter_catches_up_with_the_head_after_a_reset() {
+        use super::*;
+        let mut head = WebDavSyncHead::default();
+        update_webdav_head_device(&mut head, "mac", |device| {
+            device.latest_op_seq = 40;
+            device.snapshot_op_seq = 38;
+        });
+
+        assert_eq!(op_seq_after_head(0, &head, "mac"), 40);
+        assert_eq!(op_seq_after_head(55, &head, "mac"), 55);
+        assert_eq!(op_seq_after_head(3, &head, "new-device"), 3);
     }
 
     #[test]
