@@ -11,6 +11,9 @@ use crate::infrastructure::repository::tag_repo::SqliteTagRepository;
 use std::sync::{Arc, Mutex};
 
 pub struct DbState {
+    /// Lock order: take SessionHistory or AppDataDir first, then this.
+    /// Never wait for another lock while holding the connection (the repo
+    /// methods lock it too).
     pub conn: Arc<Mutex<Connection>>,
     pub repo: SqliteClipboardRepository,
     pub settings_repo: SqliteSettingsRepository,

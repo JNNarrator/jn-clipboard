@@ -44,37 +44,43 @@ pub fn toggle_clipboard_pin(
         }
     }
 
-    {
+    let mut persisted_id = None;
+    let pin_result = {
+        // Take other locks before the connection, never while holding it.
+        let data_dir = entry_to_save
+            .as_ref()
+            .map(|_| app_data_dir.0.lock().unwrap().clone());
         let conn = state.conn.lock().unwrap();
 
-        if let Some(entry) = entry_to_save {
-            let data_dir = app_data_dir.0.lock().unwrap().clone();
+        if let (Some(entry), Some(data_dir)) = (entry_to_save, data_dir) {
             if let Ok(new_id) = state
                 .repo
                 .save_with_conn(&conn, &entry, Some(&data_dir), None)
             {
                 real_id = new_id;
+                persisted_id = Some(new_id);
                 if let Ok(deleted_ids) = state.repo.enforce_limit_with_conn(&conn, Some(&data_dir))
                 {
                     for deleted_id in deleted_ids {
                         let _ = app_handle.emit("clipboard-removed", deleted_id);
                     }
                 }
-                {
-                    let mut session_items = session.inner().0.lock().unwrap();
-                    // Once persisted, the database is the sole owner of this entry.
-                    session_items.retain(|item| item.id != id && item.id != new_id);
-                }
             }
         }
 
         if real_id > 0 {
-            state
-                .repo
-                .toggle_pin_with_conn(&conn, real_id, is_pinned)
-                .map_err(AppError::from)?;
+            state.repo.toggle_pin_with_conn(&conn, real_id, is_pinned)
+        } else {
+            Ok(())
         }
+    };
+
+    if let Some(new_id) = persisted_id {
+        let mut session_items = session.inner().0.lock().unwrap();
+        // Once persisted, the database is the sole owner of this entry.
+        session_items.retain(|item| item.id != id && item.id != new_id);
     }
+    pin_result.map_err(AppError::from)?;
 
     let _ = app_handle.emit("clipboard-changed", ());
     crate::services::cloud_sync::request_cloud_sync(app_handle);
