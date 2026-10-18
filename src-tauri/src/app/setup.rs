@@ -218,18 +218,20 @@ fn resolve_data_dir(app: &App) -> Result<std::path::PathBuf, Box<dyn std::error:
         default_app_dir.clone()
     };
 
-    // Portable mode check
-    if let Ok(exe_path) = std::env::current_exe() {
-        if let Some(exe_dir) = exe_path.parent() {
-            let portable_data = exe_dir.join("data");
-            if portable_data.exists() && portable_data.is_dir() {
-                app_dir = portable_data;
-            }
-        }
+    if let Some(portable_data) = portable_data_dir() {
+        app_dir = portable_data;
     }
 
     std::fs::create_dir_all(&app_dir)?;
     Ok(app_dir)
+}
+
+/// Portable mode: a `data` folder next to the executable holds the data, and
+/// always wins over a data folder chosen in settings.
+pub(crate) fn portable_data_dir() -> Option<std::path::PathBuf> {
+    let exe_path = std::env::current_exe().ok()?;
+    let portable_data = exe_path.parent()?.join("data");
+    portable_data.is_dir().then_some(portable_data)
 }
 
 fn apply_startup_resets(repo: &impl SettingsRepository) {

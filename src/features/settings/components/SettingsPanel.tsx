@@ -859,6 +859,7 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                     theme={theme}
                     {...groupState('data')}
                     dataPath={dataPath}
+                    portable={releaseBuildInfo.portable}
                 />
             )
         }

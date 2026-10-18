@@ -759,6 +759,12 @@ pub fn check_is_admin() -> bool {
 
 #[tauri::command]
 pub fn set_data_path(app_handle: AppHandle, new_path: String) -> AppResult<()> {
+    // Moving it would be undone at the next start (see portable_data_dir).
+    if crate::app::setup::portable_data_dir().is_some() {
+        return Err(AppError::Validation(
+            "便携版的数据保存在程序旁的 data 文件夹，不能更换位置。".to_string(),
+        ));
+    }
     let clean_path = new_path.trim().to_string();
     let new_data_path = std::path::Path::new(&clean_path);
     if !new_data_path.exists() {
