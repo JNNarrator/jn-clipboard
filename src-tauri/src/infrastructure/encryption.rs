@@ -143,9 +143,18 @@ fn load_or_create_master_key() -> Result<[u8; KEY_LEN], String> {
             // Access-denied / user-cancel must NOT overwrite the existing key,
             // otherwise previously encrypted data becomes undecryptable.
             Err(KeychainLoadError::NotFound) => {
-                ensure_no_orphaned_ciphertext()?;
                 if cfg!(feature = "portable") {
                     return Err("existing master key not found".into());
+                }
+                // The key stays in the Keychain of the Mac that made it, so
+                // a data folder moved to a new Mac brings values nothing here
+                // can open. Refusing a new key left every password save
+                // failing; as on Windows, start one and the lost values are
+                // re-entered. The old ones stay stored, untouched.
+                if ensure_no_orphaned_ciphertext().is_err() {
+                    eprintln!(
+                        ">>> [ENCRYPTION] encrypted data from another Mac; starting a new master key"
+                    );
                 }
                 let key = generate_key();
                 store_key_in_keychain(&key)?;
