@@ -811,6 +811,10 @@ const FileTransferChatView = ({
         const unlistenDevices = listen<FileTransferDevice[]>("online-devices-updated", (event) => {
             setOnlineDevices(event.payload || []);
         });
+        // Phones that connected before this window opened.
+        invoke<FileTransferDevice[]>("get_online_devices")
+            .then((devices) => setOnlineDevices(devices || []))
+            .catch(console.error);
 
         const unlistenNewMsg = listen<FileTransferMessage>("new-chat-message", () => {
             fetchMessages();

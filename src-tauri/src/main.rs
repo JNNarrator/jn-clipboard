@@ -274,6 +274,7 @@ fn main() -> AppResult<()> {
             app::commands::save_file_batch,
             services::file_transfer::send_chat_message,
             services::file_transfer::get_chat_history,
+            services::file_transfer::get_online_devices,
             services::file_transfer::clear_chat_history,
             services::file_transfer::open_file_transfer_folder,
             services::file_transfer::send_file_to_client,

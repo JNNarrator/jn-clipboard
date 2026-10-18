@@ -196,6 +196,17 @@ pub fn get_local_ip_addr(app_handle: AppHandle) -> String {
         .unwrap_or("127.0.0.1".to_string())
 }
 
+/// Phones connected now; the window otherwise learns only about changes.
+#[tauri::command]
+pub fn get_online_devices(app_handle: AppHandle) -> Vec<DeviceInfo> {
+    app_handle
+        .state::<OnlineDevices>()
+        .0
+        .lock()
+        .map(|devices| devices.values().cloned().collect())
+        .unwrap_or_default()
+}
+
 #[tauri::command]
 pub fn set_display_ip(app_handle: AppHandle, ip: String) {
     let server_info = app_handle.state::<ServerInfo>();
