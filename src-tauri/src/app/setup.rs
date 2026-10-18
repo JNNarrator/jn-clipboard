@@ -742,6 +742,53 @@ fn infer_edge_dock_from_geometry(
     }
 }
 
+/// The edge a window is tucked into: pushed past it, with only a sliver (3 px,
+/// plus slack for DPI rounding) left on screen. 0 when it isn't.
+fn offscreen_tuck_edge(
+    rect_left: i32,
+    rect_right: i32,
+    rect_bottom: i32,
+    screen_left: i32,
+    screen_top: i32,
+    screen_right: i32,
+) -> i32 {
+    let slack = 10;
+    if rect_bottom <= screen_top + slack {
+        1
+    } else if rect_right <= screen_left + slack {
+        2
+    } else if rect_left >= screen_right - slack {
+        3
+    } else {
+        0
+    }
+}
+
+#[cfg(test)]
+mod edge_tuck_tests {
+    use super::{infer_edge_dock_from_geometry, offscreen_tuck_edge};
+
+    // A 1920-wide screen at the origin and a 400-wide, 600-tall window.
+    #[test]
+    fn a_window_by_the_edge_is_not_a_tuck() {
+        // Left edge, fully on screen: docking reads it as docked left...
+        assert_eq!(infer_edge_dock_from_geometry(2, 300, 402, 0, 0, 1920), 2);
+        // ...but it isn't tucked, so without docking it stays where it is.
+        assert_eq!(offscreen_tuck_edge(2, 402, 900, 0, 0, 1920), 0);
+        assert_eq!(offscreen_tuck_edge(800, 1200, 600, 0, 0, 1920), 0);
+        assert_eq!(offscreen_tuck_edge(1518, 1918, 900, 0, 0, 1920), 0);
+    }
+
+    #[test]
+    fn a_tucked_window_is_found_on_its_edge() {
+        assert_eq!(offscreen_tuck_edge(800, 1200, 3, 0, 0, 1920), 1);
+        assert_eq!(offscreen_tuck_edge(-397, 3, 900, 0, 0, 1920), 2);
+        assert_eq!(offscreen_tuck_edge(1917, 2317, 900, 0, 0, 1920), 3);
+        // On a second screen to the right.
+        assert_eq!(offscreen_tuck_edge(1523, 1923, 900, 1920, 0, 3840), 2);
+    }
+}
+
 /// Edge tuck and reveal change always-on-top while the user works in another
 /// app. On Windows that must not activate TieZ: a hover-reveal took focus from
 /// the app underneath, which closed an Explorer / Directory Opus rename box.
@@ -800,19 +847,18 @@ pub fn adopt_offscreen_tuck(app_handle: &AppHandle, window: &tauri::WebviewWindo
     ) else {
         return false;
     };
-    // A tuck leaves a 3 px sliver; allow a little slack for DPI rounding.
-    let slack = 10;
     let screen = monitor.position();
-    let screen_right = screen.x + monitor.size().width as i32;
-    let dock = if pos.y + size.height as i32 <= screen.y + slack {
-        1
-    } else if pos.x + size.width as i32 <= screen.x + slack {
-        2
-    } else if pos.x >= screen_right - slack {
-        3
-    } else {
+    let dock = offscreen_tuck_edge(
+        pos.x,
+        pos.x + size.width as i32,
+        pos.y + size.height as i32,
+        screen.x,
+        screen.y,
+        screen.x + monitor.size().width as i32,
+    );
+    if dock == 0 {
         return false;
-    };
+    }
     CURRENT_DOCK.store(dock, Ordering::Relaxed);
     IS_HIDDEN.store(true, Ordering::Relaxed);
     true
@@ -838,17 +884,36 @@ pub fn expand_from_edge_dock(app_handle: &AppHandle, window: &tauri::WebviewWind
     let rect_left = pos.x;
     let rect_top = pos.y;
     let rect_right = pos.x + size.width as i32;
+    let rect_bottom = pos.y + size.height as i32;
     let window_width = size.width as i32;
 
     if dock == 0 {
-        dock = infer_edge_dock_from_geometry(
-            rect_left,
-            rect_top,
-            rect_right,
-            screen_left,
-            screen_top,
-            screen_right,
-        );
+        let edge_docking = app_handle
+            .try_state::<SettingsState>()
+            .is_some_and(|s| s.edge_docking.load(Ordering::Relaxed));
+        dock = if edge_docking {
+            infer_edge_dock_from_geometry(
+                rect_left,
+                rect_top,
+                rect_right,
+                screen_left,
+                screen_top,
+                screen_right,
+            )
+        } else {
+            // Without edge docking a window by the screen edge was just left
+            // there, and showing it moves it to the mouse if that is on. Only
+            // one still pushed off screen (tucked before docking was turned
+            // off) needs pulling back.
+            offscreen_tuck_edge(
+                rect_left,
+                rect_right,
+                rect_bottom,
+                screen_left,
+                screen_top,
+                screen_right,
+            )
+        };
     }
 
     if dock == 0 {
