@@ -85,6 +85,37 @@ fn profile_config(profile: Option<&serde_json::Value>) -> ProfileConfig {
     }
 }
 
+impl ProfileConfig {
+    /// Has what a request needs: an endpoint, plus a key unless the server is local.
+    fn is_callable(&self) -> bool {
+        !self.base_url.trim().is_empty()
+            && (!self.provider.requires_key || !self.api_key.trim().is_empty())
+    }
+}
+
+/// The profile a task runs on. The assigned one wins when it can be called;
+/// otherwise the first callable profile in list order. The DeepSeek presets
+/// ship without a key and are the default assignment, so a user who adds a
+/// model of their own is not stuck on "API Key is not set" until they also
+/// re-assign every task. With nothing callable, the assigned (or first)
+/// profile is returned so the error names what is missing.
+fn pick_profile<'a>(
+    profiles: Option<&'a [serde_json::Value]>,
+    assigned_id: &str,
+) -> Option<&'a serde_json::Value> {
+    let list = profiles.unwrap_or_default();
+    let assigned = list
+        .iter()
+        .find(|p| p["id"].as_str() == Some(assigned_id))
+        .or_else(|| list.first());
+    if assigned.is_some_and(|p| profile_config(Some(p)).is_callable()) {
+        return assigned;
+    }
+    list.iter()
+        .find(|p| profile_config(Some(p)).is_callable())
+        .or(assigned)
+}
+
 /// Characters of an entry the AI sees. Longer entries are cut, and the
 /// result is then flagged so it can't replace the whole entry.
 const AI_INPUT_LIMIT: usize = 2000;
@@ -301,11 +332,8 @@ pub async fn call_ai(
         let profiles: serde_json::Value =
             serde_json::from_str(&profiles_json).unwrap_or(serde_json::json!([]));
 
-        // 3. Find assigned profile, falling back to the first available one
-        let list = profiles.as_array();
-        let profile = list
-            .and_then(|arr| arr.iter().find(|p| p["id"].as_str() == Some(&assigned_id)))
-            .or_else(|| list.and_then(|arr| arr.first()));
+        // 3. Find assigned profile, falling back to the first callable one
+        let profile = pick_profile(profiles.as_array().map(Vec::as_slice), &assigned_id);
         let config = profile_config(profile);
 
         let lang = state
@@ -564,7 +592,58 @@ pub fn apply_ai_result(app_handle: AppHandle, id: i64, content: String) -> AppRe
 
 #[cfg(test)]
 mod tests {
-    use super::network_error_text;
+    use super::{network_error_text, pick_profile};
+    use serde_json::json;
+
+    fn picked(profiles: &serde_json::Value, assigned: &str) -> Option<String> {
+        pick_profile(profiles.as_array().map(Vec::as_slice), assigned)
+            .and_then(|p| p["id"].as_str().map(str::to_string))
+    }
+
+    fn presets_plus(extra: serde_json::Value) -> serde_json::Value {
+        let mut list = vec![
+            json!({"id": "ds_v4_pro_v1", "provider": "deepseek", "baseUrl": "https://api.deepseek.com/v1", "apiKey": "", "model": "deepseek-v4-pro"}),
+            json!({"id": "ds_flash_v1", "provider": "deepseek", "baseUrl": "https://api.deepseek.com/v1", "apiKey": "", "model": "deepseek-flash"}),
+        ];
+        if let Some(extra) = extra.as_array() {
+            list.extend(extra.iter().cloned());
+        }
+        serde_json::Value::Array(list)
+    }
+
+    #[test]
+    fn keyless_assignment_falls_back_to_a_model_with_a_key() {
+        let own = json!([{"id": "1", "provider": "openai", "baseUrl": "https://api.openai.com/v1", "apiKey": "sk-x", "model": "gpt"}]);
+        let profiles = presets_plus(own);
+        assert_eq!(picked(&profiles, "ds_flash_v1").as_deref(), Some("1"));
+        // A deleted assignment ("default") also lands on the callable model.
+        assert_eq!(picked(&profiles, "default").as_deref(), Some("1"));
+    }
+
+    #[test]
+    fn callable_assignment_is_kept() {
+        let mut profiles = presets_plus(json!([
+            {"id": "1", "provider": "openai", "baseUrl": "https://api.openai.com/v1", "apiKey": "sk-x", "model": "gpt"}
+        ]));
+        profiles[1]["apiKey"] = json!("sk-ds");
+        assert_eq!(picked(&profiles, "ds_flash_v1").as_deref(), Some("ds_flash_v1"));
+        assert_eq!(picked(&profiles, "1").as_deref(), Some("1"));
+    }
+
+    #[test]
+    fn local_models_need_no_key() {
+        let profiles = presets_plus(json!([
+            {"id": "local", "provider": "ollama", "baseUrl": "http://localhost:11434/v1", "apiKey": "", "model": "qwen3:8b"}
+        ]));
+        assert_eq!(picked(&profiles, "ds_v4_pro_v1").as_deref(), Some("local"));
+    }
+
+    #[test]
+    fn nothing_callable_keeps_the_assignment_for_the_error() {
+        let profiles = presets_plus(json!([]));
+        assert_eq!(picked(&profiles, "ds_flash_v1").as_deref(), Some("ds_flash_v1"));
+        assert_eq!(picked(&json!([]), "default"), None);
+    }
 
     #[test]
     fn network_errors_say_why_the_request_failed() {

@@ -294,6 +294,24 @@ fn apply_startup_resets(repo: &impl SettingsRepository) {
             &["Command+F", "Command+Alt+F"],
             "Alt+F",
         );
+
+        migrate_silent_start_once(repo);
+    }
+}
+
+/// Marks that `app.silent_start` was reset once on this Mac.
+pub(crate) const SILENT_START_MAC_RESET_KEY: &str = "app.silent_start_mac_reset";
+
+/// 「后台启动」 used to do nothing on macOS while being seeded on for every
+/// install. Now that it works, set it once to what Mac users actually got (the
+/// window shows), or every Mac would open without a window after updating.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+fn migrate_silent_start_once(repo: &impl SettingsRepository) {
+    if repo.get(SILENT_START_MAC_RESET_KEY).ok().flatten().is_some() {
+        return;
+    }
+    if repo.set("app.silent_start", "false").is_ok() {
+        let _ = repo.set(SILENT_START_MAC_RESET_KEY, "true");
     }
 }
 
@@ -1002,10 +1020,7 @@ fn setup_main_window(app: &App, s: &StartupSettings) {
     let is_autostart =
         args.contains(&"--autostart".to_string()) || args.contains(&"--minimized".to_string());
 
-    #[cfg(target_os = "windows")]
     let should_show_main = !is_autostart && !s.silent_start;
-    #[cfg(not(target_os = "windows"))]
-    let should_show_main = !is_autostart;
 
     if should_show_main {
         if let Some(window) = app.get_webview_window("main") {
@@ -1066,8 +1081,8 @@ fn setup_main_window(app: &App, s: &StartupSettings) {
         }
     } else {
         // The main window is created visible (tauri.conf.json), so autostart
-        // and silent start must hide it, or it pops up at login (#107).
-        #[cfg(target_os = "windows")]
+        // and silent start must hide it, or it pops up at login (#107). On
+        // macOS this has to happen before the panel conversion below.
         if let Some(window) = app.get_webview_window("main") {
             let _ = window.hide();
         }
@@ -2351,4 +2366,31 @@ fn handle_blur(window: &tauri::Window) {
             }
         }
     });
+}
+
+#[cfg(test)]
+mod silent_start_tests {
+    use super::{migrate_silent_start_once, SILENT_START_MAC_RESET_KEY};
+    use crate::infrastructure::repository::settings_repo::{
+        SettingsRepository, SqliteSettingsRepository,
+    };
+    use std::sync::{Arc, Mutex};
+
+    #[test]
+    fn mac_reset_runs_once_and_then_keeps_the_users_choice() {
+        let conn = Arc::new(Mutex::new(rusqlite::Connection::open_in_memory().unwrap()));
+        conn.lock()
+            .unwrap()
+            .execute_batch("CREATE TABLE settings(key TEXT PRIMARY KEY, value TEXT NOT NULL);")
+            .unwrap();
+        let repo = SqliteSettingsRepository::new(conn);
+        repo.set("app.silent_start", "true").unwrap();
+        migrate_silent_start_once(&repo);
+        assert_eq!(repo.get("app.silent_start").unwrap().as_deref(), Some("false"));
+        assert!(repo.get(SILENT_START_MAC_RESET_KEY).unwrap().is_some());
+
+        repo.set("app.silent_start", "true").unwrap();
+        migrate_silent_start_once(&repo);
+        assert_eq!(repo.get("app.silent_start").unwrap().as_deref(), Some("true"));
+    }
 }

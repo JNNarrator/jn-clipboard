@@ -205,10 +205,8 @@ fn build_openai(
         Thinking::OpenAiEffort | Thinking::Effort if req.thinking => {
             body.insert("reasoning_effort".into(), json!(req.reasoning_effort));
         }
-        Thinking::DeepSeek if req.thinking => {
-            body.insert("thinking".into(), json!({ "type": "enabled" }));
-        }
-        Thinking::Zhipu => {
+        // DeepSeek models think unless told not to, so "off" must be sent.
+        Thinking::DeepSeek | Thinking::Zhipu => {
             let kind = if req.thinking { "enabled" } else { "disabled" };
             body.insert("thinking".into(), json!({ "type": kind }));
         }
@@ -470,6 +468,8 @@ mod tests {
         let ds = call("deepseek", "https://api.deepseek.com/v1", true);
         assert_eq!(ds.body["thinking"]["type"], "enabled");
         assert!(ds.body.get("enable_thinking").is_none());
+        let ds_off = call("deepseek", "https://api.deepseek.com/v1", false);
+        assert_eq!(ds_off.body["thinking"]["type"], "disabled");
 
         let glm = call("zhipu", "https://open.bigmodel.cn/api/paas/v4", false);
         assert_eq!(glm.body["thinking"]["type"], "disabled");

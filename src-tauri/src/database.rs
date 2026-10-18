@@ -308,9 +308,11 @@ pub fn seed_defaults(conn: &Connection) -> Result<()> {
         "INSERT OR IGNORE INTO settings (key, value) VALUES ('app.deduplicate', 'true')",
         [],
     );
+    // 「后台启动」: on Windows TieZ lives in the tray; on macOS a Dock app that
+    // opens without a window looks broken, so it starts off there.
     let _ = conn.execute(
-        "INSERT OR IGNORE INTO settings (key, value) VALUES ('app.silent_start', 'true')",
-        [],
+        "INSERT OR IGNORE INTO settings (key, value) VALUES ('app.silent_start', ?1)",
+        [if cfg!(target_os = "macos") { "false" } else { "true" }],
     );
     let _ = conn.execute(
         "INSERT OR IGNORE INTO settings (key, value) VALUES ('app.delete_after_paste', 'false')",

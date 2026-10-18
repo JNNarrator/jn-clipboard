@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { MutableRefObject } from "react";
 import type { AiProfile, AppCleanupPolicy } from "../../features/settings/types";
+import { LEGACY_PRESET_IDS, PRESET_AI_PROFILES, resolveTaskProfile, restoreAiProfiles } from "../../features/settings/aiPresets";
 import type {
   ClipboardSortMode,
   QuickPasteModifier,
@@ -456,38 +457,8 @@ export const useSettingsPostInit = ({
       invoke("set_window_pinned", { pinned: true }).catch(console.error);
     }
 
-    // 1. DEFINE PRESETS
-    const recommended: AiProfile[] = [
-      {
-        id: "ds_v4_pro_v1",
-        provider: "deepseek",
-        baseUrl: "https://api.deepseek.com/v1",
-        apiKey: "",
-        model: "deepseek-v4-pro",
-        enableThinking: true
-      },
-      {
-        id: "ds_flash_v1",
-        provider: "deepseek",
-        baseUrl: "https://api.deepseek.com/v1",
-        apiKey: "",
-        model: "deepseek-flash",
-        enableThinking: false
-      }
-    ];
-    const legacyPresetIds = new Set(["lc_flash_v1", "lc_think_v1", "lc_think_2601_v1"]);
-    const legacyModelToPreset: Record<string, string> = {
-      "LongCat-Flash-Chat": "ds_flash_v1",
-      "LongCat-Flash-Thinking": "ds_v4_pro_v1",
-      "LongCat-Flash-Thinking-2601": "ds_v4_pro_v1"
-    };
-    const migrateAssignedProfile = (value: string | undefined, fallback: string) => {
-      if (!value) return fallback;
-      if (legacyPresetIds.has(value)) {
-        return value === "lc_flash_v1" ? "ds_flash_v1" : "ds_v4_pro_v1";
-      }
-      return value;
-    };
+    // 1. PRESETS
+    const recommended = PRESET_AI_PROFILES;
 
     // 2. LOAD OR INIT
     let finalProfiles: AiProfile[] = recommended;
@@ -495,26 +466,7 @@ export const useSettingsPostInit = ({
       try {
         const parsed = JSON.parse(settings["ai_profiles"]);
         if (Array.isArray(parsed)) {
-          const customProfiles = parsed.filter(
-            (p): p is AiProfile =>
-              !!p &&
-              typeof p === "object" &&
-              typeof p.id === "string" &&
-              typeof p.baseUrl === "string" &&
-              typeof p.apiKey === "string" &&
-              typeof p.model === "string" &&
-              typeof p.enableThinking === "boolean"
-          ).filter((p) => !legacyPresetIds.has(p.id) && !(p.model in legacyModelToPreset));
-          const customById = customProfiles.filter(
-            (profile, index, arr) => arr.findIndex((p) => p.id === profile.id) === index
-          );
-          finalProfiles = [
-            ...recommended.map((preset) => {
-              const saved = customById.find((profile) => profile.id === preset.id);
-              return saved ? { ...preset, ...saved } : preset;
-            }),
-            ...customById.filter((profile) => !recommended.some((preset) => preset.id === profile.id))
-          ];
+          finalProfiles = restoreAiProfiles(parsed);
           // The thinking budget used to be one global setting; carry it into each profile.
           const legacyBudget = Number(settings["ai_thinking_budget"]);
           if (legacyBudget > 0) {
@@ -542,6 +494,17 @@ export const useSettingsPostInit = ({
     setAiProfiles(finalProfiles);
 
     // 3. ASSIGNMENTS
+    // Legacy LongCat ids map to their DeepSeek successors; a task stranded on a
+    // keyless preset or a deleted model moves to the user's own keyed model.
+    const migrateAssignedProfile = (value: string | undefined, fallback: string) => {
+      const id = !value
+        ? fallback
+        : LEGACY_PRESET_IDS.has(value)
+          ? (value === "lc_flash_v1" ? "ds_flash_v1" : "ds_v4_pro_v1")
+          : value;
+      return resolveTaskProfile(id, finalProfiles);
+    };
+
     const getP = (m: string) =>
       finalProfiles.find((p) => p.model === m)?.id || finalProfiles[0]?.id || "default";
 
