@@ -12,7 +12,7 @@ use regex::Regex;
 use rusqlite::OptionalExtension;
 use reqwest::{Client, Method, RequestBuilder, Response, StatusCode};
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU32, Ordering};
 use std::sync::{Mutex, OnceLock};
@@ -1271,6 +1271,47 @@ fn fetch_syncable_entries(
     }
 
     Ok(entries)
+}
+
+/// Entries whose content was edited since they last synced (see
+/// record_edit_for_sync): an edit keeps the sort time, so the cursor misses it.
+fn load_edited_ids(app: &AppHandle) -> AppResult<BTreeSet<i64>> {
+    let db_state = app
+        .try_state::<DbState>()
+        .ok_or_else(|| AppError::Internal("DB state unavailable".to_string()))?;
+    let conn = db_state.conn.lock().map_err(|e| AppError::Internal(e.to_string()))?;
+    Ok(crate::infrastructure::repository::clipboard_repo::edited_ids_for_sync(&conn))
+}
+
+fn add_edited_entries(
+    app: &AppHandle,
+    ids: &BTreeSet<i64>,
+    entries: &mut Vec<ClipboardEntry>,
+) -> AppResult<()> {
+    let db_state = app
+        .try_state::<DbState>()
+        .ok_or_else(|| AppError::Internal("DB state unavailable".to_string()))?;
+    let known: HashSet<i64> = entries.iter().map(|entry| entry.id).collect();
+    for id in ids.iter().filter(|id| !known.contains(id)) {
+        if let Some(entry) = db_state.repo.get_entry_by_id(*id).map_err(AppError::Internal)? {
+            entries.push(entry);
+        }
+    }
+    Ok(())
+}
+
+/// After a round that sent them; edits made during the round stay listed.
+fn forget_synced_edits(app: &AppHandle, sent: &BTreeSet<i64>) -> AppResult<()> {
+    use crate::infrastructure::repository::clipboard_repo::{edited_ids_for_sync, set_edited_ids_for_sync};
+    if sent.is_empty() {
+        return Ok(());
+    }
+    let db_state = app
+        .try_state::<DbState>()
+        .ok_or_else(|| AppError::Internal("DB state unavailable".to_string()))?;
+    let conn = db_state.conn.lock().map_err(|e| AppError::Internal(e.to_string()))?;
+    let left: BTreeSet<i64> = edited_ids_for_sync(&conn).difference(sent).copied().collect();
+    set_edited_ids_for_sync(&conn, &left).map_err(AppError::Internal)
 }
 
 /// Entry id -> when its tags were last edited, for entries edited after `since`.
@@ -3764,7 +3805,9 @@ async fn sync_once_webdav(
     let now = now_ms();
     let sync_cursor = get_setting_i64(app, "cloud_sync_cursor", 0);
 
-    let candidate_entries = blocking(|| fetch_syncable_entries(app, Some(sync_cursor)))?;
+    let edited_ids = blocking(|| load_edited_ids(app))?;
+    let mut candidate_entries = blocking(|| fetch_syncable_entries(app, Some(sync_cursor)))?;
+    blocking(|| add_edited_entries(app, &edited_ids, &mut candidate_entries))?;
     let mut candidate_items = entries_to_sync_items(
         candidate_entries,
         &cfg.content_prefs,
@@ -3956,6 +3999,7 @@ async fn sync_once_webdav(
     CLOUD_SYNC_LAST_SYNC_AT.store(now, Ordering::Relaxed);
 
     set_setting_i64(app, "cloud_sync_cursor", now)?;
+    blocking(|| forget_synced_edits(app, &edited_ids))?;
 
     Ok(CloudSyncStatus {
         state: "idle".to_string(),
