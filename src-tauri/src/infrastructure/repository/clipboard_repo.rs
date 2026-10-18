@@ -788,6 +788,19 @@ impl SqliteClipboardRepository {
         id: i64,
         data_dir: Option<&std::path::Path>,
     ) -> Result<Vec<std::path::PathBuf>, String> {
+        self.delete_collecting_files_syncing(conn, id, data_dir, true)
+    }
+
+    /// `sync_deletion`: leave a tombstone so synced devices delete the entry
+    /// too. Not for entries over this device's history limit: the limit is
+    /// set per device, and another device may keep more.
+    fn delete_collecting_files_syncing(
+        &self,
+        conn: &Connection,
+        id: i64,
+        data_dir: Option<&std::path::Path>,
+        sync_deletion: bool,
+    ) -> Result<Vec<std::path::PathBuf>, String> {
         self.validate_entry_with_conn(conn, id)?;
         let mut tombstone: Option<(String, i64)> = None;
         let mut candidates = Vec::new();
@@ -832,7 +845,7 @@ impl SqliteClipboardRepository {
             }
         }
 
-        if let Some((content_type, content_hash)) = tombstone {
+        if let Some((content_type, content_hash)) = tombstone.filter(|_| sync_deletion) {
             self.upsert_tombstone_with_conn(conn, &content_type, content_hash, now_ms())?;
         }
 
@@ -1018,7 +1031,7 @@ impl SqliteClipboardRepository {
                     // Actually delete records (and files if needed)
                     let mut candidates = Vec::new();
                     for id in &deleted_ids {
-                        if let Ok(files) = self.delete_collecting_files(conn, *id, data_dir) {
+                        if let Ok(files) = self.delete_collecting_files_syncing(conn, *id, data_dir, false) {
                             candidates.extend(files);
                         }
                     }
@@ -1824,6 +1837,25 @@ mod tests {
             (6, 'text', 'other', 'App', 60, 60, '', '[]', 'needle note'),
             (7, 'rich_text', 'other', 'App', 50, 50, 'needle preview', '[]', '');
     "#;
+
+    #[test]
+    fn entries_over_the_history_limit_are_not_deleted_on_other_devices() {
+        let repo = search_repository(
+            "INSERT INTO settings (key, value) VALUES ('app.persistent_limit_enabled', 'true'), ('app.persistent_limit', '1');
+             INSERT INTO clipboard_history (id, content_type, content, source_app, timestamp, sort_at, preview, tags)
+             VALUES (1, 'text', 'older', 'App', 1, 1, 'older', '[]'), (2, 'text', 'newer', 'App', 2, 2, 'newer', '[]');",
+        );
+        let conn = repo.conn.lock().unwrap();
+        let tombstones = |conn: &Connection| -> i64 {
+            conn.query_row("SELECT COUNT(*) FROM cloud_sync_tombstones", [], |r| r.get(0)).unwrap()
+        };
+
+        assert_eq!(repo.enforce_limit_with_conn(&conn, None).unwrap(), vec![1]);
+        assert_eq!(tombstones(&conn), 0);
+
+        repo.delete_with_conn(&conn, 2, None).unwrap();
+        assert_eq!(tombstones(&conn), 1, "a deletion by the user still syncs");
+    }
 
     #[test]
     fn saving_a_session_image_copies_it_out_of_session_storage() {
