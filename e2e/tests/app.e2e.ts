@@ -390,6 +390,53 @@ test('新复制的内容：出现在未固定记录的最前面，固定项仍�
   expect((await order())[0]).toContain('项目周会');
 });
 
+// Show / hide is only offered while 隐藏隐私 hides something; any case of a
+// sensitive tag name counts.
+test('隐私：关闭「隐藏隐私」时不显示小眼睛，打开后可以显示和隐藏', async ({ app, screen, browser }) => {
+  const SECRET = 'Wi-Fi 密码：E2E-secret';
+  const pushSecret = async (tag: string) => {
+    await expect.poll(() => browser.evaluate(() => (window as any).__listenerCount('clipboard-updated'))).toBeGreaterThan(0);
+    await browser.evaluate(([text, tagName]: string[]) => {
+      (window as any).__pushItem({
+        id: 95601, content_type: 'text', content: text, preview: text,
+        source_app: '微信', timestamp: Date.now(), is_pinned: false, tags: [tagName], use_count: 0,
+      });
+      return null;
+    }, [SECRET, tag]);
+  };
+  const hoverSecret = async (tag: string) => {
+    const rowCenter = () =>
+      browser.evaluate((text: string) => {
+        // The row shows a masked preview while hidden; its tag stays readable.
+        const row = [...document.querySelectorAll('.history-item')].find((e) => e.textContent?.includes(text));
+        if (!row) return null;
+        const r = row.getBoundingClientRect();
+        return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+      }, tag);
+    await expect.poll(rowCenter).not.toBeNull();
+    const center = (await rowCenter())!;
+    await browser.mouse.move(center.x, center.y);
+  };
+  const detail = screen.getByRole('complementary');
+
+  await app.open('/');
+  await pushSecret('密码');
+  await hoverSecret('密码');
+  await expect(detail.getByText(SECRET)).toBeVisible();
+  expect(await browser.evaluate(() => document.querySelectorAll('[title="显示/隐藏敏感内容"], [aria-label="显示/隐藏敏感内容"]').length)).toBe(0);
+
+  // A tag in other capitals counts too.
+  await app.open('/?set=app.privacy_protection:true');
+  await pushSecret('Password');
+  await hoverSecret('Password');
+  await expect(detail.getByText('已隐藏敏感内容')).toBeVisible();
+  await detail.getByRole('button', '显示/隐藏敏感内容').tap();
+  await expect(detail.getByText(SECRET)).toBeVisible();
+  // Revealed, the same button reads 隐藏.
+  await detail.getByRole('button', '隐藏').tap();
+  await expect(detail.getByText('已隐藏敏感内容')).toBeVisible();
+});
+
 test('紧凑模式：列表条目使用紧凑布局，默认模式不使用', async ({ app, browser }) => {
   const compactItems = () => browser.evaluate(() => document.querySelectorAll('.history-item.compact').length);
   await app.open('/');

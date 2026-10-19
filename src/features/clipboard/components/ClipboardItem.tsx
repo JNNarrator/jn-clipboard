@@ -776,6 +776,7 @@ const ClipboardItem = ({
     isDetailFocused,
     isSensitiveHidden,
     isRevealed,
+    canReveal,
     isEditingTags,
     isEditingNote,
     noteDraft,
@@ -2357,7 +2358,7 @@ const ClipboardItem = ({
                                                 <span>{t('copy')}</span>
                                             </button>
 
-                                            {(item.tags?.includes('sensitive') || item.tags?.includes('密码') || item.tags?.includes('password')) && (
+                                            {canReveal && (
                                                 <button
                                                     type="button"
                                                     role="menuitem"
@@ -2481,7 +2482,7 @@ const ClipboardItem = ({
                             ) : null
                         ) : (
                             <>
-                                {(item.tags?.includes('sensitive') || item.tags?.includes('密码') || item.tags?.includes('password')) && (
+                                {canReveal && (
                                     <button
                                         className={`btn-icon ${isRevealed ? "active" : ""}`}
                                         onClick={onToggleReveal}
@@ -2865,6 +2866,7 @@ export default memo(ClipboardItem, (prevProps, nextProps) => {
         prevProps.item.note === nextProps.item.note &&
         prevProps.isSensitiveHidden === nextProps.isSensitiveHidden &&
         prevProps.isRevealed === nextProps.isRevealed &&
+        prevProps.canReveal === nextProps.canReveal &&
         prevProps.isEditingTags === nextProps.isEditingTags &&
         prevProps.isEditingNote === nextProps.isEditingNote &&
         prevProps.noteDraft === nextProps.noteDraft &&

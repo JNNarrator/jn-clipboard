@@ -64,7 +64,7 @@ interface ClipboardDetailPaneProps {
   t: (key: string) => string;
   language: string;
   actions: DetailPaneActions;
-  isSensitive: boolean;
+  canReveal: boolean;
   isSensitiveHidden: boolean;
   isRevealed: boolean;
   isEditingTags: boolean;
@@ -169,7 +169,7 @@ const DetailActionBar = ({
   item,
   t,
   actions,
-  isSensitive,
+  canReveal,
   isRevealed,
   isEditingTags,
   isEditingNote,
@@ -198,7 +198,7 @@ const DetailActionBar = ({
   const aiOpen = supportsAI && openType === "ai";
 
   const toolbarActions: Array<IconActionProps & { id: string; icon: ReactNode }> = [
-    ...(isSensitive ? [{
+    ...(canReveal ? [{
       id: "reveal",
       label: isRevealed ? t("hide") : t("reveal"),
       active: isRevealed,
@@ -390,7 +390,7 @@ const ClipboardDetailPane = ({
   t,
   language,
   actions,
-  isSensitive,
+  canReveal,
   isSensitiveHidden,
   isRevealed,
   isEditingTags,
@@ -620,7 +620,7 @@ const ClipboardDetailPane = ({
         item={item}
         t={t}
         actions={actions}
-        isSensitive={isSensitive}
+        canReveal={canReveal}
         isRevealed={isRevealed}
         isEditingTags={isEditingTags}
         isEditingNote={isEditingNote}
