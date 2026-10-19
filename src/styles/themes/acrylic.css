@@ -1,10 +1,11 @@
-/* Frosted glass: the native window material blurs the desktop, while this
-   translucent tint preserves its colours. Never let the tint become opaque. */
+/* Frosted glass is the system's own window material. This tint adds only
+   what 「表面不透明度」 asks for: none at 0, up to 40% white (black in dark
+   mode) at 100, so nothing greys the material by default. */
 :root.theme-acrylic,
 body.theme-acrylic {
   background-color: transparent;
-  --acrylic-tint-rgb: 248, 250, 252;
-  --acrylic-tint-alpha: clamp(0.16, calc(0.16 + 0.14 * var(--surface-opacity-scale)), 0.44);
+  --acrylic-tint-rgb: 255, 255, 255;
+  --acrylic-tint-alpha: clamp(0, calc(0.2 * var(--surface-opacity-scale)), 0.4);
   --bg-window: rgba(var(--acrylic-tint-rgb), var(--acrylic-tint-alpha));
   --bg-content: transparent;
   --bg-toolbar: transparent;
@@ -144,8 +145,8 @@ body.theme-acrylic #root > * {
 @media (prefers-color-scheme: dark) {
   :root.theme-acrylic:not(.light-mode),
   body.theme-acrylic:not(.light-mode) {
-    --acrylic-tint-rgb: 20, 24, 30;
-    --acrylic-tint-alpha: clamp(0.20, calc(0.20 + 0.14 * var(--surface-opacity-scale)), 0.48);
+    --acrylic-tint-rgb: 0, 0, 0;
+    --acrylic-tint-alpha: clamp(0, calc(0.2 * var(--surface-opacity-scale)), 0.4);
     --bg-panel: rgba(20, 24, 30, 0.24);
     --bg-input: rgba(255, 255, 255, 0.16);
     --bg-element: rgba(20, 24, 30, 0.14);
@@ -191,8 +192,8 @@ body.theme-acrylic #root > * {
 
 :root.dark-mode.theme-acrylic,
 body.dark-mode.theme-acrylic {
-  --acrylic-tint-rgb: 20, 24, 30;
-  --acrylic-tint-alpha: clamp(0.20, calc(0.20 + 0.14 * var(--surface-opacity-scale)), 0.48);
+  --acrylic-tint-rgb: 0, 0, 0;
+  --acrylic-tint-alpha: clamp(0, calc(0.2 * var(--surface-opacity-scale)), 0.4);
   --bg-panel: rgba(20, 24, 30, 0.24);
   --bg-input: rgba(255, 255, 255, 0.16);
   --bg-element: rgba(20, 24, 30, 0.14);
@@ -234,12 +235,11 @@ body.dark-mode.theme-acrylic {
   --popover-backdrop-filter: blur(28px) saturate(180%);
 }
 
-/* macOS glass: provide a translucent tint and backdrop blur so the window
-   preserves vibrant frosting without obscuring background content. */
+/* macOS glass: the same tint over the system material. */
 html.platform-macos.theme-acrylic,
 html.platform-macos body.theme-acrylic {
-  --acrylic-tint-rgb: 248, 250, 252;
-  --acrylic-tint-alpha: clamp(0.14, calc(0.14 + 0.08 * var(--surface-opacity-scale)), 0.32);
+  --acrylic-tint-rgb: 255, 255, 255;
+  --acrylic-tint-alpha: clamp(0, calc(0.2 * var(--surface-opacity-scale)), 0.4);
   --bg-window: rgba(var(--acrylic-tint-rgb), var(--acrylic-tint-alpha));
   --shell-background: var(--bg-window);
   --shell-backdrop-filter: blur(24px) saturate(140%);
@@ -260,8 +260,8 @@ html.platform-macos body.theme-acrylic .tag-manager-body.is-split .tag-manager-e
 
 @media (prefers-color-scheme: dark) {
   html.platform-macos body.theme-acrylic:not(.light-mode) {
-    --acrylic-tint-rgb: 20, 24, 30;
-    --acrylic-tint-alpha: clamp(0.20, calc(0.20 + 0.08 * var(--surface-opacity-scale)), 0.40);
+    --acrylic-tint-rgb: 0, 0, 0;
+    --acrylic-tint-alpha: clamp(0, calc(0.2 * var(--surface-opacity-scale)), 0.4);
     --bg-window: rgba(var(--acrylic-tint-rgb), var(--acrylic-tint-alpha));
     --shell-background: var(--bg-window);
     --shell-backdrop-filter: blur(24px) saturate(140%);
@@ -270,8 +270,8 @@ html.platform-macos body.theme-acrylic .tag-manager-body.is-split .tag-manager-e
 }
 
 html.platform-macos body.dark-mode.theme-acrylic {
-  --acrylic-tint-rgb: 20, 24, 30;
-  --acrylic-tint-alpha: clamp(0.20, calc(0.20 + 0.08 * var(--surface-opacity-scale)), 0.40);
+  --acrylic-tint-rgb: 0, 0, 0;
+  --acrylic-tint-alpha: clamp(0, calc(0.2 * var(--surface-opacity-scale)), 0.4);
   --bg-window: rgba(var(--acrylic-tint-rgb), var(--acrylic-tint-alpha));
   --shell-background: var(--bg-window);
   --shell-backdrop-filter: blur(24px) saturate(140%);
