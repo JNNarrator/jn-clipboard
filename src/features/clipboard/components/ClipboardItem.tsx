@@ -868,6 +868,10 @@ const ClipboardItem = ({
     const dragGhostFrameRef = useRef<number | null>(null);
     const pointerDownPosRef = useRef<{ x: number; y: number; time: number } | null>(null);
     const lastPasteTriggeredRef = useRef(0);
+    // The left button went down on this row. A release only pastes after a
+    // press here: one that began on something that then went away (the
+    // search box's tag list, a menu) used to paste whatever row it ended on.
+    const pressedHereRef = useRef(false);
     const [sourceAppIcon, setSourceAppIcon] = useState<string | null>(() => peekSourceAppIcon(item.source_app_path) ?? null);
     const filePaths = useMemo(
         () => item.content_type === "file" ? item.content.split('\n').filter((p) => p.trim()) : [],
@@ -1946,6 +1950,7 @@ const ClipboardItem = ({
             onMouseDownCapture={(e) => {
                 const target = e.target as HTMLElement;
                 if (e.button !== 0) return;
+                pressedHereRef.current = true;
 
                 if (typeof document !== "undefined" && document.querySelector(".modal-overlay")) {
                     return;
@@ -2064,6 +2069,12 @@ const ClipboardItem = ({
             }}
             onMouseUpCapture={(e) => {
                 if (e.button !== 0) return;
+                const pressedHere = pressedHereRef.current;
+                // The click right after this release still needs it.
+                setTimeout(() => {
+                    pressedHereRef.current = false;
+                }, 0);
+                if (!pressedHere) return;
                 if (isEditingTags || isEditingNote) return;
                 if (isDraggingRef.current) return;
 
@@ -2091,6 +2102,7 @@ const ClipboardItem = ({
                 onSelect();
             }}
             onClick={(e) => {
+                if (!pressedHereRef.current) return;
                 if (isEditingTags || isEditingNote) return;
                 if (isDraggingRef.current) return;
                 const target = e.target as HTMLElement;
