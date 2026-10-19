@@ -368,6 +368,45 @@ test('固定：悬停记录后，详情栏的固定按钮作用于该条', async
   ]);
 });
 
+// Rows scrolling under a pointer that stays put fire mouseover too; that
+// used to pull the detail pane off the row the arrow keys had selected.
+test('双栏：方向键选择时，停着的鼠标不会把详情切走；鼠标一动详情就跟着悬停', async ({ app, browser }) => {
+  await browser.setViewport({ width: 900, height: 700 });
+  await app.open('/?stress=60');
+  await expect.poll(() => browser.evaluate(() => document.querySelectorAll('.history-item').length)).toBeGreaterThan(5);
+  const rowPoint = (index: number) =>
+    browser.evaluate((i: number) => {
+      const r = document.querySelectorAll('.history-item')[i].getBoundingClientRect();
+      return { x: r.left + 30, y: r.top + r.height / 2 };
+    }, index);
+  const state = () =>
+    browser.evaluate(() => {
+      const n = (el: Element | null) => (el ? el.id : '-');
+      return { selected: n(document.querySelector('.history-item.selected')), pane: n(document.querySelector('.history-item.detail-focused')) };
+    });
+
+  const start = await rowPoint(2);
+  await browser.mouse.move(start.x, start.y);
+  await new Promise((r) => setTimeout(r, 300));
+  for (let i = 0; i < 10; i++) {
+    await browser.keyboard.press('ArrowDown');
+    await new Promise((r) => setTimeout(r, 250));
+    const { selected, pane } = await state();
+    expect(pane).toBe(selected);
+  }
+
+  // A real move hands the pane back to hover.
+  const { selected } = await state();
+  const other = await browser.evaluate((id: string) => {
+    const rows = [...document.querySelectorAll('.history-item')];
+    const row = rows.find((e) => e.id !== id && e.getBoundingClientRect().top > 80)!;
+    const r = row.getBoundingClientRect();
+    return { id: row.id, x: r.left + 40, y: r.top + r.height / 2 };
+  }, selected);
+  await browser.mouse.move(other.x, other.y);
+  await expect.poll(async () => (await state()).pane).toBe(other.id);
+});
+
 // The preview exposes window.__pushItem in place of the backend's
 // clipboard-update event; this checks how the list takes a new record.
 test('新复制的内容：出现在未固定记录的最前面，固定项仍在顶部', async ({ app, browser }) => {
