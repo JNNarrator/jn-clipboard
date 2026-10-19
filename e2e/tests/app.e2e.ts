@@ -512,6 +512,42 @@ test('搜索框标签：点击标签只筛选，不会粘贴下面的记录', as
     .toBe(`tag:${at.tag}`);
 });
 
+// The tag list floats over the records: a see-through fill lets their text
+// show through the tag names. Keep in step with THEMES in src/shared/config/themes.ts.
+const THEME_IDS = ['mica', 'macos', 'acrylic', 'retro', 'sticky-note', 'paper', 'terminal', 'receipt', 'ink'];
+
+test('搜索框标签：每个主题的浅色和深色下，标签列表都不透出下面的记录', async ({ app, browser }) => {
+  const fills: string[] = [];
+  for (const theme of THEME_IDS) {
+    for (const mode of ['light', 'dark']) {
+      await app.open(`/?set=app.theme:${theme},app.color_mode:${mode}`);
+      // The terminal theme has its own placeholder, so find the box by class.
+      const box = () =>
+        browser.evaluate(() => {
+          const r = document.querySelector('.search-input')?.getBoundingClientRect();
+          return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null;
+        });
+      await expect.poll(box).not.toBeNull();
+      const at = (await box())!;
+      await browser.mouse.move(at.x, at.y);
+      await browser.mouse.down();
+      await browser.mouse.up();
+      const fill = () =>
+        browser.evaluate(() => {
+          const list = document.querySelector('.tags-dropdown');
+          return list ? getComputedStyle(list).backgroundColor : null;
+        });
+      await expect.poll(fill).not.toBeNull();
+      fills.push(`${theme} ${mode} ${await fill()}`);
+    }
+  }
+  const alpha = (color: string) => {
+    const parts = color.match(/rgba?\(([^)]+)\)/)?.[1].split(',') ?? [];
+    return parts.length === 4 ? Number(parts[3]) : parts.length === 3 ? 1 : 0;
+  };
+  expect(fills.filter((f) => alpha(f.slice(f.indexOf('rgb'))) < 0.9)).toEqual([]);
+});
+
 // Only a press and release on the same record pastes it.
 test('记录：在别处按下、到记录上松开不会粘贴', async ({ app, browser }) => {
   await app.open('/');
