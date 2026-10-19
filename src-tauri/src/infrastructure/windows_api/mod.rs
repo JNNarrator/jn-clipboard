@@ -7,5 +7,7 @@ pub mod elevated_autostart;
 pub mod single_instance;
 #[cfg(windows)]
 pub mod webview_keys;
+#[cfg(windows)]
+pub mod native_drag;
 pub mod win_clipboard;
 pub mod window_tracker;

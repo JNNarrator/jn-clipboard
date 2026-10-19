@@ -78,7 +78,7 @@ import {
 } from "../lib/compactPreviewControls";
 import { openPinStickerWindow } from "../lib/pinStickerControls";
 import { activateForInput } from "../../../shared/lib/focus";
-import { getNotePlaceholder, isMacPlatform } from "../../../shared/lib/platform";
+import { getNotePlaceholder, isMacPlatform, isWindowsPlatform } from "../../../shared/lib/platform";
 import { setupDragDataTransfer, createDragGhostBadge, shouldHideAfterExternalDrop, isShortenedForList, nativeDragPayload } from "../lib/dragDrop";
 
 const COMPACT_PREVIEW_LABEL = "compact-preview";
@@ -2038,12 +2038,16 @@ const ClipboardItem = ({
                 const fullEntry = fullDragEntryRef.current?.id === item.id ? fullDragEntryRef.current : null;
                 const dragged = fullEntry ?? item;
 
-                // macOS: a system drag instead of the web view's, which hands
-                // other apps no file and dims its preview (native_drag.rs).
-                const nativePayload = isMacPlatform() ? nativeDragPayload(dragged, filePaths) : null;
+                // A system drag instead of the web view's, which hands other
+                // apps no file for a file entry and dims its preview on macOS
+                // (native_drag.rs for each platform).
+                const mac = isMacPlatform();
+                const nativePayload = mac || isWindowsPlatform() ? nativeDragPayload(dragged, filePaths) : null;
                 if (nativePayload) {
                     e.preventDefault();
-                    const badge = createDragGhostBadge(dragged, filePaths, theme, t, 2);
+                    // macOS takes the preview in points (2x for Retina), Windows in pixels.
+                    const scale = mac ? 2 : window.devicePixelRatio || 1;
+                    const badge = createDragGhostBadge(dragged, filePaths, theme, t, scale);
                     const request = {
                         ...nativePayload,
                         preview: badge.toDataURL("image/png").split(",")[1] ?? "",
@@ -2051,6 +2055,7 @@ const ClipboardItem = ({
                         previewHeight: parseFloat(badge.style.height),
                         grabX: 24,
                         grabY: 20,
+                        scale,
                     };
                     void (async () => {
                         const unlisten = await listen<{ accepted: boolean; inside: boolean }>("native-drag-ended", (event) => {

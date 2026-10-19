@@ -17,19 +17,25 @@ pub struct NativeDragRequest {
     pub preview_height: f64,
     pub grab_x: f64,
     pub grab_y: f64,
+    /// Pixels per point the preview was drawn at.
+    pub scale: f64,
 }
 
-/// Starts a system drag for an entry (macOS). Other platforms keep the web
-/// view's drag, so they get an error and the page carries on with it.
+/// Starts a system drag for an entry (macOS and Windows); its end arrives as
+/// the `native-drag-ended` event. Elsewhere the page keeps its own drag.
 #[tauri::command]
 pub fn start_native_drag(window: WebviewWindow, request: NativeDragRequest) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
         crate::infrastructure::macos_api::native_drag::start(&window, request)
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(target_os = "windows")]
+    {
+        crate::infrastructure::windows_api::native_drag::start(&window, request)
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
         let _ = (window, request);
-        Err("native drag is only used on macOS".to_string())
+        Err("native drag is not available here".to_string())
     }
 }
