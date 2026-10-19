@@ -373,6 +373,9 @@ test('固定：悬停记录后，详情栏的固定按钮作用于该条', async
 test('双栏：方向键选择时，停着的鼠标不会把详情切走；鼠标一动详情就跟着悬停', async ({ app, browser }) => {
   await browser.setViewport({ width: 900, height: 700 });
   await app.open('/?stress=60');
+  // The page moves the selection itself only on macOS (see the arrow test above).
+  const isMac = await browser.evaluate(() => /Mac/i.test(navigator.userAgent) || /Mac/i.test(navigator.platform));
+  test.skip(!isMac, 'arrow navigation runs in the native hook outside macOS');
   await expect.poll(() => browser.evaluate(() => document.querySelectorAll('.history-item').length)).toBeGreaterThan(5);
   const rowPoint = (index: number) =>
     browser.evaluate((i: number) => {
