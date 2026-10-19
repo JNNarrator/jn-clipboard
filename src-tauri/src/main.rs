@@ -168,6 +168,7 @@ fn main() -> AppResult<()> {
             app::hooks::set_recording_mode,
             services::content_handler::open_content,
             services::clipboard_ops::copy_to_clipboard,
+            app::commands::drag_cmd::start_native_drag,
             services::clipboard_ops::copy_private_text,
             services::clipboard_ops::paste_text_directly,
             services::clipboard_ops::paste_content_transiently,
