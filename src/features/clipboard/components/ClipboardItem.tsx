@@ -79,7 +79,7 @@ import {
 import { openPinStickerWindow } from "../lib/pinStickerControls";
 import { activateForInput } from "../../../shared/lib/focus";
 import { getNotePlaceholder, isMacPlatform } from "../../../shared/lib/platform";
-import { setupDragDataTransfer, createDragGhostBadge, shouldHideAfterExternalDrop, isShortenedForList } from "../lib/dragDrop";
+import { setupDragDataTransfer, createDragGhostBadge, shouldHideAfterExternalDrop, isShortenedForList, nativeDragPayload } from "../lib/dragDrop";
 
 const COMPACT_PREVIEW_LABEL = "compact-preview";
 const COMPACT_PREVIEW_HOVER_DELAY_MS = 320;
@@ -863,6 +863,31 @@ const ClipboardItem = ({
     const dragReleaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const dragGuardOwner = `drag:${useId()}`;
     const dragGuardRef = useRef<{ owner: string; acquired: Promise<unknown> } | null>(null);
+    // After a drag out (the web view's or the native one): drop the preview,
+    // release the blur guard, and hide once another app took the entry.
+    const finishExternalDrag = (dropEffect: DataTransfer["dropEffect"], insideWindow: boolean) => {
+        canExportDragRef.current = false;
+        setIsDragging(false);
+        if (dragGhostFrameRef.current !== null) cancelAnimationFrame(dragGhostFrameRef.current);
+        dragGhostFrameRef.current = null;
+        dragGhostRef.current?.remove();
+        dragGhostRef.current = null;
+        const shouldHide = shouldHideAfterExternalDrop(dropEffect, insideWindow, windowPinned);
+        const acquired = dragGuardRef.current;
+        dragGuardRef.current = null;
+        void (async () => {
+            if (acquired) {
+                await acquired.acquired;
+                await invoke("release_blur_guard", { owner: acquired.owner });
+            }
+            if (shouldHide) await invoke("hide_window_cmd");
+        })().catch(console.error);
+        dragReleaseTimerRef.current = setTimeout(() => {
+            isDraggingRef.current = false;
+            pointerDownPosRef.current = null;
+            dragReleaseTimerRef.current = null;
+        }, 80);
+    };
     const dragSequenceRef = useRef(0);
     const dragGhostRef = useRef<HTMLCanvasElement | null>(null);
     const dragGhostFrameRef = useRef<number | null>(null);
@@ -2010,9 +2035,41 @@ const ClipboardItem = ({
                 const owner = `${dragGuardOwner}:${++dragSequenceRef.current}`;
                 dragGuardRef.current = { owner, acquired: invoke("acquire_blur_guard", { owner }).catch(console.error) };
 
-                // Setup payload for external windows (Finder, VSCode, Browser, Slack, etc.)
                 const fullEntry = fullDragEntryRef.current?.id === item.id ? fullDragEntryRef.current : null;
-                setupDragDataTransfer(e.dataTransfer, fullEntry ?? item, filePaths);
+                const dragged = fullEntry ?? item;
+
+                // macOS: a system drag instead of the web view's, which hands
+                // other apps no file and dims its preview (native_drag.rs).
+                const nativePayload = isMacPlatform() ? nativeDragPayload(dragged, filePaths) : null;
+                if (nativePayload) {
+                    e.preventDefault();
+                    const badge = createDragGhostBadge(dragged, filePaths, theme, t, 2);
+                    const request = {
+                        ...nativePayload,
+                        preview: badge.toDataURL("image/png").split(",")[1] ?? "",
+                        previewWidth: parseFloat(badge.style.width),
+                        previewHeight: parseFloat(badge.style.height),
+                        grabX: 24,
+                        grabY: 20,
+                    };
+                    void (async () => {
+                        const unlisten = await listen<{ accepted: boolean; inside: boolean }>("native-drag-ended", (event) => {
+                            unlisten();
+                            finishExternalDrag(event.payload.accepted ? "copy" : "none", event.payload.inside);
+                        });
+                        try {
+                            await invoke("start_native_drag", { request });
+                        } catch (error) {
+                            unlisten();
+                            console.error(error);
+                            finishExternalDrag("none", true);
+                        }
+                    })();
+                    return;
+                }
+
+                // Setup payload for external windows (Finder, VSCode, Browser, Slack, etc.)
+                setupDragDataTransfer(e.dataTransfer, dragged, filePaths);
 
                 // Set custom drag preview badge
                 try {
@@ -2038,29 +2095,9 @@ const ClipboardItem = ({
             onDragEndCapture={(e) => {
                 if (!canExportDragRef.current) return;
                 e.stopPropagation();
-                canExportDragRef.current = false;
-                setIsDragging(false);
-                if (dragGhostFrameRef.current !== null) cancelAnimationFrame(dragGhostFrameRef.current);
-                dragGhostFrameRef.current = null;
-                dragGhostRef.current?.remove();
-                dragGhostRef.current = null;
                 const insideWindow = e.clientX >= 0 && e.clientY >= 0
                     && e.clientX < window.innerWidth && e.clientY < window.innerHeight;
-                const shouldHide = shouldHideAfterExternalDrop(e.dataTransfer.dropEffect, insideWindow, windowPinned);
-                const acquired = dragGuardRef.current;
-                dragGuardRef.current = null;
-                void (async () => {
-                    if (acquired) {
-                        await acquired.acquired;
-                        await invoke("release_blur_guard", { owner: acquired.owner });
-                    }
-                    if (shouldHide) await invoke("hide_window_cmd");
-                })().catch(console.error);
-                dragReleaseTimerRef.current = setTimeout(() => {
-                    isDraggingRef.current = false;
-                    pointerDownPosRef.current = null;
-                    dragReleaseTimerRef.current = null;
-                }, 80);
+                finishExternalDrag(e.dataTransfer.dropEffect, insideWindow);
             }}
             onMouseUpCapture={(e) => {
                 if (e.button !== 0) return;

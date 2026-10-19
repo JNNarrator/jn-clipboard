@@ -93,6 +93,34 @@ export const setupDragDataTransfer = (
   }
 };
 
+/** What a native (macOS) drag carries; null when the entry has no file or text to give. */
+export type NativeDragPayload = { files: string[]; text: string | null; html: string | null; url: string | null };
+
+export const nativeDragPayload = (item: ClipboardEntry, filePaths: string[]): NativeDragPayload | null => {
+  const none = { files: [] as string[], text: null, html: null, url: null };
+  const type = item.content_type;
+  if (type === "file" || type === "video" || type === "image") {
+    // Embedded images (data: URLs) have no file to hand over.
+    if (item.content.startsWith("data:")) return null;
+    const paths = (type === "file" && filePaths.length > 0 ? filePaths : item.content.split("\n"))
+      .map((p) => p.trim())
+      .filter(Boolean);
+    return paths.length > 0 ? { ...none, files: paths } : null;
+  }
+  if (type === "url") {
+    const url = item.content.trim();
+    return { ...none, text: url, url };
+  }
+  if (type === "rich_text") {
+    return { ...none, text: item.content, html: item.html_content ? stripRichStorageMarkers(item.html_content) : null };
+  }
+  if (type === "code") {
+    const escaped = item.content.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return { ...none, text: item.content, html: `<pre><code>${escaped}</code></pre>` };
+  }
+  return item.content ? { ...none, text: item.content } : null;
+};
+
 const roundedRect = (ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) => {
   ctx.beginPath();
   ctx.moveTo(x + radius, y);
@@ -144,7 +172,9 @@ export const createDragGhostBadge = (
   item: ClipboardEntry,
   filePaths: string[],
   theme: string,
-  t: (key: string) => string
+  t: (key: string) => string,
+  /** Pixels per point: 2 for a crisp native (Retina) drag image. */
+  scale = 1
 ): HTMLCanvasElement => {
   let labelText = "";
   if (item.content_type === "file") {
@@ -191,9 +221,11 @@ export const createDragGhostBadge = (
   const labelWidth = Math.ceil(textWidth(labelText));
   const ascent = Math.max(0, metrics.actualBoundingBoxAscent);
   const descent = Math.max(0, metrics.actualBoundingBoxDescent);
-  badge.width = labelLeft + labelWidth + 18;
-  badge.height = 34;
-  const centerY = badge.height / 2;
+  const width = labelLeft + labelWidth + 18;
+  const height = 34;
+  badge.width = Math.round(width * scale);
+  badge.height = Math.round(height * scale);
+  const centerY = height / 2;
   badge.className = "drag-ghost-badge";
   Object.assign(badge.style, {
     position: "fixed",
@@ -207,14 +239,16 @@ export const createDragGhostBadge = (
     background: "transparent",
     border: "none",
     boxShadow: "none",
-    width: `${badge.width}px`,
-    height: `${badge.height}px`
+    width: `${width}px`,
+    height: `${height}px`
   });
+  // Resizing the canvas reset the context; draw in points from here on.
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
 
   const isDark = theme === "dark" || document.documentElement.classList.contains("dark-mode");
   // Canvas starts transparent. Paint only the rounded pill; no outer shadow
   // or rectangular element background is included in the drag image.
-  roundedRect(ctx, 0.5, 0.5, badge.width - 1, badge.height - 1, centerY - 0.5);
+  roundedRect(ctx, 0.5, 0.5, width - 1, height - 1, centerY - 0.5);
   ctx.fillStyle = isDark ? "#18181c" : "#ffffff";
   ctx.fill();
   ctx.strokeStyle = isDark ? "rgba(255,255,255,0.16)" : "rgba(0,0,0,0.12)";
@@ -229,10 +263,10 @@ export const createDragGhostBadge = (
   // Resizing the canvas resets its context. Set the same font/alignment used
   // for measurement explicitly, then clip all text to the pill's safe area.
   ctx.save();
-  roundedRect(ctx, 1, 1, badge.width - 2, badge.height - 2, centerY - 1);
+  roundedRect(ctx, 1, 1, width - 2, height - 2, centerY - 1);
   ctx.clip();
   ctx.beginPath();
-  ctx.rect(labelLeft, 6, labelWidth, badge.height - 12);
+  ctx.rect(labelLeft, 6, labelWidth, height - 12);
   ctx.clip();
   ctx.font = font;
   ctx.direction = "ltr";
