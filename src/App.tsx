@@ -66,6 +66,7 @@ import { isTauriRuntime } from "./shared/lib/tauriRuntime";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import ClipboardDetailPane from "./features/clipboard/components/ClipboardDetailPane";
 import { useSplitView } from "./features/app/hooks/useSplitView";
+import { notePointerPick } from "./shared/lib/pointerPick";
 import { useDetailPaneActions } from "./features/app/hooks/useDetailPaneActions";
 import { usePaneWidth } from "./shared/hooks/usePaneWidth";
 import PaneDivider from "./shared/components/PaneDivider";
@@ -1086,13 +1087,22 @@ const App = () => {
     setHistory
   });
 
-  const { splitActive, detailItem, handleListMouseOver, handleListMouseLeave, focusDetailItem } = useSplitView({
+  // The mouse and the arrow keys share one selection: a row the pointer moves
+  // onto becomes it, and the keys go on from there.
+  const selectRowUnderPointer = useCallback((index: number, id: number) => {
+    notePointerPick(id);
+    setSelectedIndex(index);
+    setSelectedItemId(id);
+    setIsKeyboardMode(true);
+  }, [setSelectedIndex, setSelectedItemId, setIsKeyboardMode]);
+  const { splitActive, detailItem, handleListMouseMove, handleListMouseLeave, focusDetailItem } = useSplitView({
     enabled: splitViewEnabled,
     listVisible: !showSettings && !effectiveShowTagManager && !showEmojiPanel && !chatMode,
     items: navigableHistory,
     selectedItemId,
     isKeyboardMode,
-    lockedId: editingTagsId ?? editingNoteId
+    lockedId: editingTagsId ?? editingNoteId,
+    onPointerSelect: arrowKeySelection ? selectRowUnderPointer : undefined
   });
   const [noteDraftState, setNoteDraftState] = useState<{ id: number; text: string } | null>(null);
   const editingNoteDraft = noteDraftState?.id === editingNoteId ? noteDraftState.text : undefined;
@@ -1328,8 +1338,8 @@ const App = () => {
         <div
           ref={splitListRef}
           className="main-split-list"
-          onMouseOver={splitActive ? handleListMouseOver : undefined}
-          onMouseLeave={splitActive ? handleListMouseLeave : undefined}
+          onMouseMove={handleListMouseMove}
+          onMouseLeave={handleListMouseLeave}
         >
           <AppMainContent
             t={t}

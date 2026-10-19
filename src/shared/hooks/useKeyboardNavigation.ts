@@ -6,6 +6,7 @@ import type { RefObject } from "react";
 import { matchesHotkey } from "./useHotkeyMatching";
 import { isMacPlatform } from "../lib/platform";
 import { isTauriRuntime } from "../lib/tauriRuntime";
+import { notePointerPick } from "../lib/pointerPick";
 import type { ClipboardEntry } from "../types";
 
 interface UseKeyboardNavigationOptions {
@@ -122,6 +123,7 @@ export const useKeyboardNavigation = ({
     selectedIndexRef.current = nextIndex;
     selectedItemIdRef.current = item?.id ?? null;
     selectedItemSnapshotRef.current = item ?? null;
+    notePointerPick(null);
 
     if (enableKeyboard) {
       setIsKeyboardMode(true);

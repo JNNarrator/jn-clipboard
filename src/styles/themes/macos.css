@@ -301,7 +301,7 @@ body.dark-mode.compact-preview.theme-macos #root {
   -webkit-backdrop-filter: none;
 }
 
-.theme-macos .history-item:hover:not(.selected) {
+.theme-macos .history-item:hover:not(.selected, .keyboard-owns-list *, .list-pointer-selects *) {
   box-shadow: none;
 }
 

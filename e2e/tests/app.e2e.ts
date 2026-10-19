@@ -410,6 +410,55 @@ test('双栏：方向键选择时，停着的鼠标不会把详情切走；鼠�
   await expect.poll(async () => (await state()).pane).toBe(other.id);
 });
 
+// Drives the keys through the native navigation event (how Windows and Linux
+// deliver the arrows), so it runs on every platform.
+test('鼠标和方向键共用一个选中项：鼠标移到哪条就选中哪条，方向键从那里继续；鼠标一动又回到鼠标所在的行', async ({ app, browser }) => {
+  await browser.setViewport({ width: 420, height: 700 });
+  await app.open('/?stress=60&set=app.arrow_key_selection:true,app.hide_unselected_item_actions:true');
+  await expect.poll(() => browser.evaluate(() => (window as any).__listenerCount('navigation-action'))).toBeGreaterThan(0);
+  await expect.poll(() => browser.evaluate(() => document.querySelectorAll('.history-item').length)).toBeGreaterThan(6);
+  const rows = await browser.evaluate(() =>
+    [...document.querySelectorAll('.history-item')].slice(0, 7).map((row) => {
+      const r = row.getBoundingClientRect();
+      return { id: row.id, x: r.left + 60, y: r.top + r.height / 2 };
+    }),
+  );
+  const state = () =>
+    browser.evaluate((id: string) => {
+      const row = document.getElementById(id)!;
+      const actions = row.querySelector('.item-actions');
+      return {
+        selected: [...document.querySelectorAll('.history-item.selected')].map((e) => e.id),
+        hoveredOutline: getComputedStyle(row).outlineStyle,
+        hoveredActions: actions ? getComputedStyle(actions).visibility : '-',
+      };
+    }, rows[1].id);
+  const pressDown = async () => {
+    await browser.evaluate(() => {
+      for (const cb of (window as any).__tiezEventHandlers.get('navigation-action')) cb({ payload: 'down' });
+      return null;
+    });
+    await new Promise((r) => setTimeout(r, 150));
+  };
+
+  // A row the pointer moves onto becomes the one selection.
+  await browser.mouse.move(rows[1].x - 10, rows[1].y);
+  await browser.mouse.move(rows[1].x, rows[1].y);
+  await expect.poll(async () => (await state()).selected).toEqual([rows[1].id]);
+
+  // The keys go on from there (no scrolling this close to the top); the row
+  // under the resting pointer is not marked.
+  await pressDown();
+  await pressDown();
+  await expect.poll(async () => (await state()).selected).toEqual([rows[3].id]);
+  expect(await state()).toEqual({ selected: [rows[3].id], hoveredOutline: 'none', hoveredActions: 'hidden' });
+
+  // A real move hands the selection back to the row under the pointer.
+  await browser.mouse.move(rows[1].x + 20, rows[1].y);
+  await expect.poll(async () => (await state()).selected).toEqual([rows[1].id]);
+  expect((await state()).hoveredActions).toBe('visible');
+});
+
 // The preview exposes window.__pushItem in place of the backend's
 // clipboard-update event; this checks how the list takes a new record.
 test('新复制的内容：出现在未固定记录的最前面，固定项仍在顶部', async ({ app, browser }) => {

@@ -564,7 +564,8 @@
   box-shadow: var(--button-shadow);
 }
 
-body.hide-unselected-item-actions .history-item:not(.selected):not(:hover) .item-actions {
+body.hide-unselected-item-actions .history-item:not(.selected):not(:hover) .item-actions,
+body.hide-unselected-item-actions.keyboard-owns-list .history-item:not(.selected) .item-actions {
   display: flex;
   flex: 0 0 0;
   width: 0;
@@ -576,19 +577,21 @@ body.hide-unselected-item-actions .history-item:not(.selected):not(:hover) .item
   pointer-events: none;
 }
 
-body.hide-unselected-item-actions .history-item:not(.selected):not(:hover) .item-meta-right {
+body.hide-unselected-item-actions .history-item:not(.selected):not(:hover) .item-meta-right,
+body.hide-unselected-item-actions.keyboard-owns-list .history-item:not(.selected) .item-meta-right {
   gap: 0;
 }
 
 /* In this compact action mode, unselected rows keep the full source app label
    when their actions are hidden. Once the row is hovered, the label shares
    the remaining space with the action buttons and can be shortened. */
-body.hide-unselected-item-actions .history-item:not(.selected):not(:hover) .app-info > span {
+body.hide-unselected-item-actions .history-item:not(.selected):not(:hover) .app-info > span,
+body.hide-unselected-item-actions.keyboard-owns-list .history-item:not(.selected) .app-info > span {
   text-overflow: clip;
 }
 
 body.hide-unselected-item-actions .history-item.selected .app-info > span,
-body.hide-unselected-item-actions .history-item:hover .app-info > span {
+body.hide-unselected-item-actions .history-item:hover:not(.keyboard-owns-list *) .app-info > span {
   display: block;
   flex: 1 1 auto;
   min-width: 0;
