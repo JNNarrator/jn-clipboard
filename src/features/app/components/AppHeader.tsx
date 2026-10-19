@@ -389,8 +389,12 @@ const AppHeader = ({
                               type="button"
                               className="tag-chip tag-filter-chip"
                               key={tag}
-                              onMouseDown={(e) => {
-                                e.preventDefault();
+                              // Keep the search box focused so the list stays open
+                              // until the click. Acting on mouse-down closed the list
+                              // under the pointer, and the release then landed on
+                              // (and pasted) the record beneath it.
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => {
                                 setSearch("tag:" + tag);
                                 setShowTagFilter(false);
                               }}

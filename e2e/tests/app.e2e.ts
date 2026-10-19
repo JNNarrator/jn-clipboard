@@ -437,6 +437,71 @@ test('隐私：关闭「隐藏隐私」时不显示小眼睛，打开后可以�
   await expect(detail.getByText('已隐藏敏感内容')).toBeVisible();
 });
 
+// The tag list under the search box sits over the records. A tag used to act
+// on mouse-down and close the list, so the release landed on (and pasted) the
+// record underneath.
+test('搜索框标签：点击标签只筛选，不会粘贴下面的记录', async ({ app, screen, browser }) => {
+  // Narrow, without the detail pane, the tag list covers the first records.
+  await browser.setViewport({ width: 460, height: 650 });
+  await app.open('/');
+  await screen.getByRole('textbox', '搜索复制过的内容').tap();
+  // A tag whose chip sits over a record, as in the report.
+  const chip = () =>
+    browser.evaluate(() => {
+      for (const el of document.querySelectorAll('.tag-filter-chip')) {
+        const r = el.getBoundingClientRect();
+        const x = r.left + r.width / 2, y = r.top + r.height / 2;
+        if (document.elementsFromPoint(x, y).some((e) => e.closest('.history-item'))) {
+          return { x, y, tag: (el as HTMLElement).dataset.tag! };
+        }
+      }
+      return null;
+    });
+  await expect.poll(chip).not.toBeNull();
+  const at = (await chip())!;
+  await resetCalls(browser);
+  await browser.mouse.move(at.x, at.y);
+  await browser.mouse.down();
+  await browser.mouse.up();
+  await new Promise((r) => setTimeout(r, 500));
+  expect(await callsTo(browser, 'copy_to_clipboard')).toEqual([]);
+  await expect
+    .poll(() => browser.evaluate(() => (document.querySelector('input[aria-label="搜索复制过的内容"], input[placeholder="搜索复制过的内容"]') as HTMLInputElement | null)?.value ?? ''))
+    .toBe(`tag:${at.tag}`);
+});
+
+// Only a press and release on the same record pastes it.
+test('记录：在别处按下、到记录上松开不会粘贴', async ({ app, browser }) => {
+  await app.open('/');
+  const rowCenter = () =>
+    browser.evaluate((text: string) => {
+      const row = [...document.querySelectorAll('.history-item')].find((e) => e.textContent?.includes(text));
+      if (!row) return null;
+      const r = row.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    }, SAMPLE.chat.text);
+  await expect.poll(rowCenter).not.toBeNull();
+  const row = (await rowCenter())!;
+  const header = await browser.evaluate(() => {
+    const r = document.querySelector('[role="banner"], header')!.getBoundingClientRect();
+    return { x: r.left + 8, y: r.top + r.height / 2 };
+  });
+  await resetCalls(browser);
+  await browser.mouse.move(header.x, header.y);
+  await browser.mouse.down();
+  await browser.mouse.move(row.x, row.y);
+  await browser.mouse.up();
+  await new Promise((r) => setTimeout(r, 500));
+  expect(await callsTo(browser, 'copy_to_clipboard')).toEqual([]);
+
+  // A press and release on the record still pastes it.
+  await browser.mouse.down();
+  await browser.mouse.up();
+  await expect.poll(() => callsTo(browser, 'copy_to_clipboard')).toEqual([
+    expect.objectContaining({ args: expect.objectContaining({ id: SAMPLE.chat.id, paste: true }) }),
+  ]);
+});
+
 test('紧凑模式：列表条目使用紧凑布局，默认模式不使用', async ({ app, browser }) => {
   const compactItems = () => browser.evaluate(() => document.querySelectorAll('.history-item.compact').length);
   await app.open('/');
