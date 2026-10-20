@@ -108,23 +108,15 @@ fn validate_and_repair_external_media(item: &mut ClipboardEntry, data_dir: &std:
             return;
         }
 
-        let path = std::path::Path::new(raw_path);
-        if path.exists() {
-            item.file_preview_exists = true;
-            return;
-        }
-
-        // Auto-repair if attachment path was relocated or relative
-        if let Some(file_name) = path.file_name().and_then(|f| f.to_str()) {
-            let candidate = data_dir.join("attachments").join(file_name);
-            if candidate.exists() {
-                item.content = candidate.to_string_lossy().to_string();
+        match crate::database::resolve_entry_file_path(raw_path, data_dir) {
+            Some(path) => {
+                if path.as_os_str() != raw_path {
+                    item.content = path.to_string_lossy().to_string();
+                }
                 item.file_preview_exists = true;
-                return;
             }
+            None => item.file_preview_exists = false,
         }
-
-        item.file_preview_exists = false;
     }
 }
 

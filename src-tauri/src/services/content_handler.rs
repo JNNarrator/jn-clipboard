@@ -96,7 +96,7 @@ pub async fn open_content(
 
     // Check if content points to existing file(s)
     if is_file_type(&content_type) && !content.starts_with("data:image") {
-        if let Some(path) = get_existing_file_path(&content) {
+        if let Some(path) = entry_file_path(&app_handle, &content) {
             // TieZ's own image files are named by their content and may be
             // shared by several entries: edit a copy. Editing them in place
             // changed what other entries (and later copies of the original
@@ -114,6 +114,8 @@ pub async fn open_content(
                 temp_path = path;
                 use_direct_path = true;
             }
+        } else if names_missing_file(&content_type, &content) {
+            return Err(AppError::Validation(FILE_MISSING.into()));
         }
     }
 
@@ -328,6 +330,27 @@ fn is_file_type(content_type: &str) -> bool {
 
 pub(crate) fn existing_file_path_from_content(content: &str) -> Option<std::path::PathBuf> {
     get_existing_file_path(content)
+}
+
+/// Error detail the frontend shows as "the file was moved or deleted".
+const FILE_MISSING: &str = "file_missing";
+
+/// The file an entry names (its first line), found where the history list
+/// finds it, including attachments of a data folder that has since moved.
+fn entry_file_path(app_handle: &tauri::AppHandle, content: &str) -> Option<std::path::PathBuf> {
+    let first_line = content.lines().next().unwrap_or(content);
+    match app_data_dir(app_handle) {
+        Some(data_dir) => crate::database::resolve_entry_file_path(first_line, &data_dir),
+        None => get_existing_file_path(content),
+    }
+}
+
+/// No file was found for the entry: a file or video entry, or an image saved
+/// as a file path rather than as image data. Such a path used to be decoded
+/// as image data ("Invalid symbol 32, offset 33" for the space in
+/// "Application Support"), and a file entry opened a text file of its path.
+fn names_missing_file(content_type: &str, content: &str) -> bool {
+    content_type != "image" || general_purpose::STANDARD.decode(content.trim()).is_err()
 }
 
 fn get_existing_file_path(content: &str) -> Option<std::path::PathBuf> {
@@ -709,15 +732,15 @@ fn update_database_with_changes(
     }
 }
 
-/// A file in TieZ's data folder (attachments, session images).
-fn is_managed_attachment(app_handle: &tauri::AppHandle, path: &std::path::Path) -> bool {
-    let Some(data_dir) = app_handle
+fn app_data_dir(app_handle: &tauri::AppHandle) -> Option<std::path::PathBuf> {
+    app_handle
         .try_state::<crate::app_state::AppDataDir>()
         .map(|dir| dir.0.lock().unwrap().clone())
-    else {
-        return false;
-    };
-    path.starts_with(&data_dir)
+}
+
+/// A file in TieZ's data folder (attachments, session images).
+fn is_managed_attachment(app_handle: &tauri::AppHandle, path: &std::path::Path) -> bool {
+    app_data_dir(app_handle).is_some_and(|data_dir| path.starts_with(&data_dir))
 }
 
 /// An edited image arrives as a data URL; keep it as an attachment file
@@ -731,10 +754,7 @@ fn store_edited_image(
     if content_type != "image" || !content.starts_with("data:") {
         return content;
     }
-    let Some(data_dir) = app_handle
-        .try_state::<crate::app_state::AppDataDir>()
-        .map(|dir| dir.0.lock().unwrap().clone())
-    else {
+    let Some(data_dir) = app_data_dir(app_handle) else {
         return content;
     };
     // Database entries (id > 0, e.g. pinned while persistence is off) keep
@@ -746,7 +766,7 @@ fn store_edited_image(
 
 #[cfg(test)]
 mod tests {
-    use super::existing_file_paths;
+    use super::{existing_file_paths, names_missing_file};
 
     #[test]
     fn existing_file_paths_keeps_every_file_still_on_disk() {
@@ -762,5 +782,16 @@ mod tests {
         assert_eq!(existing_file_paths(&content), vec![a, b]);
 
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_missing_image_file_is_not_read_as_image_data() {
+        let path = "/Users/someone/Library/Application Support/com.tiez/attachments/img_1.png";
+        assert!(names_missing_file("image", path));
+        assert!(names_missing_file("file", path));
+        assert!(names_missing_file("video", path));
+        // Images saved as bare base64 (a JPEG's starts with a slash) are data.
+        assert!(!names_missing_file("image", "/9j/4AAQSkZJRgABAQ=="));
+        assert!(!names_missing_file("image", "iVBORw0KGgo="));
     }
 }
