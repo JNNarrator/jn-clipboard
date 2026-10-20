@@ -726,7 +726,7 @@ fn update_database_with_changes(
     }
 }
 
-fn app_data_dir(app_handle: &tauri::AppHandle) -> Option<std::path::PathBuf> {
+pub(crate) fn app_data_dir(app_handle: &tauri::AppHandle) -> Option<std::path::PathBuf> {
     app_handle
         .try_state::<crate::app_state::AppDataDir>()
         .map(|dir| dir.0.lock().unwrap().clone())

@@ -115,8 +115,12 @@ async fn paste_next_step_inner(app_handle: tauri::AppHandle) {
         };
 
         if let Some(entry) = entry_opt {
-            let content = entry.content;
             let c_type = entry.content_type;
+            let content = crate::services::clipboard_ops::with_current_entry_file(
+                &app_handle,
+                &c_type,
+                entry.content,
+            );
             let html_content = entry.html_content;
             let is_pinned = entry.is_pinned;
             let has_tags = !entry.tags.is_empty();
