@@ -1828,8 +1828,8 @@ const ClipboardItem = ({
     const renderNoteBlock = () => (
         <div
             className={`item-note${isEditingNote ? " item-note-editor" : ""}`}
-            onMouseDown={(e) => e.stopPropagation()}
-            onClick={(e) => e.stopPropagation()}
+            onMouseDown={isEditingNote ? (e) => e.stopPropagation() : undefined}
+            onClick={isEditingNote ? (e) => e.stopPropagation() : undefined}
         >
             {isEditingNote ? (
                 <div className="item-note-editor-inner">
@@ -1909,18 +1909,13 @@ const ClipboardItem = ({
                     </div>
                 </div>
             ) : (
-                <button
-                    type="button"
-                    className="item-note-text"
-                    title={item.note}
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onToggleNoteEditor(e);
-                    }}
-                >
+                // Plain text: a click pastes, as anywhere else on the entry.
+                // The full-width note was easy to hit by mistake and opened
+                // the editor; the note button in the actions edits it.
+                <div className="item-note-text" title={item.note}>
                     <StickyNote size={12} className="item-note-icon" aria-hidden />
                     <span>{item.note}</span>
-                </button>
+                </div>
             )}
         </div>
     );

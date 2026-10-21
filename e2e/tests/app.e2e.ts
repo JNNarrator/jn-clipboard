@@ -134,6 +134,28 @@ test('单击记录：请求粘贴该条（copy_to_clipboard, paste=true）', asy
   ]);
 });
 
+test('单击记录上的备注：粘贴该条，不打开备注编辑', async ({ app, browser }) => {
+  await app.open('/');
+  const noteCenter = () =>
+    browser.evaluate((text: string) => {
+      const row = [...document.querySelectorAll('.history-item')].find((e) => e.textContent?.includes(text));
+      const note = row?.querySelector('.item-note-text');
+      if (!note) return null;
+      const r = note.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    }, SAMPLE.pinned.text);
+  await expect.poll(noteCenter).not.toBeNull();
+  const note = (await noteCenter())!;
+  await resetCalls(browser);
+  await browser.mouse.move(note.x, note.y);
+  await browser.mouse.down();
+  await browser.mouse.up();
+  await expect.poll(() => callsTo(browser, 'copy_to_clipboard')).toEqual([
+    expect.objectContaining({ args: expect.objectContaining({ id: SAMPLE.pinned.id, paste: true }) }),
+  ]);
+  expect(await browser.evaluate(() => document.querySelector('.item-note-input') === null)).toBe(true);
+});
+
 test('详情侧栏：粘贴按钮粘贴当前选中项', async ({ app, screen, browser }) => {
   await app.open('/');
   const detail = screen.getByRole('complementary');

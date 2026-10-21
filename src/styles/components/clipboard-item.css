@@ -151,20 +151,12 @@
 }
 
 .item-note-text {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 4px;
-  width: 100%;
-  margin: 0;
-  padding: 0;
-  border: none;
-  background: transparent;
   color: var(--text-secondary);
-  font: inherit;
   font-size: var(--font-size-sm);
   line-height: 1.25;
-  text-align: left;
-  cursor: pointer;
 }
 
 .item-note-text span {
