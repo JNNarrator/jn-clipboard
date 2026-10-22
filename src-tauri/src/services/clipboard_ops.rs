@@ -226,6 +226,39 @@ pub(crate) fn remember_recent_paste(
     queue.last_paste_timestamp_ms = now_ms();
 }
 
+/// The entry's content naming its file where the history list finds it, so
+/// an image the list shows also pastes after the data folder moved. Callers
+/// swap it in before anything remembers the paste: the echo hash and the
+/// recent paste must name the path that goes on the clipboard (Windows puts
+/// it there as a file, macOS for GIFs), or the monitor records the paste as a
+/// new copy.
+pub(crate) fn with_current_entry_file(
+    app_handle: &tauri::AppHandle,
+    content_type: &str,
+    content: String,
+) -> String {
+    crate::services::content_handler::app_data_dir(app_handle)
+        .and_then(|data_dir| current_entry_file(content_type, &content, &data_dir))
+        .unwrap_or(content)
+}
+
+/// Where a single-file entry's file is now, if not at its stored path.
+fn current_entry_file(
+    content_type: &str,
+    content: &str,
+    data_dir: &std::path::Path,
+) -> Option<String> {
+    let raw_path = content.trim();
+    if !matches!(content_type, "image" | "video" | "file")
+        || raw_path.starts_with("data:")
+        || raw_path.contains('\n')
+    {
+        return None;
+    }
+    let path = crate::database::resolve_entry_file_path(raw_path, data_dir)?;
+    (path.as_os_str() != raw_path).then(|| path.to_string_lossy().into_owned())
+}
+
 fn resolve_rich_image_fallback_bytes(payload: &str) -> Option<Vec<u8>> {
     let value = payload.trim();
 
@@ -461,6 +494,7 @@ async fn copy_to_clipboard_inner(
             }
         }
     }
+    content = with_current_entry_file(&app_handle, &content_type, content);
 
     // 1. Handle Window Visibility and Focus
     if paste {
@@ -610,6 +644,7 @@ pub async fn paste_content_transiently(
             }
         }
     }
+    content = with_current_entry_file(&app_handle, &current_type, content);
 
     remember_recent_paste(
         &app_handle,
@@ -2047,7 +2082,7 @@ fn paste_latest(app_handle: tauri::AppHandle, with_format: bool) {
 
 #[cfg(test)]
 mod tests {
-    use super::resolve_paste_with_format;
+    use super::{current_entry_file, resolve_paste_with_format};
 
     const HTML: Option<&str> = Some("<a href=\"https://www.baidu.com\">点击跳转百度</a>");
 
@@ -2070,5 +2105,38 @@ mod tests {
         assert!(resolve_paste_with_format("", "rich_text", pictures, Some(false)));
         // Whitespace is text the user copied (#97); it pastes as it is.
         assert!(!resolve_paste_with_format("  ", "rich_text", pictures, Some(false)));
+    }
+
+    #[test]
+    fn an_image_saved_under_a_moved_data_folder_pastes_from_this_one() {
+        let root = std::env::temp_dir().join(format!("tiez-paste-file-{}", uuid::Uuid::new_v4()));
+        let data_dir = root.join("com.tiez");
+        std::fs::create_dir_all(data_dir.join("attachments")).unwrap();
+        let moved = data_dir.join("attachments").join("img_1.png");
+        std::fs::write(&moved, b"png").unwrap();
+        let old_path = root
+            .join("Application Support")
+            .join("com.tiez.app")
+            .join("attachments")
+            .join("img_1.png");
+        let old_path = old_path.to_string_lossy();
+        let moved_path = Some(moved.to_string_lossy().into_owned());
+
+        assert_eq!(current_entry_file("image", &old_path, &data_dir), moved_path);
+        assert_eq!(current_entry_file("file", &old_path, &data_dir), moved_path);
+        // A file at its stored path keeps the content, and with it the
+        // paste's echo hash, as it is.
+        let stored = moved.to_string_lossy();
+        assert_eq!(current_entry_file("image", &stored, &data_dir), None);
+        // Gone from both: the paste reports the missing file as before.
+        let gone = old_path.replace("img_1", "img_2");
+        assert_eq!(current_entry_file("image", &gone, &data_dir), None);
+        // Image data, text and multi-file lists are not looked up.
+        assert_eq!(current_entry_file("image", "data:image/png;base64,iVBORw0KGgo=", &data_dir), None);
+        assert_eq!(current_entry_file("text", &old_path, &data_dir), None);
+        let two_files = format!("{old_path}\n{gone}");
+        assert_eq!(current_entry_file("file", &two_files, &data_dir), None);
+
+        std::fs::remove_dir_all(&root).unwrap();
     }
 }
