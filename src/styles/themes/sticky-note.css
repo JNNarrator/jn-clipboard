@@ -358,10 +358,14 @@ body.dark-mode.theme-sticky-note .history-item.selected {
 /* ===== Tags: search box and tag picker (theme-specific) ===== */
 
 /* --- Sticky note: warm rounded sheet --- */
+/* The open list floats over the records, so it takes the opaque popover
+   surface (the input fill is see-through); the input matches it while open
+   so the two still read as one sheet. */
 .theme-sticky-note .search-input.dropdown-open {
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
   border-bottom-color: rgba(var(--sticky-tape-rgb), 0.45);
+  background: var(--popover-background);
 }
 
 .theme-sticky-note .tags-dropdown {
@@ -369,7 +373,7 @@ body.dark-mode.theme-sticky-note .history-item.selected {
   padding: 8px 10px 10px;
   border-top: none;
   border-radius: 0 0 10px 10px;
-  background: var(--bg-input);
+  background: var(--popover-background);
   border-color: rgba(var(--sticky-tape-rgb), 0.58);
   box-shadow: var(--tags-shadow);
 }
