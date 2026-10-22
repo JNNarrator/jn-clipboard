@@ -316,6 +316,16 @@ pub fn show_clipboard_panel(app: &AppHandle) -> bool {
                 // as first responder is required for first-mouse delivery after
                 // a pinned panel has resigned key to another application.
                 panel.show_and_make_key();
+                // That leaves the content view, not the WebView inside it, as
+                // first responder, so keys (Esc, arrows) never reached the page
+                // until a click. Hand the keyboard back to the WebView.
+                if let Some(window) = app_for_panel.get_webview_window("main") {
+                    let _ = window.with_webview(|webview| unsafe {
+                        let ns_window = &*(webview.ns_window() as *const objc2_app_kit::NSWindow);
+                        let web_view = &*(webview.inner() as *const objc2_app_kit::NSView);
+                        let _ = ns_window.makeFirstResponder(Some(&**web_view));
+                    });
+                }
                 panel.set_collection_behavior(
                     CollectionBehavior::new()
                         .full_screen_auxiliary()
