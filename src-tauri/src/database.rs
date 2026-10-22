@@ -235,6 +235,26 @@ pub fn save_image_to_file(data_url: &str, data_dir: &std::path::Path) -> Option<
     save_image_bytes_to_file(&decoded, data_dir)
 }
 
+/// Where a stored file path of an entry points now. Stored paths are
+/// absolute, so attachments outlive a move of the data folder (an older app
+/// folder renamed on upgrade, a restored backup) only under their name in
+/// this data folder's attachments. `None` when the file is in neither place.
+pub fn resolve_entry_file_path(
+    raw_path: &str,
+    data_dir: &std::path::Path,
+) -> Option<std::path::PathBuf> {
+    let raw_path = raw_path.trim();
+    if raw_path.is_empty() {
+        return None;
+    }
+    let path = std::path::Path::new(raw_path);
+    if path.exists() {
+        return Some(path.to_path_buf());
+    }
+    let candidate = data_dir.join("attachments").join(path.file_name()?);
+    candidate.is_file().then_some(candidate)
+}
+
 // get_history removed (migrated to repository)
 
 // search_history removed (migrated to repository)
@@ -863,6 +883,30 @@ mod tests {
             calc_sync_content_hash("text", "line 1\r\nline 2"),
             calc_sync_content_hash("text", "line 1\nline 2")
         );
+    }
+
+    #[test]
+    fn entry_files_are_found_after_the_data_folder_moved() {
+        let root = std::env::temp_dir().join(format!("tiez-entry-file-{}", uuid::Uuid::new_v4()));
+        let data_dir = root.join("com.tiez");
+        std::fs::create_dir_all(data_dir.join("attachments")).unwrap();
+        let moved = data_dir.join("attachments").join("img_1.png");
+        std::fs::write(&moved, b"png").unwrap();
+        let outside = root.join("photo.png");
+        std::fs::write(&outside, b"png").unwrap();
+
+        // Still where it was saved.
+        let stored = outside.to_string_lossy().to_string();
+        assert_eq!(resolve_entry_file_path(&format!(" {stored} "), &data_dir), Some(outside));
+        // Saved under the old data folder, now in this one.
+        let old_path = root.join("com.tiez.app").join("attachments").join("img_1.png");
+        assert_eq!(resolve_entry_file_path(&old_path.to_string_lossy(), &data_dir), Some(moved));
+        // Gone from both.
+        let gone = root.join("com.tiez.app").join("attachments").join("img_2.png");
+        assert_eq!(resolve_entry_file_path(&gone.to_string_lossy(), &data_dir), None);
+        assert_eq!(resolve_entry_file_path("  ", &data_dir), None);
+
+        std::fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]

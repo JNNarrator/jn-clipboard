@@ -61,7 +61,6 @@ pub async fn open_content(
     }
 
     let app_path = get_app_path_for_content_type(&state, &content_type)?;
-    let mut temp_path = std::env::temp_dir();
     let filename = if id != 0 {
         if id > 0 {
             format!("TieZ_Clip_entry_{}", id)
@@ -77,7 +76,6 @@ pub async fn open_content(
             count
         )
     };
-    let mut use_direct_path = false;
 
     // Handle links/URLs
     if content_type == "link" || content_type == "url" {
@@ -95,32 +93,30 @@ pub async fn open_content(
     }
 
     // Check if content points to existing file(s)
+    let mut entry_file = None;
     if is_file_type(&content_type) && !content.starts_with("data:image") {
-        if let Some(path) = get_existing_file_path(&content) {
-            // TieZ's own image files are named by their content and may be
-            // shared by several entries: edit a copy. Editing them in place
-            // changed what other entries (and later copies of the original
-            // image) show. Saved edits come back as a new image for this entry.
-            if content_type == "image" && is_managed_attachment(&app_handle, &path) {
-                let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("image.png");
-                let copy = std::env::temp_dir().join(format!("TieZ_Clip_edit_{}", name));
-                if std::fs::copy(&path, &copy).is_ok() {
-                    temp_path = copy;
-                } else {
-                    temp_path = path;
-                    use_direct_path = true;
-                }
-            } else {
-                temp_path = path;
-                use_direct_path = true;
-            }
+        if let Some(path) = entry_file_path(&app_handle, &content) {
+            let data_dir = app_data_dir(&app_handle);
+            entry_file = Some(file_to_open(&content_type, path, data_dir.as_deref()));
+        } else if names_missing_file(&content_type, &content) {
+            return Err(AppError::Validation(FILE_MISSING.into()));
         }
     }
 
-    // Create temp file if needed
-    if !use_direct_path {
-        temp_path = create_temp_file(&content, &html_content, &content_type, &filename, temp_path)?;
-    }
+    // Otherwise write the entry's content to a temp file.
+    let (temp_path, use_direct_path) = match entry_file {
+        Some(file) => (file.path, file.is_original),
+        None => (
+            create_temp_file(
+                &content,
+                &html_content,
+                &content_type,
+                &filename,
+                std::env::temp_dir(),
+            )?,
+            false,
+        ),
+    };
 
     let path_str = temp_path.to_str().unwrap().to_string();
     let file_path_clone = temp_path.clone();
@@ -328,6 +324,27 @@ fn is_file_type(content_type: &str) -> bool {
 
 pub(crate) fn existing_file_path_from_content(content: &str) -> Option<std::path::PathBuf> {
     get_existing_file_path(content)
+}
+
+/// Error detail the frontend shows as "the file was moved or deleted".
+const FILE_MISSING: &str = "file_missing";
+
+/// The file an entry names (its first line), found where the history list
+/// finds it, including attachments of a data folder that has since moved.
+fn entry_file_path(app_handle: &tauri::AppHandle, content: &str) -> Option<std::path::PathBuf> {
+    let first_line = content.lines().next().unwrap_or(content);
+    match app_data_dir(app_handle) {
+        Some(data_dir) => crate::database::resolve_entry_file_path(first_line, &data_dir),
+        None => get_existing_file_path(content),
+    }
+}
+
+/// No file was found for the entry: a file or video entry, or an image saved
+/// as a file path rather than as image data. Such a path must not be decoded
+/// as image data ("Invalid symbol 32, offset 33" for the space in
+/// "Application Support"), and a file entry opened a text file of its path.
+fn names_missing_file(content_type: &str, content: &str) -> bool {
+    content_type != "image" || general_purpose::STANDARD.decode(content.trim()).is_err()
 }
 
 fn get_existing_file_path(content: &str) -> Option<std::path::PathBuf> {
@@ -709,15 +726,37 @@ fn update_database_with_changes(
     }
 }
 
-/// A file in TieZ's data folder (attachments, session images).
-fn is_managed_attachment(app_handle: &tauri::AppHandle, path: &std::path::Path) -> bool {
-    let Some(data_dir) = app_handle
+fn app_data_dir(app_handle: &tauri::AppHandle) -> Option<std::path::PathBuf> {
+    app_handle
         .try_state::<crate::app_state::AppDataDir>()
         .map(|dir| dir.0.lock().unwrap().clone())
-    else {
-        return false;
-    };
-    path.starts_with(&data_dir)
+}
+
+/// An existing file an entry names, as it opens.
+struct FileToOpen {
+    path: std::path::PathBuf,
+    /// The entry's own file: outside edits refresh its preview and the entry
+    /// keeps pointing at it. A copy's saved edits come back as a new image.
+    is_original: bool,
+}
+
+/// TieZ's own image files (in its data folder: attachments, session images)
+/// are named by their content and may be shared by several entries: edit a
+/// copy. Editing them in place changed what other entries (and later copies
+/// of the original image) show.
+fn file_to_open(
+    content_type: &str,
+    path: std::path::PathBuf,
+    data_dir: Option<&std::path::Path>,
+) -> FileToOpen {
+    if content_type == "image" && data_dir.is_some_and(|dir| path.starts_with(dir)) {
+        let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("image.png");
+        let copy = std::env::temp_dir().join(format!("TieZ_Clip_edit_{}", name));
+        if std::fs::copy(&path, &copy).is_ok() {
+            return FileToOpen { path: copy, is_original: false };
+        }
+    }
+    FileToOpen { path, is_original: true }
 }
 
 /// An edited image arrives as a data URL; keep it as an attachment file
@@ -731,10 +770,7 @@ fn store_edited_image(
     if content_type != "image" || !content.starts_with("data:") {
         return content;
     }
-    let Some(data_dir) = app_handle
-        .try_state::<crate::app_state::AppDataDir>()
-        .map(|dir| dir.0.lock().unwrap().clone())
-    else {
+    let Some(data_dir) = app_data_dir(app_handle) else {
         return content;
     };
     // Database entries (id > 0, e.g. pinned while persistence is off) keep
@@ -746,7 +782,7 @@ fn store_edited_image(
 
 #[cfg(test)]
 mod tests {
-    use super::existing_file_paths;
+    use super::{existing_file_paths, file_to_open, names_missing_file};
 
     #[test]
     fn existing_file_paths_keeps_every_file_still_on_disk() {
@@ -762,5 +798,43 @@ mod tests {
         assert_eq!(existing_file_paths(&content), vec![a, b]);
 
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_missing_image_file_is_not_read_as_image_data() {
+        let path = "/Users/someone/Library/Application Support/com.tiez/attachments/img_1.png";
+        assert!(names_missing_file("image", path));
+        assert!(names_missing_file("file", path));
+        assert!(names_missing_file("video", path));
+        // Images saved as bare base64 (a JPEG's starts with a slash) are data.
+        assert!(!names_missing_file("image", "/9j/4AAQSkZJRgABAQ=="));
+        assert!(!names_missing_file("image", "iVBORw0KGgo="));
+    }
+
+    #[test]
+    fn a_tiez_image_opens_as_a_copy_of_its_file() {
+        // The path has a space, as "Application Support" does on macOS.
+        let root = std::env::temp_dir().join(format!("tiez open {}", uuid::Uuid::new_v4()));
+        let data_dir = root.join("com.tiez");
+        std::fs::create_dir_all(data_dir.join("attachments")).unwrap();
+        let saved = data_dir.join("attachments").join("img_open_copy.png");
+        std::fs::write(&saved, b"png bytes").unwrap();
+        let outside = root.join("photo.png");
+        std::fs::write(&outside, b"photo").unwrap();
+
+        let copy = file_to_open("image", saved.clone(), Some(&data_dir));
+        assert!(!copy.is_original);
+        assert_ne!(copy.path, saved);
+        assert_eq!(std::fs::read(&copy.path).unwrap(), b"png bytes");
+
+        let original = file_to_open("image", outside.clone(), Some(&data_dir));
+        assert!(original.is_original);
+        assert_eq!(original.path, outside);
+        let file = file_to_open("file", saved.clone(), Some(&data_dir));
+        assert!(file.is_original);
+        assert_eq!(file.path, saved);
+
+        std::fs::remove_file(&copy.path).unwrap();
+        std::fs::remove_dir_all(&root).unwrap();
     }
 }

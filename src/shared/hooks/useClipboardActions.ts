@@ -137,7 +137,9 @@ export const useClipboardActions = ({
           contentType: item.content_type
         });
       } catch (err) {
-        const errorMsg = t("open_failed") + (err?.toString() || "");
+        const errorMsg = String(err).includes("file_missing")
+          ? t("open_file_missing")
+          : t("open_failed") + (err?.toString() || "");
         pushToast(errorMsg, 3000);
       }
     },
