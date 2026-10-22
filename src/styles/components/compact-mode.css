@@ -421,7 +421,7 @@ html.compact-show-time .history-item.compact .item-tags-container {
     border-color: transparent;
 }
 
-.history-item.compact:hover .item-actions,
+.history-item.compact:hover:not(.keyboard-owns-list *) .item-actions,
 .history-item.compact.selected .item-actions {
     opacity: 1;
     visibility: visible;
@@ -429,7 +429,8 @@ html.compact-show-time .history-item.compact .item-tags-container {
     pointer-events: auto;
 }
 
-body.hide-unselected-item-actions .history-item.compact:not(.selected):not(:hover) .item-actions {
+body.hide-unselected-item-actions .history-item.compact:not(.selected):not(:hover) .item-actions,
+body.hide-unselected-item-actions.keyboard-owns-list .history-item.compact:not(.selected) .item-actions {
     opacity: 0;
     visibility: hidden;
     transform: translateX(6px);
@@ -437,7 +438,7 @@ body.hide-unselected-item-actions .history-item.compact:not(.selected):not(:hove
 }
 
 body.hide-unselected-item-actions .history-item.compact.selected .item-actions,
-body.hide-unselected-item-actions .history-item.compact:hover .item-actions {
+body.hide-unselected-item-actions .history-item.compact:hover:not(.keyboard-owns-list *) .item-actions {
     opacity: 1;
     visibility: visible;
     transform: translateX(0);
@@ -514,7 +515,7 @@ html.compact-show-time .history-item.compact .item-meta-right-info > span:not(.q
     display: inline-block;
 }
 
-.history-item.compact:hover .item-meta-right-info,
+.history-item.compact:hover:not(.keyboard-owns-list *) .item-meta-right-info,
 .history-item.compact.selected .item-meta-right-info,
 .history-item.compact:has(.ai-options-dropdown) .item-meta-right-info,
 .history-item.compact:has(.compact-more-btn.active) .item-meta-right-info {
@@ -523,13 +524,14 @@ html.compact-show-time .history-item.compact .item-meta-right-info > span:not(.q
     pointer-events: none;
 }
 
-body.hide-unselected-item-actions .history-item.compact:not(.selected):not(:hover) .item-meta-right-info {
+body.hide-unselected-item-actions .history-item.compact:not(.selected):not(:hover) .item-meta-right-info,
+body.hide-unselected-item-actions.keyboard-owns-list .history-item.compact:not(.selected) .item-meta-right-info {
     opacity: 0.68;
     visibility: visible;
 }
 
 body.hide-unselected-item-actions .history-item.compact.selected .item-meta-right-info,
-body.hide-unselected-item-actions .history-item.compact:hover .item-meta-right-info {
+body.hide-unselected-item-actions .history-item.compact:hover:not(.keyboard-owns-list *) .item-meta-right-info {
     opacity: 0;
     visibility: hidden;
     pointer-events: none;

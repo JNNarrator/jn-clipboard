@@ -2,6 +2,7 @@ import React, { useRef, useImperativeHandle, useCallback, useMemo } from 'react'
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 import type { ListRange } from 'react-virtuoso';
 import type { ClipboardEntry } from "../../../shared/types";
+import { isPointerPick } from "../../../shared/lib/pointerPick";
 import type { VirtualClipboardListHandle, VirtualClipboardListProps } from "../types";
 
 type VirtuosoListContext = {
@@ -56,6 +57,9 @@ const VirtualClipboardList = React.forwardRef<VirtualClipboardListHandle, Virtua
 
         const virtuosoRef = useRef<VirtuosoHandle>(null);
         const visibleRangeRef = useRef<ListRange | null>(null);
+        // Read by the selection effect without re-running it on list updates.
+        const itemsRef = useRef(items);
+        itemsRef.current = items;
         useImperativeHandle(ref, () => ({
             scrollToItem: (index: number) => {
                 virtuosoRef.current?.scrollIntoView({
@@ -78,6 +82,7 @@ const VirtualClipboardList = React.forwardRef<VirtualClipboardListHandle, Virtua
         // Keep keyboard selection visible even when the item is only in overscan
         React.useEffect(() => {
             if (!isKeyboardMode || selectedIndex < 0) return;
+            if (isPointerPick(itemsRef.current[selectedIndex]?.id)) return;
 
             const range = visibleRangeRef.current;
             const edgeBuffer = 1;

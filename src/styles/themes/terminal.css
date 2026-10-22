@@ -388,7 +388,7 @@ body.theme-terminal .tag-manager-page {
   margin-right: 2px;
 }
 
-.theme-terminal .history-item:hover .app-info::before,
+.theme-terminal .history-item:hover:not(.keyboard-owns-list *) .app-info::before,
 .theme-terminal .history-item.selected .app-info::before {
   color: var(--term-prompt);
 }

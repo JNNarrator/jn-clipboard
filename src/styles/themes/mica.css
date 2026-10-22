@@ -264,7 +264,7 @@ body.dark-mode.compact-preview.theme-mica #root {
   box-shadow: none;
 }
 
-.theme-mica .history-item:hover:not(.selected) {
+.theme-mica .history-item:hover:not(.selected, .keyboard-owns-list *, .list-pointer-selects *) {
   box-shadow: none;
 }
 

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import type { RefObject } from "react";
 import type { ClipboardEntry } from "../types";
+import { isPointerPick } from "../lib/pointerPick";
 import type { VirtualClipboardListHandle } from "../../features/clipboard/types";
 
 interface UseScrollToSelectionOptions {
@@ -23,6 +24,7 @@ export const useScrollToSelection = ({
   useEffect(() => {
     if (isKeyboardMode && selectedIndex >= 0 && selectedIndex < filteredHistory.length) {
       const item = filteredHistory[selectedIndex];
+      if (isPointerPick(item.id)) return;
       const isPinned = selectedIndex < pinnedCount;
       if (isPinned) {
         // Pinned records live in the list header, outside the virtual item indices.
