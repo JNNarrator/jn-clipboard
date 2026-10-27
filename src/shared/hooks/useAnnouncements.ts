@@ -60,6 +60,8 @@ export function useAnnouncements() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchAnnouncements = useCallback(async () => {
+    // Announcements are a desktop ops channel: the browser build has no vendor
+    // endpoint to poll, and its notices would be about features it lacks.
     if (!isTauriRuntime()) {
       setLoading(false);
       return;

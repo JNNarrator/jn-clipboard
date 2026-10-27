@@ -8,7 +8,7 @@ import {
   type RefObject
 } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { isTauriRuntime } from "../lib/tauriRuntime";
+import { hasCommandBackend } from "../lib/tauriRuntime";
 
 interface UsePaneWidthOptions {
   /** Setting key the width is remembered under. */
@@ -67,7 +67,7 @@ export const usePaneWidth = ({
   const [resizing, setResizing] = useState(false);
 
   useEffect(() => {
-    if (!isTauriRuntime()) return;
+    if (!hasCommandBackend()) return;
     let alive = true;
     invoke<Record<string, string>>("get_settings")
       .then((settings) => {
@@ -90,7 +90,7 @@ export const usePaneWidth = ({
   }, [resizing]);
 
   const persist = useCallback((next: number | null) => {
-    if (!isTauriRuntime()) return;
+    if (!hasCommandBackend()) return;
     invoke("save_setting", {
       key: storageKey,
       value: next == null ? "" : String(Math.round(next * 1000) / 1000)

@@ -9,7 +9,7 @@
 // JS keys are camelCase of the Rust snake_case names (Tauri's default; no
 // command here uses `rename_all`).
 import { readFileSync, readdirSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join, relative, sep } from "node:path";
 import ts from "typescript";
 import { describe, expect, test } from "vitest";
 
@@ -114,7 +114,13 @@ type FrontendCall = {
 function frontendCalls(): { calls: FrontendCall[]; dynamic: string[] } {
   const calls: FrontendCall[] = [];
   const dynamic: string[] = [];
-  const files = walk(SRC, (f) => /\.(ts|tsx)$/.test(f) && !/\.test\.tsx?$/.test(f));
+  // `src/web` is the browser build. It aliases `@tauri-apps/api/core` to its own
+  // dispatch table, so its command names are not part of the Rust contract —
+  // only the shared tree has to resolve against main.rs.
+  const files = walk(
+    SRC,
+    (f) => /\.(ts|tsx)$/.test(f) && !/\.test\.tsx?$/.test(f) && !relative(SRC, f).startsWith("web" + sep),
+  );
   for (const file of files) {
     const text = readFileSync(file, "utf8");
     const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);

@@ -146,7 +146,6 @@
   --z-context-menu: 3000;  /* right-click menus */
   --z-modal: 4000;         /* dialog scrim and panel */
   --z-toast: 5000;         /* toasts stay visible above dialogs */
-  --z-texture: 9000;       /* decorative full-window textures (pointer-events: none) */
 
   /* Motion: three durations, zeroed under reduced motion. Animate opacity
      and transform; never layout (width, height, grid tracks, position). */

@@ -4,7 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { message } from "@tauri-apps/plugin-dialog";
 import { DEFAULT_THEME, migrateThemeSettings, resolveThemeAppearance } from "../config/themes";
 import type { Locale } from "../types";
-import { isTauriRuntime } from "../lib/tauriRuntime";
+import { hasCommandBackend } from "../lib/tauriRuntime";
 import { formatError } from "../lib/errorMessage";
 
 interface UseSettingsInitOptions {
@@ -30,7 +30,7 @@ export const useSettingsInit = ({
   const settingsEffectCount = useRef(0);
 
   useEffect(() => {
-    if (!isTauriRuntime()) return;
+    if (!hasCommandBackend()) return;
 
     let disposed = false;
 

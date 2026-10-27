@@ -3,7 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#1c1c1e" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="贴汁" />
     <title>贴汁</title>
     <script>
       // Immediate theme application to prevent flash
@@ -41,9 +47,7 @@
           }
           
           // Apply theme class
-          if (theme !== 'retro') {
-            document.documentElement.classList.add('theme-' + theme);
-          }
+          document.documentElement.classList.add('theme-' + theme);
           
           // Apply compact mode
           if (compactMode) {

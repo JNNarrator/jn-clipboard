@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { isTauriRuntime } from "../lib/tauriRuntime";
+import { hasCommandBackend } from "../lib/tauriRuntime";
 
 interface UseSettingsSyncOptions {
   settingsLoaded: boolean;
@@ -28,7 +28,7 @@ export const useSettingsSync = ({
   setSelectedIndex
 }: UseSettingsSyncOptions) => {
   useEffect(() => {
-    if (!isTauriRuntime()) return;
+    if (!hasCommandBackend()) return;
     if (settingsLoaded) {
       invoke("set_deduplication", { enabled: deduplicate });
       saveAppSetting("deduplicate", String(deduplicate));
@@ -36,28 +36,28 @@ export const useSettingsSync = ({
   }, [deduplicate, saveAppSetting, settingsLoaded]);
 
   useEffect(() => {
-    if (!isTauriRuntime()) return;
+    if (!hasCommandBackend()) return;
     if (settingsLoaded) {
       invoke("set_capture_files", { enabled: captureFiles });
     }
   }, [captureFiles, settingsLoaded]);
 
   useEffect(() => {
-    if (!isTauriRuntime()) return;
+    if (!hasCommandBackend()) return;
     if (settingsLoaded) {
       invoke("set_capture_rich_text", { enabled: captureRichText });
     }
   }, [captureRichText, settingsLoaded]);
 
   useEffect(() => {
-    if (!isTauriRuntime()) return;
+    if (!hasCommandBackend()) return;
     if (settingsLoaded) {
       invoke("set_persistence", { enabled: persistent });
     }
   }, [persistent, settingsLoaded]);
 
   useEffect(() => {
-    if (!isTauriRuntime()) {
+    if (!hasCommandBackend()) {
       if (!arrowKeySelection) {
         setIsKeyboardMode(false);
         setSelectedIndex(0);
@@ -73,7 +73,7 @@ export const useSettingsSync = ({
   }, [arrowKeySelection, setIsKeyboardMode, setSelectedIndex]);
 
   useEffect(() => {
-    if (!isTauriRuntime()) return;
+    if (!hasCommandBackend()) return;
     if (settingsLoaded) {
       saveAppSetting("sound_volume", String(soundVolume));
     }

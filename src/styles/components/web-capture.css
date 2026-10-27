@@ -1,0 +1,99 @@
+/*
+ * Capture bar — web build only (`src/web/components/WebCaptureBar.tsx`).
+ *
+ * Sits between the header and the list. Kept visually quiet: it is a means to an
+ * end, not a feature to look at, so it borrows the existing surface tokens and
+ * only draws attention to itself on focus.
+ */
+.web-capture {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  margin: 0 0 6px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.web-capture-input {
+  width: 100%;
+  box-sizing: border-box;
+  resize: none;
+  overflow-y: auto;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  outline: none;
+  transition: border-color var(--duration-fast) ease, box-shadow var(--duration-fast) ease;
+}
+
+.web-capture-input:focus {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.web-capture-input::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
+.web-capture-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.web-capture-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: var(--font-size-sm);
+  color: var(--button-active-filled-color);
+  background: var(--accent-color);
+  border: 1px solid transparent;
+  border-radius: var(--button-radius, 8px);
+  cursor: pointer;
+  transition: filter var(--duration-fast) ease, opacity var(--duration-fast) ease;
+}
+
+.web-capture-button.ghost {
+  color: var(--text-primary);
+  background: var(--bg-button);
+  border-color: var(--border-color);
+}
+
+.web-capture-button:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.web-capture-button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.web-capture-error {
+  margin: 0;
+  font-size: var(--font-size-xs, 12px);
+  color: var(--status-danger);
+}
+
+/* Phones: tighten the padding and let the buttons share the row. */
+@media (max-width: 640px) {
+  .web-capture {
+    padding: 8px 10px;
+  }
+
+  .web-capture-actions {
+    gap: 6px;
+  }
+
+  .web-capture-button {
+    flex: 1 1 0;
+    justify-content: center;
+  }
+}

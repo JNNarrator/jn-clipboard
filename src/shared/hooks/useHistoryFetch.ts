@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { Dispatch, SetStateAction } from "react";
 import type { ClipboardEntry } from "../types";
 import type { ClipboardSortMode } from "../../features/app/types";
-import { isTauriRuntime } from "../lib/tauriRuntime";
+import { hasCommandBackend } from "../lib/tauriRuntime";
 import { parseSearchQuery } from "../lib/searchQuery";
 
 interface UseHistoryFetchOptions {
@@ -51,7 +51,7 @@ export const useHistoryFetch = ({
     // keepLoaded: reload as many entries as are loaded now (after a change),
     // instead of the first page, so the list doesn't jump back to the top.
     async (reset = false, keepLoaded = false) => {
-      if (!isTauriRuntime()) {
+      if (!hasCommandBackend()) {
         if (reset) {
           setHistory([]);
           setCurrentOffset(0);

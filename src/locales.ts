@@ -370,6 +370,15 @@ export const translations = {
         empty_title: "剪贴板已准备就绪",
         empty_desc: "复制一些内容，就会出现在这里。",
 
+        // Web capture
+        capture_title: "收录到剪贴板",
+        capture_placeholder: "粘贴或输入内容，⌘/Ctrl+Enter 收录",
+        capture_button: "收录",
+        capture_from_clipboard: "读取剪贴板",
+        capture_empty: "没有可收录的内容",
+        capture_failed: "收录失败",
+        capture_hint: "浏览器无法后台监听剪贴板，需要手动收录",
+
         // Item Actions
         copy: "复制",
         open: "打开",
@@ -982,6 +991,15 @@ export const translations = {
         empty_title: "Clipboard is ready",
         empty_desc: "Copy something and it will appear here",
 
+        // Web capture
+        capture_title: "Add to clipboard",
+        capture_placeholder: "Paste or type, then ⌘/Ctrl+Enter",
+        capture_button: "Add",
+        capture_from_clipboard: "Read clipboard",
+        capture_empty: "Nothing to add",
+        capture_failed: "Could not add",
+        capture_hint: "A browser cannot watch the clipboard, so clips are added by hand",
+
         // Item Actions
         copy: "Copy",
         open: "Open",
@@ -1582,6 +1600,15 @@ export const translations = {
         no_records: "沒找到紀錄，換個關鍵詞試試。",
         empty_title: "剪貼簿已準備就緒",
         empty_desc: "複製一些內容，就會出現在這裡。",
+
+        // Web capture
+        capture_title: "收錄到剪貼簿",
+        capture_placeholder: "貼上或輸入內容，⌘/Ctrl+Enter 收錄",
+        capture_button: "收錄",
+        capture_from_clipboard: "讀取剪貼簿",
+        capture_empty: "沒有可收錄的內容",
+        capture_failed: "收錄失敗",
+        capture_hint: "瀏覽器無法背景監聽剪貼簿，需要手動收錄",
 
         // Item Actions
         copy: "複製",

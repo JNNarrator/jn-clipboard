@@ -8,6 +8,7 @@ import ConfirmDialog from "./shared/components/ConfirmDialog";
 import { translations } from "./locales";
 import AppHeader from "./features/app/components/AppHeader";
 import AppMainContent from "./features/app/components/AppMainContent";
+import WebCaptureBar from "./web/components/WebCaptureBar";
 import { useAppState } from "./features/app/hooks/useAppState";
 import { useSettingsPanelProps } from "./features/settings/hooks/useSettingsPanelProps";
 import { useDebounce } from "./shared/hooks/useDebounce";
@@ -1117,6 +1118,9 @@ const App = () => {
         onClipboardSortModeChange={updateClipboardSortMode}
         onBack={handleHeaderBack}
       />
+
+      {/* Web build only: a browser cannot watch the clipboard, so capture is manual. */}
+      {__WEB_TARGET__ && !showSettings && !effectiveShowTagManager && <WebCaptureBar t={t} />}
 
       <AnnouncementSystem
         announcements={announcements}

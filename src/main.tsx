@@ -62,3 +62,15 @@ if (!isCompactPreview && !isPinSticker && isTauriRuntime()) {
     await invoke("main_ui_released").catch(() => {});
   });
 }
+
+// Web build only: install the offline shell and ask the browser not to evict
+// the history under storage pressure. Guarded by a compile-time flag so the
+// desktop bundle never pulls the service worker in.
+if (__WEB_TARGET__) {
+  void import("./web/pwa")
+    .then(({ registerServiceWorker, requestPersistentStorage }) => {
+      registerServiceWorker();
+      void requestPersistentStorage();
+    })
+    .catch((error) => console.warn("[web] PWA module failed to load", error));
+}
