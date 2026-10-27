@@ -21,11 +21,14 @@ pub struct DbState {
 }
 
 const SENSITIVE_KEYS: &[&str] = &[
+    // Legacy: the MQTT sync and its end-to-end key are gone, but existing
+    // installs still hold a broker password here. Keep encrypting it at rest
+    // rather than leaving plaintext behind.
     "mqtt_password",
     "mqtt_username",
+    "e2e_key",
     "cloud_sync_api_key",
     "cloud_sync_webdav_password",
-    "e2e_key",
 ];
 
 pub const SENSITIVE_TAGS: &[&str] = &["sensitive", "密码", "password"];
@@ -444,76 +447,6 @@ pub fn seed_defaults(conn: &Connection) -> Result<()> {
         // Only new installs get the new one; saved ports (and phones that
         // bookmarked them) stay as they are.
         "INSERT OR IGNORE INTO settings (key, value) VALUES ('file_server_port', '28462')",
-        [],
-    );
-
-    // MQTT settings
-    let _ = conn.execute(
-        "INSERT OR IGNORE INTO settings (key, value) VALUES ('mqtt_port', '443')",
-        [],
-    );
-    let _ = conn.execute(
-        "INSERT OR IGNORE INTO settings (key, value) VALUES ('mqtt_enabled', 'false')",
-        [],
-    );
-    let _ = conn.execute(
-        "INSERT OR IGNORE INTO settings (key, value) VALUES ('mqtt_server', '')",
-        [],
-    );
-    let _ = conn.execute(
-        "INSERT OR IGNORE INTO settings (key, value) VALUES ('mqtt_username', '')",
-        [],
-    );
-    let _ = conn.execute(
-        "INSERT OR IGNORE INTO settings (key, value) VALUES ('mqtt_password', '')",
-        [],
-    );
-    let _ = conn.execute(
-        "INSERT OR IGNORE INTO settings (key, value) VALUES ('mqtt_topic', '')",
-        [],
-    );
-    let _ = conn.execute(
-        "INSERT OR IGNORE INTO settings (key, value) VALUES ('mqtt_protocol', 'wss://')",
-        [],
-    );
-    let _ = conn.execute(
-        "INSERT OR IGNORE INTO settings (key, value) VALUES ('mqtt_ssl', 'true')",
-        [],
-    );
-    let _ = conn.execute(
-        "INSERT OR IGNORE INTO settings (key, value) VALUES ('mqtt_client_id', '')",
-        [],
-    );
-    let _ = conn.execute(
-        "INSERT OR IGNORE INTO settings (key, value) VALUES ('mqtt_ws_path', '/mqtt')",
-        [],
-    );
-    let _ = conn.execute(
-        "INSERT OR IGNORE INTO settings (key, value) VALUES ('mqtt_notification_enabled', 'true')",
-        [],
-    );
-    let _ = conn.execute(
-        "UPDATE settings
-         SET value = ''
-         WHERE key = 'mqtt_server'
-           AND value = 'tiez.name666.top'
-           AND COALESCE((SELECT value FROM settings WHERE key = 'mqtt_enabled'), 'false') = 'false'",
-        [],
-    );
-    let _ = conn.execute(
-        "UPDATE settings
-         SET value = ''
-         WHERE key = 'mqtt_username'
-           AND value = 'tiezpublic'
-           AND COALESCE((SELECT value FROM settings WHERE key = 'mqtt_enabled'), 'false') = 'false'",
-        [],
-    );
-    let _ = conn.execute(
-        "UPDATE settings
-         SET value = ''
-         WHERE key = 'mqtt_password'
-           AND value = 'tiezmessage'
-           AND COALESCE((SELECT value FROM settings WHERE key = 'mqtt_enabled'), 'false') = 'false'",
         [],
     );
 

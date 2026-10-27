@@ -41,7 +41,7 @@ Eight built-in themes; four of them:
 
 | Performance | Practicality | Privacy | Sync |
 | :--- | :--- | :--- | :--- |
-| **Instant Access**<br>Native listeners and Rust core ensure absolute speed. | **Power Workflows**<br>Rich text, tags, and instant actions. | **Local & Private**<br>Local-first storage with smart masking for sensitive data in previews. | **Cloud Fluent**<br>Seamless WebDAV and MQTT cross-device sync. |
+| **Instant Access**<br>Native listeners and Rust core ensure absolute speed. | **Power Workflows**<br>Rich text, tags, and instant actions. | **Local & Private**<br>Local-first storage with smart masking for sensitive data in previews. | **Cloud Fluent**<br>Seamless WebDAV cross-device sync. |
 
 ---
 
@@ -62,8 +62,6 @@ Eight built-in themes; four of them:
 ### Networking & Transport
 - **WebDAV Sync**: Your data, your cloud. Complete cross-device history.
 - **LAN File Transfer**: Seamlessly move items between devices on the same network.
-- **Verifcation Code Sync**: Instant transfer of OTP codes to your active device.
-- **MQTT Connectivity**: Optimized for real-time synchronization between devices.
 
 ### Productivity Tools
 - **External Collaboration**: Open items in external editors with auto-sync back.

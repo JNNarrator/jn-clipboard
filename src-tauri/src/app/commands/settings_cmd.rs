@@ -562,21 +562,6 @@ pub fn play_preview_sound(app_handle: tauri::AppHandle, kind: Option<String>) {
 }
 
 #[tauri::command]
-pub fn get_mqtt_status() -> bool {
-    crate::services::mqtt_sub::get_mqtt_status()
-}
-
-#[tauri::command]
-pub fn get_mqtt_running() -> bool {
-    crate::services::mqtt_sub::get_mqtt_running()
-}
-
-#[tauri::command]
-pub fn restart_mqtt_client(app_handle: AppHandle) {
-    crate::services::mqtt_sub::restart_mqtt_client(app_handle)
-}
-
-#[tauri::command]
 pub fn get_cloud_sync_status() -> crate::services::cloud_sync::CloudSyncStatus {
     crate::services::cloud_sync::get_cloud_sync_status()
 }

@@ -1,4 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
 import type { CloudSyncContentPrefs } from "../../../app/types";
@@ -9,7 +8,6 @@ import {
     isWebdavConfigQrReady,
 } from "../../utils/configQr";
 import { formatError } from "../../../../shared/lib/errorMessage";
-import E2eKeyPanel from "./E2eKeyPanel";
 
 export interface CloudSyncStatusPayload {
     state: string;
@@ -53,8 +51,6 @@ interface CloudSyncSettingsGroupProps {
     status: CloudSyncStatusPayload;
     syncingNow: boolean;
     onSyncNow: () => void;
-    e2eKey: string;
-    saveE2eKey: (value: string) => Promise<void>;
 }
 
 const statusTone = (state: string) => {
@@ -98,8 +94,6 @@ const CloudSyncSettingsGroup = ({
     status,
     syncingNow,
     onSyncNow,
-    e2eKey,
-    saveE2eKey
 }: CloudSyncSettingsGroupProps) => {
     const normalizeInterval = (raw: string) => {
         const parsed = Number.parseInt(raw, 10);
@@ -135,23 +129,6 @@ const CloudSyncSettingsGroup = ({
             </button>
             {!collapsed && (
                 <div className="group-content">
-                    <div className="settings-notice settings-notice--action">
-                        <span>{t("mqtt_tutorial_hint")}</span>
-                        <button
-                            type="button"
-                            className="settings-action-button settings-action-button--small"
-                            onClick={() => {
-                                invoke("open_content", {
-                                    id: 0,
-                                    content: "https://my.feishu.cn/docx/J8LEdTamioQ4aOxBnVYcgnGlnmd?from=from_copylink",
-                                    contentType: "url"
-                                });
-                            }}
-                        >
-                            {t("view_tutorial")}
-                        </button>
-                    </div>
-
                     <div className="setting-item">
                         <LabelWithHint
                             label={t("cloud_sync_enable")}
@@ -288,15 +265,13 @@ const CloudSyncSettingsGroup = ({
                     {/* Encryption is not offered to new setups; a device that already
                         has a key still sees it, so it can be turned off. Above the
                         QR code, which carries the key while one is set. */}
-                    {e2eKey && <E2eKeyPanel t={t} e2eKey={e2eKey} saveE2eKey={saveE2eKey} hintPrefix="webdav" />}
                     {(() => {
                         const webdavQr = buildWebdavConfigQrPayload({
                             url: cloudSyncWebdavUrl,
                             username: cloudSyncWebdavUsername,
                             password: cloudSyncWebdavPassword,
                             basePath: cloudSyncWebdavBasePath,
-                                e2eKey,
-                        });
+                                                    });
                         const webdavQrReady = isWebdavConfigQrReady(webdavQr);
                         return (
                             <ConfigShareQr
@@ -360,7 +335,7 @@ const CloudSyncSettingsGroup = ({
                         </div>
                         {status.last_error && (
                             <div className="settings-panel-meta is-error">
-                                {t("cloud_sync_last_error")}: {status.last_error === "e2e_mismatch" ? t("e2e_mismatch") : formatError(status.last_error, t)}
+                                {t("cloud_sync_last_error")}: {formatError(status.last_error, t)}
                             </div>
                         )}
                     </div>

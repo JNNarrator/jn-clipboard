@@ -22,8 +22,8 @@ use crate::error::AppResult;
 use crate::global_state::*;
 
 fn main() -> AppResult<()> {
-    // Install rustls crypto provider explicitly because rumqttc is built with
-    // `use-rustls-no-provider` and will panic if no provider is registered.
+    // Install rustls crypto provider explicitly because reqwest is built with
+    // `rustls-no-provider` and will panic if no provider is registered.
     let _ = rustls::crypto::ring::default_provider().install_default();
 
     // Elevated autostart helper: must run before Tauri/single-instance so a UAC
@@ -160,8 +160,6 @@ fn main() -> AppResult<()> {
             app::window_manager::focus_clipboard_window,
             app::window_manager::main_ui_ready,
             app::window_manager::main_ui_released,
-            services::e2e::e2e_key_fingerprint,
-            services::e2e::generate_e2e_key,
             app::window_manager::disable_webview_browser_accelerators,
             app::window_manager::set_navigation_enabled,
             app::window_manager::set_navigation_mode,
@@ -216,9 +214,6 @@ fn main() -> AppResult<()> {
             app::commands::set_cleanup_rules,
             app::commands::set_app_cleanup_policies,
             app::commands::reset_settings,
-            app::commands::get_mqtt_status,
-            app::commands::get_mqtt_running,
-            app::commands::restart_mqtt_client,
             app::commands::get_cloud_sync_status,
             app::commands::restart_cloud_sync_client,
             app::commands::request_cloud_sync,

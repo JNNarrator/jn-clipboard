@@ -41,7 +41,6 @@ tokio = { version = "1", features = ["time"] }
 tauri-plugin-dialog = "2.7"
 tauri-plugin-global-shortcut = "2.3.1"
 window-vibrancy = "0.8"
-rumqttc = { version = "0.25.1", default-features = false, features = ["websocket", "use-rustls-no-provider", "url"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 webpki-roots = "0.26"
 rayon = "1.10"

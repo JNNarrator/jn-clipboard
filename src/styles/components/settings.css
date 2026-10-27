@@ -2761,29 +2761,3 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
   color: var(--text-secondary);
   pointer-events: none;
 }
-
-.settings-view .e2e-fingerprint {
-  font-family: var(--font-mono);
-  font-size: var(--font-size-sm);
-  letter-spacing: 0.04em;
-  color: var(--text-primary);
-}
-
-.settings-view .e2e-key-text {
-  display: block;
-  padding: 6px 8px;
-  border: 1px solid var(--line-soft);
-  border-radius: var(--radius-sm);
-  font-family: var(--font-mono);
-  font-size: var(--font-size-xs);
-  overflow-wrap: anywhere;
-  -webkit-user-select: all;
-  user-select: all;
-  color: var(--text-primary);
-}
-
-.settings-view .e2e-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}

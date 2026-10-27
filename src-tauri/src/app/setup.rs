@@ -1200,7 +1200,6 @@ fn start_services(app: &App, s: &StartupSettings, app_handle: AppHandle) {
     if s.sound_enabled {
         crate::services::ui_sound::preload_ui_sounds();
     }
-    crate::services::mqtt_sub::start_mqtt_client(app_handle.clone());
     crate::services::cloud_sync::start_cloud_sync_client(app_handle.clone());
     crate::services::network_recovery::start_network_recovery(app_handle.clone());
     start_edge_docking_monitor(app_handle.clone());

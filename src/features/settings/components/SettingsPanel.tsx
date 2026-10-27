@@ -28,9 +28,7 @@ import GeneralSettingsGroup from "./groups/GeneralSettingsGroup";
 import ClipboardSettingsGroup from "./groups/ClipboardSettingsGroup";
 import AdvancedSettingsGroup from "./groups/AdvancedSettingsGroup";
 import AppearanceSettingsGroup from "./groups/AppearanceSettingsGroup";
-import SyncSettingsGroup from "./groups/SyncSettingsGroup";
 import CloudSyncSettingsGroup, { type CloudSyncStatusPayload } from "./groups/CloudSyncSettingsGroup";
-import { useE2eKey } from "../hooks/useE2eKey";
 import DefaultAppsSettingsGroup from "./groups/DefaultAppsSettingsGroup";
 import DataSettingsGroup from "./groups/DataSettingsGroup";
 import FileTransferSettingsGroup from "./groups/FileTransferSettingsGroup";
@@ -147,15 +145,6 @@ interface SettingsPanelProps {
     setSurfaceOpacity: (val: number) => void;
 
 
-    mqttEnabled: boolean;
-    mqttServer: string;
-    mqttPort: string;
-    mqttUser: string;
-    mqttPass: string;
-    mqttTopic: string;
-    mqttProtocol: string;
-    mqttWsPath: string;
-    mqttNotificationEnabled: boolean;
     cloudSyncEnabled: boolean;
     cloudSyncAuto: boolean;
     cloudSyncProvider: "http" | "webdav";
@@ -235,16 +224,6 @@ interface SettingsPanelProps {
     checkHotkeyConflict: (newHotkey: string, mode: 'main' | 'sequential' | 'plain' | 'search') => boolean;
 
 
-    setMqttEnabled: (val: boolean) => void;
-    saveMqtt: (key: string, val: string) => void;
-    setMqttServer: (val: string) => void;
-    setMqttPort: (val: string) => void;
-    setMqttUser: (val: string) => void;
-    setMqttPass: (val: string) => void;
-    setMqttTopic: (val: string) => void;
-    setMqttProtocol: (val: string) => void;
-    setMqttWsPath: (val: string) => void;
-    setMqttNotificationEnabled: (val: boolean) => void;
     setCloudSyncEnabled: (val: boolean) => void;
     setCloudSyncAuto: (val: boolean) => void;
     setCloudSyncProvider: (val: "http" | "webdav") => void;
@@ -314,7 +293,6 @@ const SettingsPanel = (props: SettingsPanelProps) => {
         customBackground, setCustomBackground,
         customBackgroundOpacity, setCustomBackgroundOpacity,
         surfaceOpacity, setSurfaceOpacity,
-        mqttEnabled, mqttServer, mqttPort, mqttUser, mqttPass, mqttTopic, mqttProtocol, mqttWsPath, mqttNotificationEnabled,
         cloudSyncEnabled, cloudSyncAuto, cloudSyncIntervalSec, cloudSyncSnapshotIntervalMin, cloudSyncWebdavUrl, cloudSyncWebdavUsername, cloudSyncWebdavPassword, cloudSyncWebdavBasePath, cloudSyncContentPrefs,
         fileServerEnabled, fileServerPort, localIp, availableIps, setLocalIp, actualPort, fileTransferAccessToken, fileTransferLanKey, fileTransferAutoOpen, showAutoCloseHint, fileServerAutoClose, fileTransferAutoCopy, fileTransferPath,
         installedApps, appSettings, defaultApps, showAppSelector, dataPath,
@@ -328,7 +306,6 @@ const SettingsPanel = (props: SettingsPanelProps) => {
         setTheme, setColorMode, setLanguage, compactMode, setCompactMode, compactShowTime, setCompactShowTime, splitViewEnabled, setSplitViewEnabled, checkHotkeyConflict,
         clipboardItemFontSize, setClipboardItemFontSize, clipboardTagFontSize, setClipboardTagFontSize,
         tagManagerEnabled, setTagManagerEnabled,
-        setMqttEnabled, saveMqtt, setMqttServer, setMqttPort, setMqttUser, setMqttPass, setMqttTopic, setMqttProtocol, setMqttWsPath, setMqttNotificationEnabled,
         setCloudSyncEnabled, setCloudSyncAuto, setCloudSyncIntervalSec, setCloudSyncSnapshotIntervalMin, setCloudSyncWebdavUrl, setCloudSyncWebdavUsername, setCloudSyncWebdavPassword, setCloudSyncWebdavBasePath, setCloudSyncContentPrefs, saveCloudSync,
         setFileServerEnabled, setFileServerPort, setFileTransferAutoOpen, setShowAutoCloseHint, setFileServerAutoClose, setFileTransferAutoCopy, fetchEffectiveTransferPath,
         setShowAppSelector, handleResetSettings,
@@ -342,7 +319,6 @@ const SettingsPanel = (props: SettingsPanelProps) => {
         channel: "stable",
         portable: false
     });
-    const [mqttStatus, setMqttStatus] = useState<"connected" | "disconnected" | "connecting">("disconnected");
     const [cloudSyncStatus, setCloudSyncStatus] = useState<CloudSyncStatusPayload>({
         state: "disabled",
         running: false,
@@ -409,11 +385,6 @@ const SettingsPanel = (props: SettingsPanelProps) => {
             });
         getReleaseBuildInfo().then(setReleaseBuildInfo);
 
-        const unlistenMqtt = listen<string>("mqtt-status", (event) => {
-            console.log('[MQTT STATUS] Received status:', event.payload);
-            setMqttStatus(event.payload as "connected" | "disconnected" | "connecting");
-        });
-
         let unlistenCloud: Promise<() => void> | null = null;
         if (CLOUD_SYNC_ENABLED) {
             unlistenCloud = listen<CloudSyncStatusPayload>("cloud-sync-status", (event) => {
@@ -424,22 +395,7 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                 .catch(console.error);
         }
 
-        Promise.all([
-            invoke<boolean>("get_mqtt_status"),
-            invoke<boolean>("get_mqtt_running")
-        ]).then(([connected, running]) => {
-            console.log('[MQTT INIT] connected:', connected, 'running:', running);
-            if (connected) {
-                setMqttStatus("connected");
-            } else if (running) {
-                setMqttStatus("connecting");
-            } else {
-                console.log('[MQTT INIT] Keeping default disconnected state');
-            }
-        }).catch(console.error);
-
         return () => {
-            unlistenMqtt.then(f => f());
             if (unlistenCloud) {
                 unlistenCloud.then(f => f());
             }
@@ -452,7 +408,6 @@ const SettingsPanel = (props: SettingsPanelProps) => {
 
     // Narrow windows show an accordion of collapsible groups. Wide ones list the
     // sections on the left and show the selected group, always open, on the right.
-    const { key: e2eKey, save: saveE2eKey } = useE2eKey();
     const groupState = (id: string) => wideLayout
         ? { collapsed: false, onToggle: noop }
         : { collapsed: collapsedGroups[id], onToggle: () => toggleGroup(id) };
@@ -624,39 +579,6 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                 />
             )
         },
-        {
-            id: "sync",
-            label: t("sync_settings"),
-            node: (
-                <SyncSettingsGroup
-                    t={t}
-                    {...groupState('sync')}
-                    LabelWithHint={LabelWithHint}
-                    mqttEnabled={mqttEnabled}
-                    mqttStatus={mqttStatus}
-                    setMqttEnabled={setMqttEnabled}
-                    saveMqtt={saveMqtt}
-                    mqttProtocol={mqttProtocol}
-                    setMqttProtocol={setMqttProtocol}
-                    mqttWsPath={mqttWsPath}
-                    setMqttWsPath={setMqttWsPath}
-                    mqttServer={mqttServer}
-                    setMqttServer={setMqttServer}
-                    mqttPort={mqttPort}
-                    setMqttPort={setMqttPort}
-                    mqttUser={mqttUser}
-                    setMqttUser={setMqttUser}
-                    mqttPass={mqttPass}
-                    setMqttPass={setMqttPass}
-                    mqttTopic={mqttTopic}
-                    setMqttTopic={setMqttTopic}
-                    mqttNotificationEnabled={mqttNotificationEnabled}
-                    setMqttNotificationEnabled={setMqttNotificationEnabled}
-                    e2eKey={e2eKey}
-                    saveE2eKey={saveE2eKey}
-                />
-            )
-        },
         ...(CLOUD_SYNC_ENABLED
             ? [{
                 id: "cloud_sync",
@@ -688,8 +610,6 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                         status={cloudSyncStatus}
                         syncingNow={cloudSyncNowRunning}
                         onSyncNow={handleCloudSyncNow}
-                        e2eKey={e2eKey}
-                        saveE2eKey={saveE2eKey}
                     />
                 )
             }]

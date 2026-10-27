@@ -115,15 +115,6 @@ export const useAppState = (): AppState => {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [currentOffset, setCurrentOffset] = useState(0);
-  const [mqttEnabled, setMqttEnabled] = useState(false);
-  const [mqttServer, setMqttServer] = useState("");
-  const [mqttPort, setMqttPort] = useState("1883");
-  const [mqttUser, setMqttUser] = useState("");
-  const [mqttPass, setMqttPass] = useState("");
-  const [mqttTopic, setMqttTopic] = useState("");
-  const [mqttProtocol, setMqttProtocol] = useState("mqtt://");
-  const [mqttWsPath, setMqttWsPath] = useState("/mqtt");
-  const [mqttNotificationEnabled, setMqttNotificationEnabled] = useState(true);
   const [cloudSyncEnabled, setCloudSyncEnabled] = useState(false);
   const [cloudSyncAuto, setCloudSyncAuto] = useState(true);
   const [cloudSyncProvider, setCloudSyncProvider] = useState<"http" | "webdav">("webdav");
@@ -336,24 +327,6 @@ export const useAppState = (): AppState => {
     setHasMore,
     currentOffset,
     setCurrentOffset,
-    mqttEnabled,
-    setMqttEnabled,
-    mqttServer,
-    setMqttServer,
-    mqttPort,
-    setMqttPort,
-    mqttUser,
-    setMqttUser,
-    mqttPass,
-    setMqttPass,
-    mqttTopic,
-    setMqttTopic,
-    mqttProtocol,
-    setMqttProtocol,
-    mqttWsPath,
-    setMqttWsPath,
-    mqttNotificationEnabled,
-    setMqttNotificationEnabled,
     cloudSyncEnabled,
     setCloudSyncEnabled,
     cloudSyncAuto,

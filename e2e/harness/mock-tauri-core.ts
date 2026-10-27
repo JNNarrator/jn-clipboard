@@ -21,8 +21,6 @@ export async function invoke(cmd: string, _args?: unknown): Promise<unknown> {
   if (backendCommands[cmd]) return backendCommands[cmd]((_args ?? {}) as Record<string, unknown>);
   // Setters only push state into Rust; accepting them keeps the console clean.
   if (cmd.startsWith('set_')) return null;
-  if (cmd === 'generate_e2e_key') return 'AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8';
-  if (cmd === 'e2e_key_fingerprint') return (_args as { key?: string })?.key?.length === 43 ? '630D-CD29' : null;
   if (cmd === 'get_chat_history') return chat;
   if (cmd === 'get_available_network_interfaces') return [{ name: 'en0', ip: '192.168.1.23', is_virtual: false, label: 'Wi-Fi' }];
   throw new Error(`audit preview: ${cmd} unavailable`);

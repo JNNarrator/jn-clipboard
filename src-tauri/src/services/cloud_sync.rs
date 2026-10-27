@@ -5,7 +5,6 @@ use crate::error::{AppError, AppResult};
 use crate::infrastructure::http_error::{body_for_log, summarize_http_error};
 use crate::infrastructure::repository::clipboard_repo::ClipboardRepository;
 use crate::infrastructure::repository::settings_repo::SettingsRepository;
-use crate::services::e2e::Kind as E2eKind;
 use base64::Engine;
 use regex::Regex;
 use rusqlite::OptionalExtension;
@@ -46,7 +45,6 @@ const CLOUD_SYNC_WEBDAV_SNAPSHOT_DIGESTS_KEY: &str = "cloud_sync_webdav_snapshot
 const CLOUD_SYNC_SETTINGS_MTIMES_KEY: &str = "cloud_sync_settings_mtimes";
 /// Fingerprint of the end-to-end key this device's server files were last
 /// written with ("" = unencrypted).
-const CLOUD_SYNC_E2E_FINGERPRINT_KEY: &str = "cloud_sync_e2e_fingerprint";
 const CLOUD_SYNC_PULLED_CONTENT_PREFS_KEY: &str = "cloud_sync_pulled_content_prefs";
 const BLOB_KIND_IMAGE: &str = "image";
 const BLOB_KIND_CONTENT: &str = "content";
@@ -157,8 +155,6 @@ struct CloudSyncConfig {
     webdav_password: String,
     webdav_base_path: String,
     content_prefs: CloudSyncContentPrefs,
-    /// End-to-end keys; with them, sync files are sealed (docs/E2E-ENCRYPTION.md).
-    e2e: Option<crate::services::e2e::E2eKeys>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -549,7 +545,6 @@ fn get_config(app: &AppHandle) -> Option<CloudSyncConfig> {
         },
         webdav_base_path,
         content_prefs,
-        e2e: crate::services::e2e::load_keys(app),
     })
 }
 
@@ -2449,68 +2444,28 @@ async fn upload_webdav_bytes_resource(
     }
 }
 
-/// Set when a sync file had to be skipped because this device and the one
-/// that wrote it disagree about end-to-end encryption (see open_downloaded).
-static E2E_MISMATCH_SEEN: AtomicBool = AtomicBool::new(false);
-
-fn seal_for_upload(cfg: &CloudSyncConfig, kind: E2eKind, body: Vec<u8>) -> Vec<u8> {
-    match &cfg.e2e {
-        Some(keys) => keys.seal(kind, &body),
-        None => body,
-    }
+/// Blob file name: the SHA-256 of the content.
+fn blob_name_for(_cfg: &CloudSyncConfig, data: &[u8]) -> String {
+    sha256_hex(data)
 }
 
-/// A downloaded sync file's bytes, opened if sealed. None when this device
-/// can't use it: plaintext while a key is set (a device without the key, or
-/// someone else writing to the folder), sealed without a key here, or sealed
-/// with another key. Those files are skipped rather than failing the sync.
-fn open_downloaded(cfg: &CloudSyncConfig, kind: E2eKind, bytes: &[u8]) -> Option<Vec<u8>> {
-    let opened = match (&cfg.e2e, crate::services::e2e::is_sealed(bytes)) {
-        (None, false) => return Some(bytes.to_vec()),
-        (Some(keys), true) => keys.open(kind, bytes),
-        (Some(_), false) | (None, true) => None,
-    };
-    if opened.is_none() {
-        E2E_MISMATCH_SEEN.store(true, Ordering::Relaxed);
-    }
-    opened
-}
-
-/// Blob file name: a keyed hash with end-to-end encryption, so names don't
-/// give away content hashes; the plain SHA-256 otherwise.
-fn blob_name_for(cfg: &CloudSyncConfig, data: &[u8]) -> String {
-    match &cfg.e2e {
-        Some(keys) => keys.blob_name(data),
-        None => sha256_hex(data),
-    }
-}
-
-/// Upload JSON; `kind` seals it when end-to-end encryption is on (None for
-/// the sync head, which stays readable to every device).
+/// Upload JSON; the sync head and the payload files are both plaintext.
 async fn upload_webdav_json_resource(
     client: &Client,
     cfg: &CloudSyncConfig,
     relative_path: &str,
     body: Vec<u8>,
     label: &str,
-    kind: Option<E2eKind>,
 ) -> AppResult<()> {
-    let body = match kind {
-        Some(kind) => seal_for_upload(cfg, kind, body),
-        None => body,
-    };
     upload_webdav_bytes_resource(client, cfg, relative_path, body, "application/json", label).await
 }
 
-/// GET and parse a JSON sync file. With `sealed = Some((cfg, kind))` the body
-/// goes through open_downloaded first; a file this device can't open counts
-/// as missing.
+/// GET and parse a JSON sync file.
 async fn fetch_webdav_json_resource<T, F>(
     mut make_request: F,
     missing_status: u16,
     fetch_error_label: &str,
     parse_error_label: &str,
-    sealed: Option<(&CloudSyncConfig, E2eKind)>,
 ) -> AppResult<Option<T>>
 where
     T: for<'de> Deserialize<'de>,
@@ -2537,18 +2492,7 @@ where
             .bytes()
             .await
             .map_err(|e| AppError::Network(e.to_string()))?;
-        let bytes = match sealed {
-            None => raw.to_vec(),
-            Some((cfg, kind)) => match open_downloaded(cfg, kind, &raw) {
-                Some(opened) => opened,
-                // A truncated read fails authentication too: retry first.
-                None if crate::services::e2e::is_sealed(&raw) && attempt < WEBDAV_JSON_READ_RETRIES => {
-                    sleep(webdav_retry_delay(attempt)).await;
-                    continue;
-                }
-                None => return Ok(None),
-            },
-        };
+        let bytes = raw.to_vec();
         match serde_json::from_slice::<T>(&bytes) {
             Ok(parsed) => return Ok(Some(parsed)),
             Err(err)
@@ -2644,7 +2588,7 @@ async fn upload_webdav_blob(
         client,
         cfg,
         &blob_file_path,
-        seal_for_upload(cfg, E2eKind::Blob, data.to_vec()),
+        data.to_vec(),
         "application/octet-stream",
         "blob",
     )
@@ -2677,9 +2621,7 @@ async fn download_webdav_blob(
         .bytes()
         .await
         .map_err(|e| AppError::Network(e.to_string()))?;
-    open_downloaded(cfg, E2eKind::Blob, &bytes).ok_or_else(|| {
-        AppError::Validation(format!("blob not readable with this device's end-to-end key ({})", blob_file_path))
-    })
+    Ok(bytes.to_vec())
 }
 
 fn parse_webdav_snapshot_ids(xml: &str) -> Vec<String> {
@@ -2741,7 +2683,7 @@ async fn upload_webdav_snapshot(
         devices_path.trim_end_matches('/'),
         cfg.device_id
     );
-    upload_webdav_json_resource(client, cfg, &relative, body, "snapshot", Some(E2eKind::Snapshot)).await
+    upload_webdav_json_resource(client, cfg, &relative, body, "snapshot").await
 }
 
 /// Listings and snapshots already fetched in the current WebDAV sync. One
@@ -2861,7 +2803,6 @@ async fn fetch_webdav_snapshot_uncached(
         404,
         "webdav GET snapshot failed",
         "parse snapshot json failed",
-        Some((cfg, E2eKind::Snapshot)),
     )
     .await
 }
@@ -2890,7 +2831,7 @@ async fn upload_webdav_ops_batch(
         ops_path.trim_end_matches('/'),
         webdav_ops_filename(&cfg.device_id, seq)
     );
-    upload_webdav_json_resource(client, cfg, &relative, body, "ops batch", Some(E2eKind::Ops)).await
+    upload_webdav_json_resource(client, cfg, &relative, body, "ops batch").await
 }
 
 fn parse_webdav_op_refs(xml: &str) -> Vec<WebDavOpRef> {
@@ -3001,7 +2942,6 @@ async fn fetch_webdav_ops_batch(
         404,
         "webdav GET ops batch failed",
         "parse ops batch json failed",
-        Some((cfg, E2eKind::Ops)),
     )
     .await
 }
@@ -3153,7 +3093,7 @@ async fn upload_webdav_settings_snapshot(
         settings_path.trim_end_matches('/'),
         cfg.device_id
     );
-    upload_webdav_json_resource(client, cfg, &relative, body, "settings snapshot", Some(E2eKind::Settings)).await?;
+    upload_webdav_json_resource(client, cfg, &relative, body, "settings snapshot").await?;
     Ok(local_settings)
 }
 
@@ -3170,7 +3110,6 @@ async fn fetch_webdav_settings_snapshot(
         404,
         "webdav GET settings snapshot failed",
         "parse settings snapshot json failed",
-        Some((cfg, E2eKind::Settings)),
     )
     .await
 }
@@ -3266,7 +3205,6 @@ async fn fetch_webdav_sync_head(
         404,
         "webdav GET head failed",
         "parse head json failed",
-        None,
     )
     .await
 }
@@ -3287,7 +3225,7 @@ async fn upload_webdav_sync_head(
 
         let body = serde_json::to_vec(&candidate)
             .map_err(|e| AppError::Internal(format!("serialize head failed: {}", e)))?;
-        upload_webdav_json_resource(client, cfg, head_path, body, "sync head", None).await?;
+        upload_webdav_json_resource(client, cfg, head_path, body, "sync head").await?;
 
         if let Some(verified) = fetch_webdav_sync_head(client, cfg, head_path).await? {
             if webdav_sync_head_covers(&verified, &candidate) {
@@ -3836,18 +3774,7 @@ async fn sync_once_webdav(
     })?);
     let (delta_items, _) = collect_local_incremental_items(app, &candidate_items)?;
 
-    // Turning end-to-end encryption on or off, or changing the key, makes this
-    // device's files on the server unreadable to its peers (and its blob
-    // names differ): upload a full snapshot and all blobs again right away.
-    let e2e_fingerprint = cfg.e2e.as_ref().map(|keys| keys.fingerprint().to_string()).unwrap_or_default();
-    let e2e_changed = get_setting_string(app, CLOUD_SYNC_E2E_FINGERPRINT_KEY) != e2e_fingerprint;
-    if e2e_changed {
-        save_webdav_blob_cache(app, &HashMap::new());
-    }
-    E2E_MISMATCH_SEEN.store(false, Ordering::Relaxed);
-
     let should_push_snapshot = force_snapshot
-        || e2e_changed
         || should_push_webdav_snapshot(
             app,
             now,
@@ -3994,7 +3921,6 @@ async fn sync_once_webdav(
         });
         sync_head_dirty = true;
         set_setting_i64(app, CLOUD_SYNC_WEBDAV_LAST_SNAPSHOT_PUSH_AT_KEY, now)?;
-        set_setting_string(app, CLOUD_SYNC_E2E_FINGERPRINT_KEY, &e2e_fingerprint)?;
         let _ = cleanup_local_webdav_ops(&client, cfg, &paths.ops_path, latest_op_seq).await;
         replace_local_sync_index(
             app,
@@ -4005,13 +3931,6 @@ async fn sync_once_webdav(
     if sync_head_dirty {
         sync_head.updated_at = now_ms();
         upload_webdav_sync_head(&client, cfg, &paths.head_path, &sync_head).await?;
-        // Announce only after peers can read the committed head and its resources.
-        // MQTT is best effort; a failure must not turn a successful upload into an error.
-        if let Some(scope) = crate::services::sync_notifications::webdav_scope(
-            &cfg.webdav_url, &cfg.webdav_username, &cfg.webdav_base_path,
-        ) {
-            crate::services::mqtt_sub::publish_webdav_changed(&scope, &cfg.device_id);
-        }
     }
 
     if received_items > 0 {
@@ -4026,17 +3945,11 @@ async fn sync_once_webdav(
         state: "idle".to_string(),
         running: true,
         last_sync_at: Some(now),
-        // The sync worked, but some device's data was skipped (see open_downloaded).
-        last_error: E2E_MISMATCH_SEEN
-            .load(Ordering::Relaxed)
-            .then(|| E2E_MISMATCH_MESSAGE.to_string()),
+        last_error: None,
         uploaded_items,
         received_items,
     })
 }
-
-/// Shown in sync status; the frontend translates it by this exact text.
-const E2E_MISMATCH_MESSAGE: &str = "e2e_mismatch";
 
 async fn sync_once(
     app: &AppHandle,
@@ -4330,23 +4243,6 @@ pub fn request_cloud_sync(app: AppHandle) {
     sync_wake_signal().notify_one();
 }
 
-pub fn notification_identity(app: &AppHandle) -> Option<(String, String)> {
-    let cfg = get_config(app)?;
-    if !cfg.enabled
-        || !cfg.auto_sync
-        || cfg.provider != CloudSyncProvider::WebDav
-        || !cloud_sync_target_ready(&cfg)
-    {
-        return None;
-    }
-    let scope = crate::services::sync_notifications::webdav_scope(
-        &cfg.webdav_url,
-        &cfg.webdav_username,
-        &cfg.webdav_base_path,
-    )?;
-    Some((scope, cfg.device_id))
-}
-
 pub fn stop_cloud_sync_client(app: AppHandle) {
     CLOUD_SYNC_CANCEL_REQUESTED.store(true, Ordering::Relaxed);
     sync_wake_signal().notify_one();
@@ -4588,7 +4484,6 @@ mod tests {
             webdav_password: String::new(),
             webdav_base_path: "tiez-sync".to_string(),
             content_prefs: CloudSyncContentPrefs::default(),
-            e2e: None,
         };
         let item = |content: String| CloudSyncItem {
             content_type: "text".to_string(),
