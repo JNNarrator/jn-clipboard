@@ -50,7 +50,7 @@ Eight built-in themes; four of them:
 ### Core Experience
 - **Native Efficiency**: Built with Tauri 2 and Rust for minimum memory footprint.
 - **Smart Capture**: Automatically collects text, rich text (HTML), images, and file paths.
-- **Modern UI**: Supports Mica/Acrylic effects and Dark/Light modes with **4 elegant theme styles**.
+- **Modern UI**: Supports Mica/Acrylic effects and Dark/Light modes with **3 native-material theme styles**.
 - **Edge Docking**: Automatically hides at the screen edge to stay out of your way.
 
 ### Management & Enhancements
