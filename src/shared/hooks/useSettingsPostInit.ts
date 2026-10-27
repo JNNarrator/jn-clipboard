@@ -103,10 +103,6 @@ interface UseSettingsPostInitOptions {
   setCloudSyncWebdavPassword: (val: string) => void;
   setCloudSyncWebdavBasePath: (val: string) => void;
   setCloudSyncContentPrefs: (val: CloudSyncContentPrefs) => void;
-  setFileServerAutoClose: (val: boolean) => void;
-  setFileTransferAutoOpen: (val: boolean) => void;
-  setFileTransferAutoCopy: (val: boolean) => void;
-  setFileServerPort: (val: string) => void;
   setSequentialHotkey: (val: string) => void;
   setPlainPasteHotkey: (val: string) => void;
   setSearchHotkey: (val: string) => void;
@@ -178,10 +174,6 @@ export const useSettingsPostInit = ({
   setCloudSyncWebdavPassword,
   setCloudSyncWebdavBasePath,
   setCloudSyncContentPrefs,
-  setFileServerAutoClose,
-  setFileTransferAutoOpen,
-  setFileTransferAutoCopy,
-  setFileServerPort,
   setSequentialHotkey,
   setPlainPasteHotkey,
   setSearchHotkey,
@@ -354,10 +346,6 @@ export const useSettingsPostInit = ({
     } catch {
       setCloudSyncContentPrefs({ ...DEFAULT_CLOUD_SYNC_CONTENT_PREFS });
     }
-    setFileServerAutoClose(settings["file_transfer_auto_close"] === "true");
-    setFileTransferAutoOpen(settings["file_transfer_auto_open"] === "true");
-    setFileTransferAutoCopy(settings["file_transfer_auto_copy"] === "true");
-    if (settings["file_server_port"]) setFileServerPort(settings["file_server_port"]);
     if (settings["app.sequential_hotkey"] !== undefined) setSequentialHotkey(settings["app.sequential_hotkey"]);
     if (settings["app.plain_paste_hotkey"] !== undefined) setPlainPasteHotkey(settings["app.plain_paste_hotkey"]);
     if (settings["app.search_hotkey"] !== undefined) setSearchHotkey(settings["app.search_hotkey"]);
@@ -431,11 +419,7 @@ export const useSettingsPostInit = ({
     setCloudSyncWebdavPassword,
     setCloudSyncWebdavBasePath,
     setCloudSyncContentPrefs,
-    setFileServerAutoClose,
-    setFileTransferAutoOpen,
-    setFileTransferAutoCopy,
-    setFileServerPort,
-    setSequentialHotkey,
+            setSequentialHotkey,
     setPlainPasteHotkey,
     setSearchHotkey,
     setQuickPasteModifier,

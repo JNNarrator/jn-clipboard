@@ -2,52 +2,27 @@ import { useEffect } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import type { DefaultAppsMap, InstalledAppOption } from "../../features/app/types";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import { isTauriRuntime } from "../lib/tauriRuntime";
 
 interface UseAppBootstrapOptions {
-  fetchEffectiveTransferPath: () => void;
   setDataPath: Dispatch<SetStateAction<string>>;
   setInstalledApps: Dispatch<SetStateAction<InstalledAppOption[]>>;
   setAutoStart: Dispatch<SetStateAction<boolean>>;
   setElevatedAutostart: Dispatch<SetStateAction<boolean>>;
   setDefaultApps: Dispatch<SetStateAction<DefaultAppsMap>>;
-  setFileServerEnabled: Dispatch<SetStateAction<boolean>>;
-  setActualPort: Dispatch<SetStateAction<string>>;
-  setFileTransferAccessToken: Dispatch<SetStateAction<string>>;
-  setFileTransferLanKey: Dispatch<SetStateAction<string>>;
-  setLocalIp: Dispatch<SetStateAction<string>>;
-  setAvailableIps: Dispatch<SetStateAction<string[]>>;
   setWinClipboardDisabled: Dispatch<SetStateAction<boolean>>;
 }
 
-interface FileServerStatusPayload {
-  enabled: boolean;
-  port: number;
-  ip: string;
-  access_token: string;
-  lan_key?: string;
-}
-
 export const useAppBootstrap = ({
-  fetchEffectiveTransferPath,
   setDataPath,
   setInstalledApps,
   setAutoStart,
   setElevatedAutostart,
   setDefaultApps,
-  setFileServerEnabled,
-  setActualPort,
-  setFileTransferAccessToken,
-  setFileTransferLanKey,
-  setLocalIp,
-  setAvailableIps,
   setWinClipboardDisabled: _setWinClipboardDisabled
 }: UseAppBootstrapOptions) => {
   useEffect(() => {
     if (!isTauriRuntime()) return;
-
-    fetchEffectiveTransferPath();
 
     invoke<string>("get_data_path").then(setDataPath).catch(console.error);
 
@@ -82,57 +57,5 @@ export const useAppBootstrap = ({
       }
     });
 
-    let disposed = false;
-    let unlistenServer: (() => void) | undefined;
-    listen<FileServerStatusPayload>("file-server-status-changed", (event) => {
-        const payload = event.payload;
-        setFileServerEnabled(payload.enabled);
-        setActualPort(payload.port === 0 ? "" : payload.port.toString());
-        setLocalIp(payload.ip);
-        setFileTransferAccessToken(payload.access_token || "");
-        setFileTransferLanKey(payload.lan_key || "");
-      })
-      .then((unlisten) => {
-        if (disposed) {
-          unlisten();
-          return;
-        }
-        unlistenServer = unlisten;
-      })
-      .catch(console.error);
-
-    invoke<FileServerStatusPayload>("get_file_server_status")
-      .then((status) => {
-        setFileServerEnabled(status.enabled);
-        setActualPort(status.port === 0 ? "" : status.port.toString());
-        setLocalIp(status.ip);
-        setFileTransferAccessToken(status.access_token || "");
-        setFileTransferLanKey(status.lan_key || "");
-      })
-      .catch(console.error);
-
-    invoke<string[]>("get_available_ips")
-      .then((ips) => {
-        if (ips && ips.length > 0) setAvailableIps(ips);
-      })
-      .catch(console.error);
-
-    return () => {
-      disposed = true;
-      if (unlistenServer) unlistenServer();
-    };
-  }, [
-    fetchEffectiveTransferPath,
-    setActualPort,
-    setAutoStart,
-    setElevatedAutostart,
-    setAvailableIps,
-    setDataPath,
-    setDefaultApps,
-    setFileServerEnabled,
-    setFileTransferAccessToken,
-    setFileTransferLanKey,
-    setInstalledApps,
-    setLocalIp,
-  ]);
+  }, [setAutoStart, setElevatedAutostart, setDataPath, setDefaultApps, setInstalledApps]);
 };

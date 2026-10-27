@@ -194,8 +194,8 @@ fn check_upgrade(release: &str, migrate: Migrate, settings_sql: &str) {
     assert!(settings.get("app.arrow_key_selection").unwrap().is_some(), "{}", ctx("new defaults seeded"));
 
     // Decided policy: upgraders keep the defaults they were installed with,
-    // even where new installs get a different one (old port 12345 stays).
-    for key in ["file_server_port", "cloud_sync_snapshot_interval_min"] {
+    // even where new installs get a different one.
+    for key in ["cloud_sync_snapshot_interval_min"] {
         if let Some(old) = legacy_default(settings_sql, key) {
             assert_eq!(settings.get(key).unwrap().as_deref(), Some(old.as_str()), "{}", ctx(&format!("{key} keeps the old default")));
         }
@@ -236,7 +236,6 @@ fn new_install_gets_new_defaults_and_launches_at_login() {
         assert_eq!(get(key).as_deref(), Some(*new_install), "{key}");
     }
     assert_eq!(get(database::AUTOSTART_PENDING_KEY).as_deref(), Some("true"));
-    assert_eq!(get("file_server_port").as_deref(), Some("28462"));
     assert_eq!(get("cloud_sync_snapshot_interval_min").as_deref(), Some("720"));
     // Restarting is not a new install.
     drop(conn);

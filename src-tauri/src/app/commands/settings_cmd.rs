@@ -321,29 +321,6 @@ pub fn clear_undecryptable_settings(state: State<'_, DbState>, keys: Vec<String>
 }
 
 #[tauri::command]
-pub fn set_file_server_auto_close(
-    state: State<'_, crate::app_state::SettingsState>,
-    db_state: State<'_, DbState>,
-    enabled: bool,
-) -> AppResult<()> {
-    state
-        .file_server_auto_close
-        .store(enabled, Ordering::Relaxed);
-    db_state
-        .settings_repo
-        .set("file_transfer_auto_close", &enabled.to_string())
-        .map_err(AppError::from)
-}
-
-#[tauri::command]
-pub fn set_file_transfer_auto_open(db_state: State<'_, DbState>, enabled: bool) -> AppResult<()> {
-    db_state
-        .settings_repo
-        .set("file_transfer_auto_open", &enabled.to_string())
-        .map_err(AppError::from)
-}
-
-#[tauri::command]
 pub fn set_arrow_key_selection(
     state: State<'_, crate::app_state::SettingsState>,
     enabled: bool,
@@ -406,21 +383,6 @@ pub fn set_rich_text_snapshot_preview(
         .map_err(AppError::from)
 }
 
-#[tauri::command]
-pub fn set_auto_copy_file(
-    state: State<'_, crate::app_state::SettingsState>,
-    db_state: State<'_, DbState>,
-    enabled: bool,
-) -> AppResult<()> {
-    state.auto_copy_file.store(enabled, Ordering::Relaxed);
-    db_state
-        .settings_repo
-        .set(
-            "file_transfer_auto_copy",
-            if enabled { "true" } else { "false" },
-        )
-        .map_err(AppError::from)
-}
 
 #[tauri::command]
 pub fn set_silent_start(

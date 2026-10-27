@@ -7,12 +7,10 @@ use std::sync::Mutex;
 pub struct SettingsState {
     pub deduplicate: AtomicBool,
     pub persistent: AtomicBool,
-    pub file_server_auto_close: AtomicBool,
     pub theme: Mutex<String>,
     pub capture_files: AtomicBool,
     pub capture_rich_text: AtomicBool,
     pub rich_text_snapshot_preview: AtomicBool,
-    pub auto_copy_file: AtomicBool,
     pub silent_start: AtomicBool,
     pub delete_after_paste: AtomicBool,
     pub privacy_protection: AtomicBool,
@@ -50,12 +48,10 @@ impl SettingsState {
         let SettingsState {
             deduplicate,
             persistent,
-            file_server_auto_close,
             theme,
             capture_files,
             capture_rich_text,
             rich_text_snapshot_preview,
-            auto_copy_file,
             silent_start,
             delete_after_paste,
             privacy_protection,
@@ -83,12 +79,10 @@ impl SettingsState {
         } = fresh;
         self.deduplicate.store(deduplicate.into_inner(), Ordering::Relaxed);
         self.persistent.store(persistent.into_inner(), Ordering::Relaxed);
-        self.file_server_auto_close.store(file_server_auto_close.into_inner(), Ordering::Relaxed);
         *self.theme.lock().unwrap() = theme.into_inner().unwrap();
         self.capture_files.store(capture_files.into_inner(), Ordering::Relaxed);
         self.capture_rich_text.store(capture_rich_text.into_inner(), Ordering::Relaxed);
         self.rich_text_snapshot_preview.store(rich_text_snapshot_preview.into_inner(), Ordering::Relaxed);
-        self.auto_copy_file.store(auto_copy_file.into_inner(), Ordering::Relaxed);
         self.silent_start.store(silent_start.into_inner(), Ordering::Relaxed);
         self.delete_after_paste.store(delete_after_paste.into_inner(), Ordering::Relaxed);
         self.privacy_protection.store(privacy_protection.into_inner(), Ordering::Relaxed);

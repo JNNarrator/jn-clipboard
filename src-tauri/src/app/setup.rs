@@ -322,7 +322,6 @@ pub struct StartupSettings {
     pub capture_rich_text: bool,
     pub rich_text_snapshot_preview: bool,
     pub deduplicate: bool,
-    pub auto_copy_file: bool,
     pub silent_start: bool,
     pub delete_after_paste: bool,
     pub privacy_protection: bool,
@@ -349,7 +348,6 @@ pub struct StartupSettings {
     pub arrow_key_selection: bool,
     pub light_mode_enabled: bool,
     pub light_mode_idle_minutes: u64,
-    pub auto_close_server: bool,
     pub sound_volume: f64,
 }
 
@@ -384,11 +382,6 @@ pub(crate) fn load_settings(repo: &impl SettingsRepository) -> StartupSettings {
             .unwrap_or(Some("true".to_string()))
             .map(|v| v == "true")
             .unwrap_or(true),
-        auto_copy_file: repo
-            .get("file_transfer_auto_copy")
-            .unwrap_or(Some("false".to_string()))
-            .map(|v| v == "true")
-            .unwrap_or(false),
         silent_start: repo
             .get("app.silent_start")
             .unwrap_or(Some("true".to_string()))
@@ -511,11 +504,6 @@ pub(crate) fn load_settings(repo: &impl SettingsRepository) -> StartupSettings {
             .and_then(|v| v.parse::<u64>().ok())
             .map(|v| v.clamp(1, 240))
             .unwrap_or(15),
-        auto_close_server: repo
-            .get("file_transfer_auto_close")
-            .unwrap_or(Some("false".to_string()))
-            .map(|v| v == "true")
-            .unwrap_or(false),
         sound_volume: repo
             .get("app.sound_volume")
             .unwrap_or(Some("1.0".to_string()))
@@ -548,24 +536,6 @@ fn setup_state(
     crate::services::clipboard::start_session_file_sweeper(app.handle().clone(), &app_dir);
     crate::app::commands::thumbnail_cmd::init_thumbnail_cache(app.handle());
     app.manage(AppDataDir(std::sync::Mutex::new(app_dir)));
-    app.manage(crate::services::file_transfer::ChatState::default());
-    app.manage(crate::services::file_transfer::SharedFileState(
-        std::sync::Mutex::new(std::collections::HashMap::new()),
-    ));
-    app.manage(crate::services::file_transfer::ServerInfo {
-        port: std::sync::atomic::AtomicU16::new(0),
-        ip: std::sync::Mutex::new(String::new()),
-        access_token: std::sync::Mutex::new(String::new()),
-        lan_key: std::sync::Mutex::new(None),
-    });
-    app.manage(crate::services::file_transfer::UploadSessions::default());
-    app.manage(crate::services::file_transfer::ServerActivityState::default());
-    app.manage(crate::services::file_transfer::WsBroadcaster(
-        std::sync::Mutex::new(None),
-    ));
-    app.manage(crate::services::file_transfer::OnlineDevices(
-        std::sync::Mutex::new(std::collections::HashMap::new()),
-    ));
     app.manage(PasteQueue::default());
 }
 
@@ -574,12 +544,10 @@ pub(crate) fn settings_state_from(s: &StartupSettings) -> SettingsState {
     SettingsState {
         deduplicate: AtomicBool::new(s.deduplicate),
         persistent: AtomicBool::new(s.persistent),
-        file_server_auto_close: AtomicBool::new(s.auto_close_server),
         theme: std::sync::Mutex::new(s.theme.clone()),
         capture_files: AtomicBool::new(s.capture_files),
         capture_rich_text: AtomicBool::new(s.capture_rich_text),
         rich_text_snapshot_preview: AtomicBool::new(s.rich_text_snapshot_preview),
-        auto_copy_file: AtomicBool::new(s.auto_copy_file),
         silent_start: AtomicBool::new(s.silent_start),
         delete_after_paste: AtomicBool::new(s.delete_after_paste),
         privacy_protection: AtomicBool::new(s.privacy_protection),
@@ -1214,24 +1182,6 @@ fn start_services(app: &App, s: &StartupSettings, app_handle: AppHandle) {
     if crate::app::commands::system_cmd::check_is_admin() {
         std::thread::spawn(crate::infrastructure::windows_api::elevated_autostart::refresh_outdated_task);
     }
-    if db_state
-        .settings_repo
-        .get("file_server_enabled")
-        .unwrap_or(Some("false".to_string()))
-        == Some("true".to_string())
-    {
-        let port = db_state
-            .settings_repo
-            .get("file_server_port")
-            .unwrap_or(None)
-            .and_then(|x| x.parse::<u16>().ok());
-
-        let h = app_handle.clone();
-        tauri::async_runtime::spawn(async move {
-            let _ = crate::services::file_transfer::toggle_file_server(h, true, port).await;
-        });
-    }
-
     // Anonymous Analytics
     init_analytics(app, &db_state.settings_repo);
 

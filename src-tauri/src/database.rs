@@ -429,27 +429,6 @@ pub fn seed_defaults(conn: &Connection) -> Result<()> {
         [],
     );
 
-    // File transfer settings
-    let _ = conn.execute(
-        "INSERT OR IGNORE INTO settings (key, value) VALUES ('file_transfer_auto_close', 'false')",
-        [],
-    );
-    let _ = conn.execute(
-        "INSERT OR IGNORE INTO settings (key, value) VALUES ('file_transfer_auto_copy', 'false')",
-        [],
-    );
-    let _ = conn.execute(
-        "INSERT OR IGNORE INTO settings (key, value) VALUES ('file_server_enabled', 'false')",
-        [],
-    );
-    let _ = conn.execute(
-        // 12345 is NetBus's port, so port scans name TieZ a trojan (#157).
-        // Only new installs get the new one; saved ports (and phones that
-        // bookmarked them) stay as they are.
-        "INSERT OR IGNORE INTO settings (key, value) VALUES ('file_server_port', '28462')",
-        [],
-    );
-
     // Cloud sync settings
     let _ = conn.execute(
         "INSERT OR IGNORE INTO settings (key, value) VALUES ('cloud_sync_enabled', 'false')",

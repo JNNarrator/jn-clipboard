@@ -19,10 +19,8 @@ interface UseSettingsPanelPropsOptions {
   saveAppSetting: (key: string, val: string) => void;
   saveSetting: (key: string, val: string) => void;
   saveCloudSync: (key: string, val: string) => void;
-  fetchEffectiveTransferPath: () => void;
   handleResetSettings: () => void;
   toggleGroup: (group: string) => void;
-  onOpenChat?: () => void;
   state: AppState;
 }
 
@@ -40,10 +38,8 @@ export const useSettingsPanelProps = ({
   saveAppSetting,
   saveSetting,
   saveCloudSync,
-  fetchEffectiveTransferPath,
   handleResetSettings,
   toggleGroup,
-  onOpenChat,
   state
 }: UseSettingsPanelPropsOptions): SettingsPanelProps => {
   const {
@@ -135,21 +131,8 @@ export const useSettingsPanelProps = ({
     cloudSyncWebdavPassword,
     cloudSyncWebdavBasePath,
     cloudSyncContentPrefs,
-    fileServerEnabled,
-    fileServerPort,
-    localIp,
-    availableIps,
-    setLocalIp,
-    actualPort,
-    fileTransferAccessToken,
-    fileTransferLanKey,
-    fileTransferAutoOpen,
     soundVolume,
     setSoundVolume,
-    showAutoCloseHint,
-    fileServerAutoClose,
-    fileTransferAutoCopy,
-    fileTransferPath,
     installedApps,
     appSettings,
     defaultApps,
@@ -212,12 +195,6 @@ export const useSettingsPanelProps = ({
     setCloudSyncWebdavPassword,
     setCloudSyncWebdavBasePath,
     setCloudSyncContentPrefs,
-    setFileServerEnabled,
-    setFileServerPort,
-    setFileTransferAutoOpen,
-    setShowAutoCloseHint,
-    setFileServerAutoClose,
-    setFileTransferAutoCopy,
     setShowAppSelector,
   } = state;
 
@@ -315,21 +292,8 @@ export const useSettingsPanelProps = ({
     cloudSyncWebdavPassword,
     cloudSyncWebdavBasePath,
     cloudSyncContentPrefs,
-    fileServerEnabled,
-    fileServerPort,
-    localIp,
-    availableIps,
-    setLocalIp,
-    actualPort,
-    fileTransferAccessToken,
-    fileTransferLanKey,
-    fileTransferAutoOpen,
     soundVolume,
     setSoundVolume,
-    showAutoCloseHint,
-    fileServerAutoClose,
-    fileTransferAutoCopy,
-    fileTransferPath,
     installedApps,
     appSettings,
     defaultApps,
@@ -401,16 +365,8 @@ export const useSettingsPanelProps = ({
     setCloudSyncWebdavBasePath,
     setCloudSyncContentPrefs,
     saveCloudSync,
-    setFileServerEnabled,
-    setFileServerPort,
-    setFileTransferAutoOpen,
-    setShowAutoCloseHint,
-    setFileServerAutoClose,
-    setFileTransferAutoCopy,
-    fetchEffectiveTransferPath,
     setShowAppSelector,
     handleResetSettings,
-    onOpenChat,
-    saveSetting,
+      saveSetting,
   };
 };

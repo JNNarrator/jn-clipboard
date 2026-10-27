@@ -1013,20 +1013,6 @@
   line-height: 16px;
 }
 
-.settings-view .file-transfer-panel {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 2px 0 0;
-  padding: 12px;
-  background: color-mix(in srgb, var(--bg-element) 60%, transparent);
-  border: 1px solid var(--st-divider);
-  border-radius: var(--st-control-radius);
-  box-shadow: none;
-  color: var(--text-primary);
-  overflow: hidden;
-}
-
 .settings-view .config-share-panel {
   display: flex;
   align-items: center;
@@ -1202,12 +1188,6 @@
 }
 
 @media (max-width: 360px) {
-  .settings-view .file-transfer-panel {
-    align-items: flex-start;
-    gap: 10px;
-    padding: 10px;
-  }
-
   .settings-view .qr-container {
     min-width: 78px;
   }

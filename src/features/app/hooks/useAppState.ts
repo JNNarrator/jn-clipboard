@@ -40,7 +40,6 @@ export const useAppState = (): AppState => {
   const [appSettings, setAppSettings] = useState<Record<string, string>>({});
   const [defaultApps, setDefaultApps] = useState<DefaultAppsMap>({});
   const [showAppSelector, setShowAppSelector] = useState<string | null>(null);
-  const [chatMode, setChatMode] = useState(false);
   const [installedApps, setInstalledApps] = useState<InstalledAppOption[]>([]);
   const [dataPath, setDataPath] = useState<string>("");
   const [hotkey, setHotkey] = useState<string>("Alt+C");
@@ -128,17 +127,6 @@ export const useAppState = (): AppState => {
   const [cloudSyncWebdavBasePath, setCloudSyncWebdavBasePath] = useState("tiez-sync");
   const [cloudSyncContentPrefs, setCloudSyncContentPrefs] =
     useState<CloudSyncContentPrefs>(DEFAULT_CLOUD_SYNC_CONTENT_PREFS);
-  const [fileServerEnabled, setFileServerEnabled] = useState(false);
-  const [fileServerPort, setFileServerPort] = useState("28462");
-  const [localIp, setLocalIp] = useState("");
-  const [availableIps, setAvailableIps] = useState<string[]>([]);
-  const [actualPort, setActualPort] = useState("");
-  const [fileTransferAccessToken, setFileTransferAccessToken] = useState("");
-  const [fileTransferLanKey, setFileTransferLanKey] = useState("");
-  const [fileTransferPath, setFileTransferPath] = useState("");
-  const [fileTransferAutoOpen, setFileTransferAutoOpen] = useState(false);
-  const [fileTransferAutoCopy, setFileTransferAutoCopy] = useState(false);
-  const [fileServerAutoClose, setFileServerAutoClose] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [pasteSoundEnabled, setPasteSoundEnabled] = useState(true);
   const [soundVolume, setSoundVolume] = useState(1.0);
@@ -193,8 +181,6 @@ export const useAppState = (): AppState => {
     setDefaultApps,
     showAppSelector,
     setShowAppSelector,
-    chatMode,
-    setChatMode,
     installedApps,
     setInstalledApps,
     dataPath,
@@ -351,28 +337,6 @@ export const useAppState = (): AppState => {
     setCloudSyncWebdavBasePath,
     cloudSyncContentPrefs,
     setCloudSyncContentPrefs,
-    fileServerEnabled,
-    setFileServerEnabled,
-    fileServerPort,
-    setFileServerPort,
-    localIp,
-    setLocalIp,
-    availableIps,
-    setAvailableIps,
-    actualPort,
-    setActualPort,
-    fileTransferAccessToken,
-    setFileTransferAccessToken,
-    fileTransferLanKey,
-    setFileTransferLanKey,
-    fileTransferPath,
-    setFileTransferPath,
-    fileTransferAutoOpen,
-    setFileTransferAutoOpen,
-    fileTransferAutoCopy,
-    setFileTransferAutoCopy,
-    fileServerAutoClose,
-    setFileServerAutoClose,
     soundEnabled,
     setSoundEnabled,
     pasteSoundEnabled,

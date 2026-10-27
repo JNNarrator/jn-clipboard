@@ -77,21 +77,6 @@ html.theme-macos .history-item.compact {
     min-height: 28px;
 }
 
-/* ---- From components/file-transfer.css ---- */
-
-.theme-mica .wt-chat-view,
-.theme-acrylic .wt-chat-view,
-.theme-macos .wt-chat-view {
-  /* Let the native glass show through exactly as it does behind the main list. */
-  --im-canvas: transparent;
-  --im-canvas-shade: transparent;
-  --im-canvas-pattern: none;
-  --im-header: color-mix(in srgb, var(--bg-toolbar) 78%, transparent);
-  --im-surface: color-mix(in srgb, var(--bg-input) 86%, transparent);
-  --im-input: color-mix(in srgb, var(--bg-input) 92%, transparent);
-  --im-incoming: color-mix(in srgb, var(--bg-input) 88%, var(--bg-panel) 12%);
-}
-
 /* ---- From components/tags.css ---- */
 
 .theme-mica .search-input.dropdown-open,

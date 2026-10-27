@@ -7,7 +7,6 @@ import { isTauriRuntime } from "../lib/tauriRuntime";
 interface UseNavigationSyncOptions {
   showSettings: boolean;
   showTagManager: boolean;
-  chatMode: boolean;
   /** A note or tag is being edited in the list or the detail pane. */
   editingInline: boolean;
 }
@@ -37,7 +36,6 @@ const clearRestoredActionFocus = () => {
 export const useNavigationSync = ({
   showSettings,
   showTagManager,
-  chatMode,
   editingInline
 }: UseNavigationSyncOptions) => {
   const syncNavigationEnabled = useCallback(() => {
@@ -47,7 +45,7 @@ export const useNavigationSync = ({
     // and Esc from the text box, and Esc hid the window instead of
     // cancelling the edit.
     const shouldDisableNavigation =
-      showSettings || showTagManager || chatMode || editingInline;
+      showSettings || showTagManager || editingInline;
     if (shouldDisableNavigation) {
       invoke("set_navigation_enabled", { enabled: false }).catch(console.error);
       return;
@@ -62,7 +60,7 @@ export const useNavigationSync = ({
       .catch(() => {
         invoke("set_navigation_enabled", { enabled: false }).catch(console.error);
       });
-  }, [showSettings, showTagManager, chatMode, editingInline]);
+  }, [showSettings, showTagManager, editingInline]);
 
   useEffect(() => {
     if (!isTauriRuntime()) return;
@@ -71,7 +69,7 @@ export const useNavigationSync = ({
       if (!isTauriRuntime()) return;
       clearRestoredActionFocus();
       const shouldDisableNavigation =
-        showSettings || showTagManager || chatMode || editingInline;
+        showSettings || showTagManager || editingInline;
       if (shouldDisableNavigation) {
         invoke("set_navigation_enabled", { enabled: false }).catch(console.error);
         return;
@@ -97,5 +95,5 @@ export const useNavigationSync = ({
       unlistenClipboardShown.then((unlisten) => unlisten()).catch(() => {});
       unlistenHide.then((unlisten) => unlisten()).catch(() => {});
     };
-  }, [syncNavigationEnabled, showSettings, showTagManager, chatMode, editingInline]);
+  }, [syncNavigationEnabled, showSettings, showTagManager, editingInline]);
 };

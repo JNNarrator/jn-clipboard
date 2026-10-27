@@ -4,7 +4,6 @@ import type { DragControls } from "framer-motion";
 import { ArrowUp, Clipboard } from "lucide-react";
 import SettingsPanel from "../../settings/components/SettingsPanel";
 import { VirtualClipboardList } from "../../clipboard/components/VirtualClipboardList";
-import FileTransferChatView from "../../file-transfer/components/FileTransferChatView";
 import TagManager from "../../tag/components/TagManager";
 import type { ClipboardEntry } from "../../../shared/types";
 import type { VirtualClipboardListHandle } from "../../clipboard/types";
@@ -24,11 +23,6 @@ interface AppMainContentProps {
   showSettings: boolean;
   showTagManager: boolean;
   tagManagerEnabled: boolean;
-  chatMode: boolean;
-  localIp: string;
-  actualPort: string;
-  fileTransferAccessToken: string;
-  fileTransferLanKey: string;
   settingsPanelProps: SettingsPanelProps;
   filteredHistory: ClipboardEntry[];
   search: string;
@@ -98,11 +92,6 @@ const AppMainContent = ({
   showSettings,
   showTagManager,
   tagManagerEnabled,
-  chatMode,
-  localIp,
-  actualPort,
-  fileTransferAccessToken,
-  fileTransferLanKey,
   settingsPanelProps,
   filteredHistory,
   search,
@@ -156,24 +145,6 @@ const AppMainContent = ({
   }
 
   if (showSettings) {
-    if (chatMode) {
-      return (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          style={{ height: "100%", overflow: "hidden" }}
-        >
-          <FileTransferChatView
-            t={t}
-            localIp={localIp}
-            actualPort={actualPort}
-            accessToken={fileTransferAccessToken}
-            lanKey={fileTransferLanKey}
-          />
-        </motion.div>
-      );
-    }
-
     return (
       <div className="settings-view">
         <SettingsPanel {...settingsPanelProps} />

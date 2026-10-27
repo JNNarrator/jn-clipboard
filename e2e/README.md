@@ -26,7 +26,7 @@ npm run harness -- --port 1422            # 只开预览，手动看界面
   单个测试需要别的设置时用 URL 参数：`/?set=app.arrow_key_selection:true,ai_enabled:true`。
 - 新复制的内容：`window.__pushItem({...})` 会走真实的 `clipboard-updated` 事件；推之前用
   `window.__listenerCount('clipboard-updated') > 0` 确认 app 已在监听。
-- `harness/preview-state.ts` 只负责 `?view=transfer`、`?compact=1` 等预览专用的视图切换。
+- `harness/preview-state.ts` 只负责 `?compact=1`、`?theme=` 等预览专用的视图切换。
 - mock 没实现的命令会抛 `audit preview: <cmd> unavailable`（`set_*` 一律接受）；测试会忽略这类
   harness 缺口，其他页面错误都会让测试失败。
 

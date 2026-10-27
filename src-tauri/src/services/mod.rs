@@ -4,7 +4,6 @@ pub mod clipboard_ops;
 pub mod cloud_sync;
 pub mod content_handler;
 pub mod encryption_queue;
-pub mod file_transfer;
 pub mod network_recovery;
 pub mod paste_queue;
 pub mod sensitive_align;

@@ -37,7 +37,7 @@ rusqlite = { version = "0.31", features = ["bundled"] }
 arboard = "3"
 clipboard-rs = "0.2"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "bmp", "gif", "webp"] }
-tokio = { version = "1", features = ["time"] }
+tokio = { version = "1", features = ["time", "macros"] }
 tauri-plugin-dialog = "2.7"
 tauri-plugin-global-shortcut = "2.3.1"
 window-vibrancy = "0.8"
@@ -48,12 +48,9 @@ rayon = "1.10"
 regex = "1.12.2"
 tauri-plugin-single-instance = "2"
 tauri-plugin-window-state = "2"
-axum = { version = "0.8.8", features = ["multipart", "ws", "macros"] }
 local-ip-address = "0.6.8"
-tokio-util = { version = "0.7.18", features = ["io"] }
 futures = "0.3.31"
 fs2 = "0.4.3"
-axum-extra = { version = "0.12.5", features = ["multipart"] }
 uuid = { version = "1.19.0", features = ["v4"] }
 mime_guess = "2.0.5"
 urlencoding = "2.1.3"

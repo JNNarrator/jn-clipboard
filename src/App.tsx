@@ -140,7 +140,6 @@ const buildQuickPasteHintsById = (
 
 const App = () => {
   useFocusCoordinator();
-  type FileTransferSourceView = "clipboard" | "settings" | "tag_manager";
 
   const appState = useAppState();
   const {
@@ -185,8 +184,6 @@ const App = () => {
     setPersistentLimit,
     setAppSettings,
     setDefaultApps,
-    chatMode,
-    setChatMode,
     setInstalledApps,
     setDataPath,
     hotkey,
@@ -311,25 +308,6 @@ const App = () => {
     setCloudSyncWebdavPassword,
     setCloudSyncWebdavBasePath,
     setCloudSyncContentPrefs,
-    fileServerEnabled,
-    setFileServerEnabled,
-    setFileServerPort,
-    localIp,
-    setLocalIp,
-    setAvailableIps,
-    actualPort,
-    setActualPort,
-    fileTransferAccessToken,
-    setFileTransferAccessToken,
-    fileTransferLanKey,
-    setFileTransferLanKey,
-    setFileTransferPath,
-    setFileTransferAutoOpen,
-    setFileTransferAutoCopy,
-    setFileServerAutoClose,
-    fileTransferAutoOpen,
-    fileTransferAutoCopy,
-    fileServerAutoClose,
     setSoundEnabled,
     setPasteSoundEnabled,
     soundVolume,
@@ -354,9 +332,6 @@ const App = () => {
   // -------------------------
 
   const effectiveShowTagManager = showTagManager && tagManagerEnabled;
-  const [fileTransferSourceView, setFileTransferSourceView] =
-    useState<FileTransferSourceView>("clipboard");
-
   const debouncedSearch = useDebounce(search, 200);
   const deferredSearch = useDeferredValue(search);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -421,38 +396,7 @@ const App = () => {
 
   const showScrollTopVisible = showScrollTop && scrollTopButtonEnabled;
 
-  const getCurrentSourceView = useCallback((): FileTransferSourceView => {
-    if (effectiveShowTagManager) return "tag_manager";
-    if (showSettings) return "settings";
-    return "clipboard";
-  }, [effectiveShowTagManager, showSettings]);
-
-  const restoreViewAfterChat = useCallback(
-    (sourceView: FileTransferSourceView) => {
-      setShowTagManager(sourceView === "tag_manager");
-      setShowSettings(sourceView === "settings");
-    },
-    [setShowSettings, setShowTagManager]
-  );
-
-  const openFileTransfer = useCallback(() => {
-    const sourceView = getCurrentSourceView();
-    setFileTransferSourceView(sourceView);
-    setShowTagManager(false);
-    setShowSettings(true);
-    setChatMode(true);
-  }, [getCurrentSourceView, setChatMode, setShowSettings, setShowTagManager]);
-
-  const closeFileTransfer = useCallback(() => {
-    setChatMode(false);
-    restoreViewAfterChat(fileTransferSourceView);
-  }, [fileTransferSourceView, restoreViewAfterChat, setChatMode]);
-
   const handleHeaderBack = useCallback(() => {
-    if (chatMode) {
-      closeFileTransfer();
-      return;
-    }
     if (effectiveShowTagManager) {
       setShowTagManager(false);
       return;
@@ -465,8 +409,6 @@ const App = () => {
       setShowSettings(false);
     }
   }, [
-    chatMode,
-    closeFileTransfer,
     effectiveShowTagManager,
     setShowSettings,
     setSettingsSubpage,
@@ -474,14 +416,6 @@ const App = () => {
     settingsSubpage,
     showSettings
   ]);
-
-  const handleToggleHeaderChat = useCallback(() => {
-    if (chatMode) {
-      closeFileTransfer();
-      return;
-    }
-    openFileTransfer();
-  }, [chatMode, closeFileTransfer, openFileTransfer]);
 
   const handleListScroll = useCallback((offset: number) => {
     handleSearchScroll(offset);
@@ -559,12 +493,6 @@ const App = () => {
 
   const { toasts, pushToast, confirmDialog, openConfirm, closeConfirm } = useOverlays(t);
 
-
-  const fetchEffectiveTransferPath = useCallback(() => {
-    invoke<string>("get_active_file_transfer_path")
-      .then(setFileTransferPath)
-      .catch(console.error);
-  }, [setFileTransferPath]);
 
   const { announcements, dismissAnnouncement } = useAnnouncements();
 
@@ -647,10 +575,6 @@ const App = () => {
     setCloudSyncWebdavPassword,
     setCloudSyncWebdavBasePath,
     setCloudSyncContentPrefs,
-    setFileServerAutoClose,
-    setFileTransferAutoOpen,
-    setFileTransferAutoCopy,
-    setFileServerPort,
     setSequentialHotkey,
     setPlainPasteHotkey,
     setSearchHotkey,
@@ -666,7 +590,6 @@ const App = () => {
   const focusSearchBox = useCallback(() => {
     setShowSettings(false);
     setShowTagManager(false);
-    setChatMode(false);
     setShowSearchBox(true);
     setSearchIsFocused(true);
     focusClipboardWindow()
@@ -679,7 +602,6 @@ const App = () => {
   }, [
     setShowSettings,
     setShowTagManager,
-    setChatMode,
     setShowSearchBox,
     setSearchIsFocused,
     searchInputRef
@@ -718,7 +640,7 @@ const App = () => {
   useEffect(() => {
     const onFind = (event: KeyboardEvent) => {
       if (isRecording || isRecordingSequential || isRecordingPlain || isRecordingSearch) return;
-      if (showSettings || effectiveShowTagManager || chatMode) return;
+      if (showSettings || effectiveShowTagManager) return;
 
       const key = event.key.toLowerCase();
       const isFind =
@@ -740,7 +662,6 @@ const App = () => {
     isRecordingSearch,
     showSettings,
     effectiveShowTagManager,
-    chatMode,
     focusSearchBox
   ]);
 
@@ -751,18 +672,11 @@ const App = () => {
   }, [tagManagerEnabled, showTagManager, setShowTagManager]);
 
   useAppBootstrap({
-    fetchEffectiveTransferPath,
     setDataPath,
     setInstalledApps,
     setAutoStart,
     setElevatedAutostart,
     setDefaultApps,
-    setFileServerEnabled,
-    setActualPort,
-    setFileTransferAccessToken,
-    setFileTransferLanKey,
-    setLocalIp,
-    setAvailableIps,
     setWinClipboardDisabled
   });
 
@@ -896,9 +810,6 @@ const App = () => {
     saveAppSetting,
     captureFiles,
     captureRichText,
-    fileTransferAutoCopy,
-    fileServerAutoClose,
-    fileTransferAutoOpen,
     persistent,
     arrowKeySelection,
     soundVolume,
@@ -939,7 +850,6 @@ const App = () => {
   useNavigationSync({
     showSettings,
     showTagManager: effectiveShowTagManager,
-    chatMode,
     editingInline: editingTagsId !== null || editingNoteId !== null
   });
 
@@ -1010,7 +920,7 @@ const App = () => {
   }, [setSelectedIndex, setSelectedItemId, setIsKeyboardMode]);
   const { splitActive, detailItem, handleListMouseMove, handleListMouseLeave, focusDetailItem } = useSplitView({
     enabled: splitViewEnabled,
-    listVisible: !showSettings && !effectiveShowTagManager && !chatMode,
+    listVisible: !showSettings && !effectiveShowTagManager,
     items: navigableHistory,
     selectedItemId,
     isKeyboardMode,
@@ -1097,7 +1007,6 @@ const App = () => {
     setIsKeyboardMode,
     showSettings,
     showTagManager: effectiveShowTagManager,
-    chatMode,
     editingTagsId,
     editingNoteId,
     arrowKeySelection,
@@ -1163,10 +1072,8 @@ const App = () => {
     saveAppSetting,
     saveSetting,
     saveCloudSync,
-    fetchEffectiveTransferPath,
     handleResetSettings,
     toggleGroup,
-    onOpenChat: openFileTransfer,
     state: appState
   });
 
@@ -1182,8 +1089,6 @@ const App = () => {
         showTagManager={effectiveShowTagManager}
         setShowTagManager={setShowTagManager}
         tagManagerEnabled={tagManagerEnabled}
-        chatMode={chatMode}
-        fileServerEnabled={fileServerEnabled}
         isWindowPinned={isWindowPinned}
         setIsWindowPinned={setIsWindowPinned}
         clearHistory={clearHistory}
@@ -1211,7 +1116,6 @@ const App = () => {
         clipboardSortMode={clipboardSortMode}
         onClipboardSortModeChange={updateClipboardSortMode}
         onBack={handleHeaderBack}
-        onToggleChat={handleToggleHeaderChat}
       />
 
       <AnnouncementSystem
@@ -1221,7 +1125,7 @@ const App = () => {
 
       <main
         ref={mainRef}
-        className={`main-content${chatMode ? " file-transfer-mode" : ""}${effectiveShowTagManager ? " tag-manager-mode" : ""}${showSettings ? " settings-mode" : ""}${splitActive ? " is-split" : ""}`}
+        className={`main-content${effectiveShowTagManager ? " tag-manager-mode" : ""}${showSettings ? " settings-mode" : ""}${splitActive ? " is-split" : ""}`}
         style={{
           padding: effectiveShowTagManager ? "0" : undefined,
           ...(splitRatio != null
@@ -1242,11 +1146,6 @@ const App = () => {
             showSettings={showSettings}
             showTagManager={effectiveShowTagManager}
             tagManagerEnabled={tagManagerEnabled}
-            chatMode={chatMode}
-            localIp={localIp}
-            actualPort={actualPort}
-            fileTransferAccessToken={fileTransferAccessToken}
-            fileTransferLanKey={fileTransferLanKey}
             settingsPanelProps={settingsPanelProps}
             filteredHistory={filteredHistory}
             search={search}

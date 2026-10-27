@@ -590,7 +590,9 @@ fn is_setting_sync_eligible(key: &str) -> bool {
             | "cloud_sync_webdav_last_snapshot_pull_at"
             | "cloud_sync_webdav_last_head_rebuild_at"
             | "cloud_sync_settings_applied_at"
-            // Bound to this machine: its own MQTT session, local paths/ports.
+            // Bound to this machine and left over from removed features (MQTT
+            // session, LAN server). Old databases still hold the rows, so they
+            // must not start travelling to peers just because nothing reads them.
             | "mqtt_client_id"
             | "mqtt_last_retained_sha256"
             | "file_server_enabled"

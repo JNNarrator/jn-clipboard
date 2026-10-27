@@ -15,10 +15,7 @@ export const DEFAULT_COLLAPSED_GROUPS: Record<string, boolean> = {
   general: true,
   clipboard: true,
   appearance: true,
-  sync: true,
   cloud_sync: true,
-  e2e: true,
-  file_transfer: true,
   default_apps: true,
   secure_transfer: true,
   data: true

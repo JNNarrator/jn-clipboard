@@ -4,7 +4,6 @@ import {
   ArrowUpDown,
   Check,
   ChevronLeft,
-  MessageSquare,
   Pin,
   PinOff,
   Search,
@@ -27,8 +26,6 @@ interface AppHeaderProps {
   showTagManager: boolean;
   setShowTagManager: (val: boolean) => void;
   tagManagerEnabled: boolean;
-  chatMode: boolean;
-  fileServerEnabled: boolean;
   isWindowPinned: boolean;
   setIsWindowPinned: (val: boolean) => void;
   clearHistory: () => void;
@@ -52,7 +49,6 @@ interface AppHeaderProps {
   clipboardSortMode: ClipboardSortMode;
   onClipboardSortModeChange: (val: ClipboardSortMode) => void;
   onBack: () => void;
-  onToggleChat: () => void;
 }
 
 const AppHeader = ({
@@ -62,8 +58,6 @@ const AppHeader = ({
   showTagManager,
   setShowTagManager,
   tagManagerEnabled,
-  chatMode,
-  fileServerEnabled,
   isWindowPinned,
   setIsWindowPinned,
   clearHistory,
@@ -87,7 +81,6 @@ const AppHeader = ({
   clipboardSortMode,
   onClipboardSortModeChange,
   onBack,
-  onToggleChat
 }: AppHeaderProps) => {
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const sortMenuRef = useRef<HTMLDivElement | null>(null);
@@ -158,7 +151,7 @@ const AppHeader = ({
   const headerTitle = showTagManager && tagManagerEnabled
     ? t('tag_manager')
     : showSettings
-      ? (chatMode ? t('file_transfer') : settingsTitle)
+      ? settingsTitle
       : t('app_name');
 
   const hideWindow = (e: MouseEvent<HTMLButtonElement>) => {
@@ -246,17 +239,6 @@ const AppHeader = ({
               </button>
             </>
           )}
-          {fileServerEnabled && (
-            <button
-              className={`btn-icon header-chat-btn ${chatMode && showSettings ? 'active' : ''}`}
-              title={t('file_transfer')}
-              aria-label={t('file_transfer')}
-              onClick={onToggleChat}
-            >
-              <MessageSquare size={16} />
-            </button>
-          )}
-
           {!isMac && (
             <button
               className="btn-icon windows-close-btn"

@@ -55,13 +55,11 @@ Eight built-in themes; four of them:
 
 ### Management & Enhancements
 - **Tag System**: Organize your history with custom multi-color tags.
-- **Emoji Library**: Comprehensive built-in emoji management for quick access.
 - **Advanced Settings**: Granular control over cleanup rules and app behavior.
 - **Privacy Masking**: Auto-masks sensitive info like IDs and phone numbers in previews.
 
 ### Networking & Transport
 - **WebDAV Sync**: Your data, your cloud. Complete cross-device history.
-- **LAN File Transfer**: Seamlessly move items between devices on the same network.
 
 ### Productivity Tools
 - **External Collaboration**: Open items in external editors with auto-sync back.

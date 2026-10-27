@@ -1,15 +1,6 @@
-// Audit-only: lets the browser preview render the file transfer view with sample messages.
+// Audit-only: mirrors the browser preview of the real backend commands.
 export * from '../../node_modules/@tauri-apps/api/core.js';
 import { backendCommands } from './mock-backend';
-
-const now = Date.now();
-const chat = [
-  { id: 1, direction: 'in', msg_type: 'text', content: '手机发来的一段文字：会议纪要已整理好。', timestamp: now - 600000, sender_name: '我的手机' },
-  { id: 2, direction: 'out', msg_type: 'text', content: '收到，我在电脑上看一下。', timestamp: now - 540000, sender_name: '电脑' },
-  { id: 3, direction: 'in', msg_type: 'file', content: '项目报价单.pdf', file_path: '/tmp/项目报价单.pdf', file_size: 482133, timestamp: now - 300000, sender_name: '我的手机' },
-  { id: 4, direction: 'out', msg_type: 'file', content: '设计稿-v3.fig', file_path: '/tmp/设计稿-v3.fig', file_size: 12840000, timestamp: now - 120000, sender_name: '电脑' },
-];
-
 
 const tagItems = Array.from({ length: 14 }, (_, i) => ({ id: 70000 + i, content_type: 'text', content: `带标签的记录 ${i + 1}：会议纪要与待办事项`, preview: `带标签的记录 ${i + 1}：会议纪要与待办事项`, source_app: ['浏览器', '微信', '备忘录'][i % 3], timestamp: Date.now() - i * 3600000, is_pinned: false, tags: ['工作'], use_count: i % 4 }));
 export async function invoke(cmd: string, _args?: unknown): Promise<unknown> {
@@ -21,7 +12,5 @@ export async function invoke(cmd: string, _args?: unknown): Promise<unknown> {
   if (backendCommands[cmd]) return backendCommands[cmd]((_args ?? {}) as Record<string, unknown>);
   // Setters only push state into Rust; accepting them keeps the console clean.
   if (cmd.startsWith('set_')) return null;
-  if (cmd === 'get_chat_history') return chat;
-  if (cmd === 'get_available_network_interfaces') return [{ name: 'en0', ip: '192.168.1.23', is_virtual: false, label: 'Wi-Fi' }];
   throw new Error(`audit preview: ${cmd} unavailable`);
 }

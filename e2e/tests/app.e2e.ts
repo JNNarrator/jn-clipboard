@@ -653,12 +653,6 @@ test('紧凑模式：列表条目使用紧凑布局，默认模式不使用', as
   await expect.poll(compactItems).toBeGreaterThan(0);
 });
 
-test('局域网互传视图：加载并显示聊天记录', async ({ app, screen }) => {
-  await app.open('/?view=transfer');
-  await expect(screen.getByText('局域网互传')).toBeVisible();
-  await expect(screen.getByText('手机发来的一段文字：会议纪要已整理好。')).toBeVisible();
-});
-
 // ?crash=1 injects an image record with content=null; ClipboardItem throws on
 // it. This checks the safety net, not the record handling: the window must
 // show the ErrorBoundary fallback with a working reload, never go blank.

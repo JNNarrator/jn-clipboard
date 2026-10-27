@@ -11,11 +11,9 @@ import {
     Database,
     Info,
     ListFilter,
-    MessageSquareText,
     Palette,
     Settings2,
     ShieldCheck,
-    Wifi,
     type LucideIcon
 } from "lucide-react";
 import type { Locale } from "../../../shared/types";
@@ -31,7 +29,6 @@ import AppearanceSettingsGroup from "./groups/AppearanceSettingsGroup";
 import CloudSyncSettingsGroup, { type CloudSyncStatusPayload } from "./groups/CloudSyncSettingsGroup";
 import DefaultAppsSettingsGroup from "./groups/DefaultAppsSettingsGroup";
 import DataSettingsGroup from "./groups/DataSettingsGroup";
-import FileTransferSettingsGroup from "./groups/FileTransferSettingsGroup";
 import { useUnreadableSecrets } from "../useUnreadableSecrets";
 import SettingsFooter from "./SettingsFooter";
 import { LabelWithHint, SettingsHintProvider } from "./SettingsHint";
@@ -159,19 +156,6 @@ interface SettingsPanelProps {
     cloudSyncContentPrefs: CloudSyncContentPrefs;
     setCloudSyncContentPrefs: (val: CloudSyncContentPrefs) => void;
 
-    fileServerEnabled: boolean;
-    fileServerPort: string;
-    localIp: string;
-    availableIps?: string[];
-    setLocalIp?: (val: string) => void;
-    actualPort: string;
-    fileTransferAccessToken: string;
-    fileTransferLanKey: string;
-    fileTransferAutoOpen: boolean;
-    showAutoCloseHint: boolean;
-    fileServerAutoClose: boolean;
-    fileTransferAutoCopy: boolean;
-    fileTransferPath: string;
 
     installedApps: InstalledAppOption[];
     appSettings: Record<string, string>;
@@ -237,18 +221,8 @@ interface SettingsPanelProps {
     setCloudSyncWebdavBasePath: (val: string) => void;
     saveCloudSync: (key: string, val: string) => void;
 
-    setFileServerEnabled: (val: boolean) => void;
-    setFileServerPort: (val: string) => void;
-    setFileTransferAutoOpen: (val: boolean) => void;
-    setShowAutoCloseHint: (val: boolean) => void;
-    setFileServerAutoClose: (val: boolean) => void;
-    setFileTransferAutoCopy: (val: boolean) => void;
-    fetchEffectiveTransferPath: () => void;
-
     setShowAppSelector: (val: string | null) => void;
     handleResetSettings: () => void;
-    onOpenChat?: () => void;
-
     saveSetting: (key: string, val: string) => void;
 }
 
@@ -262,9 +236,7 @@ const SECTION_ICONS: Record<string, LucideIcon> = {
     clipboard: Clipboard,
     [ADVANCED_ENTRY]: ListFilter,
     default_apps: AppWindow,
-    sync: MessageSquareText,
     cloud_sync: Cloud,
-    file_transfer: Wifi,
     secure_transfer: ShieldCheck,
     data: Database
 };
@@ -272,7 +244,7 @@ const SECTION_ICONS: Record<string, LucideIcon> = {
 const NAV_GROUPS: { labelKey: string; ids: string[] }[] = [
     { labelKey: "settings_nav_group_basic", ids: ["general", "appearance"] },
     { labelKey: "settings_nav_group_clipboard", ids: ["clipboard", ADVANCED_ENTRY, "default_apps"] },
-    { labelKey: "settings_nav_group_sync", ids: ["sync", "cloud_sync", "file_transfer"] },
+    { labelKey: "settings_nav_group_sync", ids: ["cloud_sync"] },
     { labelKey: "settings_nav_group_data", ids: ["secure_transfer", "data"] }
 ];
 
@@ -294,7 +266,6 @@ const SettingsPanel = (props: SettingsPanelProps) => {
         customBackgroundOpacity, setCustomBackgroundOpacity,
         surfaceOpacity, setSurfaceOpacity,
         cloudSyncEnabled, cloudSyncAuto, cloudSyncIntervalSec, cloudSyncSnapshotIntervalMin, cloudSyncWebdavUrl, cloudSyncWebdavUsername, cloudSyncWebdavPassword, cloudSyncWebdavBasePath, cloudSyncContentPrefs,
-        fileServerEnabled, fileServerPort, localIp, availableIps, setLocalIp, actualPort, fileTransferAccessToken, fileTransferLanKey, fileTransferAutoOpen, showAutoCloseHint, fileServerAutoClose, fileTransferAutoCopy, fileTransferPath,
         installedApps, appSettings, defaultApps, showAppSelector, dataPath,
 
         toggleGroup, setSettingsSubpage, setAutoStart, setElevatedAutostart, setSilentStart, setPersistent, setPersistentLimitEnabled, setPersistentLimit, setDeduplicate, setCaptureFiles, setCaptureRichText, setRichTextSnapshotPreview, setDeleteAfterPaste, setMoveToTopAfterPaste, setClickCopyOnly, saveAppSetting,
@@ -307,10 +278,7 @@ const SettingsPanel = (props: SettingsPanelProps) => {
         clipboardItemFontSize, setClipboardItemFontSize, clipboardTagFontSize, setClipboardTagFontSize,
         tagManagerEnabled, setTagManagerEnabled,
         setCloudSyncEnabled, setCloudSyncAuto, setCloudSyncIntervalSec, setCloudSyncSnapshotIntervalMin, setCloudSyncWebdavUrl, setCloudSyncWebdavUsername, setCloudSyncWebdavPassword, setCloudSyncWebdavBasePath, setCloudSyncContentPrefs, saveCloudSync,
-        setFileServerEnabled, setFileServerPort, setFileTransferAutoOpen, setShowAutoCloseHint, setFileServerAutoClose, setFileTransferAutoCopy, fetchEffectiveTransferPath,
-        setShowAppSelector, handleResetSettings,
-        saveSetting,
-        onOpenChat
+        setShowAppSelector, handleResetSettings
     } = props;
 
     const [emailCopied, setEmailCopied] = useState(false);
@@ -349,18 +317,6 @@ const SettingsPanel = (props: SettingsPanelProps) => {
         max: 320,
         minRest: 360
     });
-
-    const applyFileServerPort = async (portStr: string) => {
-        const port = Number(portStr);
-        if (!Number.isInteger(port) || port < 1 || port > 65535) return;
-        if (!fileServerEnabled) return;
-        try {
-            await invoke("toggle_file_server", { enabled: false });
-            await invoke("toggle_file_server", { enabled: true, port });
-        } catch (e) {
-            console.error(e);
-        }
-    };
 
     const handleCloudSyncNow = async () => {
         if (!CLOUD_SYNC_ENABLED) return;
@@ -614,39 +570,6 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                 )
             }]
             : []),
-        {
-            id: "file_transfer",
-            label: t("file_transfer"),
-            node: (
-                <FileTransferSettingsGroup
-                    t={t}
-                    {...groupState('file_transfer')}
-                    fileServerEnabled={fileServerEnabled}
-                    setFileServerEnabled={setFileServerEnabled}
-                    fileServerPort={fileServerPort}
-                    setFileServerPort={setFileServerPort}
-                    applyFileServerPort={applyFileServerPort}
-                    localIp={localIp}
-                    availableIps={availableIps}
-                    setLocalIp={setLocalIp}
-                    actualPort={actualPort}
-                    accessToken={fileTransferAccessToken}
-                    lanKey={fileTransferLanKey}
-                    fileTransferAutoOpen={fileTransferAutoOpen}
-                    setFileTransferAutoOpen={setFileTransferAutoOpen}
-                    showAutoCloseHint={showAutoCloseHint}
-                    setShowAutoCloseHint={setShowAutoCloseHint}
-                    fileServerAutoClose={fileServerAutoClose}
-                    setFileServerAutoClose={setFileServerAutoClose}
-                    fileTransferAutoCopy={fileTransferAutoCopy}
-                    setFileTransferAutoCopy={setFileTransferAutoCopy}
-                    onOpenChat={onOpenChat}
-                    fileTransferPath={fileTransferPath}
-                    saveSetting={saveSetting}
-                    fetchEffectiveTransferPath={fetchEffectiveTransferPath}
-                />
-            )
-        },
         {
             id: "default_apps",
             label: t("default_apps"),

@@ -19,7 +19,6 @@ interface UseKeyboardNavigationOptions {
   setIsKeyboardMode: (val: boolean | ((prev: boolean) => boolean)) => void;
   showSettings: boolean;
   showTagManager: boolean;
-  chatMode: boolean;
   editingTagsId: number | null;
   editingNoteId: number | null;
   arrowKeySelection: boolean;
@@ -57,7 +56,6 @@ export const useKeyboardNavigation = ({
   setIsKeyboardMode,
   showSettings,
   showTagManager,
-  chatMode,
   editingTagsId,
   editingNoteId,
   arrowKeySelection,
@@ -76,7 +74,6 @@ export const useKeyboardNavigation = ({
   const isKeyboardModeRef = useRef(isKeyboardMode);
   const showSettingsRef = useRef(showSettings);
   const showTagManagerRef = useRef(showTagManager);
-  const chatModeRef = useRef(chatMode);
   const editingTagsIdRef = useRef(editingTagsId);
   const editingNoteIdRef = useRef(editingNoteId);
   const arrowKeySelectionRef = useRef(arrowKeySelection);
@@ -89,7 +86,6 @@ export const useKeyboardNavigation = ({
   isKeyboardModeRef.current = isKeyboardMode;
   showSettingsRef.current = showSettings;
   showTagManagerRef.current = showTagManager;
-  chatModeRef.current = chatMode;
   editingTagsIdRef.current = editingTagsId;
   editingNoteIdRef.current = editingNoteId;
   arrowKeySelectionRef.current = arrowKeySelection;
@@ -304,7 +300,6 @@ export const useKeyboardNavigation = ({
       if (
         showSettingsRef.current ||
         showTagManagerRef.current ||
-        chatModeRef.current ||
         editingTagsIdRef.current !== null ||
         editingNoteIdRef.current !== null
       ) {
@@ -461,7 +456,7 @@ export const useKeyboardNavigation = ({
       }
       if (!windowLooksOpen) return;
 
-      if (showSettingsRef.current || showTagManagerRef.current || chatModeRef.current || editingTagsIdRef.current !== null || editingNoteIdRef.current !== null) {
+      if (showSettingsRef.current || showTagManagerRef.current || editingTagsIdRef.current !== null || editingNoteIdRef.current !== null) {
         return;
       }
 
