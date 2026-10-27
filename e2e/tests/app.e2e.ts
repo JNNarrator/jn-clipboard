@@ -585,14 +585,14 @@ test('搜索框标签：点击标签只筛选，不会粘贴下面的记录', as
 
 // The tag list floats over the records: a see-through fill lets their text
 // show through the tag names. Keep in step with THEMES in src/shared/config/themes.ts.
-const THEME_IDS = ['mica', 'macos', 'acrylic', 'retro', 'sticky-note', 'paper', 'terminal', 'receipt', 'ink'];
+const THEME_IDS = ['mica', 'macos', 'acrylic'];
 
 test('搜索框标签：每个主题的浅色和深色下，标签列表都不透出下面的记录', async ({ app, browser }) => {
   const fills: string[] = [];
   for (const theme of THEME_IDS) {
     for (const mode of ['light', 'dark']) {
       await app.open(`/?set=app.theme:${theme},app.color_mode:${mode}`);
-      // The terminal theme has its own placeholder, so find the box by class.
+      // Find the box by class rather than by placeholder text.
       const box = () =>
         browser.evaluate(() => {
           const r = document.querySelector('.search-input')?.getBoundingClientRect();

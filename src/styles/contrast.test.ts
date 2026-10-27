@@ -10,7 +10,7 @@ const read = (name: string) => readFileSync(new URL(name, dir), "utf8");
 const baseCss = read("base.css");
 const themeCss = Object.fromEntries(readdirSync(new URL("themes/", dir)).filter((f) => f.endsWith(".css")).map((f) => [f, read(`themes/${f}`)]));
 
-const THEMES = ["mica", "macos", "acrylic", "retro", "sticky-note", "paper", "terminal", "receipt", "ink"];
+const THEMES = ["mica", "macos", "acrylic"];
 const MINIMUM: Record<string, number> = { "--text-primary": 7, "--text-secondary": 5.5, "--text-muted": 4.5 };
 
 type Rule = { selector: string; decls: Map<string, string>; order: number; media: string | null };

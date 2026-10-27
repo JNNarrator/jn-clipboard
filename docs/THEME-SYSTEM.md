@@ -41,10 +41,10 @@ This layer should not contain:
 
 ### Theme files
 
-- `src/styles/themes/retro.css`
 - `src/styles/themes/mica.css`
+- `src/styles/themes/macos.css`
 - `src/styles/themes/acrylic.css`
-- `src/styles/themes/sticky-note.css`
+- `src/styles/themes/dark.css` (dark-mode token overrides, not a selectable theme)
 
 Each theme file is now independent and is responsible for:
 
@@ -108,8 +108,8 @@ Theme layer responsibilities:
 
 Examples:
 
-- `retro.css` restores hard borders, pressed buttons, segmented mechanical switch, uppercase labels
 - `mica.css` keeps the UI soft and translucent, with noise texture but no blur shell
+- `macos.css` mirrors the macOS native look, including its vibrancy pairing
 - `acrylic.css` adds glass blur and highlight overlays
 
 ### 3. Native layer
@@ -307,9 +307,8 @@ If the value describes one theme's personality, it does not belong in the shared
 Examples that should stay out of shared CSS:
 
 - hard 3D push-down transforms
-- retro uppercase title chip
 - acrylic blur overlay
-- sticky note tape decoration
+- theme-specific uppercase title chips
 
 ### Rule 2: use tokens first
 
@@ -329,13 +328,8 @@ Only use selectors when structure really changes.
 Valid selector override example:
 
 ```css
-.theme-retro .toggle::before {
-  display: none;
-}
-
-.theme-retro .toggle > .left,
-.theme-retro .toggle > .right {
-  display: flex;
+body.theme-acrylic .modal-shell {
+  backdrop-filter: blur(24px) saturate(1.4);
 }
 ```
 
@@ -343,10 +337,9 @@ Valid selector override example:
 
 Examples:
 
-- paper texture belongs in `paper.css`
 - mica noise layer belongs in `mica.css`
 - acrylic blur highlight belongs in `acrylic.css`
-- retro mechanical switch belongs in `retro.css`
+- macOS vibrancy pairing belongs in `macos.css`
 
 ### Rule 4: labels live in `themes.ts`
 
@@ -369,13 +362,12 @@ Example:
 ```ts
 {
   id: "paper",
-  labels: {
-    zh: "纸页",
-    en: "Paper",
-    tw: "紙頁"
-  }
+  labelKey: "theme_name_paper"
 }
 ```
+
+Note that `THEMES` entries only carry an `id` and a `labelKey`; the label text
+lives in `src/locales.ts` under that key.
 
 ### Step 2. Create the theme file
 
@@ -448,10 +440,9 @@ Before merging a theme change, verify:
 This repository now uses:
 
 - neutral shared component CSS
-- `retro.css` for the old 3D/mechanical style
+- `macos.css` for the macOS native look
 - `mica.css` for soft translucent material
 - `acrylic.css` for blur glass material
-- `sticky-note.css` for the note-style theme
 
 That is the foundation for adding future themes without rewriting multiple unrelated files every time.
 
@@ -461,7 +452,6 @@ The main shared UI layer has been normalized, but a few feature-local styles sti
 
 - `src/styles/components/Announcement.css`
 - `src/styles/components/compact-mode.css`
-- `src/styles/components/emoji.css`
 - `src/styles/components/file-transfer.css`
 
 These files are now the exception, not the base theme system.

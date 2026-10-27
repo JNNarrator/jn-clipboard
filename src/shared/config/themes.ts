@@ -44,37 +44,19 @@ export const THEMES: ThemeDefinition[] = [
     labelKey: "theme_name_acrylic",
     supportsCustomBackground: true,
     supportsSurfaceOpacity: true
-  },
-  {
-    id: "retro",
-    labelKey: "theme_name_retro"
-  },
-  {
-    id: "sticky-note",
-    labelKey: "theme_name_sticky_note"
-  },
-  {
-    id: "paper",
-    labelKey: "theme_name_paper"
-  },
-  {
-    id: "terminal",
-    labelKey: "theme_name_terminal"
-  },
-  {
-    id: "receipt",
-    labelKey: "theme_name_receipt"
-  },
-  {
-    id: "ink",
-    labelKey: "theme_name_ink"
   }
 ];
 
 const THEME_BY_ID = new Map(THEMES.map((theme) => [theme.id, theme]));
 
-// Clear the retired theme class too, including on windows opened before migration.
-export const THEME_CLASS_NAMES = [...THEMES.map((theme) => `theme-${theme.id}`), "theme-sakura"];
+// Retired themes: their classes are still cleared from windows opened before the
+// removal so a stale class cannot keep styling a panel after an upgrade.
+const RETIRED_THEME_IDS = ["retro", "sticky-note", "paper", "terminal", "receipt", "ink", "sakura"];
+
+export const THEME_CLASS_NAMES = [
+  ...THEMES.map((theme) => `theme-${theme.id}`),
+  ...RETIRED_THEME_IDS.map((id) => `theme-${id}`)
+];
 
 export const getThemeDefinition = (themeId: string): ThemeDefinition =>
   THEME_BY_ID.get(themeId) ?? THEME_BY_ID.get(getDefaultTheme())!;

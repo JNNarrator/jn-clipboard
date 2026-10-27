@@ -1,7 +1,7 @@
 import { afterEach, expect, test, vi } from "vitest";
 import {
-  getSelectableThemes, migrateThemeSettings, resolveThemeAppearance,
-  applyNativePalette, applyThemeClasses, getAppliedNativePalette
+  getSelectableThemes, migrateThemeSettings, resolveThemeAppearance, normalizeThemeId,
+  applyNativePalette, applyThemeClasses, clearThemeClasses, getAppliedNativePalette
 } from "./themes";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -21,12 +21,12 @@ for (const [platform, nativeTheme] of [["MacIntel", "macos"], ["Win32", "mica"]]
 }
 
 test("leaves existing native, other and installed themes intact", () => {
-  for (const theme of ["macos", "mica", "paper", "store-custom"]) {
+  for (const theme of ["macos", "mica", "acrylic", "store-custom"]) {
     const settings = { "app.theme": theme, "app.native_palette": "sakura" };
     expect(migrateThemeSettings(settings)).toBe(settings);
   }
   expect(resolveThemeAppearance("store-custom", "sakura").theme).toBe("store-custom");
-  expect(resolveThemeAppearance("paper", "unknown").nativePalette).toBe("default");
+  expect(resolveThemeAppearance("acrylic", "unknown").nativePalette).toBe("default");
 });
 
 test("switching palettes and themes clears retired classes without affecting dark mode", () => {
@@ -44,9 +44,23 @@ test("switching palettes and themes clears retired classes without affecting dar
   applyNativePalette("macos", "default", target);
   expect(classes.has("native-palette-sakura")).toBe(false);
   applyNativePalette("macos", "sakura", target);
-  applyThemeClasses("paper", target);
-  applyNativePalette("paper", "sakura", target);
-  expect([...classes].sort()).toEqual(["dark-mode", "theme-paper"]);
+  applyThemeClasses("acrylic", target);
+  applyNativePalette("acrylic", "sakura", target);
+  expect([...classes].sort()).toEqual(["dark-mode", "theme-acrylic"]);
+});
+
+test("retired themes fall back to the platform default and lose their class", () => {
+  vi.stubGlobal("navigator", { platform: "MacIntel", userAgent: "Mac" });
+  for (const id of ["retro", "sticky-note", "paper", "terminal", "receipt", "ink"]) {
+    expect(normalizeThemeId(id)).toBe("macos");
+  }
+  const classes = new Set(["theme-paper", "dark-mode"]);
+  const target = { classList: {
+    remove: (...names: string[]) => names.forEach((n) => classes.delete(n)),
+    [Symbol.iterator]: () => classes.values()
+  } } as unknown as Element;
+  clearThemeClasses(target);
+  expect([...classes]).toEqual(["dark-mode"]);
 });
 
 
@@ -68,7 +82,7 @@ test("custom palette styles are cleared on switching away and preview data stays
   applyNativePalette("macos", "sakura", target);
   expect(classes.has("native-palette-color")).toBe(false);
   expect([...styles]).toEqual([["--other-setting", "42"]]);
-  applyNativePalette("paper", "custom:#12abef", target);
+  applyNativePalette("acrylic", "custom:#12abef", target);
   expect(getAppliedNativePalette(target)).toBe("default");
   expect([...styles]).toEqual([["--other-setting", "42"]]);
 });
