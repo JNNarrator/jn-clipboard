@@ -239,18 +239,6 @@ export const useSettingsPanelProps = ({
     setFileServerAutoClose,
     setFileTransferAutoCopy,
     setShowAppSelector,
-    aiEnabled,
-    setAiEnabled,
-    aiTargetLang,
-    setAiTargetLang,
-    aiProfiles,
-    setAiProfiles,
-    aiAssignedProfileTask,
-    setAiAssignedProfileTask,
-    aiAssignedProfileMouthpiece,
-    setAiAssignedProfileMouthpiece,
-    aiAssignedProfileTranslate,
-    setAiAssignedProfileTranslate
   } = state;
 
   return {
@@ -462,18 +450,6 @@ export const useSettingsPanelProps = ({
     setShowAppSelector,
     handleResetSettings,
     onOpenChat,
-    aiEnabled,
-    setAiEnabled,
-    aiTargetLang,
-    setAiTargetLang,
     saveSetting,
-    aiProfiles,
-    setAiProfiles,
-    aiAssignedProfileTask,
-    setAiAssignedProfileTask,
-    aiAssignedProfileMouthpiece,
-    setAiAssignedProfileMouthpiece,
-    aiAssignedProfileTranslate,
-    setAiAssignedProfileTranslate
   };
 };

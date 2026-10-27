@@ -9,7 +9,6 @@ import { hasSensitiveTag } from "../lib/sensitiveTags";
 import type { QuickPasteHint } from "../../features/clipboard/types";
 import type { ClipboardEntry } from "../types";
 import type { Locale } from "../types";
-import type { AiDetail } from "./useAiActions";
 
 interface UseClipboardItemRendererOptions {
   privacyProtection: boolean;
@@ -37,10 +36,6 @@ interface UseClipboardItemRendererOptions {
   sensitiveMaskSuffixVisible: number;
   sensitiveMaskEmailDomain: boolean;
   quickPasteHintsById: Record<number, QuickPasteHint>;
-  processingAiId: number | null;
-  aiEnabled: boolean;
-  aiOptionsOpenId: number | null;
-  setAiOptionsOpenId: Dispatch<SetStateAction<number | null>>;
   copyToClipboard: (
     id: number,
     content: string,
@@ -59,11 +54,6 @@ interface UseClipboardItemRendererOptions {
   setTagInput: Dispatch<SetStateAction<string>>;
   handleUpdateTags: (id: number, tags: string[]) => void;
   handleUpdateNote: (id: number, note: string) => void;
-  handleAIAction: (id: number, content: string, actionType: string) => void;
-  handleAISupplement: (id: number, input: string) => void;
-  aiDetails: Record<number, AiDetail>;
-  applyAIResult: (id: number) => Promise<void>;
-  discardAIResult: (id: number) => void;
 }
 
 type RenderItemContent = (
@@ -98,10 +88,6 @@ export const useClipboardItemRenderer = ({
   sensitiveMaskSuffixVisible,
   sensitiveMaskEmailDomain,
   quickPasteHintsById,
-  processingAiId,
-  aiEnabled,
-  aiOptionsOpenId,
-  setAiOptionsOpenId,
   copyToClipboard,
   selectItemByIndex,
   setRevealedIds,
@@ -113,11 +99,6 @@ export const useClipboardItemRenderer = ({
   setTagInput,
   handleUpdateTags,
   handleUpdateNote,
-  handleAIAction,
-  handleAISupplement,
-  aiDetails,
-  applyAIResult,
-  discardAIResult
 }: UseClipboardItemRendererOptions): { renderItemContent: RenderItemContent } => {
   const renderItemContent = useCallback(
     (item: ClipboardEntry, index: number, dragControls?: DragControls, disableLayout?: boolean) => {
@@ -126,9 +107,6 @@ export const useClipboardItemRenderer = ({
       const isSensitiveHidden = canReveal && !revealedIds.has(item.id);
       const isEditingTags = !splitActive && editingTagsId === item.id;
       const isEditingNote = !splitActive && editingNoteId === item.id;
-      // The detail pane offers the same choice for the entry it shows.
-      const aiDetail = splitActive && detailFocusedId === item.id ? undefined : aiDetails[item.id];
-      const aiIdle = aiDetail && !aiDetail.processing && !isSensitiveHidden;
 
       return (
         <ClipboardItem
@@ -226,20 +204,6 @@ export const useClipboardItemRenderer = ({
           onTagDelete={(tag) => {
             handleUpdateTags(item.id, item.tags ? item.tags.filter((t) => t !== tag) : []);
           }}
-          // Per-item state, so a second request elsewhere keeps this spinner.
-          isAIProcessing={aiDetail?.processing ?? processingAiId === item.id}
-          aiEnabled={aiEnabled}
-          aiOptionsOpen={aiOptionsOpenId === item.id}
-          onAIOptionsToggle={() =>
-            setAiOptionsOpenId((prev) => (prev === item.id ? null : item.id))
-          }
-          onAIAction={(actionType) => handleAIAction(item.id, item.content, actionType)}
-          onInputSubmit={(input) => handleAISupplement(item.id, input)}
-          aiQuestion={aiIdle ? aiDetail.question : undefined}
-          aiPendingResult={aiIdle ? aiDetail.response : undefined}
-          // A result from a cut-down long entry can only be copied, not applied.
-          onAIApply={aiDetail?.truncated ? undefined : () => void applyAIResult(item.id)}
-          onAIDiscard={() => discardAIResult(item.id)}
           dragControls={dragControls}
           disableLayout={disableLayout}
         />
@@ -270,10 +234,6 @@ export const useClipboardItemRenderer = ({
       sensitiveMaskSuffixVisible,
       sensitiveMaskEmailDomain,
       quickPasteHintsById,
-      processingAiId,
-      aiEnabled,
-      aiOptionsOpenId,
-      setAiOptionsOpenId,
       copyToClipboard,
       selectItemByIndex,
       setRevealedIds,
@@ -285,11 +245,6 @@ export const useClipboardItemRenderer = ({
       setTagInput,
       handleUpdateTags,
       handleUpdateNote,
-      handleAIAction,
-      handleAISupplement,
-      aiDetails,
-      applyAIResult,
-      discardAIResult
     ]
   );
 

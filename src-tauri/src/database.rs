@@ -23,7 +23,6 @@ pub struct DbState {
 const SENSITIVE_KEYS: &[&str] = &[
     "mqtt_password",
     "mqtt_username",
-    "ai_profiles",
     "cloud_sync_api_key",
     "cloud_sync_webdav_password",
     "e2e_key",
@@ -597,24 +596,6 @@ pub fn seed_defaults(conn: &Connection) -> Result<()> {
     );
     let _ = conn.execute(
         "INSERT OR IGNORE INTO settings (key, value) VALUES ('cloud_sync_webdav_last_head_rebuild_at', '0')",
-        [],
-    );
-
-    // AI settings
-    let _ = conn.execute(
-        "INSERT OR IGNORE INTO settings (key, value) VALUES ('ai_enabled', 'false')",
-        [],
-    );
-    let _ = conn.execute(
-        "INSERT OR IGNORE INTO settings (key, value) VALUES ('ai_target_lang', 'zh')",
-        [],
-    );
-    let _ = conn.execute(
-        "INSERT OR IGNORE INTO settings (key, value) VALUES ('ai_enable_thinking', 'false')",
-        [],
-    );
-    let _ = conn.execute(
-        "INSERT OR IGNORE INTO settings (key, value) VALUES ('ai_thinking_budget', '1024')",
         [],
     );
 

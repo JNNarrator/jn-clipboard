@@ -33,7 +33,6 @@
 | `services/cloud_sync.rs` | 两台设备 WebDAV 互相同步一条文字、一张图片；开启"表情收藏"同步后收藏也同步 |
 | `services/mqtt_sub.rs`、`services/e2e.rs`、`E2eKeyPanel.tsx` | 验证码同步：手机发一条到电脑。**再开启端到端加密测一次**：开启后未加密消息会被静默丢弃，短信转发类第三方工具会收不到；手机扫配置二维码后密钥一致 |
 | `services/file_transfer/` | 局域网互传：手机扫码连接，双向发文字和文件；"自动复制""自动打开"生效；约 5 分钟无传输自动关闭 |
-| `commands/ai_cmd.rs`、`ai_provider.rs`、`AiSettingsGroup.tsx` | 用真实模型"检查连接"，对一条记录做一次解答 / 翻译 |
 | `set_data_path`（`commands/system_cmd.rs`） | 数据管理里更换数据位置：迁移后历史完整，重启后仍用新位置。**先备份数据** |
 | `infrastructure/encryption.rs`、`repository/migrations.rs` | 用旧版本数据目录启动新版本，历史全部可读、可搜索 |
 | `app/light_mode.rs` | 开启"节省内存"，把等待时间调到最短，等它释放后再呼出：窗口能恢复，监听和快捷键一直有效 |

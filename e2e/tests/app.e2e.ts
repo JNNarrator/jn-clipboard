@@ -163,19 +163,11 @@ test('详情侧栏：粘贴按钮粘贴当前选中项', async ({ app, screen, b
   for (const name of ['取消固定', '编辑标签', '编辑备注', '删除']) {
     await expect(detail.getByRole('button', name)).toBeVisible();
   }
-  // AI is off on a fresh install, so its button is not offered.
-  await expect(detail.getByRole('button', 'AI 助手')).toBeHidden();
-
   await resetCalls(browser);
   await detail.getByRole('button', '粘贴').tap();
   await expect.poll(() => callsTo(browser, 'copy_to_clipboard')).toEqual([
     expect.objectContaining({ args: expect.objectContaining({ id: SAMPLE.pinned.id, paste: true }) }),
   ]);
-});
-
-test('详情侧栏：开启 AI 助手后出现 AI 按钮', async ({ app, screen }) => {
-  await app.open('/?set=ai_enabled:true');
-  await expect(screen.getByRole('complementary').getByRole('button', 'AI 助手')).toBeVisible();
 });
 
 test('键盘：关闭方向键选择后，↓ + Enter 不会粘贴', async ({ app, screen, browser }) => {

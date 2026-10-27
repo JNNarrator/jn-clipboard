@@ -32,7 +32,6 @@ import { useNavigationSync } from "./shared/hooks/useNavigationSync";
 import { useContextMenuBlock } from "./shared/hooks/useContextMenuBlock";
 import { useSettingsPanelReset } from "./shared/hooks/useSettingsPanelReset";
 import { useTagManagerRefresh } from "./shared/hooks/useTagManagerRefresh";
-import { useAiActions } from "./shared/hooks/useAiActions";
 import { matchesHotkey } from "./shared/hooks/useHotkeyMatching";
 import { usePinnedSort } from "./shared/hooks/usePinnedSort";
 import { useFilteredHistory } from "./shared/hooks/useFilteredHistory";
@@ -168,8 +167,6 @@ const App = () => {
     setShowTagFilter,
     tagInput,
     setTagInput,
-    aiOptionsOpenId,
-    setAiOptionsOpenId,
     editingTagsId,
     setEditingTagsId,
     editingNoteId,
@@ -347,16 +344,6 @@ const App = () => {
     setPasteSoundEnabled,
     soundVolume,
     setSoundVolume,
-    aiEnabled,
-    setAiEnabled,
-    setAiTargetLang,
-    aiProfiles,
-    setAiProfiles,
-    setAiAssignedProfileTask,
-    setAiAssignedProfileMouthpiece,
-    setAiAssignedProfileTranslate,
-    processingAiId,
-    setProcessingAiId,
     typeFilter,
     setTypeFilter
   } = appState;
@@ -691,13 +678,7 @@ const App = () => {
     setSoundEnabled,
     setPasteSoundEnabled,
     setSoundVolume,
-    setAiEnabled,
-    setAiTargetLang,
     setIsWindowPinned,
-    setAiProfiles,
-    setAiAssignedProfileTask,
-    setAiAssignedProfileMouthpiece,
-    setAiAssignedProfileTranslate,
     setSettingsLoaded
   });
 
@@ -1004,16 +985,6 @@ const App = () => {
     fetchHistory
   });
 
-  const { handleAIAction, handleAISupplement, applyAIResult, discardAIResult, copyAIText, aiDetails } = useAiActions({
-    history,
-    aiProfiles,
-    t,
-    pushToast,
-    setShowSettings,
-    setProcessingAiId,
-    setHistory
-  });
-
   /* 
   const updateItemContent = async (id: number, newContent: string) => {
     try {
@@ -1095,11 +1066,6 @@ const App = () => {
     openContent,
     togglePin,
     deleteEntry,
-    handleAIAction,
-    handleAISupplement,
-    applyAIResult,
-    discardAIResult,
-    copyAIText,
     setEditingTagsId,
     setEditingNoteId,
     setTagInput,
@@ -1190,10 +1156,6 @@ const App = () => {
     sensitiveMaskSuffixVisible,
     sensitiveMaskEmailDomain,
     quickPasteHintsById,
-    processingAiId,
-    aiEnabled,
-    aiOptionsOpenId,
-    setAiOptionsOpenId,
     copyToClipboard,
     selectItemByIndex,
     setRevealedIds,
@@ -1205,11 +1167,6 @@ const App = () => {
     setTagInput,
     handleUpdateTags,
     handleUpdateNote,
-    handleAIAction,
-    handleAISupplement,
-    aiDetails,
-    applyAIResult,
-    discardAIResult
   });
 
   const settingsPanelProps = useSettingsPanelProps({
@@ -1350,9 +1307,6 @@ const App = () => {
               isRevealed={detailIsRevealed}
               isEditingTags={!!detailItem && editingTagsId === detailItem.id}
               isEditingNote={!!detailItem && editingNoteId === detailItem.id}
-              aiEnabled={aiEnabled}
-              isAIProcessing={!!detailItem && (aiDetails[detailItem.id]?.processing ?? processingAiId === detailItem.id)}
-              aiDetail={detailItem ? aiDetails[detailItem.id] : undefined}
               showSourceAppIcon={showSourceAppIcon}
               tagInput={tagInput}
               tagSuggestions={allTags}

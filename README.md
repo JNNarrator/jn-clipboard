@@ -41,7 +41,7 @@ Eight built-in themes; four of them:
 
 | Performance | Practicality | Privacy | Sync |
 | :--- | :--- | :--- | :--- |
-| **Instant Access**<br>Native listeners and Rust core ensure absolute speed. | **Power Workflows**<br>Rich text, tags, and AI-assisted actions. | **Local & Private**<br>Local-first storage with smart masking for sensitive data in previews. | **Cloud Fluent**<br>Seamless WebDAV and MQTT cross-device sync. |
+| **Instant Access**<br>Native listeners and Rust core ensure absolute speed. | **Power Workflows**<br>Rich text, tags, and instant actions. | **Local & Private**<br>Local-first storage with smart masking for sensitive data in previews. | **Cloud Fluent**<br>Seamless WebDAV and MQTT cross-device sync. |
 
 ---
 

@@ -11,9 +11,8 @@ import type {
   SettingsSubpage
 } from "../types";
 import { DEFAULT_CLOUD_SYNC_CONTENT_PREFS } from "../types";
-import type { AiProfile, AppCleanupPolicy } from "../../settings/types";
+import type { AppCleanupPolicy } from "../../settings/types";
 import { DEFAULT_COLLAPSED_GROUPS } from "../../settings/types";
-import { PRESET_AI_PROFILES } from "../../settings/aiPresets";
 
 export const useAppState = (): AppState => {
   const [showSettings, setShowSettings] = useState(false);
@@ -29,7 +28,6 @@ export const useAppState = (): AppState => {
   const [searchIsFocused, setSearchIsFocused] = useState(false);
   const [showTagFilter, setShowTagFilter] = useState(false);
   const [tagInput, setTagInput] = useState("");
-  const [aiOptionsOpenId, setAiOptionsOpenId] = useState<number | null>(null);
   const [editingTagsId, setEditingTagsId] = useState<number | null>(null);
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
   const [revealedIds, setRevealedIds] = useState<Set<number>>(new Set());
@@ -153,13 +151,6 @@ export const useAppState = (): AppState => {
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [pasteSoundEnabled, setPasteSoundEnabled] = useState(true);
   const [soundVolume, setSoundVolume] = useState(1.0);
-  const [aiEnabled, setAiEnabled] = useState(true);
-  const [aiTargetLang, setAiTargetLang] = useState("zh");
-  const [aiProfiles, setAiProfiles] = useState<AiProfile[]>(PRESET_AI_PROFILES);
-  const [aiAssignedProfileTask, setAiAssignedProfileTask] = useState("default");
-  const [aiAssignedProfileMouthpiece, setAiAssignedProfileMouthpiece] = useState("default");
-  const [aiAssignedProfileTranslate, setAiAssignedProfileTranslate] = useState("default");
-  const [processingAiId, setProcessingAiId] = useState<number | null>(null);
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
 
   return {
@@ -187,8 +178,6 @@ export const useAppState = (): AppState => {
     setShowTagFilter,
     tagInput,
     setTagInput,
-    aiOptionsOpenId,
-    setAiOptionsOpenId,
     editingTagsId,
     setEditingTagsId,
     editingNoteId,
@@ -417,20 +406,6 @@ export const useAppState = (): AppState => {
     setPasteSoundEnabled,
     soundVolume,
     setSoundVolume,
-    aiEnabled,
-    setAiEnabled,
-    aiTargetLang,
-    setAiTargetLang,
-    aiProfiles,
-    setAiProfiles,
-    aiAssignedProfileTask,
-    setAiAssignedProfileTask,
-    aiAssignedProfileMouthpiece,
-    setAiAssignedProfileMouthpiece,
-    aiAssignedProfileTranslate,
-    setAiAssignedProfileTranslate,
-    processingAiId,
-    setProcessingAiId,
     typeFilter,
     setTypeFilter
   };

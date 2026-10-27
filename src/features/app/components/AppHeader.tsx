@@ -280,18 +280,14 @@ const AppHeader = ({
                 <div className="search-input-wrap">
                   <div className="search-input-row">
                     <span className="search-prompt" aria-hidden="true">
-                      {theme === "terminal" ? "➜" : "%"}
+                      {"%"}
                     </span>
                     <Search size={14} className="search-icon" />
                     <input
                     ref={searchInputRef}
                     type="text"
                     className={`search-input has-sort-control ${showTagFilter && searchIsFocused && search.trim().length === 0 && allTags.length > 0 ? 'dropdown-open' : ''}`}
-                    placeholder={
-                      theme === "terminal"
-                        ? t("search_placeholder_terminal")
-                        : t('search_placeholder')
-                    }
+                    placeholder={t("search_placeholder")}
                     value={search}
                     onCompositionStart={() => setIsComposing(true)}
                     onCompositionEnd={(e) => {

@@ -238,7 +238,7 @@ pub fn apply_windows_window_material(window: &WebviewWindow, theme: &str, is_dar
             // Windows. Sakura's shell and installed themes may be translucent.
             let opaque_shell = matches!(
                 theme,
-                "macos" | "retro" | "sticky-note" | "paper" | "terminal" | "receipt" | "ink"
+                "macos"
             );
             if glass || opaque_shell {
                 let _ = window.set_background_color(Some(if is_dark {

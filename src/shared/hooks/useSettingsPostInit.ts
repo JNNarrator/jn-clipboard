@@ -1,8 +1,7 @@
 import { useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { MutableRefObject } from "react";
-import type { AiProfile, AppCleanupPolicy } from "../../features/settings/types";
-import { LEGACY_PRESET_IDS, PRESET_AI_PROFILES, resolveTaskProfile, restoreAiProfiles } from "../../features/settings/aiPresets";
+import type { AppCleanupPolicy } from "../../features/settings/types";
 import type {
   ClipboardSortMode,
   QuickPasteModifier,
@@ -125,13 +124,7 @@ interface UseSettingsPostInitOptions {
   setSoundEnabled: (val: boolean) => void;
   setPasteSoundEnabled: (val: boolean) => void;
   setSoundVolume: (val: number) => void;
-  setAiEnabled: (val: boolean) => void;
-  setAiTargetLang: (val: string) => void;
   setIsWindowPinned: (val: boolean) => void;
-  setAiProfiles: (val: AiProfile[]) => void;
-  setAiAssignedProfileTask: (val: string) => void;
-  setAiAssignedProfileMouthpiece: (val: string) => void;
-  setAiAssignedProfileTranslate: (val: string) => void;
   setSettingsLoaded: (val: boolean) => void;
   setClipboardItemFontSize: (val: number) => void;
   setClipboardTagFontSize: (val: number) => void;
@@ -215,13 +208,7 @@ export const useSettingsPostInit = ({
   setSoundEnabled,
   setPasteSoundEnabled,
   setSoundVolume,
-  setAiEnabled,
-  setAiTargetLang,
   setIsWindowPinned,
-  setAiProfiles,
-  setAiAssignedProfileTask,
-  setAiAssignedProfileMouthpiece,
-  setAiAssignedProfileTranslate,
   setSettingsLoaded,
   setClipboardItemFontSize,
   setClipboardTagFontSize,
@@ -427,86 +414,6 @@ export const useSettingsPostInit = ({
         setSoundVolume(Math.max(0, volume > 1 ? Math.min(volume, 100) / 100 : volume));
       }
     }
-    if (settings["ai_enabled"]) setAiEnabled(settings["ai_enabled"] === "true");
-    if (settings["ai_target_lang"]) setAiTargetLang(settings["ai_target_lang"]);
-    if (settings["app.window_pinned"] === "true") {
-      setIsWindowPinned(true);
-      invoke("set_window_pinned", { pinned: true }).catch(console.error);
-    }
-
-    // 1. PRESETS
-    const recommended = PRESET_AI_PROFILES;
-
-    // 2. LOAD OR INIT
-    let finalProfiles: AiProfile[] = recommended;
-    if (settings["ai_profiles"]) {
-      try {
-        const parsed = JSON.parse(settings["ai_profiles"]);
-        if (Array.isArray(parsed)) {
-          finalProfiles = restoreAiProfiles(parsed);
-          // The thinking budget used to be one global setting; carry it into each profile.
-          const legacyBudget = Number(settings["ai_thinking_budget"]);
-          if (legacyBudget > 0) {
-            finalProfiles = finalProfiles.map((profile) =>
-              profile.thinkingBudget ? profile : { ...profile, thinkingBudget: legacyBudget }
-            );
-          }
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    } else {
-      // First time initialization
-      invoke("save_setting", {
-        key: "ai_profiles",
-        value: JSON.stringify(recommended)
-      }).catch(console.error);
-    }
-    if (settings["ai_profiles"]) {
-      invoke("save_setting", {
-        key: "ai_profiles",
-        value: JSON.stringify(finalProfiles)
-      }).catch(console.error);
-    }
-    setAiProfiles(finalProfiles);
-
-    // 3. ASSIGNMENTS
-    // Legacy LongCat ids map to their DeepSeek successors; a task stranded on a
-    // keyless preset or a deleted model moves to the user's own keyed model.
-    const migrateAssignedProfile = (value: string | undefined, fallback: string) => {
-      const id = !value
-        ? fallback
-        : LEGACY_PRESET_IDS.has(value)
-          ? (value === "lc_flash_v1" ? "ds_flash_v1" : "ds_v4_pro_v1")
-          : value;
-      return resolveTaskProfile(id, finalProfiles);
-    };
-
-    const getP = (m: string) =>
-      finalProfiles.find((p) => p.model === m)?.id || finalProfiles[0]?.id || "default";
-
-    const taskProfile = migrateAssignedProfile(settings["ai_assigned_profile_task"], getP("deepseek-flash"));
-    const mouthpieceProfile = migrateAssignedProfile(
-      settings["ai_assigned_profile_mouthpiece"],
-      getP("deepseek-v4-pro")
-    );
-    const translateProfile = migrateAssignedProfile(
-      settings["ai_assigned_profile_translate"],
-      getP("deepseek-flash")
-    );
-    setAiAssignedProfileTask(taskProfile);
-    setAiAssignedProfileMouthpiece(mouthpieceProfile);
-    setAiAssignedProfileTranslate(translateProfile);
-    if (taskProfile !== settings["ai_assigned_profile_task"]) {
-      invoke("save_setting", { key: "ai_assigned_profile_task", value: taskProfile }).catch(console.error);
-    }
-    if (mouthpieceProfile !== settings["ai_assigned_profile_mouthpiece"]) {
-      invoke("save_setting", { key: "ai_assigned_profile_mouthpiece", value: mouthpieceProfile }).catch(console.error);
-    }
-    if (translateProfile !== settings["ai_assigned_profile_translate"]) {
-      invoke("save_setting", { key: "ai_assigned_profile_translate", value: translateProfile }).catch(console.error);
-    }
-
     setSettingsLoaded(true);
   }, [
     settings,
@@ -582,13 +489,7 @@ export const useSettingsPostInit = ({
     setSoundEnabled,
     setPasteSoundEnabled,
     setSoundVolume,
-    setAiEnabled,
-    setAiTargetLang,
     setIsWindowPinned,
-    setAiProfiles,
-    setAiAssignedProfileTask,
-    setAiAssignedProfileMouthpiece,
-    setAiAssignedProfileTranslate,
     setSettingsLoaded,
     setClipboardItemFontSize,
     setClipboardTagFontSize,

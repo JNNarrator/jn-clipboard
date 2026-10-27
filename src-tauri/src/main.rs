@@ -309,9 +309,6 @@ fn main() -> AppResult<()> {
             services::paste_queue::paste_next_step,
             app::commands::get_tag_colors,
             app::commands::set_tag_color,
-            app::commands::call_ai,
-            app::commands::apply_ai_result,
-            app::commands::check_ai_connectivity
         ])
         .on_window_event(|window, event| {
             setup::handle_window_event(window, event);

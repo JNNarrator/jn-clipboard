@@ -17,11 +17,6 @@ interface UseDetailPaneActionsOptions {
   openContent: (item: ClipboardEntry) => void;
   togglePin: (event: MouseEvent, id: number, isPinned: boolean) => void;
   deleteEntry: (event: MouseEvent, id: number) => void;
-  handleAIAction: (id: number, content: string, actionType: string) => void;
-  handleAISupplement: (id: number, input: string) => void;
-  applyAIResult: (id: number) => Promise<void>;
-  discardAIResult: (id: number) => void;
-  copyAIText: (content: string) => Promise<void>;
   setEditingTagsId: Dispatch<SetStateAction<number | null>>;
   setEditingNoteId: Dispatch<SetStateAction<number | null>>;
   setTagInput: Dispatch<SetStateAction<string>>;
@@ -38,11 +33,6 @@ export const useDetailPaneActions = ({
   openContent,
   togglePin,
   deleteEntry,
-  handleAIAction,
-  handleAISupplement,
-  applyAIResult,
-  discardAIResult,
-  copyAIText,
   setEditingTagsId,
   setEditingNoteId,
   setTagInput,
@@ -80,11 +70,6 @@ export const useDetailPaneActions = ({
         setEditingTagsId(null);
       },
       deleteTag: (item, tag) => handleUpdateTags(item.id, (item.tags || []).filter((value) => value !== tag)),
-      runAI: (item, actionType) => handleAIAction(item.id, item.content, actionType),
-      supplementAI: (item, input) => handleAISupplement(item.id, input),
-      applyAI: (item) => void applyAIResult(item.id),
-      discardAI: (item) => discardAIResult(item.id),
-      copyAIText: (content) => void copyAIText(content),
       open: (item) => openContent(item),
       toggleReveal: (item) =>
         setRevealedIds((prev) => {
@@ -109,11 +94,6 @@ export const useDetailPaneActions = ({
     openContent,
     togglePin,
     deleteEntry,
-    handleAIAction,
-    handleAISupplement,
-    applyAIResult,
-    discardAIResult,
-    copyAIText,
     setEditingTagsId,
     setEditingNoteId,
     setTagInput,

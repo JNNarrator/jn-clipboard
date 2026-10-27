@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
 import type { ClipboardEntry, Locale } from "../../shared/types";
-import type { AiProfile, AppCleanupPolicy } from "../settings/types";
+import type { AppCleanupPolicy } from "../settings/types";
 
 export type StateSetter<T> = Dispatch<SetStateAction<T>>;
 
@@ -47,8 +47,6 @@ export interface AppState {
   setShowTagFilter: StateSetter<boolean>;
   tagInput: string;
   setTagInput: StateSetter<string>;
-  aiOptionsOpenId: number | null;
-  setAiOptionsOpenId: StateSetter<number | null>;
   editingTagsId: number | null;
   setEditingTagsId: StateSetter<number | null>;
   editingNoteId: number | null;
@@ -276,20 +274,6 @@ export interface AppState {
   setPasteSoundEnabled: StateSetter<boolean>;
   soundVolume: number;
   setSoundVolume: StateSetter<number>;
-  aiEnabled: boolean;
-  setAiEnabled: StateSetter<boolean>;
-  aiTargetLang: string;
-  setAiTargetLang: StateSetter<string>;
-  aiProfiles: AiProfile[];
-  setAiProfiles: StateSetter<AiProfile[]>;
-  aiAssignedProfileTask: string;
-  setAiAssignedProfileTask: StateSetter<string>;
-  aiAssignedProfileMouthpiece: string;
-  setAiAssignedProfileMouthpiece: StateSetter<string>;
-  aiAssignedProfileTranslate: string;
-  setAiAssignedProfileTranslate: StateSetter<string>;
-  processingAiId: number | null;
-  setProcessingAiId: StateSetter<number | null>;
   typeFilter: string | null;
   setTypeFilter: StateSetter<string | null>;
 }

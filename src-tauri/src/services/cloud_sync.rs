@@ -4453,7 +4453,7 @@ mod tests {
     }
     #[test]
     fn sensitive_settings_and_tags_stay_local() {
-        for key in ["mqtt_password", "mqtt_username", "ai_profiles", "cloud_sync_api_key", "cloud_sync_webdav_password"] {
+        for key in ["mqtt_password", "mqtt_username", "cloud_sync_api_key", "cloud_sync_webdav_password"] {
             assert!(!super::is_setting_sync_eligible(key));
         }
         for tag in ["sensitive", "密码", "password", "PASSWORD"] {

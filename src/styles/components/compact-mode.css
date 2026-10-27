@@ -445,8 +445,7 @@ body.hide-unselected-item-actions .history-item.compact:hover:not(.keyboard-owns
     pointer-events: auto;
 }
 
-.history-item.compact:has(.compact-more-btn.active) .item-actions,
-.history-item.compact:has(.ai-options-dropdown) .item-actions {
+.history-item.compact:has(.compact-more-btn.active) .item-actions .item-actions {
     opacity: 1;
     visibility: visible;
     pointer-events: auto;
@@ -517,7 +516,6 @@ html.compact-show-time .history-item.compact .item-meta-right-info > span:not(.q
 
 .history-item.compact:hover:not(.keyboard-owns-list *) .item-meta-right-info,
 .history-item.compact.selected .item-meta-right-info,
-.history-item.compact:has(.ai-options-dropdown) .item-meta-right-info,
 .history-item.compact:has(.compact-more-btn.active) .item-meta-right-info {
     opacity: 0;
     visibility: hidden;
@@ -584,29 +582,6 @@ body.hide-unselected-item-actions .history-item.compact:hover:not(.keyboard-owns
 .history-item.compact .item-actions .btn-icon svg {
     width: 14px;
     height: 14px;
-}
-
-.history-item.compact .ai-options-dropdown {
-    background: var(--popover-background);
-    color: var(--popover-color);
-    border: var(--popover-border);
-    border-radius: var(--popover-radius);
-    box-shadow: var(--popover-shadow);
-    backdrop-filter: var(--popover-backdrop-filter);
-    -webkit-backdrop-filter: var(--popover-backdrop-filter);
-}
-
-.history-item.compact .ai-options-dropdown button {
-    background: var(--bg-button);
-    color: var(--text-primary);
-    border: var(--button-border);
-    border-radius: var(--button-radius);
-    box-shadow: var(--button-shadow);
-}
-
-.history-item.compact .ai-options-dropdown button:hover {
-    background: var(--menu-item-hover-background);
-    color: var(--menu-item-hover-color);
 }
 
 /* Compact Action Menu (Three-dots Dropdown) */

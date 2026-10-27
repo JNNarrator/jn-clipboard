@@ -1,5 +1,3 @@
-pub mod ai_cmd;
-mod ai_provider;
 pub mod secure_transfer;
 pub use secure_transfer::*;
 pub mod clipboard_cmd;
@@ -17,7 +15,6 @@ pub mod update_cmd;
 
 // Re-export all commands for convenience in main.rs if needed,
 // though tauri usually expects them to be referenced via module path in generate_handler!
-pub use ai_cmd::*;
 pub use clipboard_cmd::*;
 pub use drag_cmd::*;
 pub use file_cmd::*;

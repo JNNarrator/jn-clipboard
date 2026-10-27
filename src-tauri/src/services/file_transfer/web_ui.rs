@@ -2077,15 +2077,9 @@ mod tests {
     };
 
     const BUILT_IN_THEMES: &[&str] = &[
-        "retro",
-        "sticky-note",
         "mica",
         "macos",
         "acrylic",
-        "paper",
-        "terminal",
-        "receipt",
-        "ink",
     ];
 
     #[test]
@@ -2122,7 +2116,7 @@ mod tests {
             assert_eq!(resolve_file_transfer_theme(theme, Some("default")), theme);
             assert_eq!(resolve_file_transfer_theme(theme, None), theme);
         }
-        assert_eq!(resolve_file_transfer_theme("paper", Some("sakura")), "paper");
+        assert_eq!(resolve_file_transfer_theme("acrylic", Some("sakura")), "acrylic");
         assert_eq!(resolve_file_transfer_theme("sakura", None), "sakura");
     }
 
@@ -2141,8 +2135,8 @@ mod tests {
             );
         }
         assert_eq!(
-            render_index_with_palette("paper", "dark", "", Some("mint")),
-            render_index("paper", "dark", "")
+            render_index_with_palette("acrylic", "dark", "", Some("mint")),
+            render_index("acrylic", "dark", "")
         );
     }
 

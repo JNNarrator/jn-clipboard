@@ -15,19 +15,15 @@ import {
     Palette,
     Settings2,
     ShieldCheck,
-    Sparkles,
     Wifi,
     type LucideIcon
 } from "lucide-react";
 import type { Locale } from "../../../shared/types";
-import { formatError } from "../../../shared/lib/errorMessage";
 import type { DefaultAppsMap, InstalledAppOption, SettingsSubpage, CloudSyncContentPrefs } from "../../app/types";
-import type { AiProfile, AiProfileStatusMap, AppCleanupPolicy, EditableAiProfile } from "../types";
-import { resolveTaskProfile } from "../aiPresets";
+import type { AppCleanupPolicy } from "../types";
 import { chosenApp, unchosenFallback } from "../utils/defaultApps";
 import AppSelectorModal from "./AppSelectorModal";
 // Removed UpdateModal imports
-import AiProfileModal from "./AiProfileModal";
 import GeneralSettingsGroup from "./groups/GeneralSettingsGroup";
 import ClipboardSettingsGroup from "./groups/ClipboardSettingsGroup";
 import AdvancedSettingsGroup from "./groups/AdvancedSettingsGroup";
@@ -39,7 +35,6 @@ import DefaultAppsSettingsGroup from "./groups/DefaultAppsSettingsGroup";
 import DataSettingsGroup from "./groups/DataSettingsGroup";
 import FileTransferSettingsGroup from "./groups/FileTransferSettingsGroup";
 import { useUnreadableSecrets } from "../useUnreadableSecrets";
-import AiSettingsGroup from "./groups/AiSettingsGroup";
 import SettingsFooter from "./SettingsFooter";
 import { LabelWithHint, SettingsHintProvider } from "./SettingsHint";
 import SecureTransfer from "./SecureTransfer";
@@ -275,20 +270,7 @@ interface SettingsPanelProps {
     handleResetSettings: () => void;
     onOpenChat?: () => void;
 
-    // AI Settings
-    aiEnabled: boolean;
-    setAiEnabled: (val: boolean) => void;
-    aiTargetLang: string;
-    setAiTargetLang: (val: string) => void;
     saveSetting: (key: string, val: string) => void;
-    aiProfiles: AiProfile[];
-    setAiProfiles: (val: AiProfile[]) => void;
-    aiAssignedProfileTask: string;
-    setAiAssignedProfileTask: (id: string) => void;
-    aiAssignedProfileMouthpiece: string;
-    setAiAssignedProfileMouthpiece: (id: string) => void;
-    aiAssignedProfileTranslate: string;
-    setAiAssignedProfileTranslate: (id: string) => void;
 }
 
 const ABOUT_SECTION = "about";
@@ -301,7 +283,6 @@ const SECTION_ICONS: Record<string, LucideIcon> = {
     clipboard: Clipboard,
     [ADVANCED_ENTRY]: ListFilter,
     default_apps: AppWindow,
-    ai: Sparkles,
     sync: MessageSquareText,
     cloud_sync: Cloud,
     file_transfer: Wifi,
@@ -311,7 +292,7 @@ const SECTION_ICONS: Record<string, LucideIcon> = {
 
 const NAV_GROUPS: { labelKey: string; ids: string[] }[] = [
     { labelKey: "settings_nav_group_basic", ids: ["general", "appearance"] },
-    { labelKey: "settings_nav_group_clipboard", ids: ["clipboard", ADVANCED_ENTRY, "default_apps", "ai"] },
+    { labelKey: "settings_nav_group_clipboard", ids: ["clipboard", ADVANCED_ENTRY, "default_apps"] },
     { labelKey: "settings_nav_group_sync", ids: ["sync", "cloud_sync", "file_transfer"] },
     { labelKey: "settings_nav_group_data", ids: ["secure_transfer", "data"] }
 ];
@@ -351,9 +332,8 @@ const SettingsPanel = (props: SettingsPanelProps) => {
         setCloudSyncEnabled, setCloudSyncAuto, setCloudSyncIntervalSec, setCloudSyncSnapshotIntervalMin, setCloudSyncWebdavUrl, setCloudSyncWebdavUsername, setCloudSyncWebdavPassword, setCloudSyncWebdavBasePath, setCloudSyncContentPrefs, saveCloudSync,
         setFileServerEnabled, setFileServerPort, setFileTransferAutoOpen, setShowAutoCloseHint, setFileServerAutoClose, setFileTransferAutoCopy, fetchEffectiveTransferPath,
         setShowAppSelector, handleResetSettings,
-        aiEnabled, setAiEnabled, aiTargetLang, setAiTargetLang, saveSetting,
-        onOpenChat,
-        aiProfiles, setAiProfiles, aiAssignedProfileTask, setAiAssignedProfileTask, aiAssignedProfileMouthpiece, setAiAssignedProfileMouthpiece, aiAssignedProfileTranslate, setAiAssignedProfileTranslate
+        saveSetting,
+        onOpenChat
     } = props;
 
     const [emailCopied, setEmailCopied] = useState(false);
@@ -372,8 +352,6 @@ const SettingsPanel = (props: SettingsPanelProps) => {
         received_items: 0
     });
     const [cloudSyncNowRunning, setCloudSyncNowRunning] = useState(false);
-    const [editingProfile, setEditingProfile] = useState<EditableAiProfile | null>(null);
-    const [profileStatuses, setProfileStatuses] = useState<AiProfileStatusMap>({});
     const [updateStatus, setUpdateStatus] = useState<string>("");
     // Removed updateModalData
     const [privacyKindsOpen, setPrivacyKindsOpen] = useState(false);
@@ -408,26 +386,6 @@ const SettingsPanel = (props: SettingsPanelProps) => {
         }
     };
 
-    const checkModelStatus = async (profile: AiProfile) => {
-        setProfileStatuses(prev => ({ ...prev, [profile.id]: 'loading' }));
-        try {
-            const result = await invoke<string>("check_ai_connectivity", {
-                baseUrl: profile.baseUrl,
-                apiKey: profile.apiKey,
-                model: profile.model,
-                provider: profile.provider ?? null
-            });
-            if (result === "success") {
-                setProfileStatuses(prev => ({ ...prev, [profile.id]: 'success' }));
-            }
-        } catch (e: unknown) {
-            console.error("AI Check failed:", e);
-            setProfileStatuses(prev => ({ ...prev, [profile.id]: 'error' }));
-            // The red dot alone left users guessing (#114).
-            void emit("toast", `${t("ai_check_failed")}${formatError(e, t)}`);
-        }
-    };
-
     const handleCloudSyncNow = async () => {
         if (!CLOUD_SYNC_ENABLED) return;
         setCloudSyncNowRunning(true);
@@ -440,45 +398,6 @@ const SettingsPanel = (props: SettingsPanelProps) => {
         } finally {
             setCloudSyncNowRunning(false);
         }
-    };
-
-    const aiTaskAssignments = [
-        { value: aiAssignedProfileTask, set: setAiAssignedProfileTask, key: 'ai_assigned_profile_task' },
-        { value: aiAssignedProfileMouthpiece, set: setAiAssignedProfileMouthpiece, key: 'ai_assigned_profile_mouthpiece' },
-        { value: aiAssignedProfileTranslate, set: setAiAssignedProfileTranslate, key: 'ai_assigned_profile_translate' },
-    ];
-
-    /** Saves the model list and moves tasks left with nothing to run on. */
-    const commitAiProfiles = (newProfiles: AiProfile[], deletedId?: string) => {
-        setAiProfiles(newProfiles);
-        saveSetting('ai_profiles', JSON.stringify(newProfiles));
-        for (const task of aiTaskAssignments) {
-            let next = resolveTaskProfile(task.value, newProfiles);
-            if (next === deletedId) next = 'default';
-            if (next !== task.value) {
-                task.set(next);
-                saveSetting(task.key, next);
-            }
-        }
-    };
-
-    const handleSaveProfile = (profile: EditableAiProfile) => {
-        let newProfiles: AiProfile[];
-        if (profile.isNew) {
-            const { isNew, id: _id, ...rest } = profile;
-            newProfiles = [...aiProfiles, { ...rest, id: Date.now().toString() }];
-        } else {
-            if (!profile.id) return;
-            const { isNew, ...rest } = profile;
-            const updatedProfile: AiProfile = { ...rest, id: profile.id };
-            newProfiles = aiProfiles.map(p => p.id === profile.id ? updatedProfile : p);
-        }
-        commitAiProfiles(newProfiles);
-        setEditingProfile(null);
-    };
-
-    const handleDeleteProfile = (id: string) => {
-        commitAiProfiles(aiProfiles.filter(p => p.id !== id), id);
     };
 
     useEffect(() => {
@@ -776,33 +695,6 @@ const SettingsPanel = (props: SettingsPanelProps) => {
             }]
             : []),
         {
-            id: "ai",
-            label: t("ai_settings"),
-            node: (
-                <AiSettingsGroup
-                    t={t}
-                    {...groupState('ai')}
-                    aiEnabled={aiEnabled}
-                    setAiEnabled={setAiEnabled}
-                    saveSetting={saveSetting}
-                    aiProfiles={aiProfiles}
-                    profileStatuses={profileStatuses}
-                    checkModelStatus={checkModelStatus}
-                    setEditingProfile={setEditingProfile}
-                    handleDeleteProfile={handleDeleteProfile}
-                    aiAssignedProfileTask={aiAssignedProfileTask}
-                    setAiAssignedProfileTask={setAiAssignedProfileTask}
-                    aiAssignedProfileMouthpiece={aiAssignedProfileMouthpiece}
-                    setAiAssignedProfileMouthpiece={setAiAssignedProfileMouthpiece}
-                    aiAssignedProfileTranslate={aiAssignedProfileTranslate}
-                    setAiAssignedProfileTranslate={setAiAssignedProfileTranslate}
-                    aiTargetLang={aiTargetLang}
-                    setAiTargetLang={setAiTargetLang}
-                    theme={theme}
-                />
-            )
-        },
-        {
             id: "file_transfer",
             label: t("file_transfer"),
             node: (
@@ -908,14 +800,6 @@ const SettingsPanel = (props: SettingsPanelProps) => {
 
     const modals = (
         <>
-            <AiProfileModal
-                editingProfile={editingProfile}
-                t={t}
-                onClose={() => setEditingProfile(null)}
-                onSave={handleSaveProfile}
-                setEditingProfile={setEditingProfile}
-            />
-
             <AppSelectorModal
                 show={showAppSelector}
                 installedApps={installedApps}

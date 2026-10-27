@@ -11,8 +11,7 @@ export function isKeyboardSelectedItem(
 export function isItemInteractionActive(
   isKeyboardSelected: boolean,
   isEditingTags: boolean,
-  isEditingNote: boolean,
-  isAiOptionsOpen: boolean
+  isEditingNote: boolean
 ): boolean {
-  return isKeyboardSelected || isEditingTags || isEditingNote || isAiOptionsOpen;
+  return isKeyboardSelected || isEditingTags || isEditingNote;
 }

@@ -10,7 +10,6 @@ const chat = [
   { id: 4, direction: 'out', msg_type: 'file', content: '设计稿-v3.fig', file_path: '/tmp/设计稿-v3.fig', file_size: 12840000, timestamp: now - 120000, sender_name: '电脑' },
 ];
 
-const proxyErrorPage = '<!DOCTYPE html><html><head><title>502 Bad Gateway</title></head><body><center><h1>502 Bad Gateway</h1></center><hr><center>nginx/1.24.0</center>' + '<!-- a padding to disable MSIE and Chrome friendly error page -->'.repeat(6) + '</body></html>';
 
 const tagItems = Array.from({ length: 14 }, (_, i) => ({ id: 70000 + i, content_type: 'text', content: `带标签的记录 ${i + 1}：会议纪要与待办事项`, preview: `带标签的记录 ${i + 1}：会议纪要与待办事项`, source_app: ['浏览器', '微信', '备忘录'][i % 3], timestamp: Date.now() - i * 3600000, is_pinned: false, tags: ['工作'], use_count: i % 4 }));
 export async function invoke(cmd: string, _args?: unknown): Promise<unknown> {
@@ -24,8 +23,6 @@ export async function invoke(cmd: string, _args?: unknown): Promise<unknown> {
   if (cmd.startsWith('set_')) return null;
   if (cmd === 'generate_e2e_key') return 'AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8';
   if (cmd === 'e2e_key_fingerprint') return (_args as { key?: string })?.key?.length === 43 ? '630D-CD29' : null;
-  // Audit-only: the exact string AppError produces for an AI provider failure behind a proxy.
-  if (cmd === 'call_ai') throw `内部系统错误: AI API error: https://api.deepseek.com/v1/chat/completions - ${proxyErrorPage}`;
   if (cmd === 'get_chat_history') return chat;
   if (cmd === 'get_available_network_interfaces') return [{ name: 'en0', ip: '192.168.1.23', is_virtual: false, label: 'Wi-Fi' }];
   throw new Error(`audit preview: ${cmd} unavailable`);
