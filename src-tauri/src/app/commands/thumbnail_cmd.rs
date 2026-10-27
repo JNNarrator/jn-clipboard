@@ -462,7 +462,7 @@ mod tests {
     #[test]
     fn builds_and_reuses_cached_thumbnail() {
         let root = std::env::temp_dir().join(format!(
-            "tiez-thumb-test-{}-{}",
+            "jnclip-thumb-test-{}-{}",
             std::process::id(),
             TEMP_COUNTER.fetch_add(1, Ordering::Relaxed)
         ));

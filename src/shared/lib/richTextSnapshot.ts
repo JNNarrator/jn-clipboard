@@ -499,7 +499,7 @@ const buildRichTextSnapshotDataUrl = (
         background-color: #fff;
         color: #000;
       }
-      /* TieZ's table look only where the source brought none (see HtmlContent). */
+      /* jn-clipboard's table look only where the source brought none (see HtmlContent). */
       .tiez-rich-snapshot-root:not(.has-source-styles) table {
         width: 100% !important;
         border: 1px solid ${snapshotBorder} !important;

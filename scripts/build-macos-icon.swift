@@ -9,7 +9,7 @@ let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
 let source = root.appendingPathComponent("src-tauri/icons/app-icon-source.png")
 let icons = root.appendingPathComponent("src-tauri/icons")
 let temporary = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-let iconset = temporary.appendingPathComponent("TieZ.iconset")
+let iconset = temporary.appendingPathComponent("jn-clipboard.iconset")
 try FileManager.default.createDirectory(at: iconset, withIntermediateDirectories: true)
 defer { try? FileManager.default.removeItem(at: temporary) }
 

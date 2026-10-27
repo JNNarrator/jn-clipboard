@@ -1,4 +1,4 @@
-//! Dragging an entry out of TieZ through AppKit instead of the web view.
+//! Dragging an entry out of jn-clipboard through AppKit instead of the web view.
 //! WebKit gives other apps nothing they can use for a dragged file:// link,
 //! so an image or file dropped elsewhere did nothing, and it dims the drag
 //! preview so whatever is under it shows through. A native drag carries real
@@ -27,7 +27,7 @@ use tauri::{AppHandle, Emitter, Manager};
 struct NativeDragEnded {
     /// Another app took the drop.
     accepted: bool,
-    /// Dropped back onto TieZ's own window.
+    /// Dropped back onto jn-clipboard's own window.
     inside: bool,
 }
 
@@ -38,7 +38,7 @@ pub struct DragSourceIvars {
 
 define_class!(
     #[unsafe(super(NSObject))]
-    #[name = "TieZDragSource"]
+    #[name = "jn-clipboardDragSource"]
     #[thread_kind = MainThreadOnly]
     #[ivars = DragSourceIvars]
     struct DragSource;

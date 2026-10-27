@@ -67,7 +67,7 @@ pub async fn save_file_batch(
     }
 
     tauri::async_runtime::spawn_blocking(move || {
-        let safe_batch_name = sanitize_copy_name(&batch_name, "TieZ 文件包");
+        let safe_batch_name = sanitize_copy_name(&batch_name, "jn-clipboard 文件包");
         let package_dir = unique_copy_path(&target_root, &safe_batch_name, true);
         std::fs::create_dir(&package_dir).map_err(AppError::from)?;
 
@@ -227,7 +227,7 @@ mod tests {
 
     #[test]
     fn saving_a_file_onto_itself_keeps_its_content() {
-        let dir = std::env::temp_dir().join(format!("tiez-save-as-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("jnclip-save-as-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let file = dir.join("photo.png");
         std::fs::write(&file, b"image bytes").unwrap();

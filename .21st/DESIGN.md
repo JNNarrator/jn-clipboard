@@ -5,7 +5,7 @@ Generated from project sources at 2026-08-23T17:55:55.534Z.
 
 ## Project
 
-- Name: tiez-app
+- Name: jn-clipboard
 - Product type: Unknown
 - Stack: react, vite
 - Color mode: unknown

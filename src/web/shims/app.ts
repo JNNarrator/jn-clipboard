@@ -6,7 +6,7 @@ export async function getVersion(): Promise<string> {
 }
 
 export async function getName(): Promise<string> {
-  return "TieZ Clipboard";
+  return "jn-clipboard Clipboard";
 }
 
 /** Not applicable on the web: the page cannot register OS-level startup. */

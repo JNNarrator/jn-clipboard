@@ -1,7 +1,8 @@
 {
-  "name": "tiez-app",
+  "name": "jn-clipboard",
   "private": true,
   "version": "1.0.0",
+  "description": "Clipboard history manager for macOS, Windows and the browser",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -34,7 +35,7 @@
     "tauri:dev": "node scripts/apply-app-version.mjs && node scripts/run-tauri.mjs dev --features devtools",
     "tauri:build": "node scripts/apply-app-version.mjs && tauri build",
     "tauri:build:mac-signed": "node scripts/apply-app-version.mjs && node scripts/build-mac-signed.mjs",
-    "build:portable": "tauri build --no-bundle --features portable && powershell -NoProfile -Command \"$ErrorActionPreference='Stop'; $out='artifacts/portable'; if (Test-Path $out) { Remove-Item -Recurse -Force $out }; New-Item -ItemType Directory -Force -Path (Join-Path $out 'data') | Out-Null; Copy-Item 'src-tauri/target/release/tiez-app.exe' -Destination (Join-Path $out 'tiez-app.exe') -Force; Set-Content -Path (Join-Path $out '说明.txt') -Value '本软件完全免费，严禁未经许可的第三方倒卖。`r`n`r`n便携版更新时，请从官网 https://tiez.name666.top 下载新版本，并替换原目录中的 tiez-app.exe；data 文件夹会保留你的数据。' -Encoding UTF8; Compress-Archive -Path (Join-Path $out '*') -DestinationPath (Join-Path $out 'tiez-portable.zip') -Force\"",
+    "build:portable": "tauri build --no-bundle --features portable && powershell -NoProfile -Command \"$ErrorActionPreference='Stop'; $out='artifacts/portable'; if (Test-Path $out) { Remove-Item -Recurse -Force $out }; New-Item -ItemType Directory -Force -Path (Join-Path $out 'data') | Out-Null; Copy-Item 'src-tauri/target/release/jn-clipboard.exe' -Destination (Join-Path $out 'jn-clipboard.exe') -Force; Set-Content -Path (Join-Path $out '说明.txt') -Value '本软件完全免费，严禁未经许可的第三方倒卖。`r`n`r`n便携版更新时，请从官网 https://tiez.name666.top 下载新版本，并替换原目录中的 jn-clipboard.exe；data 文件夹会保留你的数据。' -Encoding UTF8; Compress-Archive -Path (Join-Path $out '*') -DestinationPath (Join-Path $out 'tiez-portable.zip') -Force\"",
     "tauri:build:mac-arm": "tauri build --target aarch64-apple-darwin",
     "tauri:build:mac-intel": "PATH=\"$HOME/.cargo/bin:$PATH\" RUSTUP_HOME=\"$HOME/.rustup\" CARGO_HOME=\"$HOME/.cargo\" RUSTUP_TOOLCHAIN=stable-aarch64-apple-darwin tauri build --target x86_64-apple-darwin",
     "release": "set -a && . ./.env && set +a && node scripts/apply-app-version.mjs macos && tauri build",

@@ -330,7 +330,7 @@ pub fn seed_defaults(conn: &Connection) -> Result<()> {
         "INSERT OR IGNORE INTO settings (key, value) VALUES ('app.deduplicate', 'true')",
         [],
     );
-    // 「后台启动」: on Windows TieZ lives in the tray; on macOS a Dock app that
+    // 「后台启动」: on Windows jn-clipboard lives in the tray; on macOS a Dock app that
     // opens without a window looks broken, so it starts off there.
     let _ = conn.execute(
         "INSERT OR IGNORE INTO settings (key, value) VALUES ('app.silent_start', ?1)",
@@ -781,7 +781,7 @@ mod tests {
     #[test]
     fn entry_files_are_found_after_the_data_folder_moved() {
         let root = std::env::temp_dir().join(format!("tiez-entry-file-{}", uuid::Uuid::new_v4()));
-        let data_dir = root.join("com.tiez");
+        let data_dir = root.join("com.jnarrator.jnclipboard");
         std::fs::create_dir_all(data_dir.join("attachments")).unwrap();
         let moved = data_dir.join("attachments").join("img_1.png");
         std::fs::write(&moved, b"png").unwrap();
@@ -792,10 +792,10 @@ mod tests {
         let stored = outside.to_string_lossy().to_string();
         assert_eq!(resolve_entry_file_path(&format!(" {stored} "), &data_dir), Some(outside));
         // Saved under the old data folder, now in this one.
-        let old_path = root.join("com.tiez.app").join("attachments").join("img_1.png");
+        let old_path = root.join("com.jnarrator.jnclipboard.app").join("attachments").join("img_1.png");
         assert_eq!(resolve_entry_file_path(&old_path.to_string_lossy(), &data_dir), Some(moved));
         // Gone from both.
-        let gone = root.join("com.tiez.app").join("attachments").join("img_2.png");
+        let gone = root.join("com.jnarrator.jnclipboard.app").join("attachments").join("img_2.png");
         assert_eq!(resolve_entry_file_path(&gone.to_string_lossy(), &data_dir), None);
         assert_eq!(resolve_entry_file_path("  ", &data_dir), None);
 

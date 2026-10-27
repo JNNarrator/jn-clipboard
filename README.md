@@ -3,16 +3,25 @@
   <b>Making fragmented information flow effortlessly.</b>
 </p>
 
+> **A fork.** `jn-clipboard` is a personal fork of
+> [jimuzhe/tiez-clipboard](https://github.com/jimuzhe/tiez-clipboard) by jimuzhe,
+> used and distributed under the GNU GPL-3.0. The upstream project deserves the
+> credit for the application this is built on.
+>
+> What changed here: the AI, MQTT sync, LAN transfer, third-party import and
+> emoji features were removed, six cosmetic themes were dropped, and a
+> browser/PWA build was added that shares the same UI over IndexedDB.
+
 ---
 
 <div align="center">
-  <img src="docs/images/logo.png" alt="TieZ Hero Logo" width="300" />
+  <img src="docs/images/logo.png" alt="jn-clipboard Hero Logo" width="300" />
 
   ### **STAY FAST. STAY SYNCED.**
 
   | STARS | VERSION | LICENSE | PLATFORM |
   | :--- | :--- | :--- | :--- |
-  | [![Stars](https://img.shields.io/github/stars/jimuzhe/tiez-clipboard?label=STARS&style=for-the-badge&color=4CAF50)](https://github.com/jimuzhe/tiez-clipboard/stargazers) | [![Version](https://img.shields.io/github/v/release/jimuzhe/tiez-clipboard?label=VERSION&style=for-the-badge&color=2196F3)](https://github.com/jimuzhe/tiez-clipboard/releases) | [![License](https://img.shields.io/badge/LICENSE-GPL--3.0-FF9800?style=for-the-badge)](https://www.gnu.org/licenses/gpl-3.0) | [![Platform](https://img.shields.io/badge/PLATFORM-macOS-f44336?style=for-the-badge)](https://github.com/jimuzhe/tiez-clipboard/releases) |
+  | [![Version](https://img.shields.io/github/v/release/JNNarrator/jn-clipboard?label=VERSION&style=for-the-badge&color=2196F3)](https://github.com/JNNarrator/jn-clipboard/releases) | [![License](https://img.shields.io/badge/LICENSE-GPL--3.0-FF9800?style=for-the-badge)](https://www.gnu.org/licenses/gpl-3.0) | [![Platform](https://img.shields.io/badge/PLATFORM-macOS%20%7C%20Windows%20%7C%20Web%20%2FPWA-f44336?style=for-the-badge)](https://github.com/JNNarrator/jn-clipboard) |
 
   [English](./README.md) | [简体中文](./README.zh-CN.md)
 </div>
@@ -23,21 +32,20 @@
 
 ## Theme Gallery
 
-Eight built-in themes; four of them:
+Three native-material themes — Mica and Acrylic on Windows, the macOS vibrancy
+material on macOS — each with dark and light modes:
 
+<div align="center">
   <table>
     <tr>
       <td align="center"><b>Frosted</b><br><img src="docs/images/毛玻璃.png" width="220" /></td>
-      <td align="center"><b>Paper</b><br><img src="docs/images/书.png" width="220" /></td>
-      <td align="center"><b>Sticky</b><br><img src="docs/images/便利贴.png" width="220" /></td>
-      <td align="center"><b>Retro</b><br><img src="docs/images/3d.png" width="220" /></td>
     </tr>
   </table>
 </div>
 
 ---
 
-## Why TieZ?
+## Why jn-clipboard?
 
 | Performance | Practicality | Privacy | Sync |
 | :--- | :--- | :--- | :--- |
@@ -62,7 +70,6 @@ Eight built-in themes; four of them:
 - **WebDAV Sync**: Your data, your cloud. Complete cross-device history.
 
 ### Productivity Tools
-- **External Collaboration**: Open items in external editors with auto-sync back.
 - **Global Search**: Find anything by content, source app, or date.
 - **Sequential Paste**: Optimized workflow for high-frequency copy-paste tasks.
 
@@ -75,50 +82,22 @@ Eight built-in themes; four of them:
 | :--- | :--- | :--- |
 | **macOS** | macOS 10.15+ <br>(Apple Silicon / Intel) | `.dmg` / `.app` |
 
-[**Download the Latest Release →**](https://github.com/jimuzhe/tiez-clipboard/releases)
+[**Download the Latest Release →**](https://github.com/JNNarrator/jn-clipboard/releases)
 
 ---
 
-## Star History
+## Credit & License
 
-<div align="center">
-  <a href="https://star-history.com/#jimuzhe/tiez-clipboard&Date">
-    <img src="https://api.star-history.com/svg?repos=jimuzhe/tiez-clipboard&type=Date" alt="Star History Chart" width="800" />
-  </a>
-</div>
+`jn-clipboard` is a fork of [jimuzhe/tiez-clipboard](https://github.com/jimuzhe/tiez-clipboard),
+which is licensed under the [GNU GPL-3.0](LICENSE). This fork keeps that licence
+and the upstream copyright notices; the modifications listed at the top of this
+file are also covered by it.
 
----
-
-## Community & Support
-
-If TieZ makes your life easier, consider supporting the journey.
-
-<div align="center">
-  <table style="border: none;">
-    <tr>
-      <td align="center" style="border: none;">
-        <p><strong>WeChat</strong></p>
-        <img src="docs/images/wx.jpeg" alt="WeChat" width="180" height="180" />
-      </td>
-      <td align="center" style="border: none;">
-        <p><strong>Alipay</strong></p>
-        <img src="docs/images/zfb.jpeg" alt="Alipay" width="180" height="180" />
-      </td>
-      <td align="center" style="border: none;">
-        <p><strong>QQ Group</strong></p>
-        <img src="docs/images/qq.jpeg" alt="QQ Group" width="180" height="180" />
-      </td>
-    </tr>
-  </table>
-  <br>
-  <p>Your support keeps the project active and the developer caffeinated!</p>
-  <a href="https://tiez.name666.top/zh/sponsors.html"><strong>View Sponsor List</strong></a>
-</div>
+If you want to support the original project, do that
+[upstream](https://github.com/jimuzhe/tiez-clipboard), not here.
 
 ---
 
 <div align="center">
   Built with technical precision for every efficient developer.
-  <br>
-  <b>Please consider leaving a Star if you find this project useful.</b>
 </div>

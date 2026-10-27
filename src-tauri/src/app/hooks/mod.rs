@@ -237,7 +237,7 @@ pub unsafe extern "system" fn keyboard_proc(
             let win_down = (GetAsyncKeyState(VK_LWIN.0 as i32) as u16 & 0x8000 != 0)
                 || (GetAsyncKeyState(VK_RWIN.0 as i32) as u16 & 0x8000 != 0);
 
-            // Injected keystrokes are skipped: TieZ's own synthetic Ctrl+V already
+            // Injected keystrokes are skipped: jn-clipboard's own synthetic Ctrl+V already
             // schedules this sound (clipboard_ops::schedule_paste_sound).
             let injected = kbd_struct.flags.0 & 0x10 != 0; // LLKHF_INJECTED
             if vk == 0x56 && ctrl_down && !alt_down && !shift_down && !win_down && !injected {

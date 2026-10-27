@@ -21,7 +21,7 @@ pub const LEGACY_PLAIN_PREFIX: &str = "plain:";
 pub const LEGACY_DPAPI_PREFIX: &str = "dpapi:";
 
 #[cfg(all(target_os = "macos", not(debug_assertions)))]
-const KEYCHAIN_SERVICE: &str = "com.tiez.clipboard";
+const KEYCHAIN_SERVICE: &str = "com.jnarrator.jnclipboard.clipboard";
 #[cfg(all(target_os = "macos", not(debug_assertions)))]
 const KEYCHAIN_ACCOUNT: &str = "master-key-v1";
 #[cfg(target_os = "windows")]

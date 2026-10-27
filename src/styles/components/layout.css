@@ -73,7 +73,7 @@ header {
 .brand-mark {
   display: block;
   height: 15px;
-  width: 42px;
+  width: 96px;
   margin-left: 2px;
   flex: 0 0 auto;
   background-color: var(--brand-mark-color, var(--accent-color));
@@ -84,8 +84,8 @@ header {
     var(--brand-mark-color, var(--accent-color)) 88%,
     rgb(var(--shadow-rgb)) 12%
   );
-  -webkit-mask: url("../../assets/tiez-wordmark.svg") left center / contain no-repeat;
-  mask: url("../../assets/tiez-wordmark.svg") left center / contain no-repeat;
+  -webkit-mask: url("../../assets/jn-clipboard-wordmark.svg") left center / contain no-repeat;
+  mask: url("../../assets/jn-clipboard-wordmark.svg") left center / contain no-repeat;
   pointer-events: none;
   -webkit-user-select: none;
   user-select: none;
@@ -250,7 +250,7 @@ header {
 
   .brand-mark {
     height: 13px;
-    width: 36px;
+    width: 80px;
   }
 
   .header-drag-region {

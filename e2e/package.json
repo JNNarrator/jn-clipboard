@@ -1,7 +1,7 @@
 {
   "name": "tiez-e2e",
   "version": "1.0.0",
-  "description": "TieZ UI end-to-end tests against the browser preview harness (Tauri mocked)",
+  "description": "jn-clipboard UI end-to-end tests against the browser preview harness (Tauri mocked)",
   "private": true,
   "type": "module",
   "scripts": {

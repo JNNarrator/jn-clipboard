@@ -86,8 +86,8 @@ pub fn init(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     let app_dir = resolve_data_dir(app)?;
 
     // 2. Logger Initialization
-    crate::logger::init(app_dir.join("tiez.log"));
-    info!(">>> [STARTUP] TieZ starting up...");
+    crate::logger::init(app_dir.join("jn-clipboard.log"));
+    info!(">>> [STARTUP] jn-clipboard starting up...");
 
     // 2b. Local-at-rest encryption (AES-GCM + OS key store)
     crate::infrastructure::encryption::init(&app_dir);
@@ -97,7 +97,7 @@ pub fn init(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     let db_path_str = db_path.to_string_lossy();
     let conn = database::init_db(&db_path_str).map_err(|e| {
         let err_msg = format!("无法打开记录存储。\n详情：{}", e);
-        eprintln!("TieZ Startup Error: {}", err_msg);
+        eprintln!("jn-clipboard Startup Error: {}", err_msg);
         e
     })?;
 
@@ -161,12 +161,12 @@ pub(crate) fn default_app_data_dir<R: tauri::Runtime>(
     paths: &tauri::path::PathResolver<R>,
 ) -> tauri::Result<std::path::PathBuf> {
     let dir = paths.app_data_dir()?;
-    // `npm run tauri:dev` already uses the com.tiez.dev identifier; only a
+    // `npm run tauri:dev` already uses the com.jnarrator.jnclipboard.dev identifier; only a
     // debug build run with the release config still needs the suffix.
     #[cfg(all(target_os = "macos", debug_assertions))]
     let dir = match dir.file_name().and_then(|n| n.to_str()) {
         Some(name) if name.ends_with(".dev") => dir,
-        name => dir.with_file_name(format!("{}.dev", name.unwrap_or("com.tiez"))),
+        name => dir.with_file_name(format!("{}.dev", name.unwrap_or("com.jnarrator.jnclipboard"))),
     };
     Ok(dir)
 }
@@ -184,8 +184,8 @@ fn resolve_data_dir(app: &App) -> Result<std::path::PathBuf, Box<dyn std::error:
             for entry in entries.flatten() {
                 if let Ok(name) = entry.file_name().into_string() {
                     // Clipboard temp files from earlier runs: pasted images
-                    // (TieZ_IMG_/TieZ_GIF_) were never removed and piled up.
-                    if ["TieZ_Clip_", "TieZ_IMG_", "TieZ_GIF_"]
+                    // (jn-clipboard_IMG_/jn-clipboard_GIF_) were never removed and piled up.
+                    if ["jn-clipboard_Clip_", "jn-clipboard_IMG_", "jn-clipboard_GIF_"]
                         .iter()
                         .any(|prefix| name.starts_with(prefix))
                     {
@@ -783,7 +783,7 @@ mod edge_tuck_tests {
 }
 
 /// Edge tuck and reveal change always-on-top while the user works in another
-/// app. On Windows that must not activate TieZ: a hover-reveal took focus from
+/// app. On Windows that must not activate jn-clipboard: a hover-reveal took focus from
 /// the app underneath, which closed an Explorer / Directory Opus rename box.
 /// Tauri's own flag is left as is, so it keeps tracking the user's pin.
 fn set_edge_dock_topmost(window: &tauri::WebviewWindow, topmost: bool) {
@@ -818,7 +818,7 @@ fn restore_pin_state_after_edge_expand(app_handle: &AppHandle, window: &tauri::W
 }
 
 /// The window-state plugin restores the last position, which is off-screen
-/// when TieZ quit while tucked into an edge, but nothing marked the window as
+/// when jn-clipboard quit while tucked into an edge, but nothing marked the window as
 /// tucked on Windows. The hotkey then hid and "showed" it out of sight, and
 /// only a tray click (which infers the dock from geometry) brought it back.
 /// Adopt such a position as a tuck. Returns true if it did.
@@ -976,7 +976,7 @@ fn setup_main_window(app: &App, s: &StartupSettings) {
         set_window_all_spaces(&window);
 
         // Drop WebView2 browser accelerators (Ctrl+F find, F1 help, reload…) so
-        // they cannot collide with TieZ / third-party global hotkeys (#159).
+        // they cannot collide with jn-clipboard / third-party global hotkeys (#159).
         #[cfg(target_os = "windows")]
         crate::infrastructure::windows_api::webview_keys::disable_browser_accelerator_keys_for_window(
             &window,
@@ -1105,7 +1105,7 @@ fn enable_autostart_on_first_run(app_handle: &AppHandle, db_state: &DbState) {
     if is_autostart_enabled(app_handle.clone()).unwrap_or(false) {
         done();
     } else if login_item_switched_off() {
-        // Registered, but the user switched TieZ off in System Settings
+        // Registered, but the user switched jn-clipboard off in System Settings
         // before (a reinstall): their choice, and nothing left to retry.
         done();
     } else {
@@ -1125,7 +1125,7 @@ fn login_item_switched_off() -> bool {
 }
 
 /// Moves a login item made the old way (~/Library/LaunchAgents, shown under
-/// the developer's name) to the in-bundle agent shown as TieZ. Only when it
+/// the developer's name) to the in-bundle agent shown as jn-clipboard. Only when it
 /// was on: an upgrade never turns launch at login on by itself.
 #[cfg(target_os = "macos")]
 fn migrate_macos_login_item(app_handle: &AppHandle) {
@@ -1977,7 +1977,7 @@ fn setup_tray(app: &App, hide_tray: bool) {
 
     let mut tray_builder = TrayIconBuilder::with_id("main_tray")
         .icon(icon)
-        .tooltip("TieZ")
+        .tooltip("jn-clipboard")
         .show_menu_on_left_click(false)
         .menu(&menu)
         .on_menu_event(|app, event| {

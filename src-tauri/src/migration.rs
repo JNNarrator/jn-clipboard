@@ -1,22 +1,22 @@
 use std::path::PathBuf;
 
-/// v0.2.8 Rename Migration: 贴汁 -> TieZ
+/// v0.2.8 Rename Migration: jn-clipboard -> jn-clipboard
 pub fn perform_migration_v028(default_app_dir: &PathBuf) {
     let mut old_app_dirs_to_check = Vec::new();
 
     if let Some(parent) = default_app_dir.parent() {
-        old_app_dirs_to_check.push(parent.join("贴汁"));
+        old_app_dirs_to_check.push(parent.join("jn-clipboard"));
         #[cfg(target_os = "macos")]
         {
         old_app_dirs_to_check.push(parent.join("tie-z"));
-        old_app_dirs_to_check.push(parent.join("com.tiez.app"));
+        old_app_dirs_to_check.push(parent.join("com.jnarrator.jnclipboard.app"));
         }
     }
 
     #[cfg(target_os = "windows")]
     for variable in ["LOCALAPPDATA", "APPDATA"] {
         if let Ok(base) = std::env::var(variable) {
-            let candidate = PathBuf::from(base).join("贴汁");
+            let candidate = PathBuf::from(base).join("jn-clipboard");
             if !old_app_dirs_to_check.contains(&candidate) {
                 old_app_dirs_to_check.push(candidate);
             }
@@ -48,21 +48,21 @@ pub fn perform_migration_v028(default_app_dir: &PathBuf) {
             // 1. Data Migration Logic
             if !default_app_dir.exists() {
                 println!(
-                    ">>> [MIGRATION] Renaming old data folder {:?} to 'TieZ'...",
+                    ">>> [MIGRATION] Renaming old data folder {:?} to 'jn-clipboard'...",
                     old_app_dir
                 );
                 success = std::fs::rename(&old_app_dir, &default_app_dir).is_ok();
             } else if old_db.exists() && !new_db.exists() {
                 println!(
-                    ">>> [MIGRATION] Pulling old data from {:?} to 'TieZ'...",
+                    ">>> [MIGRATION] Pulling old data from {:?} to 'jn-clipboard'...",
                     old_app_dir
                 );
                 let _ = std::fs::create_dir_all(&default_app_dir);
                 if std::fs::copy(&old_db, &new_db).is_ok() {
                     success = true;
-                    let old_log = old_app_dir.join("tiez.log");
+                    let old_log = old_app_dir.join("jn-clipboard.log");
                     if old_log.exists() {
-                        let _ = std::fs::copy(&old_log, default_app_dir.join("tiez.log"));
+                        let _ = std::fs::copy(&old_log, default_app_dir.join("jn-clipboard.log"));
                     }
                 }
             } else if old_db.exists() && new_db.exists() {
@@ -76,7 +76,7 @@ pub fn perform_migration_v028(default_app_dir: &PathBuf) {
 
                     if std::fs::copy(&old_db, &new_db).is_ok() {
                         success = true;
-                        println!(">>> [MIGRATION] Successfully migrated old database to TieZ.");
+                        println!(">>> [MIGRATION] Successfully migrated old database to jn-clipboard.");
                     } else {
                         let _ = std::fs::rename(&backup_db, &new_db);
                     }
@@ -122,7 +122,7 @@ pub fn cleanup_old_install_registry() -> Option<PathBuf> {
                 continue;
             };
             let display_name: String = subkey.get_value("DisplayName").unwrap_or_default();
-            if !display_name.contains("贴汁") {
+            if !display_name.contains("jn-clipboard") {
                 continue;
             }
 
@@ -160,18 +160,18 @@ pub fn cleanup_old_start_menu() {
                 .join("Windows")
                 .join("Start Menu")
                 .join("Programs");
-            let shortcut = programs.join("贴汁.lnk");
+            let shortcut = programs.join("jn-clipboard.lnk");
             if shortcut.is_file() {
                 let _ = std::fs::remove_file(shortcut);
             }
-            let folder = programs.join("贴汁");
+            let folder = programs.join("jn-clipboard");
             if folder.is_dir() {
                 let _ = std::fs::remove_dir_all(folder);
             }
         }
 
         if let Ok(profile) = std::env::var("USERPROFILE") {
-            let shortcut = PathBuf::from(profile).join("Desktop").join("贴汁.lnk");
+            let shortcut = PathBuf::from(profile).join("Desktop").join("jn-clipboard.lnk");
             if shortcut.is_file() {
                 let _ = std::fs::remove_file(shortcut);
             }
@@ -203,13 +203,13 @@ pub fn cleanup_old_install_folder(custom_path: Option<PathBuf>) {
         let mut candidates = vec![
             std::env::var("LOCALAPPDATA")
                 .ok()
-                .map(|base| PathBuf::from(base).join("Programs").join("贴汁")),
+                .map(|base| PathBuf::from(base).join("Programs").join("jn-clipboard")),
             std::env::var("ProgramFiles")
                 .ok()
-                .map(|base| PathBuf::from(base).join("贴汁")),
+                .map(|base| PathBuf::from(base).join("jn-clipboard")),
             std::env::var("ProgramFiles(x86)")
                 .ok()
-                .map(|base| PathBuf::from(base).join("贴汁")),
+                .map(|base| PathBuf::from(base).join("jn-clipboard")),
         ];
         candidates.push(custom_path);
 
@@ -223,7 +223,7 @@ pub fn cleanup_old_install_folder(custom_path: Option<PathBuf>) {
 
             // Registry values can be malformed. Only delete a directory whose final
             // component is the exact legacy product name.
-            if candidate.file_name().and_then(|name| name.to_str()) != Some("贴汁") {
+            if candidate.file_name().and_then(|name| name.to_str()) != Some("jn-clipboard") {
                 continue;
             }
             let _ = std::fs::remove_dir_all(candidate);

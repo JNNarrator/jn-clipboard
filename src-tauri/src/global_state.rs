@@ -71,7 +71,7 @@ mod blur_guard_tests {
     }
 }
 
-// For macOS: store the name of the frontmost app before we show TieZ,
+// For macOS: store the name of the frontmost app before we show jn-clipboard,
 // so we can re-activate it before pasting.
 pub static LAST_ACTIVE_APP_PID: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
 pub static LAST_ACTIVE_HWND: AtomicUsize = AtomicUsize::new(0);

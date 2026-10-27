@@ -810,7 +810,7 @@ fn toggle_window_macos(app_handle: &AppHandle) {
         let (prev_app_name, prev_app_pid) =
             crate::infrastructure::macos_api::window::get_active_app_info();
         let self_pid = std::process::id();
-        if !prev_app_name.is_empty() && !prev_app_name.eq_ignore_ascii_case("TieZ") {
+        if !prev_app_name.is_empty() && !prev_app_name.eq_ignore_ascii_case("jn-clipboard") {
             crate::global_state::set_last_active_app_name(prev_app_name);
         }
         if let Ok(pid) = prev_app_pid.parse::<u32>() {
@@ -905,7 +905,7 @@ pub fn activate_window_focus(app_handle: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-/// Native dialogs require TieZ to be the active application on macOS. Keep
+/// Native dialogs require jn-clipboard to be the active application on macOS. Keep
 /// this separate from editable WebView focus: activating the whole process for
 /// an input click can make the non-activating panel resign key mid-keystroke.
 #[tauri::command]

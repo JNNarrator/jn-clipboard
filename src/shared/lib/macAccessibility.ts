@@ -5,7 +5,7 @@ let systemPromptRequested = false;
 /**
  * "Authorize" for the macOS Accessibility permission.
  *
- * The first time, only macOS's own prompt is shown: it adds TieZ to the
+ * The first time, only macOS's own prompt is shown: it adds jn-clipboard to the
  * Accessibility list and has its own "Open System Settings" button. Opening
  * Settings at the same time put the Settings window over that prompt before
  * the user could answer it. macOS shows the prompt once; if no prompt took

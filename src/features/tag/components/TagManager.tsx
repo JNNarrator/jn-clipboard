@@ -31,7 +31,7 @@ interface TagInfo {
 }
 
 export default function TagManager({ t, theme, privacyProtection }: TagManagerProps) {
-    const TAG_MANAGER_VIEW_MODE_KEY = "tiez_tag_manager_view_mode";
+    const TAG_MANAGER_VIEW_MODE_KEY = "jnclip_tag_manager_view_mode";
     const TAG_MANAGER_SPLIT_MIN_WIDTH = 320;
     const [tags, setTags] = useState<TagInfo[]>([]);
     const [tagSearch, setTagSearch] = useState('');

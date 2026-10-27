@@ -1,6 +1,6 @@
 /**
  * Block Chromium / WebView browser accelerators that collide with desktop-app UX
- * or OS / third-party global hotkeys while TieZ is focused.
+ * or OS / third-party global hotkeys while jn-clipboard is focused.
  *
  * Complements Windows WebView2 `AreBrowserAcceleratorKeysEnabled=false`.
  * Editing shortcuts (Ctrl/Cmd+C/V/X/A/Z) are intentionally left alone.
@@ -23,7 +23,7 @@ const isFindShortcut = (event: KeyboardEvent) => {
   return false;
 };
 
-/** Browser-only accelerators that should never win inside TieZ. */
+/** Browser-only accelerators that should never win inside jn-clipboard. */
 export const isBrowserAcceleratorShortcut = (
   event: KeyboardEvent,
   options?: Pick<BrowserAcceleratorBlockerOptions, "allowDevReload">
@@ -32,7 +32,7 @@ export const isBrowserAcceleratorShortcut = (
   const mod = isMod(event);
   const allowDev = options?.allowDevReload === true;
 
-  // F1 → browser Help (steals focus from other tools while TieZ is focused)
+  // F1 → browser Help (steals focus from other tools while jn-clipboard is focused)
   if (key === "f1" && !mod && !event.altKey) return true;
 
   // Find-in-page
@@ -74,7 +74,7 @@ export const installBrowserAcceleratorBlocker = (
   const onKeyDown = (event: KeyboardEvent) => {
     if (!isBrowserAcceleratorShortcut(event, { allowDevReload })) return;
 
-    // Find shortcuts: suppress browser UI but allow app listeners (e.g. focus TieZ search).
+    // Find shortcuts: suppress browser UI but allow app listeners (e.g. focus jn-clipboard search).
     if (isFindShortcut(event)) {
       options.onFind?.();
       event.preventDefault();

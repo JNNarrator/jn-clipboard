@@ -87,7 +87,7 @@ pub fn listen_clipboard(callback: Arc<dyn Fn() + Send + Sync + 'static>) {
                     return;
                 }
             };
-            let class_name: Vec<u16> = "TieZClipboardListener"
+            let class_name: Vec<u16> = "jn-clipboardClipboardListener"
                 .encode_utf16()
                 .chain(std::iter::once(0))
                 .collect();

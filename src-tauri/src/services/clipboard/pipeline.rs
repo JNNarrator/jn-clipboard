@@ -261,7 +261,7 @@ impl PipelineStage for TransformationStage {
             }
         } else if entry.content_type == "image" && entry.is_external && !entry.content.starts_with("data:") {
             // If the image was captured as an external file (e.g. from WeChat, QQ, Snipping Tool, or browser temp folder),
-            // copy its bytes into TieZ's permanent attachments folder so it doesn't turn empty when the external temp file is cleaned up!
+            // copy its bytes into jn-clipboard's permanent attachments folder so it doesn't turn empty when the external temp file is cleaned up!
             let src_path = std::path::Path::new(&entry.content);
             let data_dir = storage_root.clone();
             let attachments_dir = data_dir.join("attachments");

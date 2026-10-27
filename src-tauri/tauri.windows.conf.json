@@ -1,5 +1,5 @@
 {
-  "identifier": "com.tiez.app",
+  "identifier": "com.jnarrator.jnclipboard.app",
   "bundle": {
     "targets": ["nsis"],
     "icon": [
@@ -16,7 +16,7 @@
         "installerHooks": "nsis/uninstall.nsh",
         "languages": ["English", "SimpChinese", "TradChinese"],
         "displayLanguageSelector": true,
-        "startMenuFolder": "TieZ"
+        "startMenuFolder": "jn-clipboard"
       }
     }
   }

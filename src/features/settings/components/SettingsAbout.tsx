@@ -20,9 +20,9 @@ const SettingsAbout = ({ t, appVersion, releaseChannel, portable, updateButton, 
     <section className="settings-about" aria-label={t("settings_about")}>
         <header className="settings-about-header">
             <div className="settings-about-identity">
-                <img className="settings-about-icon" src={appLogo} alt="TieZ Logo" />
+                <img className="settings-about-icon" src={appLogo} alt="jn-clipboard Logo" />
                 <div>
-                    <h2>TieZ</h2>
+                    <h2>jn-clipboard</h2>
                     <p className="settings-about-slogan">{t("slogan")}</p>
                 </div>
             </div>

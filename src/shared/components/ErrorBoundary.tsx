@@ -10,7 +10,7 @@ const TEXT = {
 } as const;
 
 const pickText = () => {
-  const lang = localStorage.getItem("tiez_language");
+  const lang = localStorage.getItem("jnclip_language");
   return lang === "en" || lang === "tw" ? TEXT[lang] : TEXT.zh;
 };
 

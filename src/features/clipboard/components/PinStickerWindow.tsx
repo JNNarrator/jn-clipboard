@@ -24,10 +24,10 @@ const STICKER_PADDING = 10; // 10px macOS-grade ambient shadow breathing space
 export const PinStickerWindow: React.FC = () => {
   useEffect(() => {
     try {
-      const theme = localStorage.getItem("tiez_theme") || DEFAULT_THEME;
-      const colorMode = localStorage.getItem("tiez_color_mode") || "system";
+      const theme = localStorage.getItem("jnclip_theme") || DEFAULT_THEME;
+      const colorMode = localStorage.getItem("jnclip_color_mode") || "system";
       applyThemeClasses(normalizeThemeId(theme), document.documentElement, document.body);
-      applyNativePalette(theme, localStorage.getItem("tiez_native_palette") || "default", document.documentElement, document.body);
+      applyNativePalette(theme, localStorage.getItem("jnclip_native_palette") || "default", document.documentElement, document.body);
 
       if (
         colorMode === "dark" ||
@@ -50,7 +50,7 @@ export const PinStickerWindow: React.FC = () => {
   }, []);
 
   // Mirrored from settings "app.language" by the main window (App saveAppSetting / useSettingsInit).
-  const storedLanguage = localStorage.getItem("tiez_language");
+  const storedLanguage = localStorage.getItem("jnclip_language");
   const language: Locale = storedLanguage === "en" || storedLanguage === "tw" ? storedLanguage : "zh";
   const t = useCallback(
     (key: keyof (typeof translations)["zh"]) => {

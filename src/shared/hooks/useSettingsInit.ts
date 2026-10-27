@@ -65,11 +65,11 @@ export const useSettingsInit = ({
           setCompactMode(result["app.compact_mode"] === "true");
 
           try {
-            localStorage.setItem("tiez_theme", loadedTheme);
-            localStorage.setItem("tiez_native_palette", nativePalette);
-            localStorage.setItem("tiez_color_mode", loadedColorMode);
+            localStorage.setItem("jnclip_theme", loadedTheme);
+            localStorage.setItem("jnclip_native_palette", nativePalette);
+            localStorage.setItem("jnclip_color_mode", loadedColorMode);
             localStorage.setItem(
-              "tiez_compact_mode",
+              "jnclip_compact_mode",
               result["app.compact_mode"] === "true" ? "true" : "false"
             );
           } catch {
@@ -79,7 +79,7 @@ export const useSettingsInit = ({
           if (result["app.language"]) {
             setLanguage(result["app.language"] as Locale);
             try {
-              localStorage.setItem("tiez_language", result["app.language"]);
+              localStorage.setItem("jnclip_language", result["app.language"]);
             } catch {
               // Ignore localStorage errors
             }

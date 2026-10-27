@@ -46,7 +46,7 @@ fn now_ms() -> u64 {
         .as_millis() as u64
 }
 
-/// Skip tap feedback briefly after TieZ posts a synthetic ⌘V (schedule_paste_sound handles that).
+/// Skip tap feedback briefly after jn-clipboard posts a synthetic ⌘V (schedule_paste_sound handles that).
 pub fn suppress_paste_sound_briefly() {
     SUPPRESS_CMDV_SOUND_UNTIL_MS.store(now_ms().saturating_add(250), Ordering::Release);
 }

@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "TieZ",
+  "productName": "jn-clipboard",
   "version": "1.0.0",
-  "identifier": "com.tiez",
+  "identifier": "com.jnarrator.jnclipboard",
   "plugins": {
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE0MDY1QzlGQkU0ODcwMjMKUldRamNFaStuMXdHcEtFWlNINnVJcVgxa2tRb0wrRlBjdzRmZ3Z1WGJxZ1V3R0w5ZmNUemtvRjMK",
@@ -20,7 +20,7 @@
   "app": {
     "windows": [
       {
-        "title": "TieZ",
+        "title": "jn-clipboard",
         "label": "main",
         "width": 352,
         "height": 380,

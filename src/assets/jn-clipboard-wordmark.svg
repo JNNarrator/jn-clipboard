@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" viewBox="0 0 620 100">
+  <!-- Wordmark for the jn-clipboard fork. Drawn as text rather than outlines so
+       it stays legible at the 16px header height and needs no font binaries. -->
+  <text x="0" y="76" fill="currentColor"
+        font-family="Inter, 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif"
+        font-size="92" font-weight="700" letter-spacing="-2.5">jn-clipboard</text>
+</svg>

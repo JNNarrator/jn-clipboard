@@ -32,7 +32,7 @@ fn fallback_machine_id() -> String {
     }
 
     if seed.is_empty() {
-        seed.push_str("tiez-device");
+        seed.push_str("jnclip-device");
     }
 
     hash_to_short_id(&seed)
@@ -208,7 +208,7 @@ pub fn start_system_event_window() {
             return;
         };
         let instance = HINSTANCE(module.0);
-        let class_name = w!("TieZSystemEvents");
+        let class_name = w!("jn-clipboardSystemEvents");
         let class = WNDCLASSW {
             lpfnWndProc: Some(system_event_proc),
             hInstance: instance,
@@ -223,7 +223,7 @@ pub fn start_system_event_window() {
         let hwnd = match CreateWindowExW(
             WS_EX_TOOLWINDOW,
             class_name,
-            w!("TieZ system events"),
+            w!("jn-clipboard system events"),
             WS_POPUP,
             0,
             0,

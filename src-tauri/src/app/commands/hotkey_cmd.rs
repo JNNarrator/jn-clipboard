@@ -38,7 +38,7 @@ fn should_register_main_hotkey(hotkey: &str) -> bool {
         return false;
     }
 
-    // Windows disables Explorer's Win+V handler before assigning it to TieZ.
+    // Windows disables Explorer's Win+V handler before assigning it to jn-clipboard.
     // On other platforms, avoid turning a migrated Win+V setting into
     // Command+V and intercepting the system paste shortcut.
     cfg!(target_os = "windows") || !is_win_v_hotkey(hotkey)
@@ -122,7 +122,7 @@ pub fn sync_registered_hotkeys(app_handle: &AppHandle) -> AppResult<()> {
     // Register every shortcut even if one fails (e.g. taken by another app):
     // an early return used to leave the later ones unregistered, so pressing
     // them typed a character instead (Option+F typing "ƒ"). Failures are
-    // logged to tiez.log; the first one is returned.
+    // logged to jn-clipboard.log; the first one is returned.
     let mut first_error: Option<AppError> = None;
     let mut register = |hotkey: &str| {
         if let Err(err) = register_unique_shortcut(app_handle, hotkey, &mut registered) {

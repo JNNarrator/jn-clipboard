@@ -116,7 +116,7 @@ jobs:
           TIEZ_UPDATER_PUBLIC_KEY: ${{ vars.TIEZ_UPDATER_PUBLIC_KEY }}
         with:
           tagName: mac-v__VERSION__ # tauri-action 会自动替换 __VERSION__
-          releaseName: 'TieZ macOS v__VERSION__'
+          releaseName: 'jn-clipboard macOS v__VERSION__'
           releaseBody: 'See the assets to download and install this version.'
           releaseDraft: true
           prerelease: false

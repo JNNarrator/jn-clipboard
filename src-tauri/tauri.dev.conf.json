@@ -1,5 +1,5 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "TieZ Dev",
-  "identifier": "com.tiez.dev"
+  "productName": "jn-clipboard Dev",
+  "identifier": "com.jnarrator.jnclipboard.dev"
 }

@@ -637,7 +637,7 @@ const App = () => {
     return () => window.removeEventListener('keydown', handleSearchKeydown, true);
   }, [searchHotkey, isRecording, isRecordingSequential, isRecordingPlain, isRecordingSearch, t, focusSearchBox]);
 
-  // Ctrl/Cmd+F → TieZ search (browser find is already blocked globally; this routes it).
+  // Ctrl/Cmd+F → jn-clipboard search (browser find is already blocked globally; this routes it).
   useEffect(() => {
     const onFind = (event: KeyboardEvent) => {
       if (isRecording || isRecordingSequential || isRecordingPlain || isRecordingSearch) return;
@@ -775,12 +775,12 @@ const App = () => {
 
     // Sync theme-related settings to localStorage for instant startup (prevents flash)
     try {
-      if (type === 'native_palette') localStorage.setItem('tiez_native_palette', path);
-      if (type === 'theme') localStorage.setItem('tiez_theme', path);
-      if (type === 'color_mode') localStorage.setItem('tiez_color_mode', path);
-      if (type === 'compact_mode') localStorage.setItem('tiez_compact_mode', path);
-      if (type === 'compact_show_time') localStorage.setItem('tiez_compact_show_time', path);
-      if (type === 'language') localStorage.setItem('tiez_language', path);
+      if (type === 'native_palette') localStorage.setItem('jnclip_native_palette', path);
+      if (type === 'theme') localStorage.setItem('jnclip_theme', path);
+      if (type === 'color_mode') localStorage.setItem('jnclip_color_mode', path);
+      if (type === 'compact_mode') localStorage.setItem('jnclip_compact_mode', path);
+      if (type === 'compact_show_time') localStorage.setItem('jnclip_compact_show_time', path);
+      if (type === 'language') localStorage.setItem('jnclip_language', path);
     } catch (e) {
       // Ignore localStorage errors
     }

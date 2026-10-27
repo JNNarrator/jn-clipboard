@@ -1,4 +1,4 @@
-//! Dragging an entry out of TieZ through the Windows shell instead of
+//! Dragging an entry out of jn-clipboard through the Windows shell instead of
 //! WebView2, which gives other apps nothing they can use for a dragged
 //! file:// link: an image or file dropped into Explorer or a chat app did
 //! nothing. Files go out the way Explorer hands them over (the shell's own

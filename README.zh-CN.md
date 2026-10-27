@@ -5,16 +5,23 @@
 
 ---
 
+> **这是一个 fork。** `jn-clipboard` 派生自 jimuzhe 的
+> [tiez-clipboard](https://github.com/jimuzhe/tiez-clipboard)，遵循 GNU GPL-3.0
+> 使用与分发。程序本身的设计与实现归功于上游项目。
+>
+> 本 fork 的改动：移除 AI、MQTT 同步、局域网互传、第三方导入与表情功能，删去六款
+> 纯皮肤主题，并新增与桌面共用同一套界面的 Web/PWA 版本（数据存 IndexedDB）。
+
 > 维护者发布正式版或群测试版时，请参阅 [客户端发布流程](docs/RELEASES.md)。
 
 <div align="center">
-  <img src="docs/images/logo.png" alt="TieZ Hero Logo" width="300" />
+  <img src="docs/images/logo.png" alt="jn-clipboard Hero Logo" width="300" />
 
   ### **STAY FAST. STAY SYNCED.**
 
   | STARS | VERSION | LICENSE | PLATFORM |
   | :--- | :--- | :--- | :--- |
-  | [![Stars](https://img.shields.io/github/stars/jimuzhe/tiez-clipboard?label=STARS&style=for-the-badge&color=4CAF50)](https://github.com/jimuzhe/tiez-clipboard/stargazers) | [![Version](https://img.shields.io/github/v/release/jimuzhe/tiez-clipboard?label=VERSION&style=for-the-badge&color=2196F3)](https://github.com/jimuzhe/tiez-clipboard/releases) | [![License](https://img.shields.io/badge/LICENSE-GPL--3.0-FF9800?style=for-the-badge)](https://www.gnu.org/licenses/gpl-3.0) | [![Platform](https://img.shields.io/badge/PLATFORM-macOS-f44336?style=for-the-badge)](https://github.com/jimuzhe/tiez-clipboard/releases) |
+  | [![Version](https://img.shields.io/github/v/release/JNNarrator/jn-clipboard?label=VERSION&style=for-the-badge&color=2196F3)](https://github.com/JNNarrator/jn-clipboard/releases) | [![License](https://img.shields.io/badge/LICENSE-GPL--3.0-FF9800?style=for-the-badge)](https://www.gnu.org/licenses/gpl-3.0) | [![Platform](https://img.shields.io/badge/PLATFORM-macOS%20%7C%20Windows%20%7C%20Web%20%2FPWA-f44336?style=for-the-badge)](https://github.com/JNNarrator/jn-clipboard) |
 
   [English](./README.md) | [简体中文](./README.zh-CN.md)
 </div>
@@ -25,21 +32,20 @@
 
 ## 主题展示 (Theme Gallery)
 
-内置 8 款主题，下面是其中 4 款。
+保留 3 款原生材质主题——Windows 上为云母 / 亚克力，macOS 上为系统毛玻璃材质，
+均含亮色与暗色两种模式：
 
+<div align="center">
   <table>
     <tr>
       <td align="center"><b>磨砂</b><br><img src="docs/images/毛玻璃.png" width="220" /></td>
-      <td align="center"><b>纸张</b><br><img src="docs/images/书.png" width="220" /></td>
-      <td align="center"><b>便签</b><br><img src="docs/images/便利贴.png" width="220" /></td>
-      <td align="center"><b>复古</b><br><img src="docs/images/3d.png" width="220" /></td>
     </tr>
   </table>
 </div>
 
 ---
 
-## 为什么选择 TieZ?
+## 为什么选择 jn-clipboard?
 
 | 极速性能 | 深度工作流 | 本地隐私 | 云端流畅 |
 | :--- | :--- | :--- | :--- |
@@ -64,7 +70,6 @@
 - **WebDAV 同步**：数据由你掌控，实现完美的跨设备历史同步。
 
 ### 效率提速
-- **外部协作**：一键调用外部编辑器修改内容，存盘后自动写回记录。
 - **全局搜索**：支持按内容、所属应用、标签或日期进行全文检索。
 - **顺序粘贴**：为高频办公场景设计的顺序拷贝/顺序粘贴工作流程。
 
@@ -77,50 +82,20 @@
 | :--- | :--- | :--- |
 | **macOS** | macOS 10.15+ <br>(Apple Silicon / Intel) | `.dmg` / `.app` |
 
-[**前往 Releases 下载最新版本 →**](https://github.com/jimuzhe/tiez-clipboard/releases)
+[**前往 Releases 下载最新版本 →**](https://github.com/JNNarrator/jn-clipboard/releases)
 
 ---
 
-## Star History
+## 致谢与许可
 
-<div align="center">
-  <a href="https://star-history.com/#jimuzhe/tiez-clipboard&Date">
-    <img src="https://api.star-history.com/svg?repos=jimuzhe/tiez-clipboard&type=Date" alt="Star History Chart" width="800" />
-  </a>
-</div>
+`jn-clipboard` 派生自 [jimuzhe/tiez-clipboard](https://github.com/jimuzhe/tiez-clipboard)，
+原项目以 [GNU GPL-3.0](LICENSE) 授权。本 fork 沿用同一许可并保留上游版权声明，
+上文列出的改动同样受其约束。
 
----
-
-## 交流与赞助
-
-如果 TieZ 提高了你的工作效率，欢迎赞助本项目持续演进。
-
-<div align="center">
-  <table style="border: none;">
-    <tr>
-      <td align="center" style="border: none;">
-        <p><strong>微信赞赏</strong></p>
-        <img src="docs/images/wx.jpeg" alt="微信收款码" width="180" height="180" />
-      </td>
-      <td align="center" style="border: none;">
-        <p><strong>支付宝赞赏</strong></p>
-        <img src="docs/images/zfb.jpeg" alt="支付宝收款码" width="180" height="180" />
-      </td>
-      <td align="center" style="border: none;">
-        <p><strong>QQ 交流群</strong></p>
-        <img src="docs/images/qq.jpeg" alt="QQ 群二维码" width="180" height="180" />
-      </td>
-    </tr>
-  </table>
-  <br>
-  <p>每一份支持都是开发者保持更新的动力！</p>
-  <a href="https://tiez.name666.top/zh/sponsors.html"><strong>查看打赏赞助名单</strong></a>
-</div>
+如果想支持原项目，请到[上游仓库](https://github.com/jimuzhe/tiez-clipboard)，而不是这里。
 
 ---
 
 <div align="center">
-  为每一个追求极致效率的开发者倾力打造。
-  <br>
-  <b>如果你喜欢这个项目，欢迎点个 Star。</b>
+  为每一位讲效率的开发者打造。
 </div>

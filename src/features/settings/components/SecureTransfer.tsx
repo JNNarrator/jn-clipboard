@@ -36,7 +36,7 @@ export default function SecureTransfer({ t, collapsed, onToggle }: SecureTransfe
     try {
       const filters = [{ name: t("secure_transfer_file_filter"), extensions: ["tiezx"] }];
       const path = await withNativeDialog(
-        () => importing ? open({ filters, multiple: false }) : save({ filters, defaultPath: "TieZ.tiezx" }),
+        () => importing ? open({ filters, multiple: false }) : save({ filters, defaultPath: "jn-clipboard.tiezx" }),
         "settings:secure-transfer"
       );
       if (!path || typeof path !== "string") return;

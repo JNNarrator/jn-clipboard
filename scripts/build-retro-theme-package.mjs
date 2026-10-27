@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 const projectRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const outputDir = join(projectRoot, "artifacts", "themes");
 const outputPath = join(outputDir, "retro.zip");
-const workDir = mkdtempSync(join(tmpdir(), "tiez-retro-theme-"));
+const workDir = mkdtempSync(join(tmpdir(), "jnclip-retro-theme-"));
 
 const metadata = {
   apiVersion: 1,

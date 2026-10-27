@@ -186,7 +186,7 @@ const sanitizeHTML = (html: string, preview?: boolean) => {
   const doc = parser.parseFromString(processedHtml, "text/html");
 
   // Keep formatting styles, but remove active/embedded content. Author styles are
-  // rendered inside a ShadowRoot below, so their selectors cannot leak into TieZ.
+  // rendered inside a ShadowRoot below, so their selectors cannot leak into jn-clipboard.
   doc
     .querySelectorAll(
       "script, iframe, frame, object, embed, form, input, button, textarea, select, option, base, template, svg, math"
@@ -270,7 +270,7 @@ const sanitizeHTML = (html: string, preview?: boolean) => {
 
     // Handle local file images (including encoded file:// paths)
     if (el.tagName.toLowerCase() === 'img') {
-      // Sites that block hotlinking (WeChat, Zhihu, CSDN…) reject TieZ's own
+      // Sites that block hotlinking (WeChat, Zhihu, CSDN…) reject jn-clipboard's own
       // origin as referrer but allow none.
       el.setAttribute("referrerpolicy", "no-referrer");
       const resolvedSrc = resolveImgSource(el);
@@ -299,7 +299,7 @@ const sanitizeHTML = (html: string, preview?: boolean) => {
   );
 
   // A style sheet, or styling on rows and cells: a table that only sets its
-  // own width or outline still gets TieZ's cell look.
+  // own width or outline still gets jn-clipboard's cell look.
   const hasSourceStyles = !!doc.body.querySelector("style, tr[style], th[style], td[style], [bgcolor]");
 
   const result = { html: bodyHtml, hasRenderable, hasSourceStyles };
@@ -391,7 +391,7 @@ const SHADOW_BASE_STYLE = `
     background-color: #fff;
     color: #000;
   }
-  /* TieZ's table look only for tables that bring no styling of their own:
+  /* jn-clipboard's table look only for tables that bring no styling of their own:
      it painted over the fills, borders and stripes a spreadsheet copied. */
   .tiez-rich-root:not(.has-source-styles) table {
     width: 100%;

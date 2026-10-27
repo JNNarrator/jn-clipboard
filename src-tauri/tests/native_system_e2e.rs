@@ -1,14 +1,14 @@
-//! Native smoke test: boots the real `tiez-app` binary against a throwaway
+//! Native smoke test: boots the real `jn-clipboard` binary against a throwaway
 //! HOME and checks that it starts, creates its database, picks up a saved
 //! setting after a restart, records a clipboard change and stays alive.
 //!
-//! Uses the debug binary cargo builds for this test (`CARGO_BIN_EXE_tiez-app`):
+//! Uses the debug binary cargo builds for this test (`CARGO_BIN_EXE_jn-clipboard`):
 //! debug macOS builds keep their master key in a file, so the run never touches
 //! the Keychain or the real data directory. The release bundle is deliberately
 //! not used — it reads/writes the login Keychain.
 //!
 //! Writes to the system pasteboard (restored afterwards, plain text only), so
-//! it is opt-in and needs every other TieZ instance quit:
+//! it is opt-in and needs every other jn-clipboard instance quit:
 //!   cargo test --test native_system_e2e -- --ignored
 //! Set TIEZ_E2E_KEEP_HOME=1 to keep the temp HOME for inspection.
 #![cfg(target_os = "macos")]
@@ -53,19 +53,19 @@ impl Fixture {
     }
 
     fn log_path(&self) -> PathBuf {
-        self.home.join("tiez-app.log")
+        self.home.join("jn-clipboard.log")
     }
 
     fn launch(&mut self) {
         assert!(self.child.is_none(), "app already running");
         let log = OpenOptions::new().create(true).append(true).open(self.log_path()).unwrap();
-        let child = Command::new(env!("CARGO_BIN_EXE_tiez-app"))
+        let child = Command::new(env!("CARGO_BIN_EXE_jn-clipboard"))
             .env("HOME", &self.home)
             .stdin(Stdio::null())
             .stdout(log.try_clone().unwrap())
             .stderr(log)
             .spawn()
-            .expect("failed to spawn tiez-app");
+            .expect("failed to spawn jn-clipboard");
         self.child = Some(child);
     }
 
@@ -79,7 +79,7 @@ impl Fixture {
     fn assert_alive(&mut self, stage: &str) {
         let child = self.child.as_mut().expect("app not running");
         if let Some(status) = child.try_wait().expect("try_wait failed") {
-            panic!("tiez-app exited during {stage} ({status})\n{}", self.log_tail());
+            panic!("jn-clipboard exited during {stage} ({status})\n{}", self.log_tail());
         }
     }
 
@@ -119,9 +119,9 @@ fn unique_suffix() -> String {
     format!("{}-{nanos}", std::process::id())
 }
 
-fn other_tiez_running() -> bool {
+fn other_jnclip_running() -> bool {
     Command::new("pgrep")
-        .args(["-x", "tiez-app"])
+        .args(["-x", "jn-clipboard"])
         .output()
         .map(|o| o.status.success())
         .unwrap_or(false)
@@ -174,8 +174,8 @@ fn history_count(db: &Path) -> Option<i64> {
 #[ignore = "launches the GUI app and writes the pasteboard; run with --ignored"]
 fn native_app_boots_isolated_and_captures_clipboard() {
     assert!(
-        !other_tiez_running(),
-        "another tiez-app is running; quit it first (single-instance would hand off to it, and it would record the test clipboard into real history)"
+        !other_jnclip_running(),
+        "another jn-clipboard is running; quit it first (single-instance would hand off to it, and it would record the test clipboard into real history)"
     );
     let mut fx = Fixture::new();
     let home = fx.home.clone();

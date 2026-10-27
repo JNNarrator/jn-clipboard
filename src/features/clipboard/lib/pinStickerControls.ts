@@ -30,7 +30,7 @@ export const openPinStickerWindow = async (
   try {
     const stickerWindow = new WebviewWindow(label, {
       url: `index.html?${query.toString()}`,
-      title: "TieZ Sticker",
+      title: "jn-clipboard Sticker",
       width,
       height,
       minWidth: 120,

@@ -1,6 +1,6 @@
 //! Helpers that keep raw HTTP response bodies out of user-facing errors.
 //!
-//! The full body belongs in tiez.log (via `body_for_log`); the error returned to
+//! The full body belongs in jn-clipboard.log (via `body_for_log`); the error returned to
 //! the frontend only gets a short summary (via `summarize_http_error`).
 
 use reqwest::StatusCode;

@@ -2222,7 +2222,7 @@ fn webdav_url_for(cfg: &CloudSyncConfig, relative_path: &str) -> String {
 }
 
 /// Builds a user-facing error from a failed response without leaking its body;
-/// the full (capped) body and URL go to tiez.log instead.
+/// the full (capped) body and URL go to jn-clipboard.log instead.
 async fn http_failure_error(resp: Response, context: &str, url: &str) -> AppError {
     let status = resp.status();
     let text = resp.text().await.unwrap_or_default();

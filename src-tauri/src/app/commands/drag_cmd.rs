@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use tauri::WebviewWindow;
 
-/// What a native drag carries out of TieZ, and its preview.
+/// What a native drag carries out of jn-clipboard, and its preview.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NativeDragRequest {

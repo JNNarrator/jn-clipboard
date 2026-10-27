@@ -313,7 +313,7 @@ pub fn toggle_autostart(app_handle: AppHandle, enabled: bool) -> AppResult<()> {
     result
 }
 
-/// `toggle_autostart` without sending the user anywhere; for TieZ's own use.
+/// `toggle_autostart` without sending the user anywhere; for jn-clipboard's own use.
 pub(crate) fn apply_autostart(app_handle: &AppHandle, enabled: bool) -> AppResult<()> {
     #[cfg(target_os = "windows")]
     {
@@ -346,7 +346,7 @@ pub(crate) fn apply_autostart(app_handle: &AppHandle, enabled: bool) -> AppResul
             use crate::infrastructure::macos_api::login_item;
             if login_item::available() {
                 // The old ~/Library/LaunchAgents item goes either way, so it
-                // can't start TieZ twice or show up under the developer's name.
+                // can't start jn-clipboard twice or show up under the developer's name.
                 if autolaunch.is_enabled().unwrap_or(false) {
                     let _ = autolaunch.disable();
                 }
@@ -1153,7 +1153,7 @@ pub fn get_macos_accessibility_binary_path() -> String {
         return std::env::current_exe()
             .ok()
             .and_then(|path| path.into_os_string().into_string().ok())
-            .unwrap_or_else(|| "tiez-app".to_string());
+            .unwrap_or_else(|| "jn-clipboard".to_string());
     }
     #[cfg(not(target_os = "macos"))]
     {

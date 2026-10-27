@@ -1,5 +1,5 @@
 //! Disable WebView2 browser accelerator keys (Ctrl+F find, F1 help, reload, zoom, …)
-//! so they cannot fight TieZ / OS global hotkeys while the window is focused.
+//! so they cannot fight jn-clipboard / OS global hotkeys while the window is focused.
 
 use tauri::{AppHandle, Manager, WebviewWindow};
 

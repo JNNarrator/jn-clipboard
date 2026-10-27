@@ -1,7 +1,7 @@
 {
   "version": 1,
   "project": {
-    "name": "tiez-app",
+    "name": "jn-clipboard",
     "productType": null,
     "stack": [
       "react",

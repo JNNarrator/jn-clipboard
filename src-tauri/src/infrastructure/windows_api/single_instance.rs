@@ -1,6 +1,6 @@
-//! Starting TieZ normally while it already runs as administrator (the
+//! Starting jn-clipboard normally while it already runs as administrator (the
 //! elevated login task). tauri-plugin-single-instance can't open that
-//! instance's mutex, so it started a second TieZ; and Windows drops
+//! instance's mutex, so it started a second jn-clipboard; and Windows drops
 //! messages from a normal process to an elevated one's windows anyway.
 //! Here the normal start finds the elevated instance and posts it a single
 //! message that only brings its window forward, and the elevated instance
@@ -24,7 +24,7 @@ fn wide(text: &str) -> Vec<u16> {
 
 fn show_message() -> u32 {
     static MESSAGE: OnceLock<u32> = OnceLock::new();
-    *MESSAGE.get_or_init(|| unsafe { RegisterWindowMessageW(w!("TieZ.ShowWindow")) })
+    *MESSAGE.get_or_init(|| unsafe { RegisterWindowMessageW(w!("jn-clipboard.ShowWindow")) })
 }
 
 /// The plugin's message window of the running instance.
@@ -36,7 +36,7 @@ fn find_instance_window(identifier: &str) -> Option<HWND> {
         .filter(|hwnd| !hwnd.0.is_null())
 }
 
-/// Run before Tauri. True when TieZ already runs as administrator: it has
+/// Run before Tauri. True when jn-clipboard already runs as administrator: it has
 /// been asked to show its window (unless this is a login start), and this
 /// process should exit.
 pub fn hand_off_to_elevated_instance(identifier: &str, args: &[String]) -> bool {
@@ -65,7 +65,7 @@ pub fn hand_off_to_elevated_instance(identifier: &str, args: &[String]) -> bool 
     true
 }
 
-/// In TieZ running as administrator: let a normal start's show message
+/// In jn-clipboard running as administrator: let a normal start's show message
 /// through. Must run on the main thread, which owns the plugin's window.
 pub fn accept_show_from_normal_starts(app: &tauri::AppHandle, identifier: &str) {
     if !crate::app::commands::system_cmd::check_is_admin() {

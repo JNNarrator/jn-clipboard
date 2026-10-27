@@ -116,7 +116,7 @@ jobs:
           TIEZ_UPDATER_PUBLIC_KEY: ${{ vars.TIEZ_UPDATER_PUBLIC_KEY }}
         with:
           tagName: beta-mac-v__VERSION__
-          releaseName: TieZ macOS beta v__VERSION__
+          releaseName: jn-clipboard macOS beta v__VERSION__
           releaseBody: Beta build for community testing. Channel=beta; can update to newer beta or stable when published.
           releaseDraft: true
           prerelease: true

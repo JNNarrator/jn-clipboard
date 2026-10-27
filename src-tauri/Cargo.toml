@@ -1,10 +1,10 @@
 [package]
-name = "tiez-app"
+name = "jn-clipboard"
 version = "1.0.0"
-description = "A Tauri App"
+description = "Clipboard history manager for macOS, Windows and the browser"
 authors = ["you"]
 edition = "2021"
-default-run = "tiez-app"
+default-run = "jn-clipboard"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

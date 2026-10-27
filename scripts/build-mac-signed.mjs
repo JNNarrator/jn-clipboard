@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Local macOS release build signed with a stable identity from the login
- * keychain, so the Keychain "Always Allow" for TieZ's master key survives
+ * keychain, so the Keychain "Always Allow" for jn-clipboard's master key survives
  * rebuilds. An ad-hoc signed build has no stable identity and asks for the
  * password again after every update.
  *

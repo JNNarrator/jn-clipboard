@@ -195,7 +195,7 @@ const SettingsFooter = ({
                     justifyContent: 'center',
                     gap: '8px'
                 }}>
-                    <span>TieZ {appVersion ? `v${appVersion}` : "v0.2.0"}</span>
+                    <span>jn-clipboard {appVersion ? `v${appVersion}` : "v0.2.0"}</span>
                     {releaseChannel === "beta" && (
                         <span className="settings-version-badge beta">Beta</span>
                     )}

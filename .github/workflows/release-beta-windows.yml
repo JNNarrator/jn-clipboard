@@ -53,7 +53,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: beta-v__VERSION__
-          releaseName: TieZ Windows beta v__VERSION__
+          releaseName: jn-clipboard Windows beta v__VERSION__
           releaseBody: Beta build for community testing. Channel=beta; can update to newer beta or stable when published.
           releaseDraft: true
           prerelease: true

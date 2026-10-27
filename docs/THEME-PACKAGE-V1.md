@@ -1,6 +1,6 @@
-# TieZ Theme Package v1
+# jn-clipboard Theme Package v1
 
-TieZ theme packages are ZIP archives with the `.zip` or `.tiez-theme` extension.
+jn-clipboard theme packages are ZIP archives with the `.zip` or `.tiez-theme` extension.
 All files must live at the archive root.
 
 ```text
@@ -43,7 +43,7 @@ Rules:
 - `category` is one of `nature`, `minimal`, `retro`, `dark`, `cute`, or `other`.
 - `windowMaterial` is `none`, `mica`, or `acrylic`. Community themes should use `none`; native materials remain an app-controlled capability.
 
-The installed runtime id is derived by TieZ as `store-<id>`.
+The installed runtime id is derived by jn-clipboard as `store-<id>`.
 
 ## `theme.css`
 
@@ -51,7 +51,7 @@ The stylesheet must include the installed runtime selector. For a package whose
 metadata id is `retro`, the selector is `.theme-store-retro`.
 
 Theme CSS builds on the semantic variables and component structure shipped by
-TieZ. A package therefore declares `minAppVersion` and does not copy the shared
+jn-clipboard. A package therefore declares `minAppVersion` and does not copy the shared
 base/component CSS into the archive.
 
 For v1:

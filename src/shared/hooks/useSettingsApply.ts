@@ -145,7 +145,7 @@ export const useSettingsApply = ({
     if (!settingsLoaded) return;
     applyNativePalette(theme, nativePalette, document.documentElement, document.body);
     try {
-      localStorage.setItem("tiez_native_palette_tokens", JSON.stringify({
+      localStorage.setItem("jnclip_native_palette_tokens", JSON.stringify({
         palette: normalizeNativePalette(nativePalette), styles: getNativePaletteStyle(nativePalette)
       }));
     } catch { /* The database remains authoritative if the startup cache is unavailable. */ }

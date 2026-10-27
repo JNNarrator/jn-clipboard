@@ -52,7 +52,7 @@ const SAMPLES: &[Sample] = &[
     Sample { id: 2, content_type: "text", content: "常用回复模板：收到，稍后处理。", html: None, pinned: true, pinned_order: 3, tags: &["工作"], timestamp: 1_760_000_002_000 },
     Sample { id: 3, content_type: "rich_text", content: "加粗的标题", html: Some("<p><b>加粗的标题</b></p>"), pinned: false, pinned_order: 0, tags: &[], timestamp: 1_760_000_003_000 },
     Sample { id: 4, content_type: "text", content: "账号 admin 密码 Hunter2!", html: None, pinned: false, pinned_order: 0, tags: &["密码"], timestamp: 1_760_000_004_000 },
-    Sample { id: 5, content_type: "image", content: "/Users/me/Library/Application Support/com.tiez/attachments/a.png", html: None, pinned: false, pinned_order: 0, tags: &[], timestamp: 1_760_000_005_000 },
+    Sample { id: 5, content_type: "image", content: "/Users/me/Library/Application Support/com.jnarrator.jnclipboard/attachments/a.png", html: None, pinned: false, pinned_order: 0, tags: &[], timestamp: 1_760_000_005_000 },
 ];
 
 /// Settings a user had customised in the old release, plus plaintext secrets.

@@ -9,17 +9,17 @@
     <meta name="theme-color" content="#1c1c1e" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-title" content="贴汁" />
-    <title>贴汁</title>
+    <meta name="apple-mobile-web-app-title" content="jn-clipboard" />
+    <title>jn-clipboard</title>
     <script>
       // Immediate theme application to prevent flash
       (function() {
         try {
           var isMac = /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent) || /Mac/i.test(navigator.platform);
-          var theme = localStorage.getItem('tiez_theme') || (isMac ? 'macos' : 'mica');
+          var theme = localStorage.getItem('jnclip_theme') || (isMac ? 'macos' : 'mica');
           if (!isMac && theme === 'macos') theme = 'mica';
           if (isMac && theme === 'mica') theme = 'macos';
-          var nativePalette = theme === 'sakura' ? 'sakura' : localStorage.getItem('tiez_native_palette');
+          var nativePalette = theme === 'sakura' ? 'sakura' : localStorage.getItem('jnclip_native_palette');
           if (theme === 'sakura') theme = isMac ? 'macos' : 'mica';
           if (theme === 'macos' || theme === 'mica') {
             document.documentElement.setAttribute('data-native-palette', nativePalette || 'default');
@@ -27,7 +27,7 @@
             if (['mint', 'lavender', 'amber'].indexOf(nativePalette) !== -1 || /^custom:#[0-9a-f]{6}$/i.test(nativePalette || '')) {
               document.documentElement.classList.add('native-palette-color');
               var paletteCache = {};
-              try { paletteCache = JSON.parse(localStorage.getItem('tiez_native_palette_tokens') || '{}'); } catch (e) {}
+              try { paletteCache = JSON.parse(localStorage.getItem('jnclip_native_palette_tokens') || '{}'); } catch (e) {}
               if (paletteCache.palette === nativePalette && paletteCache.styles) {
                 Object.keys(paletteCache.styles).forEach(function(key) {
                   if (/^--native-palette-(light|dark)-[a-z-]+$/.test(key)) {
@@ -37,8 +37,8 @@
               }
             }
           }
-          var colorMode = localStorage.getItem('tiez_color_mode') || 'system';
-          var compactMode = localStorage.getItem('tiez_compact_mode') === 'true';
+          var colorMode = localStorage.getItem('jnclip_color_mode') || 'system';
+          var compactMode = localStorage.getItem('jnclip_compact_mode') === 'true';
 
           document.documentElement.classList.add(isMac ? 'platform-macos' : 'platform-windows');
           

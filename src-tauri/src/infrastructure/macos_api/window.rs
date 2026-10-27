@@ -22,14 +22,14 @@ pub fn start_window_tracking(_app_handle: AppHandle) {
         let self_pid = std::process::id();
         loop {
             std::thread::sleep(std::time::Duration::from_millis(500));
-            // Only update track if TieZ is NOT actually focused right now,
-            // to avoid overwriting the "previous" app with "TieZ" itself.
+            // Only update track if jn-clipboard is NOT actually focused right now,
+            // to avoid overwriting the "previous" app with "jn-clipboard" itself.
             if !crate::global_state::IS_MAIN_WINDOW_FOCUSED.load(Ordering::Relaxed) {
                 let info = get_active_app_snapshot();
                 if info.pid != 0 {
                     let name = info.app_name;
                     let pid = info.pid;
-                    if pid != 0 && pid != self_pid && !name.eq_ignore_ascii_case("TieZ") {
+                    if pid != 0 && pid != self_pid && !name.eq_ignore_ascii_case("jn-clipboard") {
                         crate::global_state::LAST_ACTIVE_APP_PID.store(pid, Ordering::Relaxed);
                         crate::global_state::set_last_active_app_name(name);
                     }
@@ -142,7 +142,7 @@ pub fn setup_clipboard_panel(window: &tauri::WebviewWindow) -> Result<(), String
     // made the undecorated window edges undraggable.
     panel.set_style_mask(StyleMask::empty().nonactivating_panel().resizable().into());
     // Keep visibility under our resign-key state machine. NSPanel defaults can
-    // otherwise order the panel out when TieZ is activated/deactivated without
+    // otherwise order the panel out when jn-clipboard is activated/deactivated without
     // updating `clipboard_panel_visible`, leaving the next hotkey invocation in
     // a visible-but-not-key (or internally-visible-but-actually-hidden) state.
     panel.set_hides_on_deactivate(false);
@@ -265,7 +265,7 @@ fn overlay_presented_generation() -> &'static AtomicU64 {
     &PRESENTED_GEN
 }
 
-/// Show the non-activating panel and make it key without activating TieZ.
+/// Show the non-activating panel and make it key without activating jn-clipboard.
 #[cfg(target_os = "macos")]
 pub fn show_clipboard_panel(app: &AppHandle) -> bool {
     use std::sync::atomic::Ordering;

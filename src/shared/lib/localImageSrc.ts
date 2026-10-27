@@ -68,6 +68,6 @@ export const withImageCacheBust = (
   if (/^(data:|blob:|https?:|asset:|tauri:)/i.test(src)) return src;
   const token = revision ?? Date.now();
   const joiner = src.includes("?") ? "&" : "?";
-  return `${src}${joiner}tiez_rev=${token}`;
+  return `${src}${joiner}jnclip_rev=${token}`;
 };
 

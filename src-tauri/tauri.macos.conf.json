@@ -12,7 +12,7 @@
     ],
     "macOS": {
       "files": {
-        "Library/LaunchAgents/com.tiez.autostart.plist": "macos/com.tiez.autostart.plist"
+        "Library/LaunchAgents/com.jnarrator.jnclipboard.autostart.plist": "macos/com.jnarrator.jnclipboard.autostart.plist"
       }
     }
   }

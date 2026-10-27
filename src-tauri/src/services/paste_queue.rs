@@ -89,8 +89,8 @@ async fn paste_next_step_inner(app_handle: tauri::AppHandle) {
     let db_state = app_handle.state::<DbState>();
     let session = app_handle.state::<SessionHistory>();
 
-    // Check if TieZ window is currently visible.
-    // If the window is hidden (user pressed hotkey while TieZ was in the background),
+    // Check if jn-clipboard window is currently visible.
+    // If the window is hidden (user pressed hotkey while jn-clipboard was in the background),
     // focus is already in the target app - we must NOT do any focus restoration,
     // as that would steal focus FROM the target app to a wrong app.
     let window_was_visible = app_handle
@@ -155,9 +155,9 @@ async fn paste_next_step_inner(app_handle: tauri::AppHandle) {
                 }
                 Ok(()) => {
                     // 4. Focus management before paste keystroke.
-                    //    - If TieZ window WAS open (user had it open and used it), we need to
-                    //      restore focus to the previous app, because clicking in TieZ stole it.
-                    //    - If TieZ window was HIDDEN (pure background hotkey press), focus is
+                    //    - If jn-clipboard window WAS open (user had it open and used it), we need to
+                    //      restore focus to the previous app, because clicking in jn-clipboard stole it.
+                    //    - If jn-clipboard window was HIDDEN (pure background hotkey press), focus is
                     //      already in the target app. Do NOT restore focus as that would move
                     //      focus to a stale/wrong app and break the paste.
                     if window_was_visible {

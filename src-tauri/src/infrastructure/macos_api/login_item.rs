@@ -2,10 +2,10 @@
 //!
 //! The old way, a plist written to ~/Library/LaunchAgents, is attributed to
 //! the signing certificate: macOS's "Background Items Added" notice and Login
-//! Items settings showed the developer's personal name instead of TieZ. An
+//! Items settings showed the developer's personal name instead of jn-clipboard. An
 //! agent shipped inside the app bundle (Contents/Library/LaunchAgents, see
 //! tauri.macos.conf.json) and registered here is shown with the app's name and
-//! icon, and still passes --minimized so TieZ starts hidden.
+//! icon, and still passes --minimized so jn-clipboard starts hidden.
 //!
 //! None of this exists before macOS 13 or outside a bundled .app (dev runs);
 //! callers fall back to the old launcher then.
@@ -16,7 +16,7 @@ use objc2::msg_send;
 use objc2_foundation::{NSError, NSString};
 
 /// Must match the file name under Contents/Library/LaunchAgents.
-const AGENT_PLIST: &str = "com.tiez.autostart.plist";
+const AGENT_PLIST: &str = "com.jnarrator.jnclipboard.autostart.plist";
 
 // SMAppServiceStatus
 const STATUS_ENABLED: isize = 1;

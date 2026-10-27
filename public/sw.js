@@ -6,7 +6,7 @@
  * served from cache when offline and refreshed in the background otherwise, and
  * navigations fall back to the cached shell so a cold start still boots.
  */
-const CACHE = "tiez-shell-v1";
+const CACHE = "jn-clipboard-shell-v1";
 const SHELL = ["/", "/index.html", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png"];
 
 self.addEventListener("install", (event) => {

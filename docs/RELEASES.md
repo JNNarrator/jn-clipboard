@@ -1,4 +1,4 @@
-# TieZ 客户端发布流程
+# jn-clipboard 客户端发布流程
 
 `versions.json` 是客户端版本号的唯一来源，分别记录：
 
@@ -40,7 +40,7 @@
 - **群测**：草稿保持不公开，维护者下载安装包发到测试群。此阶段不建版本后台的
   beta 批次（自动更新要求下载地址公开）。
 - **公测**：群里的问题处理完后，把草稿发布为预发布版（不要设为 Latest），
-  再在 TieZ Analytics 后台建 beta 批次。
+  再在 jn-clipboard Analytics 后台建 beta 批次。
 
 也可以在对应系统上本地构建：
 
@@ -68,7 +68,7 @@ npm run release:beta:mac
 
 1. 将安装包发送给测试群。
 2. 如需让测试用户自动更新，将 updater 制品和 `.sig` 上传到 HTTPS 地址。
-3. 在 TieZ Analytics 后台创建 `beta` 发布批次，填写对应架构的 URL 和签名。
+3. 在 jn-clipboard Analytics 后台创建 `beta` 发布批次，填写对应架构的 URL 和签名。
 4. 测试通过后，把不带预发布后缀的版本写入 `stable`，再走正式发布。
 
 如果只想单次发包、不提供后续自动更新，可以不在后台发布 beta 批次。

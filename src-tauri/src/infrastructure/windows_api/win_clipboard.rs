@@ -552,7 +552,7 @@ pub unsafe fn set_clipboard_files(paths: Vec<String>) -> Result<(), String> {
         return Err("Cannot open clipboard".into());
     }
     // Closed whatever happens: a failed allocation used to return with the
-    // clipboard still open, so no app could use it until TieZ quit.
+    // clipboard still open, so no app could use it until jn-clipboard quit.
     let result = (|| {
 
         // Prepare payload (Double null terminated list of wide strings)
@@ -607,7 +607,7 @@ pub fn get_clipboard_sequence_number() -> u32 {
     unsafe { windows::Win32::System::DataExchange::GetClipboardSequenceNumber() }
 }
 
-/// Clipboard writes TieZ makes for a paste must not come back as new entries.
+/// Clipboard writes jn-clipboard makes for a paste must not come back as new entries.
 /// Matching their content isn't enough: a rich paste writes in steps (image,
 /// then text and HTML) and re-derives the text from the HTML, so a pasted
 /// formula came back as "1 1 1" plus a blank entry, credited to the app in
@@ -636,7 +636,7 @@ impl Drop for OwnClipboardWrite {
     }
 }
 
-/// The clipboard holds (or is getting) a write TieZ made for a paste.
+/// The clipboard holds (or is getting) a write jn-clipboard made for a paste.
 pub fn is_own_write() -> bool {
     OWN_WRITES_IN_PROGRESS.load(std::sync::atomic::Ordering::SeqCst) > 0
         || OWN_WRITE_SEQUENCE.load(std::sync::atomic::Ordering::SeqCst)
@@ -1082,7 +1082,7 @@ pub unsafe fn set_clipboard_image_with_formats(
     let gif_temp_path: Option<String> = if gif_data.is_some() && file_path.is_none() {
         let temp_dir = std::env::temp_dir();
         let filename = format!(
-            "TieZ_GIF_{}.gif",
+            "jn-clipboard_GIF_{}.gif",
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()

@@ -1,18 +1,18 @@
 !include "LogicLib.nsh"
 
 !macro NSIS_HOOK_PREUNINSTALL
-  DetailPrint "Stopping TieZ before uninstall..."
+  DetailPrint "Stopping jn-clipboard before uninstall..."
 
   # 应用关闭主窗口时会缩到托盘，卸载器不能依赖普通的关闭请求。
   # 这里在开始删除文件前强制结束已安装的进程，避免 exe 被占用。
-  nsExec::ExecToLog '"$SYSDIR\taskkill.exe" /F /T /IM TieZ.exe'
-  nsExec::ExecToLog '"$SYSDIR\taskkill.exe" /F /T /IM tiez-app.exe'
+  nsExec::ExecToLog '"$SYSDIR\taskkill.exe" /F /T /IM jn-clipboard.exe'
+  nsExec::ExecToLog '"$SYSDIR\taskkill.exe" /F /T /IM jn-clipboard.exe'
   Sleep 1200
 
   # 先清理常见的自启动注册表项，避免系统在卸载后继续拉起已删除的程序。
-  DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "TieZ"
+  DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "jn-clipboard"
   DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "tie-z"
-  DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "tiez-app"
+  DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "jn-clipboard"
 !macroend
 
 !macro NSIS_HOOK_POSTUNINSTALL
@@ -50,11 +50,11 @@
   DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Policies\Explorer" "DisallowClipboardHistory"
   DeleteRegValue HKCU "Software\Policies\Microsoft\Windows\System" "AllowClipboardHistory"
   DeleteRegValue HKCU "Software\Policies\Microsoft\Windows\System" "AllowCrossDeviceClipboard"
-  DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "TieZ"
+  DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "jn-clipboard"
   DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "tie-z"
-  DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "tiez-app"
+  DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "jn-clipboard"
   # 清理 NSIS 记录的上次安装路径，避免后续静默安装继续复用旧目录。
-  DeleteRegKey HKCU "Software\tiez\TieZ"
+  DeleteRegKey HKCU "Software\jn-clipboard\jn-clipboard"
   DeleteRegKey /ifempty HKCU "Software\tiez"
   
   DetailPrint "Windows Clipboard settings restored."
@@ -69,7 +69,7 @@
   # NSIS 可能暂时删不掉安装目录。这里额外拉起一个后台清理助手，
   # 等卸载器退出后再尝试删除残留目录和文件。
   DetailPrint "Scheduling leftover install directory cleanup..."
-  nsExec::Exec '"$SYSDIR\cmd.exe" /C start "" /MIN powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "Start-Sleep -Seconds 3; Stop-Process -Name TieZ,tiez-app -Force -ErrorAction SilentlyContinue; Remove-Item -LiteralPath ''$INSTDIR'' -Force -Recurse -ErrorAction SilentlyContinue"'
+  nsExec::Exec '"$SYSDIR\cmd.exe" /C start "" /MIN powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "Start-Sleep -Seconds 3; Stop-Process -Name jn-clipboard -Force -ErrorAction SilentlyContinue; Remove-Item -LiteralPath ''$INSTDIR'' -Force -Recurse -ErrorAction SilentlyContinue"'
 !macroend
 
 # Function for string replacement (Uninstall version)

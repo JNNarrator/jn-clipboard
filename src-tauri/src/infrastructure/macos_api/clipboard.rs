@@ -60,7 +60,7 @@ fn compute_clipboard_signature() -> u64 {
     hasher.finish()
 }
 
-/// changeCount of a pasteboard write TieZ made that must not be recorded
+/// changeCount of a pasteboard write jn-clipboard made that must not be recorded
 /// (restoring the user's previous clipboard after a transient paste).
 static OWN_CHANGE_COUNT: std::sync::atomic::AtomicIsize = std::sync::atomic::AtomicIsize::new(-1);
 
@@ -73,7 +73,7 @@ pub fn change_count() -> isize {
     0
 }
 
-/// The pasteboard still holds the write restore_pasteboard marked as TieZ's own.
+/// The pasteboard still holds the write restore_pasteboard marked as jn-clipboard's own.
 pub fn is_own_change() -> bool {
     #[cfg(target_os = "macos")]
     return autoreleasepool(|_| {
@@ -123,7 +123,7 @@ pub fn snapshot_pasteboard(max_bytes: usize) -> Option<PasteboardSnapshot> {
     }
 }
 
-/// Put a snapshot back. The write is marked as TieZ's own, so it is not
+/// Put a snapshot back. The write is marked as jn-clipboard's own, so it is not
 /// recorded as a new copy.
 pub fn restore_pasteboard(snapshot: &PasteboardSnapshot) -> Result<(), String> {
     #[cfg(target_os = "macos")]
@@ -157,7 +157,7 @@ pub fn restore_pasteboard(snapshot: &PasteboardSnapshot) -> Result<(), String> {
     }
 }
 
-/// Text that clipboard history apps, TieZ included, are asked not to record
+/// Text that clipboard history apps, jn-clipboard included, are asked not to record
 /// (the nspasteboard.org concealed type): for secrets such as the LAN
 /// transfer pairing link.
 pub fn set_private_text(text: &str) -> Result<(), String> {

@@ -20,7 +20,7 @@ pub const RICH_IMAGE_FALLBACK_PREFIX: &str = "<!--TIEZ_RICH_IMAGE:";
 pub const RICH_IMAGE_FALLBACK_SUFFIX: &str = "-->";
 pub const RICH_NAMED_FORMATS_PREFIX: &str = "<!--TIEZ_RICH_FORMATS:";
 pub const RICH_NAMED_FORMATS_SUFFIX: &str = "-->";
-pub const WINDOWS_STANDARD_FORMAT_PREFIX: &str = "TieZ.WindowsStandardFormat.";
+pub const WINDOWS_STANDARD_FORMAT_PREFIX: &str = "jn-clipboard.WindowsStandardFormat.";
 const REMOTE_IMAGE_MAX_BYTES: usize = 8 * 1024 * 1024;
 const REMOTE_IMAGE_TIMEOUT_SECS: u64 = 4;
 
@@ -1689,7 +1689,7 @@ mod tests {
             .unwrap_or_default()
             .as_nanos();
         let dir =
-            std::env::temp_dir().join(format!("tiez_clip_utils_{}_{}", std::process::id(), unique));
+            std::env::temp_dir().join(format!("jnclip_clip_utils_{}_{}", std::process::id(), unique));
         fs::create_dir_all(&dir).unwrap();
         let path = dir.join(name);
         let bytes = base64::engine::general_purpose::STANDARD

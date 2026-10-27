@@ -1,6 +1,6 @@
 {
-  "name": "贴汁 · TieZ Clipboard",
-  "short_name": "贴汁",
+  "name": "jn-clipboard · Clipboard History",
+  "short_name": "jn-clipboard",
   "description": "A lightweight clipboard history that runs in the browser.",
   "start_url": "/",
   "scope": "/",
