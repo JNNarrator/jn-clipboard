@@ -135,10 +135,7 @@ interface UseSettingsPostInitOptions {
   setSettingsLoaded: (val: boolean) => void;
   setClipboardItemFontSize: (val: number) => void;
   setClipboardTagFontSize: (val: number) => void;
-  setEmojiPanelEnabled: (val: boolean) => void;
   setTagManagerEnabled: (val: boolean) => void;
-  setEmojiPanelTab: (val: "emoji" | "favorites") => void;
-  setEmojiFavorites: (val: string[]) => void;
 }
 
 export const useSettingsPostInit = ({
@@ -228,10 +225,7 @@ export const useSettingsPostInit = ({
   setSettingsLoaded,
   setClipboardItemFontSize,
   setClipboardTagFontSize,
-  setEmojiPanelEnabled,
   setTagManagerEnabled,
-  setEmojiPanelTab,
-  setEmojiFavorites
 }: UseSettingsPostInitOptions) => {
   useEffect(() => {
     if (!settings) return;
@@ -266,24 +260,8 @@ export const useSettingsPostInit = ({
       const next = parseInt(settings["app.clipboard_tag_font_size"]);
       if (Number.isFinite(next)) setClipboardTagFontSize(next);
     }
-    if (settings["app.emoji_panel_enabled"] !== undefined) {
-      setEmojiPanelEnabled(settings["app.emoji_panel_enabled"] === "true");
-    }
     if (settings["app.tag_manager_enabled"] !== undefined) {
       setTagManagerEnabled(settings["app.tag_manager_enabled"] !== "false");
-    }
-    if (settings["app.emoji_panel_tab"] === "favorites" || settings["app.emoji_panel_tab"] === "emoji") {
-      setEmojiPanelTab(settings["app.emoji_panel_tab"] as "emoji" | "favorites");
-    }
-    if (settings["app.emoji_favorites"]) {
-      try {
-        const parsed = JSON.parse(settings["app.emoji_favorites"]);
-        if (Array.isArray(parsed)) {
-          setEmojiFavorites(parsed.filter((p) => typeof p === "string"));
-        }
-      } catch (e) {
-        console.warn("Invalid emoji favorites:", e);
-      }
     }
 
     // Fix: explicitly handle both true and false cases for all boolean settings
@@ -418,8 +396,7 @@ export const useSettingsPostInit = ({
         setCloudSyncContentPrefs({
           text: parsed.text !== false,
           image: parsed.image !== false,
-          file_path: parsed.file_path !== false,
-          emoji: parsed.emoji !== false
+          file_path: parsed.file_path !== false
         });
       } else {
         setCloudSyncContentPrefs({ ...DEFAULT_CLOUD_SYNC_CONTENT_PREFS });
@@ -615,9 +592,6 @@ export const useSettingsPostInit = ({
     setSettingsLoaded,
     setClipboardItemFontSize,
     setClipboardTagFontSize,
-    setEmojiPanelEnabled,
-    setTagManagerEnabled,
-    setEmojiPanelTab,
-    setEmojiFavorites
-  ]);
+      setTagManagerEnabled,
+      ]);
 };

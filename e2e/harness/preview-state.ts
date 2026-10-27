@@ -22,7 +22,6 @@ export const useAppState = () => {
     ...(params.get('pin') === '1' ? { searchBoxPinned: true } : {}),
     ...(params.get('pin') === '0' ? { searchBoxPinned: false } : {}),
   };
-  if (view === 'emoji') return { ...base, showEmojiPanel: true, emojiPanelEnabled: true };
   if (view === 'transfer') {
     return { ...base, chatMode: true, showSettings: true, fileServerEnabled: true, localIp: '192.168.1.23', actualPort: '12345', fileTransferAccessToken: 'audit-token', fileTransferLanKey: 'AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8' };
   }

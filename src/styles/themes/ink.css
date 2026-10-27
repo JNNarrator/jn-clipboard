@@ -161,9 +161,6 @@ body.theme-ink {
   --compact-card-radius: 0;
   --compact-media-radius: 0;
   --card-shadow: none;
-  --card-hover-shadow: none;
-  --card-hover-transform: none;
-  --card-hover-border-color: transparent;
   --card-selected-background: var(--ink-mist);
   --card-selected-border-color: var(--ink-seal);
   --card-selected-shadow: none;

@@ -179,9 +179,6 @@ body.theme-terminal {
   --compact-card-radius: 0;
   --compact-media-radius: 0;
   --card-shadow: none;
-  --card-hover-shadow: none;
-  --card-hover-transform: none;
-  --card-hover-border-color: transparent;
   --card-active-shadow: none;
   --card-active-transform: none;
   --card-selected-background: var(--term-selection);
@@ -200,10 +197,6 @@ body.theme-terminal {
   --data-panel-shadow: none;
   --data-panel-hover-background: rgba(255, 255, 255, 0.03);
 
-  --segmented-border: 1px solid var(--term-border);
-  --segmented-radius: 0;
-  --segmented-shadow: none;
-  --segment-radius: 0;
   --segment-active-background: rgba(63, 185, 80, 0.12);
   --segment-active-color: var(--term-green);
   --segment-active-shadow: none;

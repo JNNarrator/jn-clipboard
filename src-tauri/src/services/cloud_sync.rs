@@ -1,4 +1,3 @@
-use crate::app::commands::file_cmd::{image_ext_from_mime, save_emoji_favorite_bytes_to_dir};
 use crate::database::DbState;
 use crate::domain::models::ClipboardEntry;
 use crate::error;
@@ -37,9 +36,6 @@ const MAX_SYNC_IMAGE_BYTES: usize = 20 * 1024 * 1024;
 const RICH_IMAGE_FALLBACK_PREFIX: &str = "<!--TIEZ_RICH_IMAGE:";
 const RICH_IMAGE_FALLBACK_SUFFIX: &str = "-->";
 const WEBDAV_OP_BATCH_SIZE: usize = 400;
-const EMOJI_FAVORITES_SETTING_KEY: &str = "app.emoji_favorites";
-/// Favorites as of the last emoji sync on this device (see merge_favorites).
-const CLOUD_SYNC_EMOJI_BASE_KEY: &str = "cloud_sync_emoji_favorites_base";
 const CLOUD_SYNC_WEBDAV_LOCAL_SEQ_KEY: &str = "cloud_sync_webdav_local_seq";
 const CLOUD_SYNC_WEBDAV_OP_CURSOR_MAP_KEY: &str = "cloud_sync_webdav_op_cursor_map";
 const CLOUD_SYNC_WEBDAV_BLOB_CACHE_KEY: &str = "cloud_sync_webdav_blob_cache";
@@ -108,8 +104,6 @@ struct CloudSyncContentPrefs {
     image: bool,
     #[serde(rename = "file_path", default = "default_cloud_sync_pref_true")]
     file_path: bool,
-    #[serde(default = "default_cloud_sync_pref_true")]
-    emoji: bool,
 }
 
 const fn default_cloud_sync_pref_true() -> bool {
@@ -122,7 +116,6 @@ impl Default for CloudSyncContentPrefs {
             text: true,
             image: true,
             file_path: true,
-            emoji: true,
         }
     }
 }
@@ -133,7 +126,6 @@ impl CloudSyncContentPrefs {
         (self.text && !before.text)
             || (self.image && !before.image)
             || (self.file_path && !before.file_path)
-            || (self.emoji && !before.emoji)
     }
 
     fn includes_content_type(&self, content_type: &str) -> bool {
@@ -143,7 +135,6 @@ impl CloudSyncContentPrefs {
         match content_type {
             "image" => self.image,
             "file" | "video" => self.file_path,
-            "emoji_sync" => self.emoji,
             "text" | "code" | "url" | "rich_text" => self.text,
             _ => false,
         }
@@ -565,7 +556,7 @@ fn get_config(app: &AppHandle) -> Option<CloudSyncConfig> {
 fn is_cloud_clipboard_content_type(content_type: &str) -> bool {
     matches!(
         content_type,
-        "text" | "code" | "url" | "rich_text" | "image" | "file" | "video" | "emoji_sync"
+        "text" | "code" | "url" | "rich_text" | "image" | "file" | "video"
     )
 }
 
@@ -579,7 +570,6 @@ fn is_setting_sync_eligible(key: &str) -> bool {
     !matches!(
         key,
         "app.anon_id"
-            | "app.emoji_favorites"
             | "app.last_ping_date"
             | "app.ping_id"
             | "app.window_width"
@@ -764,51 +754,6 @@ fn rewrite_rich_html_resources_for_sync(html: &str) -> String {
     rewrite_rich_fallback_payload_to_data_url(&with_inline_images)
 }
 
-fn encode_emoji_favorites_setting(raw: &str) -> Option<String> {
-    let paths: Vec<String> = serde_json::from_str(raw).ok()?;
-    let encoded: Vec<String> = paths
-        .into_iter()
-        .filter_map(|path| to_data_url_from_path(path.trim()))
-        .collect();
-    serde_json::to_string(&encoded).ok()
-}
-
-fn materialize_emoji_favorite_paths(app: &AppHandle, raw: &str) -> AppResult<Vec<String>> {
-    let items: Vec<String> = serde_json::from_str(raw)
-        .map_err(|e| AppError::Validation(format!("invalid emoji favorites payload: {}", e)))?;
-    let data_dir = get_app_data_dir(app)
-        .ok_or_else(|| AppError::Internal("App data dir unavailable".to_string()))?;
-    let mut saved_paths: Vec<String> = Vec::new();
-
-    for item in items {
-        let trimmed = item.trim();
-        if trimmed.is_empty() {
-            continue;
-        }
-        if !trimmed.starts_with("data:") {
-            let path = Path::new(trimmed);
-            if path.is_file() {
-                saved_paths.push(trimmed.to_string());
-            }
-            continue;
-        }
-
-        let (mime, bytes) = decode_data_url(trimmed)?;
-        if bytes.is_empty() || bytes.len() > MAX_INLINE_IMAGE_BYTES {
-            continue;
-        }
-        let ext = image_ext_from_mime(mime).ok_or_else(|| {
-            AppError::Validation(format!("unsupported emoji mime type: {}", mime))
-        })?;
-        let path = save_emoji_favorite_bytes_to_dir(&data_dir, &bytes, ext)?;
-        saved_paths.push(path);
-    }
-
-    saved_paths.sort();
-    saved_paths.dedup();
-    Ok(saved_paths)
-}
-
 fn decode_data_url(data_url: &str) -> AppResult<(&str, Vec<u8>)> {
     let Some(header_and_payload) = data_url.strip_prefix("data:") else {
         return Err(AppError::Validation("invalid data url".to_string()));
@@ -853,12 +798,6 @@ fn image_data_url_from_blob_bytes(bytes: &[u8]) -> Option<String> {
     let mime = image_mime_from_bytes(bytes)?;
     let payload = base64::engine::general_purpose::STANDARD.encode(bytes);
     Some(format!("data:{};base64,{}", mime, payload))
-}
-
-fn decode_emoji_favorites_setting(app: &AppHandle, raw: &str) -> AppResult<String> {
-    let saved_paths = materialize_emoji_favorite_paths(app, raw)?;
-    serde_json::to_string(&saved_paths)
-        .map_err(|e| AppError::Internal(format!("serialize emoji favorites failed: {}", e)))
 }
 
 fn normalize_item_for_sync(mut item: CloudSyncItem) -> Option<CloudSyncItem> {
@@ -1931,15 +1870,6 @@ fn apply_remote_changes(
     let mut canonical_hashes: HashMap<i64, Option<i64>> = HashMap::new();
     for item in remote_items {
         if crate::database::has_sensitive_tag(&item.tags) { continue; }
-        if item.content_type == "emoji_sync" {
-            if !prefs.emoji {
-                continue;
-            }
-            merge_remote_emojis(app, &item.content)?;
-            applied += 1;
-            continue;
-        }
-
         if !is_cloud_clipboard_content_type(&item.content_type) {
             continue;
         }
@@ -3083,12 +3013,6 @@ fn collect_syncable_settings(app: &AppHandle) -> AppResult<HashMap<String, Strin
     let mut map = db_state.settings_repo.get_all().map_err(AppError::from)?;
     map.retain(|k, _| is_setting_sync_eligible(k));
 
-    if let Some(raw) = map.get(EMOJI_FAVORITES_SETTING_KEY).cloned() {
-        if let Some(encoded) = encode_emoji_favorites_setting(&raw) {
-            map.insert(EMOJI_FAVORITES_SETTING_KEY.to_string(), encoded);
-        }
-    }
-
     Ok(map)
 }
 
@@ -3119,9 +3043,7 @@ fn apply_synced_settings(app: &AppHandle, incoming: &HashMap<String, String>) ->
             continue;
         }
 
-        let normalized_value = if key == EMOJI_FAVORITES_SETTING_KEY {
-            decode_emoji_favorites_setting(app, value)?
-        } else if key == "app.sound_volume" {
+        let normalized_value = if key == "app.sound_volume" {
             // A 0.3.x device still syncs its 0-100 volume.
             crate::database::sound_volume_from_setting(value)
                 .map_or_else(|| value.clone(), |volume| volume.to_string())
@@ -4023,21 +3945,6 @@ async fn sync_once_webdav(
         return Ok(disabled_status());
     }
 
-    // Incremental Emoji Sync check
-    if let Ok(emoji_op) = check_and_create_emoji_sync_op(app) {
-        if let Some((op, sent_list)) = emoji_op {
-            let next_seq = get_local_webdav_op_seq(app).saturating_add(1);
-            upload_webdav_ops_batch(&client, cfg, &paths.ops_path, next_seq, &[op]).await?;
-            set_local_webdav_op_seq(app, next_seq)?;
-            save_emoji_base(app, &sent_list)?;
-            uploaded_items += 1;
-            update_webdav_head_device(&mut sync_head, &cfg.device_id, |device| {
-                device.latest_op_seq = device.latest_op_seq.max(next_seq);
-            });
-            sync_head_dirty = true;
-        }
-    }
-
     save_webdav_blob_cache(app, &webdav_blob_cache);
 
     // Publish the ops before trying the snapshot: if the snapshot fails, peers
@@ -4457,130 +4364,6 @@ pub async fn cloud_sync_now(app: AppHandle) -> AppResult<CloudSyncStatus> {
     sync_once(&app, &cfg, true).await
 }
 
-/// The favorites op to send, with the list to record as synced once it's sent.
-fn check_and_create_emoji_sync_op(app: &AppHandle) -> AppResult<Option<(CloudSyncItem, Vec<String>)>> {
-    let db_state = app
-        .try_state::<DbState>()
-        .ok_or_else(|| AppError::Internal("DB unavailable".to_string()))?;
-
-    let emoji_prefs = db_state
-        .settings_repo
-        .get("cloud_sync_content_prefs")
-        .ok()
-        .flatten()
-        .map(|raw| serde_json::from_str::<CloudSyncContentPrefs>(&raw).unwrap_or_default())
-        .unwrap_or_default();
-    if !emoji_prefs.emoji {
-        return Ok(None);
-    }
-
-    let emoji_json = db_state
-        .settings_repo
-        .get(EMOJI_FAVORITES_SETTING_KEY)
-        .ok()
-        .flatten()
-        .unwrap_or_default();
-    let mut local: Vec<String> = serde_json::from_str(&emoji_json).unwrap_or_default();
-    local.sort();
-    local.dedup();
-    // Only what changed here since the last sync goes out: a new device's
-    // empty list must not count as removing everyone's favorites.
-    if local == load_emoji_base(app) {
-        return Ok(None);
-    }
-
-    let local_json = serde_json::to_string(&local).unwrap_or_else(|_| "[]".to_string());
-    let Some(sync_payload) = encode_emoji_favorites_setting(&local_json) else {
-        return Ok(None);
-    };
-
-    let mut hasher = std::collections::hash_map::DefaultHasher::new();
-    use std::hash::{Hash, Hasher};
-    sync_payload.hash(&mut hasher);
-    let current_hash = hasher.finish() as i64;
-
-    let timestamp = now_ms();
-    Ok(Some((CloudSyncItem {
-        content_type: "emoji_sync".to_string(),
-        content: sync_payload,
-        content_hash: current_hash,
-        deleted_at: 0,
-        html_content: None,
-        content_blob_hash: None,
-        html_blob_hash: None,
-        source_app: "TieZ".to_string(),
-        timestamp,
-        created_at: timestamp,
-        last_used_at: 0,
-        sort_at: timestamp,
-        preview: "⭐ Emoji Sync".to_string(),
-        is_pinned: false,
-        pinned_order: 0,
-        tags: vec![],
-        use_count: 0,
-        tags_updated_at: 0,
-    }, local)))
-}
-
-fn merge_remote_emojis(app: &AppHandle, remote_json: &str) -> AppResult<()> {
-    let db_state = app
-        .try_state::<DbState>()
-        .ok_or_else(|| AppError::Internal("DB unavailable".to_string()))?;
-    let local_json = db_state
-        .settings_repo
-        .get(EMOJI_FAVORITES_SETTING_KEY)
-        .ok()
-        .flatten()
-        .unwrap_or_default();
-
-    let local_paths = if local_json.trim().is_empty() || local_json == "[]" {
-        Vec::new()
-    } else {
-        materialize_emoji_favorite_paths(app, &local_json)?
-    };
-    let remote_paths = materialize_emoji_favorite_paths(app, remote_json)?;
-    let normalized_local_json = serde_json::to_string(&local_paths).unwrap_or_default();
-    let merged_paths = merge_favorites(&load_emoji_base(app), &local_paths, &remote_paths);
-
-    if merged_paths != local_paths || normalized_local_json != local_json {
-        let new_json = serde_json::to_string(&merged_paths).unwrap_or_default();
-        db_state
-            .settings_repo
-            .set(EMOJI_FAVORITES_SETTING_KEY, &new_json)
-            .map_err(AppError::from)?;
-        let _ = app.emit("settings-changed", ());
-    }
-    // The sync knows the sender's list now. What differs from it here (local
-    // changes not sent yet) goes out next time; nothing else echoes back.
-    save_emoji_base(app, &remote_paths)
-}
-
-/// Favorites both sides kept since `base`, plus what either side added: a
-/// favorite removed on one device stays removed (a plain union brought it back).
-fn merge_favorites(base: &[String], local: &[String], remote: &[String]) -> Vec<String> {
-    let base: HashSet<&String> = base.iter().collect();
-    let local_set: HashSet<&String> = local.iter().collect();
-    let remote_set: HashSet<&String> = remote.iter().collect();
-    let mut merged: Vec<String> = local
-        .iter()
-        .filter(|path| !base.contains(path) || remote_set.contains(path))
-        .chain(remote.iter().filter(|path| !base.contains(path) || local_set.contains(path)))
-        .cloned()
-        .collect();
-    merged.sort();
-    merged.dedup();
-    merged
-}
-
-fn load_emoji_base(app: &AppHandle) -> Vec<String> {
-    serde_json::from_str(&get_setting_string(app, CLOUD_SYNC_EMOJI_BASE_KEY)).unwrap_or_default()
-}
-
-fn save_emoji_base(app: &AppHandle, paths: &[String]) -> AppResult<()> {
-    let json = serde_json::to_string(paths).map_err(|e| AppError::Internal(e.to_string()))?;
-    set_setting_string(app, CLOUD_SYNC_EMOJI_BASE_KEY, &json)
-}
-
 #[cfg(test)]
 mod tests {
     #[tokio::test]
@@ -4606,20 +4389,6 @@ mod tests {
         .await
         .unwrap();
         assert!(requested.load(Ordering::Relaxed));
-    }
-
-    #[test]
-    fn a_removed_emoji_favorite_stays_removed() {
-        use super::merge_favorites;
-        let list = |items: &[&str]| items.iter().map(|s| s.to_string()).collect::<Vec<_>>();
-        let base = list(&["a", "b", "c"]);
-
-        // Removed on the other device, added here: both kept.
-        assert_eq!(merge_favorites(&base, &list(&["a", "b", "c", "d"]), &list(&["a", "c"])), list(&["a", "c", "d"]));
-        // Removed here; the other device still has it: stays removed.
-        assert_eq!(merge_favorites(&base, &list(&["a"]), &base), list(&["a"]));
-        // A device that never synced takes everything.
-        assert_eq!(merge_favorites(&[], &[], &base), base);
     }
 
     #[tokio::test]
@@ -4894,7 +4663,7 @@ mod tests {
 
     #[test]
     fn turning_a_content_type_on_widens_the_sync() {
-        let prefs = |image: bool| super::CloudSyncContentPrefs { text: true, image, file_path: true, emoji: true };
+        let prefs = |image: bool| super::CloudSyncContentPrefs { text: true, image, file_path: true };
 
         assert!(prefs(true).widens(&prefs(false)));
         assert!(!prefs(false).widens(&prefs(true)));

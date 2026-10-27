@@ -141,8 +141,6 @@ body.theme-sticky-note {
   --card-border: 1px solid rgba(199, 163, 93, 0.2);
   --card-radius: 8px;
   --card-shadow: 0 2px 6px rgba(93, 64, 55, 0.05);
-  --card-hover-shadow: 0 5px 12px rgba(93, 64, 55, 0.09);
-  --card-hover-transform: translateY(-1px);
   --card-active-transform: translateY(0);
   --card-active-shadow: 0 8px 16px rgba(93, 64, 55, 0.12);
   --card-selected-background: #fff4c7;

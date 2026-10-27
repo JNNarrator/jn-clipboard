@@ -661,12 +661,6 @@ test('紧凑模式：列表条目使用紧凑布局，默认模式不使用', as
   await expect.poll(compactItems).toBeGreaterThan(0);
 });
 
-test('表情包视图：渲染表情网格', async ({ app, screen }) => {
-  await app.open('/?view=emoji');
-  await expect(screen.getByText('表情包')).toBeVisible();
-  await expect(screen.getByText('😀').first()).toBeVisible();
-});
-
 test('局域网互传视图：加载并显示聊天记录', async ({ app, screen }) => {
   await app.open('/?view=transfer');
   await expect(screen.getByText('局域网互传')).toBeVisible();

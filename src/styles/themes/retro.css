@@ -118,9 +118,6 @@ body.theme-retro {
   --compact-card-radius: 0;
   --compact-media-radius: 0;
   --card-shadow: none;
-  --card-hover-border-color: var(--border-dark);
-  --card-hover-shadow: 5px 5px 0 0 var(--shadow-color);
-  --card-hover-transform: translate(-1px, -1px);
   --card-active-shadow: 2px 2px 0 0 var(--shadow-color);
   --card-active-transform: translate(2px, 2px);
   --card-selected-background: rgba(var(--accent-color-rgb), 0.1);
@@ -157,10 +154,6 @@ body.theme-retro {
   --keycap-radius: 4px;
   --keycap-shadow: none;
 
-  --segmented-border: 2px solid var(--border-dark);
-  --segmented-radius: 4px;
-  --segmented-shadow: inset 2px 2px 4px rgba(0, 0, 0, 0.1);
-  --segment-radius: 2px;
   --segment-active-background: var(--text-primary);
   --segment-active-color: var(--bg-window);
   --segment-active-shadow: 2px 2px 0 rgba(0, 0, 0, 0.2);

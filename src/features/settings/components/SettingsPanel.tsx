@@ -120,8 +120,6 @@ interface SettingsPanelProps {
     setSearchBoxPinned: (val: boolean) => void;
     scrollTopButtonEnabled: boolean;
     setScrollTopButtonEnabled: (val: boolean) => void;
-    emojiPanelEnabled: boolean;
-    setEmojiPanelEnabled: (val: boolean) => void;
     tagManagerEnabled: boolean;
     setTagManagerEnabled: (val: boolean) => void;
     arrowKeySelection: boolean;
@@ -348,7 +346,7 @@ const SettingsPanel = (props: SettingsPanelProps) => {
         setIsRecording, isRecording, hotkey, hotkeyParts, updateHotkey,
         setTheme, setColorMode, setLanguage, compactMode, setCompactMode, compactShowTime, setCompactShowTime, splitViewEnabled, setSplitViewEnabled, checkHotkeyConflict,
         clipboardItemFontSize, setClipboardItemFontSize, clipboardTagFontSize, setClipboardTagFontSize,
-        emojiPanelEnabled, setEmojiPanelEnabled, tagManagerEnabled, setTagManagerEnabled,
+        tagManagerEnabled, setTagManagerEnabled,
         setMqttEnabled, saveMqtt, setMqttServer, setMqttPort, setMqttUser, setMqttPass, setMqttTopic, setMqttProtocol, setMqttWsPath, setMqttNotificationEnabled,
         setCloudSyncEnabled, setCloudSyncAuto, setCloudSyncIntervalSec, setCloudSyncSnapshotIntervalMin, setCloudSyncWebdavUrl, setCloudSyncWebdavUsername, setCloudSyncWebdavPassword, setCloudSyncWebdavBasePath, setCloudSyncContentPrefs, saveCloudSync,
         setFileServerEnabled, setFileServerPort, setFileTransferAutoOpen, setShowAutoCloseHint, setFileServerAutoClose, setFileTransferAutoCopy, fetchEffectiveTransferPath,
@@ -574,8 +572,6 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                     setShowSearchBox={setShowSearchBox}
                     scrollTopButtonEnabled={scrollTopButtonEnabled}
                     setScrollTopButtonEnabled={setScrollTopButtonEnabled}
-                    emojiPanelEnabled={emojiPanelEnabled}
-                    setEmojiPanelEnabled={setEmojiPanelEnabled}
                     tagManagerEnabled={tagManagerEnabled}
                     setTagManagerEnabled={setTagManagerEnabled}
                     arrowKeySelection={arrowKeySelection}

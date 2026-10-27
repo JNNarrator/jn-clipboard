@@ -218,7 +218,7 @@ fn apply_post_create(app: &AppHandle, window: &WebviewWindow) {
         crate::infrastructure::windows_api::webview_keys::disable_browser_accelerator_keys_for_window(
             window,
         );
-        crate::infrastructure::windows_api::drag_drop::register_emoji_drag_drop(app.clone());
+        crate::infrastructure::windows_api::drag_drop::register_drag_drop(app.clone());
     }
 
     #[cfg(target_os = "macos")]

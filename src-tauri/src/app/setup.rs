@@ -147,7 +147,7 @@ pub fn init(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
 
     #[cfg(target_os = "windows")]
     {
-        crate::infrastructure::windows_api::drag_drop::register_emoji_drag_drop(app_handle.clone());
+        crate::infrastructure::windows_api::drag_drop::register_drag_drop(app_handle.clone());
         init_win32_hooks(app);
         setup_taskbar_listener(app);
     }

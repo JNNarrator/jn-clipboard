@@ -39,8 +39,6 @@ interface GeneralSettingsGroupProps {
     setShowSearchBox: (val: boolean) => void;
     scrollTopButtonEnabled: boolean;
     setScrollTopButtonEnabled: (val: boolean) => void;
-    emojiPanelEnabled: boolean;
-    setEmojiPanelEnabled: (val: boolean) => void;
     tagManagerEnabled: boolean;
     setTagManagerEnabled: (val: boolean) => void;
     arrowKeySelection: boolean;
@@ -102,8 +100,6 @@ const GeneralSettingsGroup = ({
     setShowSearchBox,
     scrollTopButtonEnabled,
     setScrollTopButtonEnabled,
-    emojiPanelEnabled,
-    setEmojiPanelEnabled,
     tagManagerEnabled,
     setTagManagerEnabled,
     arrowKeySelection,
@@ -332,21 +328,6 @@ const GeneralSettingsGroup = ({
                             const enabled = e.target.checked;
                             setScrollTopButtonEnabled(enabled);
                             saveAppSetting('show_scroll_top_button', String(enabled));
-                        }}
-                    />
-                </div>
-                <div className="setting-item">
-                    <LabelWithHint
-                        label={t('emoji_panel_enabled')}
-                        hint={t('emoji_panel_enabled_hint')}
-                        hintKey="emoji_panel_enabled"
-                    />
-                    <SettingSwitch
-                        checked={emojiPanelEnabled}
-                        onChange={(e) => {
-                            const enabled = e.target.checked;
-                            setEmojiPanelEnabled(enabled);
-                            saveAppSetting('emoji_panel_enabled', String(enabled));
                         }}
                     />
                 </div>

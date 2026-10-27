@@ -29,8 +29,6 @@ export const useAppState = (): AppState => {
   const [searchIsFocused, setSearchIsFocused] = useState(false);
   const [showTagFilter, setShowTagFilter] = useState(false);
   const [tagInput, setTagInput] = useState("");
-  const [showEmojiPanel, setShowEmojiPanel] = useState(false);
-  const [emojiFavorites, setEmojiFavorites] = useState<string[]>([]);
   const [aiOptionsOpenId, setAiOptionsOpenId] = useState<number | null>(null);
   const [editingTagsId, setEditingTagsId] = useState<number | null>(null);
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
@@ -94,8 +92,6 @@ export const useAppState = (): AppState => {
   const [splitViewEnabled, setSplitViewEnabled] = useState(true);
   const [clipboardItemFontSize, setClipboardItemFontSize] = useState(13);
   const [clipboardTagFontSize, setClipboardTagFontSize] = useState(10);
-  const [emojiPanelEnabled, setEmojiPanelEnabled] = useState(false);
-  const [emojiPanelTab, setEmojiPanelTab] = useState<"emoji" | "favorites">("emoji");
   const [showHotkeyHint, setShowHotkeyHint] = useState(false);
   const [showAutoCloseHint, setShowAutoCloseHint] = useState(false);
   const [language, setLanguage] = useState<Locale>("zh");
@@ -191,10 +187,6 @@ export const useAppState = (): AppState => {
     setShowTagFilter,
     tagInput,
     setTagInput,
-    showEmojiPanel,
-    setShowEmojiPanel,
-    emojiFavorites,
-    setEmojiFavorites,
     aiOptionsOpenId,
     setAiOptionsOpenId,
     editingTagsId,
@@ -308,10 +300,6 @@ export const useAppState = (): AppState => {
     setClipboardItemFontSize,
     clipboardTagFontSize,
     setClipboardTagFontSize,
-    emojiPanelEnabled,
-    setEmojiPanelEnabled,
-    emojiPanelTab,
-    setEmojiPanelTab,
     showHotkeyHint,
     setShowHotkeyHint,
     showAutoCloseHint,

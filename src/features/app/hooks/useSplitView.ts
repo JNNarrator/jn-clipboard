@@ -9,7 +9,7 @@ const HOVER_DWELL_MS = 100;
 
 interface UseSplitViewOptions {
   enabled: boolean;
-  /** Only the history list gets a detail pane (not settings, tags, emoji, transfer). */
+  /** Only the history list gets a detail pane (not settings, tags, transfer). */
   listVisible: boolean;
   /** Entries in display order (pinned first). */
   items: ClipboardEntry[];

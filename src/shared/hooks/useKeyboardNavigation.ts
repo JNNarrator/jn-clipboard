@@ -19,7 +19,6 @@ interface UseKeyboardNavigationOptions {
   setIsKeyboardMode: (val: boolean | ((prev: boolean) => boolean)) => void;
   showSettings: boolean;
   showTagManager: boolean;
-  showEmojiPanel: boolean;
   chatMode: boolean;
   editingTagsId: number | null;
   editingNoteId: number | null;
@@ -58,7 +57,6 @@ export const useKeyboardNavigation = ({
   setIsKeyboardMode,
   showSettings,
   showTagManager,
-  showEmojiPanel,
   chatMode,
   editingTagsId,
   editingNoteId,
@@ -78,7 +76,6 @@ export const useKeyboardNavigation = ({
   const isKeyboardModeRef = useRef(isKeyboardMode);
   const showSettingsRef = useRef(showSettings);
   const showTagManagerRef = useRef(showTagManager);
-  const showEmojiPanelRef = useRef(showEmojiPanel);
   const chatModeRef = useRef(chatMode);
   const editingTagsIdRef = useRef(editingTagsId);
   const editingNoteIdRef = useRef(editingNoteId);
@@ -92,7 +89,6 @@ export const useKeyboardNavigation = ({
   isKeyboardModeRef.current = isKeyboardMode;
   showSettingsRef.current = showSettings;
   showTagManagerRef.current = showTagManager;
-  showEmojiPanelRef.current = showEmojiPanel;
   chatModeRef.current = chatMode;
   editingTagsIdRef.current = editingTagsId;
   editingNoteIdRef.current = editingNoteId;
@@ -230,7 +226,6 @@ export const useKeyboardNavigation = ({
   // Other fields, and any open dialog or menu, keep their normal Tab focus.
   const isCategoryTab = (e: KeyboardEvent, target: HTMLElement, isEditable: boolean) => {
     if (e.key !== "Tab" || e.ctrlKey || e.altKey || e.metaKey) return false;
-    if (showEmojiPanelRef.current) return false;
     if (isEditable && !target.classList.contains("search-input")) return false;
     if (document.querySelector("[aria-modal='true']")) return false;
     return !target.closest("[role='dialog'], [role='menu'], [role='listbox']");

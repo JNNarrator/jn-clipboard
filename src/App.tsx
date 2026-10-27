@@ -141,7 +141,7 @@ const buildQuickPasteHintsById = (
 
 const App = () => {
   useFocusCoordinator();
-  type FileTransferSourceView = "clipboard" | "settings" | "tag_manager" | "emoji_panel";
+  type FileTransferSourceView = "clipboard" | "settings" | "tag_manager";
 
   const appState = useAppState();
   const {
@@ -168,10 +168,6 @@ const App = () => {
     setShowTagFilter,
     tagInput,
     setTagInput,
-    showEmojiPanel,
-    setShowEmojiPanel,
-    emojiFavorites,
-    setEmojiFavorites,
     aiOptionsOpenId,
     setAiOptionsOpenId,
     editingTagsId,
@@ -268,10 +264,6 @@ const App = () => {
     setClipboardItemFontSize,
     clipboardTagFontSize,
     setClipboardTagFontSize,
-    emojiPanelEnabled,
-    setEmojiPanelEnabled,
-    emojiPanelTab,
-    setEmojiPanelTab,
     language,
     setLanguage,
     settingsLoaded,
@@ -384,7 +376,6 @@ const App = () => {
   } = useAutoUpdate();
   // -------------------------
 
-  const effectiveShowEmojiPanel = showEmojiPanel && emojiPanelEnabled;
   const effectiveShowTagManager = showTagManager && tagManagerEnabled;
   const [fileTransferSourceView, setFileTransferSourceView] =
     useState<FileTransferSourceView>("clipboard");
@@ -455,28 +446,25 @@ const App = () => {
 
   const getCurrentSourceView = useCallback((): FileTransferSourceView => {
     if (effectiveShowTagManager) return "tag_manager";
-    if (effectiveShowEmojiPanel) return "emoji_panel";
     if (showSettings) return "settings";
     return "clipboard";
-  }, [effectiveShowEmojiPanel, effectiveShowTagManager, showSettings]);
+  }, [effectiveShowTagManager, showSettings]);
 
   const restoreViewAfterChat = useCallback(
     (sourceView: FileTransferSourceView) => {
       setShowTagManager(sourceView === "tag_manager");
-      setShowEmojiPanel(sourceView === "emoji_panel");
       setShowSettings(sourceView === "settings");
     },
-    [setShowEmojiPanel, setShowSettings, setShowTagManager]
+    [setShowSettings, setShowTagManager]
   );
 
   const openFileTransfer = useCallback(() => {
     const sourceView = getCurrentSourceView();
     setFileTransferSourceView(sourceView);
     setShowTagManager(false);
-    setShowEmojiPanel(false);
     setShowSettings(true);
     setChatMode(true);
-  }, [getCurrentSourceView, setChatMode, setShowEmojiPanel, setShowSettings, setShowTagManager]);
+  }, [getCurrentSourceView, setChatMode, setShowSettings, setShowTagManager]);
 
   const closeFileTransfer = useCallback(() => {
     setChatMode(false);
@@ -486,10 +474,6 @@ const App = () => {
   const handleHeaderBack = useCallback(() => {
     if (chatMode) {
       closeFileTransfer();
-      return;
-    }
-    if (effectiveShowEmojiPanel) {
-      setShowEmojiPanel(false);
       return;
     }
     if (effectiveShowTagManager) {
@@ -506,9 +490,7 @@ const App = () => {
   }, [
     chatMode,
     closeFileTransfer,
-    effectiveShowEmojiPanel,
     effectiveShowTagManager,
-    setShowEmojiPanel,
     setShowSettings,
     setSettingsSubpage,
     setShowTagManager,
@@ -637,10 +619,7 @@ const App = () => {
     setSurfaceOpacity,
     setClipboardItemFontSize,
     setClipboardTagFontSize,
-    setEmojiPanelEnabled,
     setTagManagerEnabled,
-    setEmojiPanelTab,
-    setEmojiFavorites,
     setPersistent,
     setPersistentLimitEnabled,
     setPersistentLimit,
@@ -726,7 +705,6 @@ const App = () => {
     setShowSettings(false);
     setShowTagManager(false);
     setChatMode(false);
-    setShowEmojiPanel(false);
     setShowSearchBox(true);
     setSearchIsFocused(true);
     focusClipboardWindow()
@@ -740,7 +718,6 @@ const App = () => {
     setShowSettings,
     setShowTagManager,
     setChatMode,
-    setShowEmojiPanel,
     setShowSearchBox,
     setSearchIsFocused,
     searchInputRef
@@ -779,7 +756,7 @@ const App = () => {
   useEffect(() => {
     const onFind = (event: KeyboardEvent) => {
       if (isRecording || isRecordingSequential || isRecordingPlain || isRecordingSearch) return;
-      if (showSettings || effectiveShowTagManager || chatMode || effectiveShowEmojiPanel) return;
+      if (showSettings || effectiveShowTagManager || chatMode) return;
 
       const key = event.key.toLowerCase();
       const isFind =
@@ -802,15 +779,8 @@ const App = () => {
     showSettings,
     effectiveShowTagManager,
     chatMode,
-    effectiveShowEmojiPanel,
     focusSearchBox
   ]);
-
-  useEffect(() => {
-    if (!emojiPanelEnabled && showEmojiPanel) {
-      setShowEmojiPanel(false);
-    }
-  }, [emojiPanelEnabled, showEmojiPanel, setShowEmojiPanel]);
 
   useEffect(() => {
     if (!tagManagerEnabled && showTagManager) {
@@ -947,14 +917,7 @@ const App = () => {
   }, [setAppSettings]);
 
   const saveSetting = useCallback((key: string, val: string) => {
-    invoke("save_setting", { key, value: val })
-      .then(() => {
-        if (key === "app.emoji_favorites") {
-          return invoke("request_cloud_sync");
-        }
-        return undefined;
-      })
-      .catch(console.error);
+    invoke("save_setting", { key, value: val }).catch(console.error);
   }, []);
 
   const updateClipboardSortMode = useCallback(
@@ -1015,7 +978,6 @@ const App = () => {
     showSettings,
     showTagManager: effectiveShowTagManager,
     chatMode,
-    showEmojiPanel: effectiveShowEmojiPanel,
     editingInline: editingTagsId !== null || editingNoteId !== null
   });
 
@@ -1097,7 +1059,7 @@ const App = () => {
   }, [setSelectedIndex, setSelectedItemId, setIsKeyboardMode]);
   const { splitActive, detailItem, handleListMouseMove, handleListMouseLeave, focusDetailItem } = useSplitView({
     enabled: splitViewEnabled,
-    listVisible: !showSettings && !effectiveShowTagManager && !showEmojiPanel && !chatMode,
+    listVisible: !showSettings && !effectiveShowTagManager && !chatMode,
     items: navigableHistory,
     selectedItemId,
     isKeyboardMode,
@@ -1189,7 +1151,6 @@ const App = () => {
     setIsKeyboardMode,
     showSettings,
     showTagManager: effectiveShowTagManager,
-    showEmojiPanel: effectiveShowEmojiPanel,
     chatMode,
     editingTagsId,
     editingNoteId,
@@ -1285,9 +1246,6 @@ const App = () => {
         showTagManager={effectiveShowTagManager}
         setShowTagManager={setShowTagManager}
         tagManagerEnabled={tagManagerEnabled}
-        showEmojiPanel={effectiveShowEmojiPanel}
-        setShowEmojiPanel={setShowEmojiPanel}
-        emojiPanelEnabled={emojiPanelEnabled}
         chatMode={chatMode}
         fileServerEnabled={fileServerEnabled}
         isWindowPinned={isWindowPinned}
@@ -1348,18 +1306,12 @@ const App = () => {
             showSettings={showSettings}
             showTagManager={effectiveShowTagManager}
             tagManagerEnabled={tagManagerEnabled}
-            showEmojiPanel={effectiveShowEmojiPanel}
             chatMode={chatMode}
             localIp={localIp}
             actualPort={actualPort}
             fileTransferAccessToken={fileTransferAccessToken}
             fileTransferLanKey={fileTransferLanKey}
             settingsPanelProps={settingsPanelProps}
-            emojiFavorites={emojiFavorites}
-            setEmojiFavorites={setEmojiFavorites}
-            emojiPanelTab={emojiPanelTab}
-            setEmojiPanelTab={setEmojiPanelTab}
-            saveSetting={saveSetting}
             filteredHistory={filteredHistory}
             search={search}
             pinnedItems={pinnedItems}

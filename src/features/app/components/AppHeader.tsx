@@ -9,7 +9,6 @@ import {
   PinOff,
   Search,
   Settings as SettingsIcon,
-  Smile,
   Tag,
   Trash2,
   X
@@ -28,9 +27,6 @@ interface AppHeaderProps {
   showTagManager: boolean;
   setShowTagManager: (val: boolean) => void;
   tagManagerEnabled: boolean;
-  showEmojiPanel: boolean;
-  setShowEmojiPanel: (val: boolean) => void;
-  emojiPanelEnabled: boolean;
   chatMode: boolean;
   fileServerEnabled: boolean;
   isWindowPinned: boolean;
@@ -66,9 +62,6 @@ const AppHeader = ({
   showTagManager,
   setShowTagManager,
   tagManagerEnabled,
-  showEmojiPanel,
-  setShowEmojiPanel,
-  emojiPanelEnabled,
   chatMode,
   fileServerEnabled,
   isWindowPinned,
@@ -162,13 +155,11 @@ const AppHeader = ({
     else if (box.right > rowBox.right) row.scrollLeft += box.right - rowBox.right;
   }, [typeFilter]);
 
-  const headerTitle = showEmojiPanel
-    ? t('emoji_panel')
-    : showTagManager && tagManagerEnabled
-      ? t('tag_manager')
-      : showSettings
-        ? (chatMode ? t('file_transfer') : settingsTitle)
-        : t('app_name');
+  const headerTitle = showTagManager && tagManagerEnabled
+    ? t('tag_manager')
+    : showSettings
+      ? (chatMode ? t('file_transfer') : settingsTitle)
+      : t('app_name');
 
   const hideWindow = (e: MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
@@ -209,12 +200,12 @@ const AppHeader = ({
               />
             </div>
           )}
-          {(showSettings || showTagManager || showEmojiPanel) && (
+          {(showSettings || showTagManager) && (
             <button className="btn-icon header-back-btn" onClick={onBack} aria-label={t("back")} title={t("back")}>
               <ChevronLeft size={16} />
             </button>
           )}
-          {showSettings || showTagManager || showEmojiPanel ? (
+          {showSettings || showTagManager ? (
             <span className="header-title page-header-title is-page-title">{headerTitle}</span>
           ) : (
             <span className="brand-mark" role="img" aria-label={t("app_name")} />
@@ -240,7 +231,7 @@ const AppHeader = ({
             {isWindowPinned ? <PinOff size={16} /> : <Pin size={16} />}
           </button>
 
-          {!showSettings && !showTagManager && !showEmojiPanel && (
+          {!showSettings && !showTagManager && (
             <>
               <button className="btn-icon" title={t('clear_history')} aria-label={t('clear_history')} onClick={clearHistory}>
                 <Trash2 size={16} />
@@ -248,11 +239,6 @@ const AppHeader = ({
               {tagManagerEnabled && (
                 <button className="btn-icon" title={t('tag_manager')} aria-label={t('tag_manager')} onClick={() => setShowTagManager(true)}>
                   <Tag size={16} />
-                </button>
-              )}
-              {emojiPanelEnabled && (
-                <button className="btn-icon" title={t('emoji_panel')} aria-label={t('emoji_panel')} onClick={() => setShowEmojiPanel(true)}>
-                  <Smile size={16} />
                 </button>
               )}
               <button className="btn-icon" title={t('settings')} aria-label={t('settings')} onClick={() => setShowSettings(true)}>
@@ -284,7 +270,7 @@ const AppHeader = ({
         </div>
       </div>
 
-      {!showSettings && !showTagManager && !showEmojiPanel && (
+      {!showSettings && !showTagManager && (
         <div
           className={`search-reveal${searchVisible ? " is-open" : ""}`}
           aria-hidden={!searchVisible}

@@ -2,7 +2,6 @@ use crate::app_state::AppDataDir;
 use crate::error::{AppError, AppResult};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json;
-use serde_json::Value;
 use tauri::{AppHandle, Manager, State};
 
 fn open_path_in_file_manager(path: &std::path::Path) -> AppResult<()> {
@@ -835,7 +834,7 @@ pub fn set_data_path(app_handle: AppHandle, new_path: String) -> AppResult<()> {
 
     // 1. Migrate data folders if they exist in the OLD path
     {
-        for folder in ["attachments", "emoji_favorites"] {
+        for folder in ["attachments"] {
             let old_folder = old_path_buf.join(folder);
             let new_folder = new_data_path.join(folder);
 
@@ -886,7 +885,6 @@ pub fn set_data_path(app_handle: AppHandle, new_path: String) -> AppResult<()> {
     let new_db_path = new_data_path.join("clipboard.db");
     if new_db_path.exists() {
         rewrite_attachment_paths_in_db(&new_db_path, &old_path_buf, new_data_path)?;
-        rewrite_emoji_favorites_in_db(&new_db_path, &old_path_buf, new_data_path)?;
         rewrite_custom_background_in_db(&new_db_path, &old_path_buf, new_data_path)?;
     }
 
@@ -972,67 +970,6 @@ fn rewrite_attachment_paths_in_db(
             )
             .map_err(AppError::from)?;
         }
-    }
-
-    Ok(())
-}
-
-fn rewrite_emoji_favorites_in_db(
-    db_path: &std::path::Path,
-    old_base: &std::path::Path,
-    new_base: &std::path::Path,
-) -> AppResult<()> {
-    let old_dir = old_base.join("emoji_favorites");
-    let new_dir = new_base.join("emoji_favorites");
-    let old_prefix = old_dir.to_string_lossy().to_string();
-    let new_prefix = new_dir.to_string_lossy().to_string();
-    if old_prefix == new_prefix {
-        return Ok(());
-    }
-
-    let old_prefix_slash = old_prefix.replace('\\', "/");
-    let new_prefix_slash = new_prefix.replace('\\', "/");
-
-    let conn = Connection::open(db_path).map_err(AppError::from)?;
-    let value: Option<String> = conn
-        .query_row(
-            "SELECT value FROM settings WHERE key = 'app.emoji_favorites'",
-            [],
-            |row| row.get(0),
-        )
-        .optional()
-        .map_err(AppError::from)?;
-
-    let Some(raw) = value else {
-        return Ok(());
-    };
-    let parsed: Vec<String> = match serde_json::from_str(&raw) {
-        Ok(v) => v,
-        Err(_) => return Ok(()),
-    };
-
-    let mut changed = false;
-    let mut updated: Vec<String> = Vec::with_capacity(parsed.len());
-    for path in parsed {
-        let mut next = path.clone();
-        if next.starts_with(&old_prefix) {
-            next = format!("{}{}", new_prefix, &next[old_prefix.len()..]);
-        } else if next.starts_with(&old_prefix_slash) {
-            next = format!("{}{}", new_prefix_slash, &next[old_prefix_slash.len()..]);
-        }
-        if next != path {
-            changed = true;
-        }
-        updated.push(next);
-    }
-
-    if changed {
-        let serialized = serde_json::to_string(&updated).unwrap_or(raw);
-        conn.execute(
-            "UPDATE settings SET value = ?1 WHERE key = 'app.emoji_favorites'",
-            params![serialized],
-        )
-        .map_err(AppError::from)?;
     }
 
     Ok(())

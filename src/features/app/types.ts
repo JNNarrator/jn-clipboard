@@ -14,14 +14,12 @@ export type CloudSyncContentPrefs = {
   text: boolean;
   image: boolean;
   file_path: boolean;
-  emoji: boolean;
 };
 
 export const DEFAULT_CLOUD_SYNC_CONTENT_PREFS: CloudSyncContentPrefs = {
   text: true,
   image: true,
   file_path: true,
-  emoji: true
 };
 
 export interface AppState {
@@ -49,10 +47,6 @@ export interface AppState {
   setShowTagFilter: StateSetter<boolean>;
   tagInput: string;
   setTagInput: StateSetter<string>;
-  showEmojiPanel: boolean;
-  setShowEmojiPanel: StateSetter<boolean>;
-  emojiFavorites: string[];
-  setEmojiFavorites: StateSetter<string[]>;
   aiOptionsOpenId: number | null;
   setAiOptionsOpenId: StateSetter<number | null>;
   editingTagsId: number | null;
@@ -166,10 +160,6 @@ export interface AppState {
   setClipboardItemFontSize: StateSetter<number>;
   clipboardTagFontSize: number;
   setClipboardTagFontSize: StateSetter<number>;
-  emojiPanelEnabled: boolean;
-  setEmojiPanelEnabled: StateSetter<boolean>;
-  emojiPanelTab: "emoji" | "favorites";
-  setEmojiPanelTab: StateSetter<"emoji" | "favorites">;
   showHotkeyHint: boolean;
   setShowHotkeyHint: StateSetter<boolean>;
   showAutoCloseHint: boolean;

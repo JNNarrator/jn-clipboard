@@ -92,7 +92,7 @@ impl DragDropController {
     }
 
     fn inject_in_hwnd(&mut self, hwnd: HWND, app_handle: Rc<AppHandle>) -> bool {
-        let drop_target: IDropTarget = EmojiDropTarget::new(app_handle).into();
+        let drop_target: IDropTarget = DragDropTarget::new(app_handle).into();
         if unsafe { RevokeDragDrop(hwnd) } != Err(DRAGDROP_E_INVALIDHWND.into())
             && unsafe { RegisterDragDrop(hwnd, &drop_target) }.is_ok()
         {
@@ -103,13 +103,13 @@ impl DragDropController {
 }
 
 #[implement(IDropTarget)]
-pub struct EmojiDropTarget {
+pub struct DragDropTarget {
     app_handle: Rc<AppHandle>,
     cursor_effect: UnsafeCell<DROPEFFECT>,
     enter_is_valid: UnsafeCell<bool>,
 }
 
-impl EmojiDropTarget {
+impl DragDropTarget {
     pub fn new(app_handle: Rc<AppHandle>) -> Self {
         Self {
             app_handle,
@@ -424,7 +424,7 @@ impl EmojiDropTarget {
 }
 
 #[allow(non_snake_case)]
-impl IDropTarget_Impl for EmojiDropTarget_Impl {
+impl IDropTarget_Impl for DragDropTarget_Impl {
     fn DragEnter(
         &self,
         pDataObj: WRef<'_, IDataObject>,
@@ -437,23 +437,23 @@ impl IDropTarget_Impl for EmojiDropTarget_Impl {
         let cf_inet_url_w = unsafe { RegisterClipboardFormatW(CFSTR_INETURLW) };
         let cf_inet_url_a = unsafe { RegisterClipboardFormatW(CFSTR_INETURLA) };
         let valid = unsafe {
-            EmojiDropTarget::has_format(data_obj, CF_HDROP.0, TYMED_HGLOBAL.0 as u32, -1)
+            DragDropTarget::has_format(data_obj, CF_HDROP.0, TYMED_HGLOBAL.0 as u32, -1)
                 || (cf_file_descriptor != 0
-                    && EmojiDropTarget::has_format(
+                    && DragDropTarget::has_format(
                         data_obj,
                         cf_file_descriptor as u16,
                         TYMED_HGLOBAL.0 as u32,
                         -1,
                     ))
                 || (cf_inet_url_w != 0
-                    && EmojiDropTarget::has_format(
+                    && DragDropTarget::has_format(
                         data_obj,
                         cf_inet_url_w as u16,
                         TYMED_HGLOBAL.0 as u32,
                         -1,
                     ))
                 || (cf_inet_url_a != 0
-                    && EmojiDropTarget::has_format(
+                    && DragDropTarget::has_format(
                         data_obj,
                         cf_inet_url_a as u16,
                         TYMED_HGLOBAL.0 as u32,
@@ -466,7 +466,7 @@ impl IDropTarget_Impl for EmojiDropTarget_Impl {
         }
 
         if valid {
-            EmojiDropTarget::emit_drag_enter(self.app_handle.as_ref());
+            DragDropTarget::emit_drag_enter(self.app_handle.as_ref());
         }
 
         let cursor_effect = if valid {
@@ -497,7 +497,7 @@ impl IDropTarget_Impl for EmojiDropTarget_Impl {
 
     fn DragLeave(&self) -> windows::core::Result<()> {
         if unsafe { *self.enter_is_valid.get() } {
-            EmojiDropTarget::emit_drag_leave(self.app_handle.as_ref());
+            DragDropTarget::emit_drag_leave(self.app_handle.as_ref());
         }
         Ok(())
     }
@@ -515,44 +515,44 @@ impl IDropTarget_Impl for EmojiDropTarget_Impl {
 
         let data_obj = pDataObj.as_ref().expect("Received null IDataObject");
 
-        if let Some((paths, hdrop)) = unsafe { EmojiDropTarget::iterate_file_paths(data_obj) } {
+        if let Some((paths, hdrop)) = unsafe { DragDropTarget::iterate_file_paths(data_obj) } {
             let paths: Vec<String> = paths
                 .into_iter()
                 .map(|p| p.to_string_lossy().to_string())
                 .collect();
             if !paths.is_empty() {
-                EmojiDropTarget::emit_file_drop(self.app_handle.as_ref(), paths);
+                DragDropTarget::emit_file_drop(self.app_handle.as_ref(), paths);
             }
             unsafe { DragFinish(hdrop) };
         } else {
-            let virtual_files = unsafe { EmojiDropTarget::read_virtual_files(data_obj) };
+            let virtual_files = unsafe { DragDropTarget::read_virtual_files(data_obj) };
             if !virtual_files.is_empty() {
                 let app_handle = self.app_handle.as_ref().clone();
                 std::thread::spawn(move || {
                     let mut saved = Vec::new();
                     for (name, bytes) in virtual_files {
                         if let Some(path) =
-                            EmojiDropTarget::save_temp_bytes(Some(name.as_str()), &bytes)
+                            DragDropTarget::save_temp_bytes(Some(name.as_str()), &bytes)
                         {
                             saved.push(path);
                         }
                     }
                     if !saved.is_empty() {
-                        EmojiDropTarget::emit_file_drop(&app_handle, saved);
+                        DragDropTarget::emit_file_drop(&app_handle, saved);
                     }
                 });
-            } else if let Some(url) = unsafe { EmojiDropTarget::read_inet_url(data_obj) } {
+            } else if let Some(url) = unsafe { DragDropTarget::read_inet_url(data_obj) } {
                 let app_handle = self.app_handle.as_ref().clone();
                 tauri::async_runtime::spawn(async move {
-                    if let Some(path) = EmojiDropTarget::save_url_to_temp(url).await {
-                        EmojiDropTarget::emit_file_drop(&app_handle, vec![path]);
+                    if let Some(path) = DragDropTarget::save_url_to_temp(url).await {
+                        DragDropTarget::emit_file_drop(&app_handle, vec![path]);
                     }
                 });
             }
         }
 
         if unsafe { *self.enter_is_valid.get() } {
-            EmojiDropTarget::emit_drag_leave(self.app_handle.as_ref());
+            DragDropTarget::emit_drag_leave(self.app_handle.as_ref());
             unsafe {
                 *self.enter_is_valid.get() = false;
             }
@@ -562,7 +562,7 @@ impl IDropTarget_Impl for EmojiDropTarget_Impl {
     }
 }
 
-pub fn register_emoji_drag_drop(app_handle: AppHandle) {
+pub fn register_drag_drop(app_handle: AppHandle) {
     if let Some(window) = app_handle.get_webview_window("main") {
         if let Ok(hwnd) = window.hwnd() {
             let controller = DragDropController::new(hwnd, app_handle);

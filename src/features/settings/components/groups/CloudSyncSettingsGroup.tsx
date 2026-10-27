@@ -346,17 +346,6 @@ const CloudSyncSettingsGroup = ({
                             onChange={(e) => patchContentPrefs("file_path", e.target.checked)}
                         />
                     </div>
-                    <div className="setting-item">
-                        <LabelWithHint
-                            label={t("cloud_sync_sync_emoji")}
-                            hint={t("cloud_sync_sync_emoji_hint")}
-                            hintKey="cloud_sync_sync_emoji"
-                        />
-                        <SettingSwitch
-                            checked={cloudSyncContentPrefs.emoji}
-                            onChange={(e) => patchContentPrefs("emoji", e.target.checked)}
-                        />
-                    </div>
 
                     <h4 className="settings-section-title">{t("settings_section_status")}</h4>
                     <div className="settings-panel">
