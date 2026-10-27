@@ -862,7 +862,6 @@ const SettingsPanel = (props: SettingsPanelProps) => {
             node: (
                 <DataSettingsGroup
                     t={t}
-                    theme={theme}
                     {...groupState('data')}
                     dataPath={dataPath}
                     portable={releaseBuildInfo.portable}

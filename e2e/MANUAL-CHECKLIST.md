@@ -9,7 +9,7 @@
 - **UI e2e**（`e2e/tests/app.e2e.ts`）：搜索、分类筛选、单击/键盘/详情栏粘贴请求、删除、
   清空确认、设置分组与保存、标签筛选、固定、新记录插入位置、紧凑模式、表情包与互传视图、崩溃兜底
 - **Rust 单测**：隐私识别（URL/手机/邮箱/自定义正则）、复制规则（替换/不记录）与按应用匹配、
-  富文本/表格/WPS/Office 转换、搜索匹配、Ditto/Maccy 导入解析、加密、数据库迁移、云同步与互传协议
+  富文本/表格/WPS/Office 转换、搜索匹配、加密、数据库迁移、云同步与互传协议
 - **原生 smoke**（macOS）：app 启动、建库、重启后读设置、捕获一次复制
 - **文档站**：全部页面生成、链接与锚点、核心交互
 
@@ -34,7 +34,6 @@
 | `services/mqtt_sub.rs`、`services/e2e.rs`、`E2eKeyPanel.tsx` | 验证码同步：手机发一条到电脑。**再开启端到端加密测一次**：开启后未加密消息会被静默丢弃，短信转发类第三方工具会收不到；手机扫配置二维码后密钥一致 |
 | `services/file_transfer/` | 局域网互传：手机扫码连接，双向发文字和文件；"自动复制""自动打开"生效；约 5 分钟无传输自动关闭 |
 | `commands/ai_cmd.rs`、`ai_provider.rs`、`AiSettingsGroup.tsx` | 用真实模型"检查连接"，对一条记录做一次解答 / 翻译 |
-| `services/importers/` | 从 Ditto（Windows）或 Maccy（macOS）导入：自动找到记录文件，重复项跳过，原文件不变 |
 | `set_data_path`（`commands/system_cmd.rs`） | 数据管理里更换数据位置：迁移后历史完整，重启后仍用新位置。**先备份数据** |
 | `infrastructure/encryption.rs`、`repository/migrations.rs` | 用旧版本数据目录启动新版本，历史全部可读、可搜索 |
 | `app/light_mode.rs` | 开启"节省内存"，把等待时间调到最短，等它释放后再呼出：窗口能恢复，监听和快捷键一直有效 |

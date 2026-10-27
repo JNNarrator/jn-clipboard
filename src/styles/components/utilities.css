@@ -4,21 +4,6 @@
   padding: 4px;
 }
 
-/* Localized help is split into short lines without embedding HTML in copy. */
-.settings-group .hint,
-.settings-group p,
-.settings-notice,
-.modal-panel p,
-.confirm-dialog-message,
-.clipboard-import-app-summary,
-.clipboard-import-progress > strong,
-.clipboard-import-result > strong,
-.toast-text,
-.error-boundary-body {
-  white-space: pre-line;
-}
-
-
 /* Fallback shown by ErrorBoundary when the UI fails to render. */
 .error-boundary {
   display: flex;

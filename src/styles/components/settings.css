@@ -861,49 +861,6 @@
   text-align: right;
 }
 
-.clipboard-import-setting {
-  padding-top: 8px;
-}
-
-.clipboard-import-entry {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.clipboard-import-entry-copy {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.clipboard-import-entry-description {
-  color: var(--text-secondary);
-  font-size: var(--st-desc-size);
-  line-height: 18px;
-}
-
-.clipboard-import-launch {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  white-space: nowrap;
-}
-
-@media (max-width: 520px) {
-  .clipboard-import-entry {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .clipboard-import-launch {
-    width: 100%;
-  }
-}
-
 .setting-item .switch {
   flex-shrink: 0;
 }
