@@ -562,6 +562,9 @@ fn is_setting_sync_eligible(key: &str) -> bool {
     // snapshot cursor map did: a peer applying it skipped snapshots it never
     // pulled).
     if key.starts_with("cloud_sync_") { return false; }
+    // The JNClub engine's own state (origin, token, cursor) describes this
+    // device, and its token is a credential besides.
+    if key.starts_with("jnclub.") { return false; }
     !matches!(
         key,
         "app.anon_id"

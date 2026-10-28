@@ -29,6 +29,9 @@ const SENSITIVE_KEYS: &[&str] = &[
     "e2e_key",
     "cloud_sync_api_key",
     "cloud_sync_webdav_password",
+    // A Sa-Token, not a password, but it authenticates every clipboard request
+    // and stays valid for a week: same treatment.
+    "jnclub.sync_token",
 ];
 
 pub const SENSITIVE_TAGS: &[&str] = &["sensitive", "密码", "password"];

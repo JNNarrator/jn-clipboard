@@ -440,6 +440,26 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
         conn.execute("INSERT INTO schema_migrations (version) VALUES (20)", [])?;
     }
 
+    // Migration 21: the JNClub sync engine needs to know which server record a
+    // local row corresponds to. `digest` is a snapshot of the fields we send,
+    // not a dirty flag: the engine recomputes it at sync time and pushes when
+    // it differs. That way every existing write path (pin, note, tag, delete,
+    // bulk cleanup) participates without knowing sync exists — the alternative
+    // was touching a dozen call sites and still missing the ones added later.
+    if current_version < 21 {
+        conn.execute_batch(
+            "
+            CREATE TABLE IF NOT EXISTS jnclub_sync_index (
+                local_id INTEGER PRIMARY KEY,
+                sync_id TEXT NOT NULL UNIQUE,
+                rev INTEGER NOT NULL DEFAULT 1,
+                digest TEXT NOT NULL DEFAULT ''
+            );
+            ",
+        )?;
+        conn.execute("INSERT INTO schema_migrations (version) VALUES (21)", [])?;
+    }
+
     Ok(())
 }
 
@@ -508,7 +528,7 @@ mod tests {
                 row.get(0)
             })
             .expect("read schema version");
-        assert_eq!(version, 20);
+        assert_eq!(version, 21);
     }
 
     #[test]
