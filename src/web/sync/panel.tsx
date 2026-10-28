@@ -5,6 +5,7 @@ import { SettingSwitch } from "../../features/settings/components/SettingControl
 import { LabelWithHint } from "../../features/settings/components/SettingsHint";
 import { formatError } from "../../shared/lib/errorMessage";
 import { syncNow, type SyncOutcome } from "./engine";
+import { notifyIfChanged } from "./notify";
 import { readToken } from "./token";
 
 /** Both keys are device-private, so the sync server rejects them on push. */
@@ -76,6 +77,7 @@ export default function WebSyncPanel({ t, collapsed, onToggle }: WebSyncPanelPro
     setError(null);
     try {
       const result = await syncNow({ baseUrl, token: activeToken });
+      notifyIfChanged(result);
       setOutcome(result);
       setLastSyncAt(Date.now());
       if (result.conflicts > 0) setError(`${t("web_sync_conflicts")}: ${result.conflicts}`);

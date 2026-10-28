@@ -11,6 +11,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { db } from "../backend/db";
 import { syncNow } from "./engine";
+import { notifyIfChanged } from "./notify";
 import { adoptTokenFromUrl, readToken } from "./token";
 
 const ENABLED_KEY = "web.sync_enabled";
@@ -59,7 +60,7 @@ export function startWebSync(): () => void {
 
     running = true;
     try {
-      await syncNow({ baseUrl: settings[SERVER_KEY] || defaultBaseUrl(), token });
+      notifyIfChanged(await syncNow({ baseUrl: settings[SERVER_KEY] || defaultBaseUrl(), token }));
     } catch {
       // Recorded in `meta` by the engine; the next tick retries.
     } finally {
