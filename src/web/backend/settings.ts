@@ -4,7 +4,7 @@
  * browser profile matches a fresh desktop install.
  */
 import defaults from "virtual:tiez-defaults";
-import { db, type SettingRow } from "./db";
+import { db, type SettingInsert } from "./db";
 
 /**
  * Seed a fresh profile, or top up an existing one with keys added since it was
@@ -12,7 +12,7 @@ import { db, type SettingRow } from "./db";
  */
 export async function ensureSeeded(): Promise<void> {
   const existing = await db.settings.count();
-  const seed: SettingRow[] = Object.entries(defaults).map(([key, value]) => ({ key, value }));
+  const seed: SettingInsert[] = Object.entries(defaults).map(([key, value]) => ({ key, value }));
   if (existing === 0) {
     await db.settings.bulkPut(seed);
     return;

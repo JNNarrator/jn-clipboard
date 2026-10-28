@@ -1,5 +1,5 @@
 
-import { memo, useState, useEffect, useCallback, useRef, type ReactNode } from "react";
+import { lazy, memo, Suspense, useState, useEffect, useCallback, useRef, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { emit, listen } from "@tauri-apps/api/event";
 import { getVersion } from "@tauri-apps/api/app";
@@ -230,6 +230,15 @@ const ABOUT_SECTION = "about";
 const ADVANCED_ENTRY = "advanced";
 const noop = () => {};
 
+/**
+ * Web build only. `__WEB_TARGET__` is a build-time constant, so the desktop
+ * bundle drops this branch entirely — including Dexie, which the web sync
+ * engine pulls in, and the panel itself, which has no WebDAV to offer.
+ */
+const WebSyncPanel = __WEB_TARGET__
+    ? lazy(() => import("../../../web/sync/panel"))
+    : null;
+
 const SECTION_ICONS: Record<string, LucideIcon> = {
     general: Settings2,
     appearance: Palette,
@@ -237,6 +246,7 @@ const SECTION_ICONS: Record<string, LucideIcon> = {
     [ADVANCED_ENTRY]: ListFilter,
     default_apps: AppWindow,
     cloud_sync: Cloud,
+    web_sync: Cloud,
     secure_transfer: ShieldCheck,
     data: Database
 };
@@ -244,7 +254,9 @@ const SECTION_ICONS: Record<string, LucideIcon> = {
 const NAV_GROUPS: { labelKey: string; ids: string[] }[] = [
     { labelKey: "settings_nav_group_basic", ids: ["general", "appearance"] },
     { labelKey: "settings_nav_group_clipboard", ids: ["clipboard", ADVANCED_ENTRY, "default_apps"] },
-    { labelKey: "settings_nav_group_sync", ids: ["cloud_sync"] },
+    // The browser build syncs through the JNClub API, so it swaps the WebDAV
+    // group for its own rather than offering settings it cannot act on.
+    { labelKey: "settings_nav_group_sync", ids: [WebSyncPanel ? "web_sync" : "cloud_sync"] },
     { labelKey: "settings_nav_group_data", ids: ["secure_transfer", "data"] }
 ];
 
@@ -533,7 +545,17 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                 />
             )
         },
-        ...(CLOUD_SYNC_ENABLED
+        ...(WebSyncPanel
+            ? [{
+                id: "web_sync",
+                label: t("web_sync_settings"),
+                node: (
+                    <Suspense fallback={null}>
+                        <WebSyncPanel t={t} {...groupState('web_sync')} />
+                    </Suspense>
+                )
+            }]
+            : CLOUD_SYNC_ENABLED
             ? [{
                 id: "cloud_sync",
                 label: t("cloud_sync_settings"),

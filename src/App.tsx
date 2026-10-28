@@ -334,6 +334,25 @@ const App = () => {
       dismissSearchTagFilter();
     }
   }, [showSearchBox, dismissSearchTagFilter]);
+
+  // Web build only: keep the IndexedDB store in step with the other devices.
+  // Imported on demand so the desktop bundle never pulls Dexie in — the branch
+  // is folded away at build time by `__WEB_TARGET__`.
+  useEffect(() => {
+    if (!__WEB_TARGET__) return;
+    let stop: (() => void) | undefined;
+    let cancelled = false;
+    void import("./web/sync/runner")
+      .then(({ startWebSync }) => {
+        if (cancelled) return;
+        stop = startWebSync();
+      })
+      .catch((error) => console.warn("[web] sync loop failed to start", error));
+    return () => {
+      cancelled = true;
+      stop?.();
+    };
+  }, []);
   const tagColors = useTagColors();
   const virtualListRef = useRef<VirtualClipboardListHandle | null>(null);
   const appContainerRef = useRef<HTMLDivElement | null>(null);

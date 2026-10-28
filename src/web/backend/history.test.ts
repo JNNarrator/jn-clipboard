@@ -129,6 +129,9 @@ describe("usage", () => {
     const first = await captureEntry({ content: "first" });
     await new Promise((resolve) => setTimeout(resolve, 5));
     await captureEntry({ content: "second" });
+    // `markUsed` stamps `sort_at = Date.now()`; without the gap it can land in
+    // the same millisecond as the capture above and the tie-break by id wins.
+    await new Promise((resolve) => setTimeout(resolve, 5));
     await markUsed(first);
 
     const entries = await listHistory(10, 0);
@@ -218,14 +221,29 @@ describe("mutation", () => {
     expect(entries.map((entry) => entry.pinned_order)).toEqual([2, 1]);
   });
 
-  test("delete and clear remove rows", async () => {
+  test("delete and clear leave tombstones the list ignores", async () => {
     const id = await captureEntry({ content: "doomed" });
     await deleteEntry(id);
-    expect(await db.entries.count()).toBe(0);
+    expect(await listHistory(10, 0)).toEqual([]);
+    // The row survives as a tombstone: the server needs something to carry the
+    // deletion to the other devices.
+    expect(await db.entries.count()).toBe(1);
+    expect((await db.entries.get(id))?.deleted_at).toBeGreaterThan(0);
 
     await captureEntry({ content: "one" });
     await captureEntry({ content: "two" });
     await clearHistory();
-    expect(await db.entries.count()).toBe(0);
+    expect(await listHistory(10, 0)).toEqual([]);
+    const rows = await db.entries.toArray();
+    expect(rows).toHaveLength(3);
+    expect(rows.every((row) => row.deleted_at !== undefined)).toBe(true);
+  });
+
+  test("an identical clip re-captured after a delete is stored again", async () => {
+    const id = await captureEntry({ content: "same" });
+    await deleteEntry(id);
+    const revived = await captureEntry({ content: "same" });
+    expect(revived).not.toBe(id);
+    expect((await listHistory(10, 0)).map((entry) => entry.content)).toEqual(["same"]);
   });
 });

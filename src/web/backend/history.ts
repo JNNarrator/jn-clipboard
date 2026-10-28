@@ -7,7 +7,7 @@
  * `captureEntry` stores the result. Everything downstream — list, search, tags,
  * pinning — reads the same table the watcher would have written.
  */
-import { db, toEntry, type StoredEntry } from "./db";
+import { db, toEntry, type EntryInsert, type StoredEntry } from "./db";
 import type { ClipboardEntry } from "../../shared/types";
 
 export type SortMode = "activity" | "created" | "last_used" | "usage" | "manual" | "recent";
@@ -31,6 +31,18 @@ function buildPreview(content: string, type: string): string {
 }
 
 /**
+ * Drop tombstones. A deleted entry stays in the table until the server has
+ * acknowledged the deletion, so every read path has to filter on its own.
+ */
+function liveRows(rows: StoredEntry[]): StoredEntry[] {
+  return rows.filter((row) => row.deleted_at === undefined || row.deleted_at === null);
+}
+
+function isLive(row: StoredEntry): boolean {
+  return row.deleted_at === undefined || row.deleted_at === null;
+}
+
+/**
  * Store one clip. Returns the new id. An identical, unpinned text entry is
  * bumped to the top instead of being duplicated — the desktop side does the same
  * when deduplication is on (it is by default).
@@ -43,7 +55,13 @@ export async function captureEntry(input: CaptureInput): Promise<number> {
   const now = Date.now();
 
   const duplicate = await db.entries
-    .filter((row) => row.content_type === contentType && row.content === content && !row.is_pinned)
+    .filter(
+      (row) =>
+        row.content_type === contentType &&
+        row.content === content &&
+        !row.is_pinned &&
+        isLive(row),
+    )
     .first();
 
   if (duplicate?.id !== undefined) {
@@ -51,7 +69,8 @@ export async function captureEntry(input: CaptureInput): Promise<number> {
     return duplicate.id;
   }
 
-  const row: StoredEntry = {
+  // The sync columns are added by the Dexie hooks in db.ts.
+  const row: EntryInsert = {
     content_type: contentType,
     content,
     html_content: input.html_content,
@@ -105,7 +124,7 @@ export async function listHistory(
   sortMode?: string,
 ): Promise<ClipboardEntry[]> {
   const mode = (sortMode ?? "manual") as SortMode;
-  const rows = await db.entries.toArray();
+  const rows = liveRows(await db.entries.toArray());
   const filtered = contentType ? rows.filter((row) => row.content_type === contentType) : rows;
   filtered.sort((a, b) => compare(a, b, mode));
   return filtered.slice(offset, offset + limit).map(toEntry);
@@ -126,7 +145,7 @@ export interface SearchOptions {
 export async function searchHistory(options: SearchOptions): Promise<ClipboardEntry[]> {
   const needle = options.searchTerm.trim().toLowerCase();
   if (!needle) return [];
-  const rows = await db.entries.toArray();
+  const rows = liveRows(await db.entries.toArray());
   const matches = rows.filter((row) => {
     if (options.tagOnly) {
       return (row.tags ?? []).some((tag) => tag.toLowerCase().includes(needle));
@@ -146,12 +165,23 @@ export async function searchHistory(options: SearchOptions): Promise<ClipboardEn
   return matches.slice(0, options.limit).map(toEntry);
 }
 
+/**
+ * Tombstone rather than remove: the row has to reach the other devices, and a
+ * delta protocol has no way to say "this is gone" without a body to carry it.
+ * The sync engine drops tombstone bodies once every device has acknowledged.
+ */
 export async function deleteEntry(id: number): Promise<void> {
-  await db.entries.delete(id);
+  await db.entries.update(id, { deleted_at: Date.now() });
 }
 
 export async function clearHistory(): Promise<void> {
-  await db.entries.clear();
+  const now = Date.now();
+  await db.transaction("rw", db.entries, async () => {
+    const live = await db.entries.filter(isLive).primaryKeys();
+    for (const id of live as number[]) {
+      await db.entries.update(id, { deleted_at: now });
+    }
+  });
 }
 
 export async function setPinned(id: number, isPinned: boolean): Promise<void> {
