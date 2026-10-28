@@ -24,9 +24,6 @@ jobs:
       TIEZ_RELEASE_CHANNEL: stable
       TIEZ_ANNOUNCEMENT_PING_URL: ${{ vars.TIEZ_ANNOUNCEMENT_PING_URL }}
       VITE_TIEZ_ANNOUNCEMENT_PING_URL: ${{ vars.TIEZ_ANNOUNCEMENT_PING_URL }}
-      TIEZ_UPDATE_ENDPOINT: ${{ vars.TIEZ_UPDATE_ENDPOINT }}
-      VITE_TIEZ_UPDATE_ENDPOINT: ${{ vars.TIEZ_UPDATE_ENDPOINT }}
-      TIEZ_UPDATER_PUBLIC_KEY: ${{ vars.TIEZ_UPDATER_PUBLIC_KEY }}
     steps:
       - uses: actions/checkout@v5
 
@@ -58,8 +55,6 @@ jobs:
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: v__VERSION__ 
           releaseName: "jn-clipboard v__VERSION__"

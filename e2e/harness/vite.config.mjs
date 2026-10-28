@@ -34,7 +34,7 @@ export default defineConfig({
     // @tauri-apps/api/{core,event,window} would get the mock aliases baked
     // into the dep bundle as a second, stale copy of the mock (separate state,
     // not refreshed on edits). They are plain ESM, so serving them as-is is fine.
-    exclude: ['@tauri-apps/api', '@tauri-apps/plugin-dialog', '@tauri-apps/plugin-opener', '@tauri-apps/plugin-process', '@tauri-apps/plugin-updater'],
+    exclude: ['@tauri-apps/api', '@tauri-apps/plugin-dialog', '@tauri-apps/plugin-opener'],
   },
   plugins: [
     react(),

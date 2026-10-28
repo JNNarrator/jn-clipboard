@@ -1,22 +1,17 @@
-import type { ReactNode } from "react";
-import { Check, Copy, ExternalLink, Github, Globe, MessageSquare, RotateCcw } from "lucide-react";
+import { ExternalLink, Github, MessageSquare, RotateCcw } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import appLogo from "../../../../src-tauri/icons/128x128@2x.png";
 import type { ReleaseChannel } from "../../../shared/lib/releaseBuild";
-import BetaUpdatesSetting from "./BetaUpdatesSetting";
 
 interface SettingsAboutProps {
     t: (key: string) => string;
     appVersion: string;
     releaseChannel: ReleaseChannel;
     portable: boolean;
-    updateButton: ReactNode;
-    emailCopied: boolean;
-    onCopyEmail: () => void;
     onResetSettings: () => void;
 }
 
-const SettingsAbout = ({ t, appVersion, releaseChannel, portable, updateButton, emailCopied, onCopyEmail, onResetSettings }: SettingsAboutProps) => (
+const SettingsAbout = ({ t, appVersion, releaseChannel, portable, onResetSettings }: SettingsAboutProps) => (
     <section className="settings-about" aria-label={t("settings_about")}>
         <header className="settings-about-header">
             <div className="settings-about-identity">
@@ -38,23 +33,12 @@ const SettingsAbout = ({ t, appVersion, releaseChannel, portable, updateButton, 
                     {portable && <span className="settings-version-badge portable">Portable</span>}
                 </div>
             </div>
-            {updateButton}
         </div>
-
-        <BetaUpdatesSetting t={t} releaseChannel={releaseChannel} portable={portable} />
 
         <section className="settings-about-resources" aria-labelledby="settings-about-links-title">
             <h3 id="settings-about-links-title">{t("about_links")}</h3>
             <div className="settings-about-links">
-                <button type="button" className="settings-about-link" onClick={() => void openUrl("https://tiez.name666.top/")}>
-                    <Globe size={18} aria-hidden="true" />
-                    <span className="settings-about-link-text">
-                        <strong>{t("official_website")}</strong>
-                        <span>{t("about_website_desc")}</span>
-                    </span>
-                    <ExternalLink size={14} className="settings-about-link-end" aria-hidden="true" />
-                </button>
-                <button type="button" className="settings-about-link" onClick={() => void openUrl("https://github.com/jimuzhe/tiez-clipboard")}>
+                <button type="button" className="settings-about-link" onClick={() => void openUrl("https://github.com/JNNarrator/jn-clipboard")}>
                     <Github size={18} aria-hidden="true" />
                     <span className="settings-about-link-text">
                         <strong>GitHub</strong>
@@ -62,13 +46,13 @@ const SettingsAbout = ({ t, appVersion, releaseChannel, portable, updateButton, 
                     </span>
                     <ExternalLink size={14} className="settings-about-link-end" aria-hidden="true" />
                 </button>
-                <button type="button" className="settings-about-link" onClick={onCopyEmail} title={t("about_feedback_desc")}>
+                <button type="button" className="settings-about-link" onClick={() => void openUrl("https://github.com/JNNarrator/jn-clipboard/issues")} title={t("about_feedback_desc")}>
                     <MessageSquare size={18} aria-hidden="true" />
                     <span className="settings-about-link-text">
-                        <strong aria-live="polite">{emailCopied ? t("email_copied") : t("feedback")}</strong>
-                        <span>tiez@name666.top</span>
+                        <strong>{t("feedback")}</strong>
+                        <span>{t("about_feedback_desc")}</span>
                     </span>
-                    {emailCopied ? <Check size={14} className="settings-about-link-end" aria-hidden="true" /> : <Copy size={14} className="settings-about-link-end" aria-hidden="true" />}
+                    <ExternalLink size={14} className="settings-about-link-end" aria-hidden="true" />
                 </button>
             </div>
         </section>

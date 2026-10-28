@@ -3,14 +3,6 @@
   "productName": "jn-clipboard",
   "version": "1.0.0",
   "identifier": "com.jnarrator.jnclipboard",
-  "plugins": {
-    "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE0MDY1QzlGQkU0ODcwMjMKUldRamNFaStuMXdHcEtFWlNINnVJcVgxa2tRb0wrRlBjdzRmZ3Z1WGJxZ1V3R0w5ZmNUemtvRjMK",
-      "endpoints": [
-        "https://tiez.name666.top/api/v1/latest-version?target={{target}}&arch={{arch}}&current_version={{current_version}}&channel=stable"
-      ]
-    }
-  },
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -149,9 +141,7 @@
                 }
               ]
             },
-            "window-state:default",
-            "updater:default",
-            "process:allow-restart"
+            "window-state:default"
           ]
         }
       ]
@@ -159,7 +149,7 @@
   },
   "bundle": {
     "active": true,
-    "createUpdaterArtifacts": true,
+    "createUpdaterArtifacts": false,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

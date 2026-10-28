@@ -46,8 +46,6 @@ import { useClipboardItemRenderer } from "./shared/hooks/useClipboardItemRendere
 import { AnnouncementSystem } from "./shared/components/Announcement";
 import { useAnnouncements } from "./shared/hooks/useAnnouncements";
 import { useOverlays } from "./shared/hooks/useOverlays";
-import { useAutoUpdate } from "./shared/hooks/useAutoUpdate";
-import UpdateDialog from "./shared/components/UpdateDialog";
 import type { ClipboardEntry } from "./shared/types";
 import type { QuickPasteHint, VirtualClipboardListHandle } from "./features/clipboard/types";
 
@@ -317,20 +315,6 @@ const App = () => {
     setTypeFilter
   } = appState;
 
-  // --- Auto Update Logic ---
-  const {
-    isOpen: isUpdateOpen,
-    status: updateStatus,
-    version: updateVersion,
-    notes: updateNotes,
-    important: updateImportant,
-    offeredChannel: updateOfferedChannel,
-    downloadProgress: updateProgress,
-    onStartDownload,
-    onApplyUpdate,
-    onClose: closeUpdateDialog,
-  } = useAutoUpdate();
-  // -------------------------
 
   const effectiveShowTagManager = showTagManager && tagManagerEnabled;
   const debouncedSearch = useDebounce(search, 200);
@@ -1215,18 +1199,6 @@ const App = () => {
         onConfirm={confirmDialog.onConfirm}
       />
 
-      <UpdateDialog
-        isOpen={isUpdateOpen}
-        version={updateVersion}
-        notes={updateNotes}
-        important={updateImportant}
-        releaseChannel={updateOfferedChannel}
-        downloadProgress={updateProgress}
-        status={updateStatus}
-        onUpdate={updateStatus === "ready" ? onApplyUpdate : onStartDownload}
-        onClose={closeUpdateDialog}
-        t={t}
-      />
     </div >
   );
 }

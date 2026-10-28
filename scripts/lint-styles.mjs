@@ -22,7 +22,7 @@ const onSpaceScale = (n) => SPACE_PX.has(n) || (n >= 24 && n % 4 === 0);
 const SPACING_PROPS = /^(padding|margin)(-(top|right|bottom|left|inline|block)(-(start|end))?)?$|^(gap|row-gap|column-gap)$/;
 const COLOR_LITERAL = /#[0-9a-fA-F]{3,8}\b|\b(?:rgba?|hsla?)\(\s*[\d.]/;
 const PALETTE_FILES = new Set(["base.css"]);
-const THEME_SELECTOR = /\.theme-(mica|macos|acrylic|retro|sticky-note|paper|terminal|receipt|ink|sakura)\b/;
+const THEME_SELECTOR = /\.theme-(mica|macos|acrylic)\b/;
 
 const walk = (dir) => readdirSync(dir).flatMap((name) => {
   const path = join(dir, name);

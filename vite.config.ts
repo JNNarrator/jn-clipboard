@@ -21,8 +21,6 @@ const WEB_ALIASES: Record<string, string> = {
   "@tauri-apps/api/app": shim("app"),
   "@tauri-apps/plugin-dialog": shim("dialog"),
   "@tauri-apps/plugin-opener": shim("opener"),
-  "@tauri-apps/plugin-process": shim("process"),
-  "@tauri-apps/plugin-updater": shim("updater"),
 };
 
 /**

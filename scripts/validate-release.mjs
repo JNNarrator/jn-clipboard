@@ -48,19 +48,6 @@ for (const [source, value] of [
   }
 }
 
-const endpoint = tauriConfig.plugins?.updater?.endpoints?.[0] || "";
-for (const placeholder of ["{{target}}", "{{arch}}", "{{current_version}}"]) {
-  if (!endpoint.includes(placeholder)) {
-    fail(`updater endpoint is missing ${placeholder}`);
-  }
-}
-if (!endpoint.startsWith("https://")) {
-  fail("updater endpoint must use HTTPS");
-}
-if (!endpoint.includes(`channel=${channel}`)) {
-  fail(`updater endpoint does not target the ${channel} channel`);
-}
-
 const tag = (process.env.GITHUB_REF_NAME || "").trim();
 if (tag && process.env.GITHUB_REF_TYPE === "tag") {
   const expectedTag = channel === "beta"

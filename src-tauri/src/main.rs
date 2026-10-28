@@ -91,8 +91,6 @@ fn main() -> AppResult<()> {
 
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
@@ -268,7 +266,6 @@ fn main() -> AppResult<()> {
             app::commands::register_hotkey,
             app::commands::test_hotkey_available,
             app::commands::get_release_build_info,
-            app::commands::check_beta_update,
             app::commands::toggle_clipboard_pin,
             app::commands::update_tags,
             app::commands::update_entry_note,

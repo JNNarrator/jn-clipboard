@@ -281,7 +281,6 @@ const SettingsPanel = (props: SettingsPanelProps) => {
         setShowAppSelector, handleResetSettings
     } = props;
 
-    const [emailCopied, setEmailCopied] = useState(false);
     const [appVersion, setAppVersion] = useState("");
     const [releaseBuildInfo, setReleaseBuildInfo] = useState<ReleaseBuildInfo>({
         channel: "stable",
@@ -296,7 +295,6 @@ const SettingsPanel = (props: SettingsPanelProps) => {
         received_items: 0
     });
     const [cloudSyncNowRunning, setCloudSyncNowRunning] = useState(false);
-    const [updateStatus, setUpdateStatus] = useState<string>("");
     // Removed updateModalData
     const [privacyKindsOpen, setPrivacyKindsOpen] = useState(false);
     const [privacyRulesOpen, setPrivacyRulesOpen] = useState(false);
@@ -633,11 +631,7 @@ const SettingsPanel = (props: SettingsPanelProps) => {
             appVersion={appVersion}
             releaseChannel={releaseBuildInfo.channel}
             portable={releaseBuildInfo.portable}
-            updateStatus={updateStatus}
-            setUpdateStatus={setUpdateStatus}
             onResetSettings={handleResetSettings}
-            emailCopied={emailCopied}
-            setEmailCopied={setEmailCopied}
         />
     );
 
