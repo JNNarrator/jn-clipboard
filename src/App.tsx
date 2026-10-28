@@ -43,8 +43,6 @@ import { useListSelectionReset } from "./shared/hooks/useListSelectionReset";
 import { useSearchFetchTrigger } from "./shared/hooks/useSearchFetchTrigger";
 import { useScrollToSelection } from "./shared/hooks/useScrollToSelection";
 import { useClipboardItemRenderer } from "./shared/hooks/useClipboardItemRenderer";
-import { AnnouncementSystem } from "./shared/components/Announcement";
-import { useAnnouncements } from "./shared/hooks/useAnnouncements";
 import { useOverlays } from "./shared/hooks/useOverlays";
 import type { ClipboardEntry } from "./shared/types";
 import type { QuickPasteHint, VirtualClipboardListHandle } from "./features/clipboard/types";
@@ -479,7 +477,6 @@ const App = () => {
   const { toasts, pushToast, confirmDialog, openConfirm, closeConfirm } = useOverlays(t);
 
 
-  const { announcements, dismissAnnouncement } = useAnnouncements();
 
   const tagManagerSizeRef = useRef<{ width: number; height: number } | null>(null);
 
@@ -1106,10 +1103,6 @@ const App = () => {
       {/* Web build only: a browser cannot watch the clipboard, so capture is manual. */}
       {__WEB_TARGET__ && !showSettings && !effectiveShowTagManager && <WebCaptureBar t={t} />}
 
-      <AnnouncementSystem
-        announcements={announcements}
-        onDismiss={dismissAnnouncement}
-      />
 
       <main
         ref={mainRef}

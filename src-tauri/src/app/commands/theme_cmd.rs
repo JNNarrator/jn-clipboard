@@ -373,30 +373,6 @@ fn install_validated_theme(
     Ok(to_installed_theme(metadata))
 }
 
-async fn download_limited(url: &str, maximum_size: usize) -> AppResult<Vec<u8>> {
-    let response = reqwest::Client::new()
-        .get(url)
-        .send()
-        .await
-        .map_err(|error| AppError::Network(error.to_string()))?
-        .error_for_status()
-        .map_err(|error| AppError::Network(error.to_string()))?;
-    if response.content_length().unwrap_or(0) > maximum_size as u64 {
-        return Err(AppError::Validation("主题文件过大，无法下载。".to_string()));
-    }
-
-    let mut result = Vec::new();
-    let mut stream = response.bytes_stream();
-    while let Some(chunk) = stream.next().await {
-        let chunk = chunk.map_err(|error| AppError::Network(error.to_string()))?;
-        if result.len().saturating_add(chunk.len()) > maximum_size {
-            return Err(AppError::Validation("主题文件过大，无法下载。".to_string()));
-        }
-        result.extend_from_slice(&chunk);
-    }
-    Ok(result)
-}
-
 #[tauri::command]
 pub fn install_theme_package(
     package_path: String,
@@ -416,47 +392,6 @@ pub fn install_theme_package(
         data_dir.clone()
     };
     install_validated_theme(metadata, files, &data_root)
-}
-
-#[tauri::command]
-pub async fn install_theme_from_store(
-    theme_id: String,
-    data_dir: State<'_, AppDataDir>,
-) -> AppResult<InstalledTheme> {
-    let package_id = theme_id
-        .strip_prefix("store-")
-        .ok_or_else(|| AppError::Validation("主题标识不正确，请重新选择主题。".to_string()))?;
-    validate_theme_id(package_id)?;
-
-    let package_url = format!(
-        "{}/api/v1/themes/{}/package",
-        crate::build_config::theme_store_base_url(),
-        theme_id
-    );
-    let package = download_limited(&package_url, MAX_ARCHIVE_SIZE as usize).await?;
-    let data_root = {
-        let data_dir = data_dir
-            .0
-            .lock()
-            .map_err(|_| AppError::Internal("无法打开数据位置，请检查访问权限。".to_string()))?;
-        data_dir.clone()
-    };
-    let download_directory = themes_dir(&data_root);
-    fs::create_dir_all(&download_directory).map_err(AppError::from)?;
-    let temporary_package = download_directory.join(format!(".download-{}.zip", Uuid::new_v4()));
-    fs::write(&temporary_package, package).map_err(AppError::from)?;
-
-    let result = (|| -> AppResult<InstalledTheme> {
-        let (metadata, files) = read_package(&temporary_package)?;
-        if installed_id(&metadata.id) != theme_id {
-            return Err(AppError::Validation(
-                "下载的文件与所选主题不同。\n请重新下载。".to_string(),
-            ));
-        }
-        install_validated_theme(metadata, files, &data_root)
-    })();
-    let _ = fs::remove_file(temporary_package);
-    result
 }
 
 #[tauri::command]

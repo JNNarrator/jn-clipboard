@@ -38,16 +38,6 @@ function changed(): void {
   dispatchLocal("clipboard-changed", undefined);
 }
 
-const PING_ID_KEY = "web.ping_id";
-
-function pingId(): string {
-  const existing = localStorage.getItem(PING_ID_KEY);
-  if (existing) return existing;
-  const created = `web-${Math.random().toString(36).slice(2, 10)}`;
-  localStorage.setItem(PING_ID_KEY, created);
-  return created;
-}
-
 const handlers: Record<string, Handler> = {
   // ---- settings ----------------------------------------------------------
   get_settings: () => getAllSettings(),
@@ -136,7 +126,6 @@ const handlers: Record<string, Handler> = {
   },
 
   // ---- identity / build info ---------------------------------------------
-  get_ping_id: async () => pingId(),
   get_release_build_info: async () => ({
     version: __APP_VERSION__,
     portable: false,

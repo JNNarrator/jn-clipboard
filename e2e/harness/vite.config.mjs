@@ -53,7 +53,6 @@ export default defineConfig({
       { find: /^@tauri-apps\/api\/event$/, replacement: here('./mock-tauri-event.ts') },
       { find: /^@tauri-apps\/api\/window$/, replacement: here('./mock-tauri-window.ts') },
       { find: /^@tauri-apps\/api\/core$/, replacement: here('./mock-tauri-core.ts') },
-      { find: /^\.\/shared\/hooks\/useAnnouncements$/, replacement: here('./mock-announcements.ts') },
       { find: /^\.\/features\/app\/hooks\/useAppState$/, replacement: here('./preview-state.ts') },
     ],
   },

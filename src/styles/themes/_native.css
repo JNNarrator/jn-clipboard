@@ -2,53 +2,6 @@
    Loaded before their own files, as these rules used to sit in the
    component stylesheets. */
 
-/* ---- From components/Announcement.css ---- */
-
-.theme-mica .announcement-ticker,
-.theme-acrylic .announcement-ticker,
-.theme-macos .announcement-ticker {
-    background: var(--bg-panel);
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
-    border-bottom: 1px solid var(--line-soft);
-    font-family: system-ui, -apple-system, sans-serif;
-    height: 42px;
-    box-shadow: 0 2px 10px rgba(var(--shadow-rgb), 0.05);
-}
-
-.theme-mica .ticker-icon,
-.theme-acrylic .ticker-icon,
-.theme-macos .ticker-icon {
-    border-right: 1px solid var(--line-soft);
-    color: var(--text-secondary);
-    background: transparent;
-}
-
-.theme-mica .ticker-count,
-.theme-acrylic .ticker-count,
-.theme-macos .ticker-count,
-.theme-mica .ticker-fixed-close,
-.theme-acrylic .ticker-fixed-close,
-.theme-macos .ticker-fixed-close {
-    border-left: 1px solid var(--line-soft);
-    background: transparent;
-}
-
-.theme-mica .ticker-tag,
-.theme-acrylic .ticker-tag,
-.theme-macos .ticker-tag {
-    border-radius: var(--radius-sm);
-    font-weight: 600;
-    box-shadow: none;
-}
-
-.theme-mica .ticker-fixed-close:hover,
-.theme-acrylic .ticker-fixed-close:hover,
-.theme-macos .ticker-fixed-close:hover {
-    background: rgba(var(--status-danger-rgb), 0.1);
-    color: var(--status-danger);
-}
-
 /* ---- From components/buttons.css ---- */
 
 body/* A pinned window is a persistent state, not a primary action. Keep its

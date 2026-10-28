@@ -17,8 +17,6 @@ jobs:
     env:
       TIEZ_PLATFORM: windows
       TIEZ_RELEASE_CHANNEL: beta
-      TIEZ_ANNOUNCEMENT_PING_URL: ${{ vars.TIEZ_ANNOUNCEMENT_PING_URL }}
-      VITE_TIEZ_ANNOUNCEMENT_PING_URL: ${{ vars.TIEZ_ANNOUNCEMENT_PING_URL }}
     steps:
       - uses: actions/checkout@v5
         with:

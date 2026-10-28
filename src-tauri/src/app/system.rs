@@ -75,37 +75,6 @@ pub fn normalize_anon_id(value: &str) -> Option<String> {
     Some(trimmed.to_string())
 }
 
-/// Settings key of the id sent with usage pings. Device-local: not synced,
-/// kept through 「恢复默认设置」. Not app.anon_id, which is the cloud sync
-/// device id.
-pub const PING_ID_KEY: &str = "app.ping_id";
-
-pub fn valid_ping_id(value: &str) -> Option<String> {
-    let trimmed = value.trim();
-    let valid = !trimmed.is_empty()
-        && trimmed.len() <= 64
-        && trimmed.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_');
-    valid.then(|| trimmed.to_string())
-}
-
-/// The id sent with usage pings, so each device counts once. A device that
-/// pinged before keeps the id its window made then (`window_id`, from WebView
-/// storage): changing it would count an update as a new device. New installs
-/// use the machine id. Stored in the data folder from then on.
-pub fn resolve_ping_id(
-    repo: &impl crate::infrastructure::repository::settings_repo::SettingsRepository,
-    window_id: Option<&str>,
-) -> String {
-    if let Some(id) = repo.get(PING_ID_KEY).unwrap_or(None).as_deref().and_then(valid_ping_id) {
-        return id;
-    }
-    let id = window_id
-        .and_then(valid_ping_id)
-        .unwrap_or_else(|| build_anon_id(&get_machine_id()));
-    let _ = repo.set(PING_ID_KEY, &id);
-    id
-}
-
 pub fn is_same_device_id(id1: &str, id2: &str) -> bool {
     let n1 = normalize_anon_id(id1);
     let n2 = normalize_anon_id(id2);
@@ -267,26 +236,9 @@ mod tests {
 
     #[test]
     fn machine_id_derivation_stays_the_same() {
-        // Sync and new installs' usage pings identify the device by this; a
-        // different result would make every device look new.
+        // Sync identifies the device by this; a different result would make
+        // every device look new.
         assert_eq!(hash_to_short_id("4C4C4544-0042-3510-8051-B4C04F4E4D32"), "9ac37b3e");
     }
 
-    #[test]
-    fn a_device_keeps_the_ping_id_its_window_made() {
-        let repo = settings();
-
-        assert_eq!(resolve_ping_id(&repo, Some("k3x9qa")), "k3x9qa");
-        // Stored from then on: a cleared WebView storage doesn't change it.
-        assert_eq!(resolve_ping_id(&repo, None), "k3x9qa");
-        assert_eq!(resolve_ping_id(&repo, Some("other")), "k3x9qa");
-    }
-
-    #[test]
-    fn a_new_install_pings_with_the_machine_id() {
-        let machine = build_anon_id(&get_machine_id());
-
-        assert_eq!(resolve_ping_id(&settings(), None), machine);
-        assert_eq!(resolve_ping_id(&settings(), Some("not an id!")), machine);
-    }
 }

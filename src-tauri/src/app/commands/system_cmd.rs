@@ -221,13 +221,6 @@ pub fn get_data_path(state: State<'_, AppDataDir>) -> AppResult<String> {
     Ok(path.to_string_lossy().to_string())
 }
 
-/// The usage ping id (see resolve_ping_id); `window_id` is the id the window
-/// kept in WebView storage, if any.
-#[tauri::command]
-pub fn get_ping_id(state: State<'_, crate::database::DbState>, window_id: Option<String>) -> String {
-    crate::app::system::resolve_ping_id(&state.settings_repo, window_id.as_deref())
-}
-
 #[tauri::command]
 pub fn open_folder(path: String) -> AppResult<()> {
     open_path_in_file_manager(std::path::Path::new(&path))

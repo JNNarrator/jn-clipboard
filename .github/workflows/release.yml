@@ -23,8 +23,6 @@ jobs:
     env:
       TIEZ_PLATFORM: macos
       TIEZ_RELEASE_CHANNEL: stable
-      TIEZ_ANNOUNCEMENT_PING_URL: ${{ vars.TIEZ_ANNOUNCEMENT_PING_URL }}
-      VITE_TIEZ_ANNOUNCEMENT_PING_URL: ${{ vars.TIEZ_ANNOUNCEMENT_PING_URL }}
     steps:
       - uses: actions/checkout@v5
 
@@ -104,8 +102,6 @@ jobs:
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TIEZ_ANNOUNCEMENT_PING_URL: ${{ vars.TIEZ_ANNOUNCEMENT_PING_URL }}
-          VITE_TIEZ_ANNOUNCEMENT_PING_URL: ${{ vars.TIEZ_ANNOUNCEMENT_PING_URL }}
         with:
           tagName: mac-v__VERSION__ # tauri-action 会自动替换 __VERSION__
           releaseName: 'jn-clipboard macOS v__VERSION__'

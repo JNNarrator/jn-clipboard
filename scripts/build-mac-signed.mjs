@@ -46,11 +46,6 @@ console.log(
 );
 
 const args = ["tauri", "build", ...process.argv.slice(2)];
-// Updater artifacts need the release signing key, which only CI has. Locally,
-// skip them instead of failing after the app is already built.
-if (!process.env.TAURI_SIGNING_PRIVATE_KEY) {
-  args.push("--config", JSON.stringify({ bundle: { createUpdaterArtifacts: false } }));
-}
 const res = spawnSync("npx", args, {
   stdio: "inherit",
   env: { ...process.env, APPLE_SIGNING_IDENTITY: identity },

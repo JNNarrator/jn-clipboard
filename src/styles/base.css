@@ -18,15 +18,12 @@
   --accent-color-rgb: 47, 111, 237;
   --accent-hover: #245dce;
   --on-accent: #ffffff;
-  --status-info: var(--accent-color);
   --status-success: #10b981;
-  --status-success-rgb: 16, 185, 129;
   --status-warning: #f59e0b;
   --status-warning-rgb: 245, 158, 11;
   --status-danger: #ef4444;
   --status-danger-rgb: 239, 68, 68;
   --border-dark: #24364d;
-  --shadow-color: rgba(24, 34, 53, 0.18);
 
   /* Inks as RGB triplets, for rgba(var(--x-rgb), alpha): shadows, neutral
      hairlines that work on any surface, and highlights on dark surfaces. */
@@ -50,23 +47,6 @@
   --traffic-green: #27c93f;
   --traffic-glyph: rgba(0, 0, 0, 0.5);
 
-  /* File-type icons in file transfer. */
-  --file-tint-pdf: #e05252;
-  --file-tint-archive: #a469d1;
-  --file-tint-audio: #d66b9b;
-  --file-tint-executable: #62758a;
-  --file-tint-spreadsheet: #2fa36b;
-  --file-tint-presentation: #e47d3c;
-  --file-tint-code: #4e82d8;
-  --file-tint-image: #4a9f82;
-  --file-tint-video: #8a69d5;
-  /* LAN transfer avatars, one per sending device (tinted background, icon in the tone). */
-  --avatar-tone-1: #3d6fd6;
-  --avatar-tone-2: #2b7a4b;
-  --avatar-tone-3: #7b5bd0;
-  --avatar-tone-4: #b85a1f;
-  --avatar-tone-5: #c74b86;
-  --avatar-tone-6: #17807f;
 
   --line-soft: rgba(24, 34, 53, 0.12);
   --line-strong: rgba(24, 34, 53, 0.22);
@@ -373,7 +353,6 @@
     --text-muted: #848ea1;
 
     --border-dark: #edf1f8;
-    --shadow-color: rgba(0, 0, 0, 0.42);
 
     --line-soft: rgba(255, 255, 255, 0.12);
     --line-strong: rgba(255, 255, 255, 0.2);
@@ -429,7 +408,6 @@ body.dark-mode {
   --text-muted: #848ea1;
 
   --border-dark: #edf1f8;
-  --shadow-color: rgba(0, 0, 0, 0.42);
 
   --line-soft: rgba(255, 255, 255, 0.12);
   --line-strong: rgba(255, 255, 255, 0.2);
