@@ -9,8 +9,10 @@
 > credit for the application this is built on.
 >
 > What changed here: the AI, MQTT sync, LAN transfer, third-party import and
-> emoji features were removed, six cosmetic themes were dropped, and a
-> browser/PWA build was added that shares the same UI over IndexedDB.
+> emoji features were removed, six cosmetic themes were dropped, the updater and
+> the upstream announcement/theme-store calls were taken out so the app makes no
+> unsolicited network requests, and a browser/PWA build was added that shares the
+> same UI over IndexedDB.
 
 ---
 
