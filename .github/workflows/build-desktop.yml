@@ -1,0 +1,89 @@
+name: Build desktop apps
+
+# Produces the macOS and Windows installers for the desktop app. Unsigned:
+# there is no Apple Developer ID nor a Windows code-signing certificate, so
+# both platforms ship as-is and Gatekeeper/SmartScreen will warn on first
+# launch. Tagged builds live in release-desktop.yml.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+
+concurrency:
+  group: build-desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TIEZ_RELEASE_CHANNEL: stable
+
+jobs:
+  build:
+    name: ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14 # Apple Silicon
+            label: macOS arm64
+            platform: macos
+            artifact: jn-clipboard-macos-arm64
+            bundles: dmg,app
+          - os: macos-15-intel
+            label: macOS x64
+            platform: macos
+            artifact: jn-clipboard-macos-x64
+            bundles: dmg,app
+          - os: windows-latest
+            label: Windows x64
+            platform: windows
+            artifact: jn-clipboard-windows-x64
+            bundles: nsis,msi
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      # Bumps the version from versions.json and validates the release
+      # metadata before it hands over to `tauri build`.
+      - name: Build installers
+        run: node scripts/build-release.mjs ${{ matrix.platform }} stable --bundles ${{ matrix.bundles }}
+
+      - name: Upload macOS bundles
+        if: matrix.platform == 'macos'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            src-tauri/target/release/bundle/dmg/*.dmg
+            src-tauri/target/release/bundle/macos/*.app
+
+      - name: Upload Windows bundles
+        if: matrix.platform == 'windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            src-tauri/target/release/bundle/msi/*.msi
+            src-tauri/target/release/bundle/nsis/*.exe
