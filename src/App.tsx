@@ -30,6 +30,7 @@ import { useToastListener } from "./shared/hooks/useToastListener";
 import { useAppBootstrap } from "./shared/hooks/useAppBootstrap";
 import { useAppActions } from "./shared/hooks/useAppActions";
 import { useNavigationSync } from "./shared/hooks/useNavigationSync";
+import type { UpdateInfo } from "./shared/hooks/useUpdateCheck";
 import { useContextMenuBlock } from "./shared/hooks/useContextMenuBlock";
 import { useSettingsPanelReset } from "./shared/hooks/useSettingsPanelReset";
 import { useTagManagerRefresh } from "./shared/hooks/useTagManagerRefresh";
@@ -991,6 +992,31 @@ const App = () => {
     }
     return deleteEntryById(item.id);
   }, [deleteEntryById, pushToast, t]);
+
+  // One update check per launch. Delayed so it does not compete with the
+  // startup work, and silent on failure: being offline is not news. The
+  // settings footer has a button for on-demand checks.
+  useEffect(() => {
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const info = await invoke<UpdateInfo>("check_update");
+          if (cancelled || !info.available || !info.latestVersion) return;
+          pushToast(
+            t("update_available").replace("{version}", `v${info.latestVersion}`),
+            6000
+          );
+        } catch {
+          // No network, or GitHub rate-limited us. Either way, nothing to say.
+        }
+      })();
+    }, 4000);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [pushToast, t]);
 
   const cycleCategory = useCallback((step: 1 | -1) => {
     setTypeFilter((current) => cycleTypeFilter(current, step));

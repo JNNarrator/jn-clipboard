@@ -10,9 +10,9 @@
 >
 > What changed here: the AI, MQTT sync, LAN transfer, third-party import and
 > emoji features were removed, six cosmetic themes were dropped, the updater and
-> the upstream announcement/theme-store calls were taken out so the app makes no
-> unsolicited network requests, and a browser/PWA build was added that shares the
-> same UI over IndexedDB.
+> the upstream announcement/theme-store calls were taken out, an update check
+> against this repository's GitHub releases was added in their place, and a
+> browser/PWA build was added that shares the same UI over IndexedDB.
 
 ---
 
@@ -66,6 +66,8 @@ Screenshots are pending — the old ones showed the upstream app under its own n
 - **WebDAV Sync**: Your data, your cloud. Complete cross-device history.
 - **JNClub Sync**: Sign in with a JNClub account and the desktop and the browser
   copy talk to each other through the same history.
+- **Update Check**: Asks this repository's GitHub releases once at launch, and
+  on demand from the settings footer, so you know when a newer build exists.
 
 ### Productivity Tools
 - **Global Search**: Find anything by content, source app, or date.

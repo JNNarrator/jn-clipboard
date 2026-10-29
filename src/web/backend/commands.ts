@@ -7,6 +7,7 @@
  * managers). An unknown command resolves `null` with one console warning rather
  * than throwing: a missing optional feature must not blank the whole app.
  */
+import { isNewerVersion } from "../../shared/lib/version";
 import { dispatchLocal } from "../shims/event";
 import { getAllSettings, resetSettings, saveSetting } from "./settings";
 import {
@@ -24,6 +25,11 @@ import {
   tagColors,
   updatePinnedOrder,
 } from "./history";
+
+/** GitHub hides drafts and prereleases on this endpoint, so no filtering is
+ * needed beyond the status code. */
+const LATEST_RELEASE_URL =
+  "https://api.github.com/repos/JNNarrator/jn-clipboard/releases/latest";
 
 type Args = Record<string, unknown>;
 type Handler = (args: Args) => unknown;
@@ -132,6 +138,45 @@ const handlers: Record<string, Handler> = {
     channel: "web",
     isWeb: true,
   }),
+  /**
+   * The browser build asks GitHub itself. The endpoint hides drafts and
+   * prereleases, so whatever comes back is what users should be running; a 404
+   * just means nothing has been published yet.
+   */
+  check_update: async () => {
+    const response = await fetch(LATEST_RELEASE_URL, {
+      headers: { Accept: "application/vnd.github+json" },
+    });
+    const current = __APP_VERSION__;
+    if (response.status === 404) {
+      return {
+        currentVersion: current,
+        latestVersion: null,
+        available: false,
+        releaseUrl: null,
+        notes: null,
+        publishedAt: null,
+      };
+    }
+    if (!response.ok) {
+      throw new Error(`[network] GitHub answered ${response.status}`);
+    }
+    const release = (await response.json()) as {
+      tag_name?: string;
+      html_url?: string;
+      body?: string | null;
+      published_at?: string | null;
+    };
+    const latest = (release.tag_name ?? "").trim().replace(/^[vV]+/, "");
+    return {
+      currentVersion: current,
+      latestVersion: latest || null,
+      available: isNewerVersion(latest, current),
+      releaseUrl: release.html_url ?? null,
+      notes: release.body?.trim() ? release.body : null,
+      publishedAt: release.published_at ?? null,
+    };
+  },
   /** IndexedDB is the only store; there is no user-chosen data directory. */
   get_data_path: async () => null,
   set_data_path: () => null,

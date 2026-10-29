@@ -1,6 +1,8 @@
-import { Github, MessageSquare, RotateCcw } from "lucide-react";
+import { Github, MessageSquare, RefreshCw, RotateCcw } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import SettingsAbout from "./SettingsAbout";
+import { useUpdateCheck } from "../../../shared/hooks/useUpdateCheck";
+import { formatError } from "../../../shared/lib/errorMessage";
 import type { ReleaseChannel } from "../../../shared/lib/releaseBuild";
 
 const REPO_URL = "https://github.com/JNNarrator/jn-clipboard";
@@ -47,6 +49,7 @@ const SettingsFooter = ({
     onResetSettings
 }: SettingsFooterProps) => {
     const openIssues = () => void openUrl(`${REPO_URL}/issues`);
+    const update = useUpdateCheck();
 
     if (expanded) {
         return (
@@ -76,6 +79,20 @@ const SettingsFooter = ({
                         <MessageSquare size={16} />
                         <span style={{ fontSize: "var(--font-size-base)", fontWeight: 600 }}>
                             {t("feedback")}
+                        </span>
+                    </div>
+                </div>
+
+                {/* Update Card */}
+                <div
+                    className="settings-group"
+                    style={cardStyle}
+                    onClick={() => void update.check()}
+                >
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <RefreshCw size={16} />
+                        <span style={{ fontSize: "var(--font-size-base)", fontWeight: 600 }}>
+                            {update.checking ? t("checking_update") : t("check_update")}
                         </span>
                     </div>
                 </div>
@@ -123,6 +140,38 @@ const SettingsFooter = ({
                 }}>
                     {t("slogan")}
                 </div>
+
+                {/* Update result. Stays empty until the user asks, so the footer
+                    does not grow a second line for nothing. */}
+                {update.error && (
+                    <div className="settings-panel-meta is-error" style={{ marginBottom: "6px" }}>
+                        {formatError(update.error, t)}
+                    </div>
+                )}
+                {update.info?.available && (
+                    <div style={{ marginBottom: "6px" }}>
+                        <div className="settings-panel-meta" style={{ marginBottom: "6px" }}>
+                            {t("update_available").replace(
+                                "{version}",
+                                `v${update.info.latestVersion ?? ""}`
+                            )}
+                        </div>
+                        {update.info.releaseUrl && (
+                            <button
+                                className="settings-action-button settings-action-button--small"
+                                onClick={() => void openUrl(update.info!.releaseUrl!)}
+                            >
+                                {t("download_update")}
+                            </button>
+                        )}
+                    </div>
+                )}
+                {update.info && !update.info.available && (
+                    <div className="settings-panel-meta" style={{ marginBottom: "6px" }}>
+                        {t("update_up_to_date")}
+                    </div>
+                )}
+
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", flexWrap: "wrap" }}>
                     <button
                         onClick={() => void openUrl(REPO_URL)}

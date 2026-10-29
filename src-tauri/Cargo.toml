@@ -1,6 +1,6 @@
 [package]
 name = "jn-clipboard"
-version = "1.0.0"
+version = "1.0.1"
 description = "Clipboard history manager for macOS, Windows and the browser"
 authors = ["you"]
 edition = "2021"

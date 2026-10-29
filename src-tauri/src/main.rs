@@ -264,6 +264,7 @@ fn main() -> AppResult<()> {
             app::commands::register_hotkey,
             app::commands::test_hotkey_available,
             app::commands::get_release_build_info,
+            app::commands::check_update,
             app::commands::get_jnclub_sync_status,
             app::commands::set_jnclub_sync_credentials,
             app::commands::jnclub_sync_now,

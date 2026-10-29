@@ -1,7 +1,7 @@
 {
   "stable": {
-    "macos": "1.0.0",
-    "windows": "1.0.0"
+    "macos": "1.0.1",
+    "windows": "1.0.1"
   },
   "beta": {
     "macos": "1.0.0-rc.1",

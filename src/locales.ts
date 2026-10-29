@@ -62,6 +62,11 @@ export const translations = {
         default_apps: "打开方式",
         data_management: "数据管理",
         appearance_settings: "外观设置",
+        check_update: "检查更新",
+        checking_update: "检查中…",
+        update_available: "发现新版本 {version}",
+        update_up_to_date: "已是最新版本",
+        download_update: "前往下载",
         feedback: "问题反馈",
 
         // Settings - General
@@ -686,6 +691,11 @@ export const translations = {
         default_apps: "Open With",
         data_management: "Data Management",
         appearance_settings: "Appearance",
+        check_update: "Check for updates",
+        checking_update: "Checking…",
+        update_available: "Version {version} is available",
+        update_up_to_date: "You are on the latest version",
+        download_update: "Download",
         feedback: "Feedback",
 
         // Settings - General
@@ -1306,6 +1316,11 @@ export const translations = {
         default_apps: "開啟方式",
         data_management: "資料管理",
         appearance_settings: "外觀設定",
+        check_update: "檢查更新",
+        checking_update: "檢查中…",
+        update_available: "發現新版本 {version}",
+        update_up_to_date: "已是最新版本",
+        download_update: "前往下載",
         feedback: "問題回饋",
 
         // Settings - General
