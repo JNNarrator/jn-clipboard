@@ -12,6 +12,7 @@ const here = (file) => fileURLToPath(new URL(file, import.meta.url));
 // First-run settings defaults, read from the Rust source so the preview starts
 // exactly like a fresh install (see mock-backend.ts).
 const databaseRs = readFileSync(here('../../src-tauri/src/database.rs'), 'utf8');
+const pkg = JSON.parse(readFileSync(here('../../package.json'), 'utf8'));
 const defaultSettings = Object.fromEntries([
   ...[...databaseRs.matchAll(/INSERT OR IGNORE INTO settings \(key, value\) VALUES \('([^']+)', '([^']*)'\)/g)]
     .map((m) => [m[1], m[2]]),
@@ -21,6 +22,13 @@ const defaultSettings = Object.fromEntries([
 
 export default defineConfig({
   root: here('../../'),
+  // The desktop build injects these through `define`; without them the app
+  // references an undefined global and every test dies on a ReferenceError.
+  // The harness previews the desktop target, so `__WEB_TARGET__` stays false.
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version),
+    __WEB_TARGET__: 'false',
+  },
   // Own dep cache: sharing node_modules/.vite with `npm run dev` (different
   // config) makes each invalidate the other ("504 Outdated Optimize Dep").
   cacheDir: here('../../node_modules/.vite-e2e-harness'),

@@ -35,8 +35,8 @@ const originalContents = new Map(
   generatedFiles.map(file => [file, readFileSync(file)]),
 );
 
-function run(command, args) {
-  const result = spawnSync(command, args, { stdio: "inherit", env });
+function run(command, args, options = {}) {
+  const result = spawnSync(command, args, { stdio: "inherit", env, ...options });
   if (result.status !== 0) {
     const error = new Error(`${command} failed`);
     error.exitCode = result.status ?? 1;
@@ -55,7 +55,9 @@ try {
     const tauriCli = process.platform === "win32"
       ? resolve("node_modules/.bin/tauri.cmd")
       : resolve("node_modules/.bin/tauri");
-    run(tauriCli, ["build", ...extraArgs]);
+    // Node refuses to spawn a .cmd shim directly (EINVAL since 20.12), and the
+    // Windows CLI is exactly that, so let the shell resolve it there.
+    run(tauriCli, ["build", ...extraArgs], process.platform === "win32" ? { shell: true } : {});
     console.log(`[build-release] Finished ${channel}/${platform}`);
   }
 } catch (error) {

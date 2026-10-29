@@ -14,7 +14,7 @@ on:
       - "docs/**"
 
 concurrency:
-  group: build-desktop-${{ github.ref }}
+  group: build-desktop-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 env:
