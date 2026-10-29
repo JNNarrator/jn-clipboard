@@ -2,6 +2,7 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
 import type { CloudSyncContentPrefs } from "../../../app/types";
 import ConfigShareQr from "../ConfigShareQr";
+import JnclubSyncRow from "../JnclubSyncRow";
 import { SettingSwitch } from "../SettingControls";
 import {
     buildWebdavConfigQrPayload,
@@ -129,6 +130,7 @@ const CloudSyncSettingsGroup = ({
             </button>
             {!collapsed && (
                 <div className="group-content">
+                    <JnclubSyncRow t={t} />
                     <div className="setting-item">
                         <LabelWithHint
                             label={t("cloud_sync_enable")}

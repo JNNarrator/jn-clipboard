@@ -18,9 +18,12 @@
 //! them knowing this module exists.
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::OnceLock;
+use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 use uuid::Uuid;
 
 use crate::database::DbState;
@@ -32,6 +35,9 @@ pub const BASE_URL_KEY: &str = "jnclub.sync_base_url";
 pub const TOKEN_KEY: &str = "jnclub.sync_token";
 pub const LAST_SEQ_KEY: &str = "jnclub.sync_last_seq";
 pub const LAST_AT_KEY: &str = "jnclub.sync_last_at";
+/// The last failure, cleared by the next success. Stored rather than kept in
+/// memory so the settings row can explain itself right after a restart.
+pub const LAST_ERROR_KEY: &str = "jnclub.sync_last_error";
 
 const DEFAULT_LIMIT: u32 = 200;
 /// A pull that never reports `hasMore == false` must not spin forever.
@@ -53,6 +59,7 @@ pub struct SyncStatus {
     pub configured: bool,
     pub last_seq: i64,
     pub last_sync_at: Option<i64>,
+    pub last_error: Option<String>,
 }
 
 // ---------------------------------------------------------------------------
@@ -262,6 +269,15 @@ fn read_config(app: &AppHandle) -> AppResult<Option<Config>> {
     Ok(Some(Config { base_url, token }))
 }
 
+/// The stored origin, if one was ever saved. The login flow needs it before a
+/// token exists, which is why it cannot go through `read_config`.
+pub fn stored_base_url(app: &AppHandle) -> AppResult<Option<String>> {
+    let conn = lock_db(app)?;
+    Ok(read_setting(&conn, BASE_URL_KEY)
+        .map(|v| v.trim().trim_end_matches('/').to_string())
+        .filter(|v| !v.is_empty()))
+}
+
 pub fn status(app: &AppHandle) -> AppResult<SyncStatus> {
     let conn = lock_db(app)?;
     let configured = read_setting(&conn, BASE_URL_KEY).is_some_and(|v| !v.trim().is_empty())
@@ -270,7 +286,8 @@ pub fn status(app: &AppHandle) -> AppResult<SyncStatus> {
         .and_then(|v| v.parse::<i64>().ok())
         .unwrap_or(0);
     let last_sync_at = read_setting(&conn, LAST_AT_KEY).and_then(|v| v.parse::<i64>().ok());
-    Ok(SyncStatus { configured, last_seq, last_sync_at })
+    let last_error = read_setting(&conn, LAST_ERROR_KEY).filter(|v| !v.trim().is_empty());
+    Ok(SyncStatus { configured, last_seq, last_sync_at, last_error })
 }
 
 /// Store the origin and token. An empty pair clears them, which is how the UI
@@ -630,6 +647,82 @@ fn collect_changes(
 }
 
 pub async fn sync_now(app: &AppHandle) -> AppResult<SyncOutcome> {
+    let result = sync_inner(app).await;
+    // Record the failure where the UI can read it. Without this the row would
+    // say "已同步" right up until the token expired, and then silently stop.
+    {
+        let message = match &result {
+            Ok(_) => String::new(),
+            Err(err) => err.to_string(),
+        };
+        if let Ok(conn) = lock_db(app) {
+            let _ = write_setting(&conn, LAST_ERROR_KEY, &message);
+        }
+    }
+    // The list is rendered from the database, so a pull that changed anything
+    // has to tell the UI to re-read it. Reusing the capture event means the
+    // existing listeners refresh without knowing sync exists.
+    if result.as_ref().is_ok_and(|outcome| outcome.pulled > 0) {
+        let _ = app.emit("clipboard-changed", ());
+    }
+    emit_status(app);
+    result
+}
+
+fn emit_status(app: &AppHandle) {
+    if let Ok(status) = status(app) {
+        let _ = app.emit("jnclub-sync-status", status);
+    }
+}
+
+/// How often a logged-in app pushes what it has and pulls what others sent.
+///
+/// Thirty seconds is the interval the browser build uses. There is no user
+/// setting: the only knob anyone asked for was "just keep it in sync", and a
+/// second one would need explaining.
+const TICK: Duration = Duration::from_secs(30);
+
+/// Wake the loop early, e.g. right after the user signs in.
+fn wake() {
+    if let Some(signal) = SYNC_WAKE.get() {
+        signal.notify_one();
+    }
+}
+
+static SYNC_WAKE: OnceLock<tokio::sync::Notify> = OnceLock::new();
+static SYNC_STARTED: AtomicBool = AtomicBool::new(false);
+
+/// Start the background sync loop. Safe to call twice: the second call is a
+/// no-op, which matters because both setup and the login command reach here.
+pub fn start_sync_loop(app: AppHandle) {
+    if SYNC_STARTED.swap(true, Ordering::Relaxed) {
+        return;
+    }
+    let signal = SYNC_WAKE.get_or_init(tokio::sync::Notify::new);
+
+    tauri::async_runtime::spawn(async move {
+        loop {
+            // A not-logged-in app has nothing to do; waking on login keeps the
+            // first sync immediate instead of waiting out a tick.
+            let configured = status(&app).map(|s| s.configured).unwrap_or(false);
+            if configured {
+                if let Err(err) = sync_now(&app).await {
+                    crate::logger::log(&format!("jnclub sync tick failed: {err}"));
+                }
+            }
+            let _ = tokio::time::timeout(TICK, signal.notified()).await;
+        }
+    });
+}
+
+/// Called by the login and sign-out commands so the loop reacts immediately.
+pub fn nudge(app: &AppHandle) {
+    start_sync_loop(app.clone());
+    wake();
+    emit_status(app);
+}
+
+async fn sync_inner(app: &AppHandle) -> AppResult<SyncOutcome> {
     let config = match read_config(app)? {
         Some(config) => config,
         None => return Err(AppError::Validation("sync is not configured".into())),

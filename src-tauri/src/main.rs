@@ -267,6 +267,8 @@ fn main() -> AppResult<()> {
             app::commands::get_jnclub_sync_status,
             app::commands::set_jnclub_sync_credentials,
             app::commands::jnclub_sync_now,
+            app::commands::jnclub_sync_login,
+            app::commands::jnclub_sync_sign_out,
             app::commands::toggle_clipboard_pin,
             app::commands::update_tags,
             app::commands::update_entry_note,

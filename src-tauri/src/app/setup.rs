@@ -1169,6 +1169,7 @@ fn start_services(app: &App, s: &StartupSettings, app_handle: AppHandle) {
         crate::services::ui_sound::preload_ui_sounds();
     }
     crate::services::cloud_sync::start_cloud_sync_client(app_handle.clone());
+    crate::services::jnclub_sync::start_sync_loop(app_handle.clone());
     crate::services::network_recovery::start_network_recovery(app_handle.clone());
     start_edge_docking_monitor(app_handle.clone());
     crate::app::light_mode::start_idle_watcher(app_handle.clone());
