@@ -40,7 +40,8 @@
     "release": "set -a && . ./.env && set +a && node scripts/apply-app-version.mjs macos && tauri build",
     "release:arm": "set -a && . ./.env && set +a && node scripts/apply-app-version.mjs macos && tauri build --target aarch64-apple-darwin",
     "release:intel": "set -a && . ./.env && set +a && node scripts/apply-app-version.mjs macos && tauri build --target x86_64-apple-darwin",
-    "release:all": "npm run release:arm && npm run release:intel"
+    "release:all": "npm run release:arm && npm run release:intel",
+    "build:pwa": "tsc && VITE_TARGET=web VITE_BASE_PATH=/clipboard/ vite build"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.11.1",

@@ -55,7 +55,13 @@ const pkgVersion = JSON.parse(
 ).version as string;
 
 // https://vite.dev/config/
+// Mount point for the web build. The desktop bundle is loaded from disk and
+// always uses "/"; the PWA can sit under a sub-path next to the rest of the
+// JNClub site, which is what `build:pwa` sets.
+const webBase = isWebTarget ? process.env.VITE_BASE_PATH || "/" : "/";
+
 export default defineConfig(async () => ({
+  base: webBase,
   plugins: [react(), defaultSettingsPlugin()],
 
   resolve: {

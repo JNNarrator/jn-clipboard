@@ -7,7 +7,11 @@
  * navigations fall back to the cached shell so a cold start still boots.
  */
 const CACHE = "jn-clipboard-shell-v1";
-const SHELL = ["/", "/index.html", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png"];
+// Relative on purpose: the worker lives beside index.html, so this list works
+// whether the app is served from the origin root or from a sub-path such as
+// /clipboard/. The scope is derived from where the worker was registered.
+const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png"];
+const SHELL_PAGE = "./index.html";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -37,10 +41,10 @@ self.addEventListener("fetch", (event) => {
       fetch(request)
         .then((response) => {
           const copy = response.clone();
-          caches.open(CACHE).then((cache) => cache.put("/index.html", copy));
+          caches.open(CACHE).then((cache) => cache.put(SHELL_PAGE, copy));
           return response;
         })
-        .catch(() => caches.match("/index.html").then((cached) => cached ?? Response.error())),
+        .catch(() => caches.match(SHELL_PAGE).then((cached) => cached ?? Response.error())),
     );
     return;
   }

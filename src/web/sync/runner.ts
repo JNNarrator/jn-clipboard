@@ -23,7 +23,7 @@ const TICK_MS = 30_000;
 const PULL_EVERY_MS = 5 * 60_000;
 
 function defaultBaseUrl(): string {
-  return window.location.origin;
+  return import.meta.env.VITE_JNCLUB_BASE_URL ?? `${window.location.origin}/jnclub`;
 }
 
 async function hasPendingPush(): Promise<boolean> {

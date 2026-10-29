@@ -19,9 +19,19 @@ interface WebSyncPanelProps {
 }
 
 function defaultBaseUrl(): string {
-  // Served from JNClub, the sync API is a sibling path, so the origin the page
-  // was loaded from is almost always the right answer.
-  return typeof window === "undefined" ? "" : window.location.origin;
+  if (typeof window === "undefined") return "";
+  // JNClub serves the sync API (`/api/clipboard/...`) and the SSO client
+  // endpoint (`/sso/login`) under one prefix, so a single base URL covers both.
+  // Override at build time when the deployment mounts it elsewhere.
+  return import.meta.env.VITE_JNCLUB_BASE_URL ?? `${window.location.origin}/jnclub`;
+}
+
+/**
+ * Where this page lives, so the SSO client can send the browser back here
+ * instead of to the JNClub app. `/clipboard/` when built with a base path.
+ */
+function selfPath(): string {
+  return import.meta.env.BASE_URL || "/";
 }
 
 /**
@@ -144,7 +154,11 @@ export default function WebSyncPanel({ t, collapsed, onToggle }: WebSyncPanelPro
                 type="button"
                 className="settings-action-button"
                 onClick={() =>
-                  window.open(`${baseUrl.replace(/\/+$/u, "")}/sso/login`, "_blank", "noopener")
+                  window.open(
+                    `${baseUrl.replace(/\/+$/u, "")}/sso/login?web_path=${encodeURIComponent(selfPath())}`,
+                    "_blank",
+                    "noopener",
+                  )
                 }
               >
                 {t("web_sync_sign_in")}

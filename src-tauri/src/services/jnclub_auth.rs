@@ -31,7 +31,12 @@ use crate::error::{AppError, AppResult};
 use crate::services::jnclub_sync::{self, SyncStatus};
 
 /// Where JNClub answers when the build has no origin stored yet.
-pub const DEFAULT_BASE_URL: &str = "https://jiangnan.88933.vip";
+///
+/// The `/jnclub` prefix matters: nginx maps both `/jnclub/api/` and
+/// `/jnclub/sso/` onto the gateway, so this one value covers the sync API and
+/// the SSO client endpoint. Pointing at the bare host would reach the SSO
+/// server instead of the client half of the handshake.
+pub const DEFAULT_BASE_URL: &str = "https://jiangnan.88933.vip/jnclub";
 
 /// How long the browser may take before we give up and stop listening.
 const LISTEN_TIMEOUT: Duration = Duration::from_secs(300);
@@ -230,16 +235,22 @@ mod tests {
         let stray = std::thread::spawn(move || {
             let mut s = TcpStream::connect(addr).expect("connect");
             let _ = s.write_all(b"GET /favicon.ico HTTP/1.1\r\n\r\n");
-            let _ = s.read(&mut [0u8; 64]);
+            let mut buf = [0u8; 64];
+            let read = s.read(&mut buf).expect("read the close page");
+            assert!(read > 0, "the stray request must be answered");
         });
+        // The listener accepts one connection at a time, so the stray request
+        // has to be finished before the real one opens: otherwise which of the
+        // two the accept loop sees first is a coin flip, and the loser waits on
+        // a socket nobody will ever accept.
         let real = std::thread::spawn(move || {
+            stray.join().expect("stray thread");
             let mut s = TcpStream::connect(addr).expect("connect");
             let _ = s.write_all(b"GET /callback?token=tok-42 HTTP/1.1\r\n\r\n");
             let _ = s.read(&mut [0u8; 64]);
         });
 
         let token = wait_for_token(&listener, Duration::from_secs(5));
-        stray.join().expect("stray thread");
         real.join().expect("real thread");
         assert_eq!(token.as_deref(), Some("tok-42"));
     }

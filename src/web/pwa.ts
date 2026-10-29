@@ -10,7 +10,7 @@ export function registerServiceWorker(): void {
   if (import.meta.env.DEV) return;
 
   const register = () => {
-    navigator.serviceWorker.register("/sw.js").catch((error) => {
+    navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch((error) => {
       console.warn("[web] service worker registration failed", error);
     });
   };
