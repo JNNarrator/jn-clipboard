@@ -151,6 +151,10 @@ fn wait_for_token(listener: &TcpListener, timeout: Duration) -> Option<String> {
         let Some(line) = read_request_line(&mut stream) else {
             continue;
         };
+        // Log the path only: the query string carries the session token.
+        let path = line.split_whitespace().nth(1).unwrap_or("");
+        let path = path.split('?').next().unwrap_or("");
+        crate::logger::log(&format!("jnclub login: callback hit {path}"));
         match token_from_request_line(&line) {
             Some(token) => {
                 write_close_page(&mut stream, true);
@@ -185,8 +189,9 @@ pub async fn login(app: AppHandle) -> AppResult<SyncStatus> {
     );
 
     app.opener()
-        .open_url(auth_url, None::<&str>)
+        .open_url(auth_url.clone(), None::<&str>)
         .map_err(|e| AppError::Internal(format!("cannot open the browser: {e}")))?;
+    crate::logger::log(&format!("jnclub login: opened {auth_url}"));
 
     // Accept loop runs on a blocking thread: TcpListener has no async API and
     // the wait is bounded, so this cannot outlive the login attempt.
@@ -195,10 +200,10 @@ pub async fn login(app: AppHandle) -> AppResult<SyncStatus> {
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
     let Some(token) = token else {
-        return Err(AppError::Validation(
-            "登录超时，请重试".to_string(),
-        ));
+        crate::logger::log("jnclub login: gave up waiting for the callback");
+        return Err(AppError::Validation("登录超时，请重试".to_string()));
     };
+    crate::logger::log("jnclub login: callback received, storing the token");
 
     jnclub_sync::set_credentials(&app, &base_url, &token)
 }

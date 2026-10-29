@@ -1074,7 +1074,14 @@ pub fn restore_previous_app_focus(_app_handle: AppHandle) -> Result<(), String> 
     {
         let prev_pid = crate::global_state::LAST_ACTIVE_APP_PID.load(Ordering::Relaxed);
         if prev_pid != 0 {
-            crate::infrastructure::macos_api::apps::activate_app_by_pid(prev_pid as i32);
+            // The panel is non-activating, so the paste target usually still
+            // is the frontmost app. Activating it again would re-run the
+            // app switch for nothing, and macOS repaints the menu bar on
+            // every one of those — which is the flash the user sees.
+            let frontmost = crate::infrastructure::macos_api::window::get_active_app_snapshot();
+            if frontmost.pid != prev_pid {
+                crate::infrastructure::macos_api::apps::activate_app_by_pid(prev_pid as i32);
+            }
         } else {
             let prev_app = crate::global_state::get_last_active_app_name();
             if !prev_app.trim().is_empty() {
