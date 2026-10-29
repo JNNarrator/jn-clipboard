@@ -73,18 +73,14 @@ fn http_client() -> AppResult<reqwest::Client> {
         .map_err(|e| AppError::Network(e.to_string()))
 }
 
-/// Looks up the newest published release and compares it with this build.
-/// Network failures surface as errors; an unpublished repository is not one.
-#[tauri::command]
-pub async fn check_update(app: tauri::AppHandle) -> AppResult<UpdateInfo> {
-    let current_version = app.package_info().version.to_string();
-    let client = http_client()?;
-
+/// Fetches the newest published release. `Ok(None)` means nothing is
+/// published yet; any other failure is a real error worth surfacing.
+async fn fetch_latest(client: &reqwest::Client) -> AppResult<Option<GithubRelease>> {
     let response = client
         .get(LATEST_RELEASE_URL)
         .header(
             reqwest::header::USER_AGENT,
-            format!("jn-clipboard/{current_version}"),
+            "jn-clipboard (github.com/JNNarrator/jn-clipboard)",
         )
         .header(reqwest::header::ACCEPT, "application/vnd.github+json")
         .send()
@@ -92,6 +88,28 @@ pub async fn check_update(app: tauri::AppHandle) -> AppResult<UpdateInfo> {
         .map_err(|e| AppError::Network(e.to_string()))?;
 
     if response.status() == reqwest::StatusCode::NOT_FOUND {
+        return Ok(None);
+    }
+    if !response.status().is_success() {
+        return Err(AppError::Network(format!(
+            "GitHub answered {}",
+            response.status()
+        )));
+    }
+    response
+        .json()
+        .await
+        .map(Some)
+        .map_err(|e| AppError::Network(e.to_string()))
+}
+
+/// Looks up the newest published release and compares it with this build.
+#[tauri::command]
+pub async fn check_update(app: tauri::AppHandle) -> AppResult<UpdateInfo> {
+    let current_version = app.package_info().version.to_string();
+    let client = http_client()?;
+
+    let Some(release) = fetch_latest(&client).await? else {
         return Ok(UpdateInfo {
             current_version,
             latest_version: None,
@@ -100,18 +118,7 @@ pub async fn check_update(app: tauri::AppHandle) -> AppResult<UpdateInfo> {
             notes: None,
             published_at: None,
         });
-    }
-    if !response.status().is_success() {
-        return Err(AppError::Network(format!(
-            "GitHub answered {}",
-            response.status()
-        )));
-    }
-
-    let release: GithubRelease = response
-        .json()
-        .await
-        .map_err(|e| AppError::Network(e.to_string()))?;
+    };
     let latest_version = release
         .tag_name
         .trim()
@@ -167,6 +174,25 @@ mod tests {
     fn prerelease_suffixes_do_not_hide_an_older_core() {
         assert!(is_newer("1.0.1-beta.1", "1.0.0"));
         assert!(!is_newer("1.0.0-beta.1", "1.0.0"));
+    }
+
+    /// Talks to the real GitHub API, so it is ignored by default: CI has no
+    /// network budget for it and would fail on a rate limit. Run with
+    /// `cargo test --bin jn-clipboard live_github -- --ignored`.
+    #[tokio::test]
+    #[ignore = "hits the GitHub API"]
+    async fn live_github_lookup_sees_the_published_release() {
+        let client = super::http_client().expect("client");
+        let release = super::fetch_latest(&client)
+            .await
+            .expect("the request should succeed")
+            .expect("the repository should have a published release");
+        assert!(
+            super::parse_version(&release.tag_name).is_some(),
+            "unexpected tag {:?}",
+            release.tag_name
+        );
+        assert!(release.html_url.starts_with("https://github.com/"));
     }
 
     #[test]
