@@ -84,6 +84,20 @@ Screenshots are pending — the old ones showed the upstream app under its own n
 
 [**Download the Latest Release →**](https://github.com/JNNarrator/jn-clipboard/releases)
 
+The installers are ad-hoc signed but not notarized, so macOS has no developer
+certificate to vouch for them. On first launch macOS says it cannot verify the
+app: open **System Settings → Privacy & Security**, scroll down and press
+**Open Anyway**. If the copy you have was built before 1.0.2 — those report the
+app as damaged rather than unverified — re-sign it in place:
+
+```
+xattr -dr com.apple.quarantine /Applications/jn-clipboard.app
+codesign --force --deep --sign - /Applications/jn-clipboard.app
+```
+
+Windows shows a SmartScreen warning for the same reason: **More info** →
+**Run anyway**.
+
 ### Browser build
 
 The same UI also builds for the browser (installable as a PWA):

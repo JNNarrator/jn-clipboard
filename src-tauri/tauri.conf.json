@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "jn-clipboard",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "identifier": "com.jnarrator.jnclipboard",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -160,7 +160,8 @@
     ],
     "macOS": {
       "frameworks": [],
-      "minimumSystemVersion": "10.13"
+      "minimumSystemVersion": "10.13",
+      "signingIdentity": "-"
     }
   }
 }
