@@ -13,7 +13,7 @@ describe("Settings configQr utility", () => {
     expect(payload.v).toBe(1);
     expect(payload.type).toBe("tiez-webdav");
     expect(payload.webdav.url).toBe("https://dav.jianguoyun.com/dav/");
-    expect(payload.webdav.basePath).toBe("tiez-sync");
+    expect(payload.webdav.basePath).toBe("jnclipboard-sync");
     expect(isWebdavConfigQrReady(payload)).toBe(true);
   });
 

@@ -124,7 +124,7 @@ export const useAppState = (): AppState => {
   const [cloudSyncWebdavUrl, setCloudSyncWebdavUrl] = useState("");
   const [cloudSyncWebdavUsername, setCloudSyncWebdavUsername] = useState("");
   const [cloudSyncWebdavPassword, setCloudSyncWebdavPassword] = useState("");
-  const [cloudSyncWebdavBasePath, setCloudSyncWebdavBasePath] = useState("tiez-sync");
+  const [cloudSyncWebdavBasePath, setCloudSyncWebdavBasePath] = useState("jnclipboard-sync");
   const [cloudSyncContentPrefs, setCloudSyncContentPrefs] =
     useState<CloudSyncContentPrefs>(DEFAULT_CLOUD_SYNC_CONTENT_PREFS);
   const [soundEnabled, setSoundEnabled] = useState(false);

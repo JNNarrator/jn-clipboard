@@ -259,8 +259,8 @@ const CloudSyncSettingsGroup = ({
                             className="search-input settings-field"
                             value={cloudSyncWebdavBasePath}
                             onChange={(e) => setCloudSyncWebdavBasePath(e.target.value)}
-                            onBlur={() => saveCloudSync("cloud_sync_webdav_base_path", cloudSyncWebdavBasePath.trim() || "tiez-sync")}
-                            placeholder="tiez-sync"
+                            onBlur={() => saveCloudSync("cloud_sync_webdav_base_path", cloudSyncWebdavBasePath.trim() || "jnclipboard-sync")}
+                            placeholder="jnclipboard-sync"
                         />
                     </div>
 

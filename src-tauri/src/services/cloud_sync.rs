@@ -27,7 +27,7 @@ const SNAPSHOT_PUSH_MIN_INTERVAL_SECS: i64 = 5 * 60;
 const MIN_SNAPSHOT_INTERVAL_MIN: i64 = 5;
 const MAX_SNAPSHOT_INTERVAL_MIN: i64 = 1440;
 const SYNC_FETCH_PAGE_SIZE: i32 = 1000;
-const DEFAULT_WEBDAV_BASE_PATH: &str = "tiez-sync";
+const DEFAULT_WEBDAV_BASE_PATH: &str = "jnclipboard-sync";
 const MAX_REMOTE_SNAPSHOTS: usize = 24;
 const MAX_INLINE_IMAGE_BYTES: usize = 8 * 1024 * 1024;
 /// WebDAV uploads images one at a time as blobs, so they may be bigger.
@@ -4487,7 +4487,7 @@ mod tests {
             webdav_url: format!("http://{addr}"),
             webdav_username: String::new(),
             webdav_password: String::new(),
-            webdav_base_path: "tiez-sync".to_string(),
+            webdav_base_path: "jnclipboard-sync".to_string(),
             content_prefs: CloudSyncContentPrefs::default(),
         };
         let item = |content: String| CloudSyncItem {
@@ -4519,7 +4519,7 @@ mod tests {
         let skipped = process_items_blobs_before_push(
             &client,
             &cfg,
-            "tiez-sync/blobs",
+            "jnclipboard-sync/blobs",
             &mut HashMap::new(),
             &mut items,
         )

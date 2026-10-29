@@ -329,7 +329,7 @@ export const useSettingsPostInit = ({
     setCloudSyncWebdavUrl(settings["cloud_sync_webdav_url"] || "");
     setCloudSyncWebdavUsername(settings["cloud_sync_webdav_username"] || "");
     setCloudSyncWebdavPassword(settings["cloud_sync_webdav_password"] || "");
-    setCloudSyncWebdavBasePath(settings["cloud_sync_webdav_base_path"] || "tiez-sync");
+    setCloudSyncWebdavBasePath(settings["cloud_sync_webdav_base_path"] || "jnclipboard-sync");
 
     try {
       const raw = settings["cloud_sync_content_prefs"];

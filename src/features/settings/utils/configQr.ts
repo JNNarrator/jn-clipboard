@@ -21,7 +21,7 @@ export const buildWebdavConfigQrPayload = (input: {
     url: input.url.trim(),
     username: input.username.trim(),
     password: input.password,
-    basePath: input.basePath.trim() || "tiez-sync",
+    basePath: input.basePath.trim() || "jnclipboard-sync",
   },
 });
 

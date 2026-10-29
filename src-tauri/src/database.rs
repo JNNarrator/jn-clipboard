@@ -482,7 +482,7 @@ pub fn seed_defaults(conn: &Connection) -> Result<()> {
         [],
     );
     let _ = conn.execute(
-        "INSERT OR IGNORE INTO settings (key, value) VALUES ('cloud_sync_webdav_base_path', 'tiez-sync')",
+        "INSERT OR IGNORE INTO settings (key, value) VALUES ('cloud_sync_webdav_base_path', 'jnclipboard-sync')",
         [],
     );
     let _ = conn.execute(

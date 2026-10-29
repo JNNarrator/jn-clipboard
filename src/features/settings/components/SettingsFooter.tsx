@@ -125,14 +125,6 @@ const SettingsFooter = ({
                 </div>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", flexWrap: "wrap" }}>
                     <button
-                        onClick={() => void openUrl("https://github.com/jimuzhe/tiez-clipboard")}
-                        style={linkStyle}
-                        onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
-                        onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.7")}
-                    >
-                        {t("upstream_project")}
-                    </button>
-                    <button
                         onClick={() => void openUrl(REPO_URL)}
                         style={{ ...linkStyle, display: "inline-flex", alignItems: "center", gap: "4px" }}
                         onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}

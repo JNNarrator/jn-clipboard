@@ -34,9 +34,13 @@ export default function SecureTransfer({ t, collapsed, onToggle }: SecureTransfe
     }
     setBusy(true);
     try {
-      const filters = [{ name: t("secure_transfer_file_filter"), extensions: ["tiezx"] }];
+      // Export writes the current extension; import still accepts the one
+      // earlier builds produced so old bundles keep opening.
+      const filters = [
+        { name: t("secure_transfer_file_filter"), extensions: importing ? ["jnclip", "tiezx"] : ["jnclip"] },
+      ];
       const path = await withNativeDialog(
-        () => importing ? open({ filters, multiple: false }) : save({ filters, defaultPath: "jn-clipboard.tiezx" }),
+        () => importing ? open({ filters, multiple: false }) : save({ filters, defaultPath: "jn-clipboard.jnclip" }),
         "settings:secure-transfer"
       );
       if (!path || typeof path !== "string") return;
