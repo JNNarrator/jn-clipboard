@@ -50,11 +50,13 @@ for (const [source, value] of [
 
 const tag = (process.env.GITHUB_REF_NAME || "").trim();
 if (tag && process.env.GITHUB_REF_TYPE === "tag") {
-  const expectedTag = channel === "beta"
-    ? (platform === "windows" ? `beta-v${expectedVersion}` : `beta-mac-v${expectedVersion}`)
-    : (platform === "windows" ? `v${expectedVersion}` : `mac-v${expectedVersion}`);
-  if (tag !== expectedTag) {
-    fail(`tag ${tag} does not match ${platform} version; expected ${expectedTag}`);
+  // One tag publishes both platforms: upstream gave macOS its own `mac-v…`
+  // tag, which meant cutting two tags for the same version.
+  const acceptedTags = channel === "beta"
+    ? [`beta-v${expectedVersion}`, `beta-mac-v${expectedVersion}`]
+    : [`v${expectedVersion}`, `mac-v${expectedVersion}`];
+  if (!acceptedTags.includes(tag)) {
+    fail(`tag ${tag} does not match ${platform} version; expected ${acceptedTags.join(" or ")}`);
   }
 }
 
