@@ -70,6 +70,8 @@ material on macOS — each with dark and light modes:
 
 ### Networking & Transport
 - **WebDAV Sync**: Your data, your cloud. Complete cross-device history.
+- **JNClub Sync**: Sign in with a JNClub account and the desktop and the browser
+  copy talk to each other through the same history.
 
 ### Productivity Tools
 - **Global Search**: Find anything by content, source app, or date.
@@ -85,6 +87,21 @@ material on macOS — each with dark and light modes:
 | **macOS** | macOS 10.15+ <br>(Apple Silicon / Intel) | `.dmg` / `.app` |
 
 [**Download the Latest Release →**](https://github.com/JNNarrator/jn-clipboard/releases)
+
+### Browser build
+
+The same UI also builds for the browser (installable as a PWA):
+
+```
+npm ci
+npm run build          # desktop shell   -> dist/web
+npm run build:pwa      # browser shell   -> dist/pwa   (base path /clipboard/)
+```
+
+`npm run build:pwa` assumes the files are served from `/clipboard/` on the same
+origin as the sync API, because the service worker and the SSO cookie both want
+a same-origin deployment. Point `VITE_JNCLUB_BASE_URL` at the API when it lives
+elsewhere, or override the base path with `VITE_BASE_PATH`.
 
 ---
 

@@ -119,8 +119,8 @@ export default defineConfig(async () => ({
     coverage: {
       provider: "v8",
       include: ["src/**/*.{ts,tsx}"],
-      // Data tables, not logic: they would inflate the number by ~4,400 lines.
-      exclude: ["src/**/*.test.{ts,tsx}", "src/**/*.d.ts", "src/locales.ts", "src/features/emoji/lib/emojiNames.ts"],
+      // Data tables, not logic: `locales.ts` alone would swamp the number.
+      exclude: ["src/**/*.test.{ts,tsx}", "src/**/*.d.ts", "src/locales.ts"],
       reporter: ["text-summary", "html", "json-summary"],
       reportsDirectory: "coverage",
     },
