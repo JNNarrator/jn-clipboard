@@ -38,6 +38,9 @@ pub const LAST_AT_KEY: &str = "jnclub.sync_last_at";
 /// The last failure, cleared by the next success. Stored rather than kept in
 /// memory so the settings row can explain itself right after a restart.
 pub const LAST_ERROR_KEY: &str = "jnclub.sync_last_error";
+/// Development escape hatch: point a debug build at another server without
+/// having to write the setting into the database first.
+const BASE_URL_ENV: &str = "JNCLUB_SYNC_BASE_URL";
 
 const DEFAULT_LIMIT: u32 = 200;
 /// A pull that never reports `hasMore == false` must not spin forever.
@@ -261,7 +264,7 @@ struct Config {
 
 fn read_config(app: &AppHandle) -> AppResult<Option<Config>> {
     let conn = lock_db(app)?;
-    let base_url = read_setting(&conn, BASE_URL_KEY).unwrap_or_default().trim().trim_end_matches('/').to_string();
+    let base_url = base_url(&conn);
     let token = read_setting(&conn, TOKEN_KEY).unwrap_or_default().trim().to_string();
     if base_url.is_empty() || token.is_empty() {
         return Ok(None);
@@ -269,13 +272,31 @@ fn read_config(app: &AppHandle) -> AppResult<Option<Config>> {
     Ok(Some(Config { base_url, token }))
 }
 
+/// The origin to talk to, preferring `JNCLUB_SYNC_BASE_URL` when it is set.
+///
+/// Without it there is no way to point a development build at a server other
+/// than the shipped one: the address is not editable in the UI (it is fixed by
+/// design), so the only other route would be writing the row into the database
+/// by hand.
+fn base_url(conn: &rusqlite::Connection) -> String {
+    if let Ok(value) = std::env::var(BASE_URL_ENV) {
+        let trimmed = value.trim().trim_end_matches('/');
+        if !trimmed.is_empty() {
+            return trimmed.to_string();
+        }
+    }
+    read_setting(conn, BASE_URL_KEY)
+        .unwrap_or_default()
+        .trim()
+        .trim_end_matches('/')
+        .to_string()
+}
+
 /// The stored origin, if one was ever saved. The login flow needs it before a
 /// token exists, which is why it cannot go through `read_config`.
 pub fn stored_base_url(app: &AppHandle) -> AppResult<Option<String>> {
     let conn = lock_db(app)?;
-    Ok(read_setting(&conn, BASE_URL_KEY)
-        .map(|v| v.trim().trim_end_matches('/').to_string())
-        .filter(|v| !v.is_empty()))
+    Ok(Some(base_url(&conn)).filter(|v| !v.is_empty()))
 }
 
 pub fn status(app: &AppHandle) -> AppResult<SyncStatus> {
