@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
@@ -68,5 +69,19 @@ writeFileSync(
   cargoTomlPath,
   cargoToml.replace(cargoVersionRe, `version = "${version}"`),
 );
+
+// Cargo records the crate version in Cargo.lock, so bumping Cargo.toml leaves
+// the lock stale — and CI tests with --locked, which then refuses to start.
+// Refresh it here, where the version actually changes, instead of leaving a
+// trap for the next release. A missing cargo is not fatal: the build itself
+// will regenerate the lock anyway.
+const cargoLockRefresh = spawnSync(
+  "cargo",
+  ["update", "--offline", "-p", "jn-clipboard"],
+  { cwd: resolve(root, "src-tauri"), stdio: "ignore" },
+);
+if (cargoLockRefresh.error) {
+  console.warn("[apply-app-version] Skipped Cargo.lock refresh (cargo unavailable).");
+}
 
 console.log(`[apply-app-version] ${channel}/${platform} -> ${version}`);

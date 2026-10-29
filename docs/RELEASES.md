@@ -14,6 +14,9 @@
 
 1. 改 `versions.json` 的 `stable.macos` 与 `stable.windows`（两者同步升版，
    因为 Windows PE 资源无法容纳超过 4 段的版本号），提交并推送 `master`。
+   想本地同步这三个文件就运行 `node scripts/apply-app-version.mjs <平台> stable`，
+   它也会顺带刷新 `src-tauri/Cargo.lock` 里的 crate 版本——CI 用 `--locked`
+   跑测试，忘记刷新会直接编译失败。
 2. 从 `master` 打标签并推送：
 
    ```bash
