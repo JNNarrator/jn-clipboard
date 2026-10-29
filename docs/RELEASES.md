@@ -1,83 +1,76 @@
 # jn-clipboard 客户端发布流程
 
-`versions.json` 是客户端版本号的唯一来源，分别记录：
+`versions.json` 是客户端版本号的唯一来源：
 
 - `stable.windows` / `stable.macos`：正式版
-- `beta.windows` / `beta.macos`：群测试版
+- `beta.windows` / `beta.macos`：预发布版
 
-构建脚本会把目标版本同步到 `package.json`、`src-tauri/Cargo.toml` 和
-`src-tauri/tauri.conf.json`，并校验更新接口、发布渠道与 Git 标签。
+`scripts/apply-app-version.mjs <platform> <channel>` 会把目标版本同步到
+`package.json`、`src-tauri/Cargo.toml` 和 `src-tauri/tauri.conf.json`；
+`scripts/build-release.mjs` 在构建时自动调用它，并在结束后恢复这些文件，
+只保留 `versions.json` 里由维护者改动的版本号。
 
-## 群测试版
+## 发一个正式版
 
-测试版必须使用 SemVer 预发布后缀，例如：
-
-```json
-{
-  "beta": {
-    "windows": "1.0.0-beta.1",
-    "macos": "1.0.0-beta.1"
-  }
-}
-```
-
-推荐用 GitHub Actions 构建（两个平台都会签名，macOS 还会公证）：
-
-1. 开一个只改 `versions.json` 的 PR，CI 通过后合并到 `master`。
-2. 从 `master` 触发两个测试版工作流：
+1. 改 `versions.json` 的 `stable.macos` 与 `stable.windows`（两者同步升版，
+   因为 Windows PE 资源无法容纳超过 4 段的版本号），提交并推送 `master`。
+2. 从 `master` 打标签并推送：
 
    ```bash
-   gh workflow run release-beta-macos.yml --ref master -f git_ref=master
-   gh workflow run release-beta-windows.yml --ref master -f git_ref=master
+   git tag vX.Y.Z
+   git push origin vX.Y.Z
    ```
 
-3. 产物是 GitHub 上的**草稿**预发布版（`beta-mac-v…`、`beta-v…`），只有维护者能看到。
+   `scripts/validate-release.mjs` 接受 `vX.Y.Z`，也兼容早期只给 macOS 用的
+   `mac-vX.Y.Z`。
 
-不再为每个测试版单独建 `beta/…` 分支。
+3. `.github/workflows/release-desktop.yml` 在三个平台构建
+   （`macos-14` arm64、`macos-15-intel` x64、`windows-latest` x64），
+   下载产物后创建**草稿** Release，资产包括：
 
-测试分两个阶段：
+   - `jn-clipboard_X.Y.Z_aarch64.dmg`（Apple Silicon）
+   - `jn-clipboard_X.Y.Z_x64.dmg`（Intel）
+   - `jn-clipboard_X.Y.Z_x64-setup.exe`（NSIS 安装器）
+   - `jn-clipboard_X.Y.Z_x64_en-US.msi`
+   - `jn-clipboard-portable.zip`（Windows 便携版）
 
-- **群测**：草稿保持不公开，维护者下载安装包发到测试群。
-- **公测**：群里的问题处理完后，把草稿发布为预发布版（不要设为 Latest）。
+4. 检查产物后把草稿发布出来。**发布这一步就是上线**：应用里的「检查更新」
+   查询 `releases/latest`，而 GitHub 只在发布（非草稿、非预发布）的 Release
+   里挑最新一个。
 
-也可以在对应系统上本地构建：
+日常构建（不发布）用 `.github/workflows/build-desktop.yml`：推送 `master`
+或手动 `workflow_dispatch` 都跑，产物是 14 天保留期的 Actions artifact。
+
+## 预发布版（群测试）
+
+把版本写成带 SemVer 后缀的形式，例如 `1.0.0-rc.1`，改 `beta.*` 后推送
+`master` 触发 `build-desktop.yml`，得到 artifact 发到测试群。要让它出现在
+Release 页，同样打标签，然后在发布草稿时勾上「pre-release」——被标记为
+pre-release 的版本不会被 `releases/latest` 返回，正式版用户不会收到提示。
+
+## 签名与更新
+
+- 安装包**未签名**：没有 Apple Developer ID，也没有 Windows 代码签名证书。
+  macOS 首次运行需在「系统设置 → 隐私与安全性」里放行，Windows 会弹
+  SmartScreen 警告。
+- 不生成 updater 制品，也没有原地升级：`tauri-plugin-updater` 已移除。
+- 更新检查只是查询 GitHub 的 `/releases/latest` 并与当前版本比较
+  （见 `src-tauri/src/app/commands/update_cmd.rs`），发现新版本时给出跳转
+  到 Release 页的按钮，安装仍需用户手动替换。
+
+## 本地构建
+
+也可以在对应系统上本地打包：
 
 ```bash
 npm ci
-npm run release:beta:win
-# 或
-npm run release:beta:mac
+npm run release:stable:mac   # 或 release:stable:win
 ```
 
-构建结束后脚本会恢复 package、Cargo 和 Tauri 配置，只保留
-`versions.json` 中由维护者明确修改的版本号，避免误提交 beta 生成状态。
-
-本仓库不附带自动更新：安装包不生成 updater 制品，也没有检查更新的界面。
-发版只需要把安装包交给用户手动替换。
-
-构建完成后：
-
-1. 将安装包发送给测试群。
-2. 测试通过后，把不带预发布后缀的版本写入 `stable`，再走正式发布。
-
-## 正式版
-
-更新 `stable` 版本后，在对应系统构建：
-
-```bash
-npm run release:stable:win
-# 或
-npm run release:stable:mac
-```
-
-GitHub Actions 正式发布标签：
-
-- Windows：`v1.0.0`
-- macOS：`mac-v1.0.0`
-
-工作流会阻止标签、平台版本、Cargo、Tauri 配置或更新通道不一致的构建。
+构建结束后脚本会恢复 package、Cargo 和 Tauri 配置，只保留 `versions.json`
+中明确修改的版本号，避免误提交构建状态。
 
 ## 便携版
 
-Windows 便携版没有安装器。用户需要下载新的便携包并替换程序文件，
-原有 `data` 目录会继续保留。
+Windows 便携版没有安装器：用户下载新的便携包替换程序文件即可，原有
+`data` 目录继续保留。
