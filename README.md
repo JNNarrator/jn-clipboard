@@ -37,13 +37,7 @@
 Three native-material themes — Mica and Acrylic on Windows, the macOS vibrancy
 material on macOS — each with dark and light modes:
 
-<div align="center">
-  <table>
-    <tr>
-      <td align="center"><b>Frosted</b><br><img src="docs/images/毛玻璃.png" width="220" /></td>
-    </tr>
-  </table>
-</div>
+Screenshots are pending — the old ones showed the upstream app under its own name.
 
 ---
 

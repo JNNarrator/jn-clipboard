@@ -36,13 +36,7 @@
 保留 3 款原生材质主题——Windows 上为云母 / 亚克力，macOS 上为系统毛玻璃材质，
 均含亮色与暗色两种模式：
 
-<div align="center">
-  <table>
-    <tr>
-      <td align="center"><b>磨砂</b><br><img src="docs/images/毛玻璃.png" width="220" /></td>
-    </tr>
-  </table>
-</div>
+截图待补——旧截图里还是上游应用的名字。
 
 ---
 
