@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { ComponentType, ReactNode } from "react";
-import { requestMacAccessibility } from "../../../../shared/lib/macAccessibility";
+import { openedSettingsFromHere, requestMacAccessibility } from "../../../../shared/lib/macAccessibility";
 
 interface LabelWithHintProps {
   label: string;
@@ -18,17 +18,23 @@ interface MacAccessibilityPermissionProps {
 const MacAccessibilityPermission = ({ t, LabelWithHint }: MacAccessibilityPermissionProps) => {
   const [granted, setGranted] = useState<boolean | null>(null);
   const [checking, setChecking] = useState(false);
+  // Flips once the user has been to System Settings and come back, so the row
+  // can point at the usual cause instead of repeating the same warning.
+  const [needsReset, setNeedsReset] = useState(false);
   const [binaryPath, setBinaryPath] = useState("");
 
   const refresh = useCallback(async () => {
     setChecking(true);
     try {
       const [ok, path] = await Promise.all([
-        invoke<boolean>("check_macos_permissions"),
+        // settle: re-read the grant after System Settings rather than trust an
+        // answer captured before the user flipped the switch.
+        invoke<boolean>("check_macos_permissions", { settle: true }),
         invoke<string>("get_macos_accessibility_binary_path")
       ]);
       setGranted(ok);
       setBinaryPath(path);
+      setNeedsReset(!ok && openedSettingsFromHere());
     } catch {
       setGranted(false);
     } finally {
@@ -60,6 +66,7 @@ const MacAccessibilityPermission = ({ t, LabelWithHint }: MacAccessibilityPermis
 
   const openSettings = async () => {
     await requestMacAccessibility().catch(console.error);
+    await refresh();
   };
 
   const copyBinaryPath = async () => {
@@ -103,6 +110,11 @@ const MacAccessibilityPermission = ({ t, LabelWithHint }: MacAccessibilityPermis
       {!checking && !granted && (
         <div className="settings-permission-steps">
           <div>{t("accessibility_permission_steps")}</div>
+          {needsReset && (
+            <div className="settings-permission-warning">
+              {t("accessibility_reset_hint")}
+            </div>
+          )}
           {binaryPath && (
             <div className="settings-permission-binary">
               <span>{t("accessibility_permission_binary")}</span>

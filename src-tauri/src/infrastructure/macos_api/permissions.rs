@@ -111,14 +111,57 @@ pub fn has_accessibility_permission() -> bool {
     }
 }
 
+/// Re-checks the permission until macOS reports it, so a call started before
+/// the user flipped the switch does not answer with the stale answer. Ad-hoc
+/// signed builds prove their identity by the code hash, and macOS updates the
+/// grant a moment after System Settings is closed.
+#[cfg(target_os = "macos")]
+fn wait_for_trust(want: bool, budget: std::time::Duration) -> bool {
+    let deadline = std::time::Instant::now() + budget;
+    loop {
+        let trusted = has_accessibility_permission();
+        if trusted == want || std::time::Instant::now() >= deadline {
+            return trusted;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(150));
+    }
+}
+
 pub fn request_accessibility_permission() -> bool {
     #[cfg(target_os = "macos")]
     {
-        return trusted_with_prompt(true);
+        if has_accessibility_permission() {
+            return true;
+        }
+        let trusted = trusted_with_prompt(true);
+        // The prompt only appears once per app; afterwards it returns at once
+        // with the current answer. Give the user time to act on it.
+        if trusted {
+            return true;
+        }
+        return wait_for_trust(true, std::time::Duration::from_secs(3));
     }
 
     #[cfg(not(target_os = "macos"))]
     {
+        true
+    }
+}
+
+/// Re-reads the grant so callers do not have to trust an answer captured
+/// before the user changed it.
+pub fn refresh_accessibility_permission(
+    was_granted: bool,
+    budget: std::time::Duration,
+) -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        return wait_for_trust(was_granted, budget);
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (was_granted, budget);
         true
     }
 }

@@ -1115,14 +1115,25 @@ fn copy_dir_recursive(src: &std::path::Path, dst: &std::path::Path) -> std::io::
     Ok(())
 }
 
+/// `settle` is used by the dialog after the user comes back from System
+/// Settings: macOS needs a moment to commit the switch, and the answer must not
+/// be the one captured before they made the change.
 #[tauri::command]
-pub fn check_macos_permissions() -> bool {
+pub fn check_macos_permissions(settle: Option<bool>) -> bool {
     #[cfg(target_os = "macos")]
     {
-        return crate::infrastructure::macos_api::permissions::has_accessibility_permission();
+        let granted = crate::infrastructure::macos_api::permissions::has_accessibility_permission();
+        if !settle.unwrap_or(false) {
+            return granted;
+        }
+        return crate::infrastructure::macos_api::permissions::refresh_accessibility_permission(
+            granted,
+            std::time::Duration::from_secs(1),
+        );
     }
     #[cfg(not(target_os = "macos"))]
     {
+        let _ = settle;
         true
     }
 }

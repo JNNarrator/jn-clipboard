@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { isMacPlatform } from "../lib/platform";
 import { isTauriRuntime } from "../lib/tauriRuntime";
-import { requestMacAccessibility } from "../lib/macAccessibility";
+import { openedSettingsFromHere, requestMacAccessibility } from "../lib/macAccessibility";
 import ConfirmDialog from "./ConfirmDialog";
 
 export default function MacAccessibilityPrompt({ ready, theme, t, pushToast }: {
@@ -14,6 +14,10 @@ export default function MacAccessibilityPrompt({ ready, theme, t, pushToast }: {
 }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  // macOS answers the trust question from a cache taken when the process
+  // started, so a switch flipped while the app runs is not visible to us. Once
+  // the user has been to System Settings, restarting is the way through.
+  const [needsRestart, setNeedsRestart] = useState(false);
   useEffect(() => {
     if (!ready || !isTauriRuntime() || !isMacPlatform()) return;
     let alive = true;
@@ -33,17 +37,25 @@ export default function MacAccessibilityPrompt({ ready, theme, t, pushToast }: {
   useEffect(() => {
     if (!open) return;
     let alive = true;
-    const check = () => {
-      void invoke<boolean>("check_macos_permissions").then(granted => {
-        if (alive && granted) setOpen(false);
+    // Ask the backend to re-read the grant: the answer taken while the dialog
+    // opened can predate the switch the user just flipped.
+    const check = (settle: boolean) => {
+      void invoke<boolean>("check_macos_permissions", { settle }).then(granted => {
+        if (!alive) return;
+        if (granted) {
+          setOpen(false);
+          return;
+        }
+        if (openedSettingsFromHere()) setNeedsRestart(true);
       }).catch(console.error);
     };
-    const interval = window.setInterval(check, 3000);
-    window.addEventListener("focus", check);
+    const interval = window.setInterval(() => check(true), 3000);
+    const onFocus = () => check(true);
+    window.addEventListener("focus", onFocus);
     return () => {
       alive = false;
       window.clearInterval(interval);
-      window.removeEventListener("focus", check);
+      window.removeEventListener("focus", onFocus);
     };
   }, [open]);
 
@@ -58,15 +70,28 @@ export default function MacAccessibilityPrompt({ ready, theme, t, pushToast }: {
     }
   };
 
+  const later = () => {
+    // Someone who has just been through System Settings does not need the
+    // same warning again; say why the next copy may still not paste instead.
+    if (openedSettingsFromHere()) pushToast(t("accessibility_still_missing"), 7000);
+    setOpen(false);
+  };
+
+  const restart = () => {
+    void invoke("relaunch").catch(console.error);
+  };
+
   return <ConfirmDialog
     open={open}
     title={t("accessibility_permission")}
-    message={t("accessibility_permission_prompt")}
+    message={needsRestart
+      ? `${t("accessibility_permission_prompt")}\n\n${t("accessibility_restart_hint")}`
+      : t("accessibility_permission_prompt")}
     theme={theme}
     busy={busy}
-    confirmLabel={t("accessibility_go_authorize")}
+    confirmLabel={needsRestart ? t("accessibility_restart_app") : t("accessibility_go_authorize")}
     cancelLabel={t("accessibility_permission_later")}
-    onConfirm={() => { void authorize(); }}
-    onClose={() => setOpen(false)}
+    onConfirm={needsRestart ? restart : () => { void authorize(); }}
+    onClose={later}
   />;
 }
