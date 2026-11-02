@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, MouseEvent, RefObject } from "react";
 import {
+  ArrowDownToLine,
   ArrowUpDown,
   Check,
   ChevronLeft,
@@ -8,6 +9,7 @@ import {
   PinOff,
   Search,
   Settings as SettingsIcon,
+  RefreshCw,
   Tag,
   Trash2,
   X
@@ -49,6 +51,16 @@ interface AppHeaderProps {
   clipboardSortMode: ClipboardSortMode;
   onClipboardSortModeChange: (val: ClipboardSortMode) => void;
   onBack: () => void;
+  /** Push local changes to the other devices; absent when sync is unconfigured. */
+  onSyncPush?: () => void;
+  /** Pull what the other devices pushed. */
+  onSyncPull?: () => void;
+  /** Which direction is currently running, so the trigger can spin. */
+  syncBusy?: "push" | "pull" | null;
+  /** Manual update check; the result is reported through `onUpdateCheckDone`. */
+  onCheckUpdate?: () => void;
+  /** True while the GitHub call is in flight. */
+  updateChecking?: boolean;
 }
 
 const AppHeader = ({
@@ -81,9 +93,34 @@ const AppHeader = ({
   clipboardSortMode,
   onClipboardSortModeChange,
   onBack,
+  onSyncPush,
+  onSyncPull,
+  syncBusy,
+  onCheckUpdate,
+  updateChecking,
 }: AppHeaderProps) => {
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const sortMenuRef = useRef<HTMLDivElement | null>(null);
+  const [syncMenuOpen, setSyncMenuOpen] = useState(false);
+  const syncMenuRef = useRef<HTMLDivElement | null>(null);
+
+  // Same dismissal rule as the sort menu: a click outside closes it, so the
+  // header never leaves a menu stranded over the list.
+  useEffect(() => {
+    if (!syncMenuOpen) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!syncMenuRef.current?.contains(event.target as Node)) {
+        setSyncMenuOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [syncMenuOpen]);
+
+  // A finished sync means the menu has served its purpose.
+  useEffect(() => {
+    if (!syncBusy) setSyncMenuOpen(false);
+  }, [syncBusy]);
 
   const getTypeName = (type: string) => {
     switch (type) {
@@ -226,12 +263,65 @@ const AppHeader = ({
 
           {!showSettings && !showTagManager && (
             <>
+              {onSyncPush && onSyncPull && (
+                <div ref={syncMenuRef} className="header-sync-anchor">
+                  <button
+                    type="button"
+                    className={`btn-icon header-sync-btn${syncMenuOpen ? " is-open" : ""}${syncBusy ? " is-busy" : ""}`}
+                    title={t("sync_now")}
+                    aria-label={t("sync_now")}
+                    aria-haspopup="menu"
+                    aria-expanded={syncMenuOpen}
+                    disabled={!!syncBusy}
+                    onClick={() => setSyncMenuOpen((open) => !open)}
+                  >
+                    <RefreshCw size={16} />
+                  </button>
+                  {syncMenuOpen && (
+                    <div className="header-sync-menu" role="menu" aria-label={t("sync_now")}>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="header-sync-option"
+                        onClick={() => {
+                          setSyncMenuOpen(false);
+                          onSyncPush();
+                        }}
+                      >
+                        {t("sync_push_remote")}
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="header-sync-option"
+                        onClick={() => {
+                          setSyncMenuOpen(false);
+                          onSyncPull();
+                        }}
+                      >
+                        {t("sync_pull_remote")}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
               <button className="btn-icon" title={t('clear_history')} aria-label={t('clear_history')} onClick={clearHistory}>
                 <Trash2 size={16} />
               </button>
               {tagManagerEnabled && (
                 <button className="btn-icon" title={t('tag_manager')} aria-label={t('tag_manager')} onClick={() => setShowTagManager(true)}>
                   <Tag size={16} />
+                </button>
+              )}
+              {onCheckUpdate && (
+                <button
+                  className={`btn-icon${updateChecking ? " is-busy" : ""}`}
+                  title={t("check_for_updates")}
+                  aria-label={t("check_for_updates")}
+                  disabled={!!updateChecking}
+                  onClick={onCheckUpdate}
+                >
+                  <ArrowDownToLine size={16} />
                 </button>
               )}
               <button className="btn-icon" title={t('settings')} aria-label={t('settings')} onClick={() => setShowSettings(true)}>

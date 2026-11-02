@@ -31,6 +31,8 @@ import { useAppBootstrap } from "./shared/hooks/useAppBootstrap";
 import { useAppActions } from "./shared/hooks/useAppActions";
 import { useNavigationSync } from "./shared/hooks/useNavigationSync";
 import type { UpdateInfo } from "./shared/hooks/useUpdateCheck";
+import { useManualSync } from "./shared/hooks/useManualSync";
+import { formatError } from "./shared/lib/errorMessage";
 import { useContextMenuBlock } from "./shared/hooks/useContextMenuBlock";
 import { useSettingsPanelReset } from "./shared/hooks/useSettingsPanelReset";
 import { useTagManagerRefresh } from "./shared/hooks/useTagManagerRefresh";
@@ -495,6 +497,11 @@ const App = () => {
 
 
   const { toasts, pushToast, confirmDialog, openConfirm, closeConfirm } = useOverlays(t);
+  const {
+    busy: syncBusy,
+    available: syncAvailable,
+    run: runManualSync,
+  } = useManualSync({ t, pushToast });
 
 
 
@@ -996,6 +1003,33 @@ const App = () => {
   // One update check per launch. Delayed so it does not compete with the
   // startup work, and silent on failure: being offline is not news. The
   // settings footer has a button for on-demand checks.
+  const [updateChecking, setUpdateChecking] = useState(false);
+  // The launch check stays silent; this one answers out loud, because the user
+  // asked. GitHub's unauthenticated limit makes a button preferable to polling.
+  const handleCheckUpdate = useCallback(() => {
+    void (async () => {
+      setUpdateChecking(true);
+      try {
+        const info = await invoke<UpdateInfo>("check_update");
+        if (info.available && info.latestVersion) {
+          pushToast(
+            t("update_available").replace("{version}", `v${info.latestVersion}`),
+            6000
+          );
+        } else {
+          pushToast(t("update_up_to_date"), 2200);
+        }
+      } catch (error) {
+        pushToast(formatError(error, t), 4000);
+      } finally {
+        setUpdateChecking(false);
+      }
+    })();
+  }, [pushToast, t]);
+
+  const handleSyncPush = useCallback(() => void runManualSync("push"), [runManualSync]);
+  const handleSyncPull = useCallback(() => void runManualSync("pull"), [runManualSync]);
+
   useEffect(() => {
     let cancelled = false;
     const timer = window.setTimeout(() => {
@@ -1143,6 +1177,11 @@ const App = () => {
         clipboardSortMode={clipboardSortMode}
         onClipboardSortModeChange={updateClipboardSortMode}
         onBack={handleHeaderBack}
+        onSyncPush={syncAvailable ? handleSyncPush : undefined}
+        onSyncPull={syncAvailable ? handleSyncPull : undefined}
+        syncBusy={syncBusy}
+        onCheckUpdate={handleCheckUpdate}
+        updateChecking={updateChecking}
       />
 
       {/* Web build only: a browser cannot watch the clipboard, so capture is manual. */}

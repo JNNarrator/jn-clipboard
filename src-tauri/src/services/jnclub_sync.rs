@@ -43,8 +43,39 @@ pub const LAST_ERROR_KEY: &str = "jnclub.sync_last_error";
 const BASE_URL_ENV: &str = "JNCLUB_SYNC_BASE_URL";
 
 const DEFAULT_LIMIT: u32 = 200;
+/// Mirrors `ClipboardBlobService.MAX_BLOB_BYTES` on the server.
+const MAX_BLOB_BYTES: usize = 20 * 1024 * 1024;
 /// A pull that never reports `hasMore == false` must not spin forever.
 const MAX_PAGES: usize = 500;
+
+/// Which half of a round trip to run.
+///
+/// The background loop always does both; the two buttons on the header let a
+/// user ask for one direction only when they are chasing a specific record.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SyncDirection {
+    Both,
+    Push,
+    Pull,
+}
+
+impl SyncDirection {
+    pub fn parse(value: Option<&str>) -> Self {
+        match value.map(str::trim) {
+            Some("push") => Self::Push,
+            Some("pull") => Self::Pull,
+            _ => Self::Both,
+        }
+    }
+
+    fn pushes(self) -> bool {
+        matches!(self, Self::Both | Self::Push)
+    }
+
+    fn pulls(self) -> bool {
+        matches!(self, Self::Both | Self::Pull)
+    }
+}
 
 #[derive(Debug, Clone, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -607,6 +638,143 @@ async fn decode_envelope<T: for<'de> Deserialize<'de>>(response: reqwest::Respon
 // Sync
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Attachments
+// ---------------------------------------------------------------------------
+
+/// A pulled image carries a sha256 where a local row carries a file path: the
+/// peer that made it has no such file. Anything else would be a path we cannot
+/// resolve, so only a well-formed digest is treated as a reference.
+fn is_blob_ref(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+}
+
+fn app_data_dir(app: &AppHandle) -> Option<std::path::PathBuf> {
+    let state = app.try_state::<crate::app_state::AppDataDir>()?;
+    let guard = state.0.lock().ok()?;
+    Some(guard.clone())
+}
+
+/// Bytes and mime for one local image, whether it is still a data URL or has
+/// already been externalised to a file under `attachments/`.
+fn read_local_image(content: &str) -> Option<(Vec<u8>, String)> {
+    use base64::Engine;
+    let trimmed = content.trim();
+    if let Some((_, payload)) = trimmed.split_once(',') {
+        if trimmed.starts_with("data:") {
+            let bytes = base64::engine::general_purpose::STANDARD
+                .decode(payload.replace(['\r', '\n'], ""))
+                .ok()?;
+            let ext = crate::database::image_extension_from_magic(&bytes)
+                .unwrap_or("png");
+            return Some((bytes, format!("image/{}", if ext == "jpg" { "jpeg" } else { ext })));
+        }
+    }
+    let path = std::path::Path::new(trimmed);
+    if !path.is_file() {
+        return None;
+    }
+    let bytes = std::fs::read(path).ok()?;
+    let ext = crate::database::image_extension_from_magic(&bytes).unwrap_or("png");
+    Some((bytes, format!("image/{}", if ext == "jpg" { "jpeg" } else { ext })))
+}
+
+/// Hand the bytes to the server and use the digest it answers with.
+///
+/// Hashing locally would be wrong: the stored bytes are the ones the server
+/// received, and only its digest names them.
+async fn upload_blob(
+    client: &reqwest::Client,
+    config: &Config,
+    bytes: Vec<u8>,
+    mime: &str,
+) -> AppResult<String> {
+    if bytes.len() > MAX_BLOB_BYTES {
+        return Err(AppError::Validation(format!(
+            "image is larger than {}MB",
+            MAX_BLOB_BYTES / 1024 / 1024
+        )));
+    }
+    let url = format!("{}/api/clipboard/blob", config.base_url);
+    let response = client
+        .post(&url)
+        .header("jn-token", &config.token)
+        .header("Content-Type", mime)
+        .body(bytes)
+        .send()
+        .await
+        .map_err(|e| AppError::Network(e.to_string()))?;
+    decode_envelope::<String>(response).await
+}
+
+async fn download_blob(
+    client: &reqwest::Client,
+    config: &Config,
+    sha: &str,
+) -> AppResult<Option<Vec<u8>>> {
+    let url = format!("{}/api/clipboard/blob/{}", config.base_url, sha);
+    let response = client
+        .get(&url)
+        .header("jn-token", &config.token)
+        .send()
+        .await
+        .map_err(|e| AppError::Network(e.to_string()))?;
+    if response.status().as_u16() == 404 {
+        return Ok(None);
+    }
+    if !response.status().is_success() {
+        return Err(AppError::Network(format!(
+            "attachment fetch failed ({})",
+            response.status()
+        )));
+    }
+    let bytes = response
+        .bytes()
+        .await
+        .map_err(|e| AppError::Network(e.to_string()))?;
+    Ok(Some(bytes.to_vec()))
+}
+
+/// Write a downloaded image under `attachments/` and return its path.
+fn store_downloaded_image(app: &AppHandle, bytes: &[u8]) -> Option<String> {
+    let dir = app_data_dir(app)?;
+    crate::database::save_image_bytes_to_file_with_extension(bytes, &dir, "png")
+}
+
+/// Turn a pulled record into one a local row can hold.
+///
+/// Downloads happen here rather than inside `apply_remote` because that one
+/// holds the database guard: waiting on the network with a `MutexGuard` alive
+/// makes the whole sync future `!Send`, which the runtime refuses to spawn.
+async fn localise_record(
+    app: &AppHandle,
+    client: &reqwest::Client,
+    config: &Config,
+    record: &RecordDto,
+) -> AppResult<RecordDto> {
+    let mut out = record.clone();
+    if out.content_type != "image" || out.deleted_at.is_some() || !is_blob_ref(&out.content) {
+        return Ok(out);
+    }
+    match download_blob(client, config, &out.content).await? {
+        Some(bytes) => match store_downloaded_image(app, &bytes) {
+            Some(path) => out.content = path,
+            None => crate::logger::log("jnclub sync: could not store a pulled image"),
+        },
+        // The blob is gone (garbage collected, or the upload never finished).
+        // Keeping the digest leaves the row diagnosable instead of pretending
+        // it has content, and the next push will re-upload it.
+        None => crate::logger::log(&format!(
+            "jnclub sync: attachment {} is missing on the server",
+            out.content
+        )),
+    }
+    Ok(out)
+}
+
 /// Everything that has to travel: new rows, edited rows, deleted rows.
 fn collect_changes(
     conn: &rusqlite::Connection,
@@ -667,8 +835,8 @@ fn collect_changes(
     Ok((pending, tombstones, rows.len()))
 }
 
-pub async fn sync_now(app: &AppHandle) -> AppResult<SyncOutcome> {
-    let result = sync_inner(app).await;
+pub async fn sync_now(app: &AppHandle, direction: SyncDirection) -> AppResult<SyncOutcome> {
+    let result = sync_inner(app, direction).await;
     // Record the failure where the UI can read it. Without this the row would
     // say "已同步" right up until the token expired, and then silently stop.
     {
@@ -727,7 +895,7 @@ pub fn start_sync_loop(app: AppHandle) {
             // first sync immediate instead of waiting out a tick.
             let configured = status(&app).map(|s| s.configured).unwrap_or(false);
             if configured {
-                if let Err(err) = sync_now(&app).await {
+                if let Err(err) = sync_now(&app, SyncDirection::Both).await {
                     crate::logger::log(&format!("jnclub sync tick failed: {err}"));
                 }
             }
@@ -743,7 +911,54 @@ pub fn nudge(app: &AppHandle) {
     emit_status(app);
 }
 
-async fn sync_inner(app: &AppHandle) -> AppResult<SyncOutcome> {
+/// Replace every pending image's local content with its server-side digest.
+///
+/// A row whose bytes cannot be read is dropped from this round rather than
+/// pushed as a path: the peer would render nothing, and a wrong-looking record
+/// is harder to notice than a row that simply shows up on the next tick.
+async fn upload_pending_images(
+    client: &reqwest::Client,
+    config: &Config,
+    pending: Vec<(i64, RecordDto)>,
+) -> AppResult<Vec<(i64, RecordDto)>> {
+    let mut out = Vec::with_capacity(pending.len());
+    for (local_id, mut dto) in pending {
+        let needs_upload = dto.content_type == "image"
+            && dto.deleted_at.is_none()
+            && !is_blob_ref(&dto.content);
+        if !needs_upload {
+            out.push((local_id, dto));
+            continue;
+        }
+        let Some((bytes, mime)) = read_local_image(&dto.content) else {
+            crate::logger::log(&format!(
+                "jnclub sync: skipping image {} because its bytes are unreadable",
+                local_id
+            ));
+            continue;
+        };
+        match upload_blob(client, config, bytes, &mime).await {
+            Ok(sha) => {
+                dto.content = sha;
+                // The peer shows this text under the thumbnail; a path would be
+                // meaningless there too.
+                if dto.preview.as_deref().is_none_or(|p| p.trim().is_empty()) {
+                    dto.preview = Some("图片".into());
+                }
+                out.push((local_id, dto));
+            }
+            Err(err) => {
+                crate::logger::log(&format!(
+                    "jnclub sync: image {} upload failed: {err}",
+                    local_id
+                ));
+            }
+        }
+    }
+    Ok(out)
+}
+
+async fn sync_inner(app: &AppHandle, direction: SyncDirection) -> AppResult<SyncOutcome> {
     let config = match read_config(app)? {
         Some(config) => config,
         None => return Err(AppError::Validation("sync is not configured".into())),
@@ -751,11 +966,18 @@ async fn sync_inner(app: &AppHandle) -> AppResult<SyncOutcome> {
     let client = http_client()?;
 
     // 1. Push. The connection guard is dropped before any await.
-    let (pending, tombstones, _) = {
+    let (pending, tombstones): (Vec<(i64, RecordDto)>, Vec<String>) = if direction.pushes() {
         let conn = lock_db(app)?;
-        collect_changes(&conn)?
+        let (pending, tombstones, _) = collect_changes(&conn)?;
+        (pending, tombstones)
+    } else {
+        (Vec::new(), Vec::new())
     };
     let mut outcome = SyncOutcome::default();
+    // Images travel by reference: the bytes go up first, and the record then
+    // carries the digest the server answered with. A local row's `content` is a
+    // file path, which means nothing on the other side of the wire.
+    let pending = upload_pending_images(&client, &config, pending).await?;
     if !pending.is_empty() {
         let payload: Vec<RecordDto> = pending.iter().map(|(_, dto)| dto.clone()).collect();
         let accepted_count = payload.len();
@@ -813,6 +1035,9 @@ async fn sync_inner(app: &AppHandle) -> AppResult<SyncOutcome> {
     }
 
     // 2. Pull until the server says there is nothing left.
+    if !direction.pulls() {
+        return Ok(outcome);
+    }
     let mut since = {
         let conn = lock_db(app)?;
         read_setting(&conn, LAST_SEQ_KEY)
@@ -827,12 +1052,19 @@ async fn sync_inner(app: &AppHandle) -> AppResult<SyncOutcome> {
         let has_more = page.has_more.unwrap_or(false);
 
         if !records.is_empty() {
+            // Fetch any images before taking the database guard: awaiting under
+            // a `MutexGuard` would make this future `!Send`.
+            let mut localised: Vec<RecordDto> = Vec::with_capacity(records.len());
+            for record in &records {
+                localised.push(localise_record(app, &client, &config, record).await?);
+            }
+
             let conn = lock_db(app)?;
             let mut by_sync: HashMap<String, IndexRow> = HashMap::new();
             for entry in load_index(&conn)? {
                 by_sync.insert(entry.sync_id.clone(), entry);
             }
-            for record in &records {
+            for record in &localised {
                 apply_remote(&conn, record, &by_sync)?;
                 outcome.pulled += 1;
             }
@@ -1138,6 +1370,43 @@ mod tests {
             since = next;
         }
         assert!(found, "the pushed record did not come back from the server");
+    }
+
+    /// The image path end to end against a running server.
+    ///
+    /// ```sh
+    /// cargo test live_server -- --ignored --nocapture
+    /// ```
+    #[tokio::test]
+    #[ignore = "needs a running JNClub and JNCLUB_TEST_TOKEN"]
+    async fn live_server_round_trips_an_image() {
+        let base_url = std::env::var("JNCLUB_TEST_BASE_URL")
+            .unwrap_or_else(|_| "http://localhost:19005".to_string());
+        let token = std::env::var("JNCLUB_TEST_TOKEN").expect("JNCLUB_TEST_TOKEN must be set");
+        let config = Config { base_url, token };
+        let client = http_client().expect("build client");
+
+        // A 2x2 PNG: small enough to inline, real enough that the mime sniff
+        // has something to recognise.
+        let png: Vec<u8> = vec![
+            0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48,
+            0x44, 0x52, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x02, 0x08, 0x02, 0x00, 0x00,
+            0x00, 0xFD, 0xD4, 0x9A, 0x73, 0x00, 0x00, 0x00, 0x16, 0x49, 0x44, 0x41, 0x54, 0x78,
+            0x9C, 0x63, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x00,
+            0x00, 0x00, 0x1D, 0x00, 0x11, 0x00, 0x01, 0x89, 0x5B, 0x0C, 0x0B, 0x00, 0x00, 0x00,
+            0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
+        ];
+
+        let sha = upload_blob(&client, &config, png.clone(), "image/png")
+            .await
+            .expect("upload the image");
+        assert_eq!(sha.len(), 64, "server answered with {sha}");
+
+        let fetched = download_blob(&client, &config, &sha)
+            .await
+            .expect("download the image")
+            .expect("the image is on the server");
+        assert_eq!(fetched, png, "the bytes came back changed");
     }
 
     #[test]

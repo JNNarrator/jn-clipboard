@@ -22,9 +22,13 @@ pub fn set_jnclub_sync_credentials(
     jnclub_sync::set_credentials(&app, &base_url, &token)
 }
 
+/// Run a round trip, or one half of it.
+///
+/// `direction` is `"push"` or `"pull"` for the two buttons on the header, and
+/// absent for the full round trip the background loop uses.
 #[tauri::command]
-pub async fn jnclub_sync_now(app: AppHandle) -> AppResult<SyncOutcome> {
-    jnclub_sync::sync_now(&app).await
+pub async fn jnclub_sync_now(app: AppHandle, direction: Option<String>) -> AppResult<SyncOutcome> {
+    jnclub_sync::sync_now(&app, jnclub_sync::SyncDirection::parse(direction.as_deref())).await
 }
 
 /// Sign in through the system browser.

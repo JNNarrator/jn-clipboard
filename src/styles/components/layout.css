@@ -387,6 +387,80 @@ header {
   padding-right: 40px;
 }
 
+/* Header sync control. Reuses the sort menu's surface so there is one popover
+   look in the header rather than two that drift apart. */
+.header-sync-anchor {
+  position: relative;
+  display: inline-flex;
+}
+
+.header-sync-btn.is-open {
+  color: var(--text-primary);
+  background: var(--accent-soft);
+}
+
+.header-sync-btn.is-busy svg,
+.btn-icon.is-busy svg {
+  animation: header-icon-spin 900ms linear infinite;
+}
+
+@keyframes header-icon-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.header-sync-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: max-content;
+  min-width: 132px;
+  padding: 4px;
+  color: var(--popover-color);
+  background: var(--menu-background);
+  border: var(--menu-border);
+  border-radius: var(--menu-radius);
+  box-shadow: var(--menu-shadow);
+  backdrop-filter: var(--popover-backdrop-filter);
+  -webkit-backdrop-filter: var(--popover-backdrop-filter);
+  box-sizing: border-box;
+  transform-origin: top right;
+  animation: clipboard-sort-menu-in var(--duration-fast) cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: var(--z-dropdown);
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.header-sync-option {
+  display: flex;
+  width: 100%;
+  min-height: 28px;
+  align-items: center;
+  padding: 0 8px;
+  color: var(--text-primary);
+  background: transparent;
+  border: 0;
+  border-radius: var(--compact-action-radius);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--duration-fast) ease, color var(--duration-fast) ease;
+  box-sizing: border-box;
+}
+
+.header-sync-option:hover,
+.header-sync-option:focus-visible {
+  color: var(--menu-item-hover-color);
+  background: var(--menu-item-hover-background);
+  outline: none;
+}
+
 .clipboard-sort-anchor {
   position: absolute;
   z-index: 4;

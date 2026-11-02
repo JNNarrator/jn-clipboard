@@ -71,6 +71,12 @@ export interface StoredEntry extends SyncColumns {
   tags: string[];
   note?: string;
   use_count: number;
+  /**
+   * Digest of the uploaded image, kept after a push so the same screenshot is
+   * not re-sent every round. `content` stays a data URL locally: the list
+   * renders `<img src>` straight from it.
+   */
+  sync_blob?: string;
 }
 
 export interface SettingRow extends SyncColumns {

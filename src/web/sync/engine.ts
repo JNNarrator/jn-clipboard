@@ -23,6 +23,10 @@ import {
 import { SyncApi, type SyncConfig } from "./api";
 import { dtoToEntry, entryToDto, settingToDto, type RecordDto, type SettingDto } from "./types";
 
+/** Same rule as the desktop engine: only a lowercase hex digest names a blob. */
+const BLOB_REF = /^[0-9a-f]{64}$/u;
+const MAX_BLOB_BYTES = 20 * 1024 * 1024;
+
 const META_KEY = "sync";
 
 /** Largest page the server will return; asking for more is clamped anyway. */
@@ -67,10 +71,28 @@ async function push(api: SyncApi): Promise<{ pushed: number; conflicts: number }
     return { pushed: 0, conflicts: 0 };
   }
 
-  const response = await api.push(
-    pendingEntries.map(entryToDto),
-    pendingSettings.map(settingToDto),
-  );
+  // An image row holds a data URL here; the server stores bytes and the record
+  // carries the digest. Uploading first means the row that goes out names
+  // content the peer can actually fetch.
+  const uploaded = new Map<number, string>();
+  for (const row of pendingEntries) {
+    if (row.content_type !== "image" || row.id === undefined) continue;
+    if (BLOB_REF.test(row.content)) continue;
+    const sha = await uploadImage(api, row.content);
+    if (sha) uploaded.set(row.id, sha);
+  }
+
+  const dtos = pendingEntries.map((row) => {
+    const dto = entryToDto(row);
+    const sha = row.id === undefined ? undefined : uploaded.get(row.id);
+    if (sha) {
+      dto.content = sha;
+      if (!dto.preview || !dto.preview.trim()) dto.preview = "图片";
+    }
+    return dto;
+  });
+
+  const response = await api.push(dtos, pendingSettings.map(settingToDto));
 
   const accepted = new Set(response.accepted ?? []);
   const rejected = new Set(response.rejectedSettings ?? []);
@@ -80,8 +102,14 @@ async function push(api: SyncApi): Promise<{ pushed: number; conflicts: number }
     await db.transaction("rw", db.entries, db.settings, async () => {
       for (const row of pendingEntries) {
         if (!accepted.has(row.sync_id) || row.id === undefined) continue;
+        const sha = uploaded.get(row.id);
         await db.entries.where(":id").equals(row.id).modify((current: StoredEntry) => {
-          if (current.rev === row.rev) current.dirty = 0;
+          if (current.rev === row.rev) {
+            current.dirty = 0;
+            // Keep the digest so the next round does not re-upload the same
+            // screenshot; the local row still renders from its data URL.
+            if (sha) current.sync_blob = sha;
+          }
         });
       }
 
@@ -155,15 +183,109 @@ async function applySetting(dto: SettingDto): Promise<boolean> {
   return true;
 }
 
+/**
+ * Send one image and get back the name the server stored it under.
+ *
+ * Returns null when the data URL cannot be decoded or the bytes exceed the
+ * server's ceiling; the row then goes out unchanged rather than blocking the
+ * whole round trip on one screenshot.
+ */
+async function uploadImage(api: SyncApi, content: string): Promise<string | null> {
+  const comma = content.indexOf(",");
+  if (!content.startsWith("data:") || comma < 0) return null;
+  let bytes: Blob;
+  try {
+    bytes = await (await fetch(content)).blob();
+  } catch {
+    return null;
+  }
+  if (bytes.size === 0 || bytes.size > MAX_BLOB_BYTES) return null;
+  try {
+    return await api.uploadBlob(bytes);
+  } catch (error) {
+    console.warn("clipboard sync: image upload failed", error);
+    return null;
+  }
+}
+
+/**
+ * Turn a pulled image reference into something the list can render.
+ *
+ * The list builds `<img src>` straight from `content`, so a digest would render
+ * as a broken image. A data URL rather than an object URL because the row is
+ * persisted: an object URL dies with the page, and the row would come back from
+ * IndexedDB as a dead reference on the next launch.
+ *
+ * Resolved data URLs are cached per digest for the session — one screenshot
+ * often appears in several entries — while the row itself carries its own copy.
+ */
+const blobUrls = new Map<string, string>();
+const blobInflight = new Map<string, Promise<string | null>>();
+
+function toDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function resolveBlob(api: SyncApi, sha: string): Promise<string | null> {
+  const cached = blobUrls.get(sha);
+  if (cached) return cached;
+  let pending = blobInflight.get(sha);
+  if (!pending) {
+    pending = api
+      .downloadBlob(sha)
+      .then(async (blob) => {
+        blobInflight.delete(sha);
+        if (!blob) return null;
+        const dataUrl = await toDataUrl(blob);
+        if (blobUrls.size >= 200) {
+          const oldest = blobUrls.keys().next().value;
+          if (oldest !== undefined) blobUrls.delete(oldest);
+        }
+        blobUrls.set(sha, dataUrl);
+        return dataUrl;
+      })
+      .catch(() => {
+        blobInflight.delete(sha);
+        return null;
+      });
+    blobInflight.set(sha, pending);
+  }
+  return pending;
+}
+
+/** Rewrite a pulled record's digest into a renderable data-carrying src. */
+async function localiseRecord(api: SyncApi, dto: RecordDto): Promise<RecordDto> {
+  if (dto.contentType !== "image" || dto.deletedAt || !BLOB_REF.test(dto.content)) {
+    return dto;
+  }
+  const url = await resolveBlob(api, dto.content);
+  if (!url) return dto;
+  // The digest stays in sync_blob so the row can still be re-uploaded or
+  // re-fetched later; `content` is what the UI consumes.
+  return { ...dto, content: url };
+}
+
+/** Which half of a round trip to run; the header buttons ask for one at a time. */
+export type SyncDirection = "both" | "push" | "pull";
+
 export async function syncNow(
   config: SyncConfig,
-  options: { fetchImpl?: typeof fetch } = {},
+  options: { fetchImpl?: typeof fetch; direction?: SyncDirection } = {},
 ): Promise<SyncOutcome> {
   const api = new SyncApi(config, options);
   const meta = await readMeta();
+  const direction = options.direction ?? "both";
 
   try {
-    const pushResult = await push(api);
+    const pushResult = direction === "pull" ? { pushed: 0, conflicts: 0 } : await push(api);
+    if (direction === "push") {
+      return { pushed: pushResult.pushed, conflicts: pushResult.conflicts, pulled: 0, lastSeq: meta.last_seq };
+    }
 
     let pulled = 0;
     let since = meta.last_seq;
@@ -172,10 +294,18 @@ export async function syncNow(
     for (;;) {
       const page = await api.pull(since, PULL_PAGE);
 
+      // Images are fetched before the transaction opens: Dexie commits a
+      // transaction as soon as it sees a non-Dexie promise, so awaiting a
+      // network call inside one silently loses the writes that follow it.
+      const localised: RecordDto[] = [];
+      for (const dto of page.records) {
+        localised.push(await localiseRecord(api, dto));
+      }
+
       setApplyingRemote(true);
       try {
         await db.transaction("rw", db.entries, db.settings, db.meta, async () => {
-          for (const dto of page.records) {
+          for (const dto of localised) {
             if (await applyRecord(dto)) pulled += 1;
           }
           for (const dto of page.settings) {

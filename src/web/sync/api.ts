@@ -82,9 +82,57 @@ export class SyncApi {
     };
   }
 
+  /**
+   * Hand raw image bytes to the server.
+   *
+   * The digest it answers with is what the record must carry: hashing on this
+   * side would name bytes the server does not have whenever the browser
+   * re-encoded the image.
+   */
+  async uploadBlob(bytes: Blob): Promise<string> {
+    return this.requestRaw<string>("POST", "/api/clipboard/blob", bytes, bytes.type || "application/octet-stream");
+  }
+
+  /** Raw image bytes, or null when the server no longer holds them. */
+  async downloadBlob(sha256: string): Promise<Blob | null> {
+    const url = `${this.config.baseUrl.replace(/\/+$/u, "")}/api/clipboard/blob/${sha256}`;
+    const response = await this.fetchImpl(url, { headers: { "jn-token": this.config.token } });
+    if (response.status === 404) return null;
+    if (response.status === 401) throw new SyncError("登录已过期，请重新登录", 401);
+    if (!response.ok) throw new SyncError(`附件下载失败（${response.status}）`, response.status);
+    return response.blob();
+  }
+
   /** The user's current server cursor, useful before deciding to pull. */
   async state(): Promise<number> {
     return (await this.request<number>("GET", "/api/clipboard/sync/state")) ?? 0;
+  }
+
+  /**
+   * Same envelope handling as `request`, but the body goes up as raw bytes.
+   *
+   * Images do not go through `spring.servlet.multipart`: that limit is tuned
+   * for chunked note uploads, and a screenshot is bigger than it.
+   */
+  private async requestRaw<T>(method: string, path: string, payload: Blob, contentType: string): Promise<T> {
+    const url = `${this.config.baseUrl.replace(/\/+$/u, "")}${path}`;
+    let response: Response;
+    try {
+      response = await this.fetchImpl(url, {
+        method,
+        headers: { "jn-token": this.config.token, "Content-Type": contentType },
+        body: payload,
+      });
+    } catch (error) {
+      throw new SyncError(`无法连接同步服务：${(error as Error).message}`);
+    }
+    if (response.status === 401) throw new SyncError("登录已过期，请重新登录", 401);
+    if (!response.ok) throw new SyncError(`同步服务返回 ${response.status}`, response.status);
+    const envelope = (await response.json()) as Envelope<T>;
+    if (envelope?.code !== 200) {
+      throw new SyncError(envelope?.message || `同步失败（${envelope?.code}）`, response.status, envelope?.code);
+    }
+    return envelope.data;
   }
 
   private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
