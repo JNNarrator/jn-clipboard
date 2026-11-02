@@ -77,7 +77,11 @@ jobs:
       - name: Write the updater fragment
         env:
           PLATFORM: ${{ matrix.updater }}
-        run: node scripts/make-updater-fragment.mjs "$PLATFORM" src-tauri/target/release/bundle "updater-$PLATFORM.json"
+        # bash everywhere: on Windows the default shell is PowerShell, which
+        # reads `$PLATFORM.json` as a property access and hands the script an
+        # empty third argument.
+        shell: bash
+        run: node scripts/make-updater-fragment.mjs "$PLATFORM" src-tauri/target/release/bundle "updater-${PLATFORM}.json"
 
       - name: Build portable zip
         if: matrix.platform == 'windows'
