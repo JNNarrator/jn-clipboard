@@ -14,6 +14,7 @@ import {
     Palette,
     Settings2,
     ShieldCheck,
+    Keyboard,
     type LucideIcon
 } from "lucide-react";
 import type { Locale } from "../../../shared/types";
@@ -24,6 +25,7 @@ import AppSelectorModal from "./AppSelectorModal";
 // Removed UpdateModal imports
 import GeneralSettingsGroup from "./groups/GeneralSettingsGroup";
 import ClipboardSettingsGroup from "./groups/ClipboardSettingsGroup";
+import HotkeySettingsGroup from "./groups/HotkeySettingsGroup";
 import AdvancedSettingsGroup from "./groups/AdvancedSettingsGroup";
 import AppearanceSettingsGroup from "./groups/AppearanceSettingsGroup";
 import CloudSyncSettingsGroup, { type CloudSyncStatusPayload } from "./groups/CloudSyncSettingsGroup";
@@ -243,6 +245,7 @@ const SECTION_ICONS: Record<string, LucideIcon> = {
     general: Settings2,
     appearance: Palette,
     clipboard: Clipboard,
+    hotkeys: Keyboard,
     [ADVANCED_ENTRY]: ListFilter,
     default_apps: AppWindow,
     cloud_sync: Cloud,
@@ -253,7 +256,7 @@ const SECTION_ICONS: Record<string, LucideIcon> = {
 
 const NAV_GROUPS: { labelKey: string; ids: string[] }[] = [
     { labelKey: "settings_nav_group_basic", ids: ["general", "appearance"] },
-    { labelKey: "settings_nav_group_clipboard", ids: ["clipboard", ADVANCED_ENTRY, "default_apps"] },
+    { labelKey: "settings_nav_group_clipboard", ids: ["clipboard", "hotkeys", ADVANCED_ENTRY, "default_apps"] },
     // The browser build syncs through the JNClub API, so it swaps the WebDAV
     // group for its own rather than offering settings it cannot act on.
     { labelKey: "settings_nav_group_sync", ids: [WebSyncPanel ? "web_sync" : "cloud_sync"] },
@@ -285,7 +288,7 @@ const SettingsPanel = (props: SettingsPanelProps) => {
         setIsRecordingPlain, updatePlainPasteHotkey,
         setIsRecordingSearch, updateSearchHotkey,
         setPrivacyProtection,
-        setIsRecording, isRecording, hotkey, hotkeyParts, updateHotkey,
+        setIsRecording, isRecording, hotkey, updateHotkey,
         setTheme, setColorMode, setLanguage, compactMode, setCompactMode, compactShowTime, setCompactShowTime, splitViewEnabled, setSplitViewEnabled, checkHotkeyConflict,
         clipboardItemFontSize, setClipboardItemFontSize, clipboardTagFontSize, setClipboardTagFontSize,
         tagManagerEnabled, setTagManagerEnabled,
@@ -447,16 +450,6 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                     setCaptureRichText={setCaptureRichText}
                     richTextSnapshotPreview={richTextSnapshotPreview}
                     setRichTextSnapshotPreview={setRichTextSnapshotPreview}
-                    plainPasteHotkey={plainPasteHotkey}
-                    isRecordingPlain={isRecordingPlain}
-                    setIsRecordingPlain={setIsRecordingPlain}
-                    updatePlainPasteHotkey={updatePlainPasteHotkey}
-                    searchHotkey={searchHotkey}
-                    isRecordingSearch={isRecordingSearch}
-                    setIsRecordingSearch={setIsRecordingSearch}
-                    updateSearchHotkey={updateSearchHotkey}
-                    quickPasteModifier={quickPasteModifier}
-                    setQuickPasteModifier={setQuickPasteModifier}
                     deleteAfterPaste={deleteAfterPaste}
                     setDeleteAfterPaste={setDeleteAfterPaste}
                     moveToTopAfterPaste={moveToTopAfterPaste}
@@ -465,15 +458,6 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                     setClickCopyOnly={setClickCopyOnly}
                     pasteMethod={pasteMethod}
                     setPasteMethod={setPasteMethod}
-                    registryWinVEnabled={registryWinVEnabled}
-                    setRegistryWinVEnabled={setRegistryWinVEnabled}
-                    sequentialMode={sequentialMode}
-                    setSequentialModeState={setSequentialModeState}
-                    sequentialHotkey={sequentialHotkey}
-                    isRecordingSequential={isRecordingSequential}
-                    setIsRecordingSequential={setIsRecordingSequential}
-                    updateSequentialHotkey={updateSequentialHotkey}
-                    checkHotkeyConflict={checkHotkeyConflict}
                     privacyProtection={privacyProtection}
                     setPrivacyProtection={setPrivacyProtection}
                     privacyProtectionKinds={privacyProtectionKinds}
@@ -490,12 +474,41 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                     setPrivacyKindsOpen={setPrivacyKindsOpen}
                     privacyRulesOpen={privacyRulesOpen}
                     setPrivacyRulesOpen={setPrivacyRulesOpen}
-
+                />
+            )
+        },
+        {
+            id: "hotkeys",
+            label: t("hotkey_settings"),
+            node: (
+                <HotkeySettingsGroup
+                    t={t}
+                    {...groupState('hotkeys')}
+                    LabelWithHint={LabelWithHint}
+                    saveAppSetting={saveAppSetting}
+                    hotkey={hotkey}
                     isRecording={isRecording}
                     setIsRecording={setIsRecording}
-                    hotkeyParts={hotkeyParts}
                     updateHotkey={updateHotkey}
-                    hotkey={hotkey}
+                    plainPasteHotkey={plainPasteHotkey}
+                    isRecordingPlain={isRecordingPlain}
+                    setIsRecordingPlain={setIsRecordingPlain}
+                    updatePlainPasteHotkey={updatePlainPasteHotkey}
+                    searchHotkey={searchHotkey}
+                    isRecordingSearch={isRecordingSearch}
+                    setIsRecordingSearch={setIsRecordingSearch}
+                    updateSearchHotkey={updateSearchHotkey}
+                    sequentialMode={sequentialMode}
+                    setSequentialModeState={setSequentialModeState}
+                    sequentialHotkey={sequentialHotkey}
+                    isRecordingSequential={isRecordingSequential}
+                    setIsRecordingSequential={setIsRecordingSequential}
+                    updateSequentialHotkey={updateSequentialHotkey}
+                    checkHotkeyConflict={checkHotkeyConflict}
+                    quickPasteModifier={quickPasteModifier}
+                    setQuickPasteModifier={setQuickPasteModifier}
+                    registryWinVEnabled={registryWinVEnabled}
+                    setRegistryWinVEnabled={setRegistryWinVEnabled}
                     appSettings={appSettings}
                     theme={theme}
                     colorMode={colorMode}

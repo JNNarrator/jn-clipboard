@@ -2231,6 +2231,53 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
   gap: 2px;
 }
 
+/* Read-only reference list for the keys the window handles itself. Two columns
+   rather than a table element: the rows are label/value pairs, not tabular
+   data, and the sections around it are all flex rows. */
+.shortcut-table {
+  display: flex;
+  flex-direction: column;
+  margin-top: var(--st-space-1, 4px);
+  border: 1px solid var(--st-divider, var(--line-soft));
+  border-radius: var(--st-control-radius, 6px);
+  overflow: hidden;
+}
+
+.shortcut-table-hint {
+  margin: var(--st-space-1, 4px) 0 var(--st-space-2, 8px);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.shortcut-table-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--st-space-3, 12px);
+  padding: 6px 10px;
+  font-size: var(--font-size-sm);
+}
+
+.shortcut-table-row + .shortcut-table-row {
+  border-top: 1px solid var(--st-divider, var(--line-soft));
+}
+
+.shortcut-table-row:nth-child(odd) {
+  background: var(--st-hover, transparent);
+}
+
+.shortcut-table-label {
+  color: var(--text-secondary);
+  min-width: 0;
+}
+
+.shortcut-table-keys {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+}
+
 .hotkey-warning {
   color: var(--status-warning);
   font-size: var(--font-size-xs);

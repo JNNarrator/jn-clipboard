@@ -14,6 +14,7 @@ export interface AppCleanupPolicy {
 export const DEFAULT_COLLAPSED_GROUPS: Record<string, boolean> = {
   general: true,
   clipboard: true,
+  hotkeys: true,
   appearance: true,
   cloud_sync: true,
   default_apps: true,
