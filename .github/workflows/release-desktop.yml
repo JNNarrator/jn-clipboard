@@ -28,16 +28,19 @@ jobs:
             platform: macos
             artifact: jn-clipboard-macos-arm64
             bundles: dmg,app
+            updater: darwin-aarch64
           - os: macos-15-intel
             label: macOS x64
             platform: macos
             artifact: jn-clipboard-macos-x64
             bundles: dmg,app
+            updater: darwin-x86_64
           - os: windows-latest
             label: Windows x64
             platform: windows
             artifact: jn-clipboard-windows-x64
             bundles: nsis,msi
+            updater: windows-x86_64
 
     steps:
       - uses: actions/checkout@v5
@@ -71,6 +74,11 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: node scripts/build-release.mjs ${{ matrix.platform }} stable --bundles ${{ matrix.bundles }}
 
+      - name: Write the updater fragment
+        env:
+          PLATFORM: ${{ matrix.updater }}
+        run: node scripts/make-updater-fragment.mjs "$PLATFORM" src-tauri/target/release/bundle "updater-$PLATFORM.json"
+
       - name: Build portable zip
         if: matrix.platform == 'windows'
         run: npm run build:portable
@@ -87,6 +95,7 @@ jobs:
             src-tauri/target/release/bundle/macos/*.app
             src-tauri/target/release/bundle/macos/*.app.tar.gz
             src-tauri/target/release/bundle/macos/*.app.tar.gz.sig
+            updater-${{ matrix.updater }}.json
 
       - name: Upload Windows bundles
         if: matrix.platform == 'windows'
@@ -99,6 +108,7 @@ jobs:
             src-tauri/target/release/bundle/msi/*.msi
             src-tauri/target/release/bundle/nsis/*.exe
             src-tauri/target/release/bundle/nsis/*.exe.sig
+            updater-${{ matrix.updater }}.json
 
       - name: Upload portable zip
         if: matrix.platform == 'windows'
@@ -130,17 +140,24 @@ jobs:
         run: |
           mkdir -p assets
           find dist -type f \( -name '*.dmg' -o -name '*.msi' -o -name '*.exe' -o -name '*.zip' \
-            -o -name '*.app.tar.gz' -o -name '*.sig' \) \
-            -exec mv -n {} assets/ \;
+            -o -name '*.app.tar.gz' -o -name '*.sig' -o -name 'updater-*.json' \) \
+            -exec cp -n {} assets/ \;
           ls -la assets
           test -n "$(ls -A assets)" || { echo "::error::No installers were built"; exit 1; }
+
+      - name: Give the macOS tarballs distinct names
+        run: node scripts/prepare-updater-assets.mjs dist assets
 
       - name: Write the update manifest
         env:
           TAG: ${{ github.ref_name }}
-          VERSION: ${{ github.ref_name }}
         run: |
-          node scripts/make-update-manifest.mjs "${VERSION#v}" assets/latest.json "$TAG" dist
+          # The fragment is named after the platform it describes, so the
+          # flattened `assets/` directory is not needed to tell them apart.
+          node scripts/make-update-manifest.mjs "${TAG#v}" assets/latest.json "$TAG" \
+            assets/updater-darwin-aarch64.json \
+            assets/updater-darwin-x86_64.json \
+            assets/updater-windows-x86_64.json
 
       - name: Show the manifest
         run: cat assets/latest.json
