@@ -1,6 +1,6 @@
 [package]
 name = "jn-clipboard"
-version = "1.0.5"
+version = "1.0.6"
 description = "Clipboard history manager for macOS, Windows and the browser"
 authors = ["you"]
 edition = "2021"
@@ -64,6 +64,8 @@ ring = "0.17"
 zip = { version = "4", default-features = false, features = ["deflate-flate2", "time"] }
 flate2 = "1"
 encoding_rs = "0.8"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 block2 = "0.6"

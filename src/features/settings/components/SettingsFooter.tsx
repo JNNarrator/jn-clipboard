@@ -148,7 +148,27 @@ const SettingsFooter = ({
                         {formatError(update.error, t)}
                     </div>
                 )}
-                {update.info?.available && (
+                {update.phase === "downloading" && (
+                    <div className="settings-panel-meta" style={{ marginBottom: "6px" }}>
+                        {update.progress === null
+                            ? t("update_downloading")
+                            : t("update_downloading_percent").replace("{n}", String(update.progress))}
+                    </div>
+                )}
+                {update.phase === "installing" && (
+                    <div style={{ marginBottom: "6px" }}>
+                        <div className="settings-panel-meta" style={{ marginBottom: "6px" }}>
+                            {t("update_ready_to_restart")}
+                        </div>
+                        <button
+                            className="settings-action-button settings-action-button--small"
+                            onClick={() => void update.restart()}
+                        >
+                            {t("update_restart_now")}
+                        </button>
+                    </div>
+                )}
+                {update.phase === "ready" && update.info?.available && (
                     <div style={{ marginBottom: "6px" }}>
                         <div className="settings-panel-meta" style={{ marginBottom: "6px" }}>
                             {t("update_available").replace(
@@ -156,17 +176,16 @@ const SettingsFooter = ({
                                 `v${update.info.latestVersion ?? ""}`
                             )}
                         </div>
-                        {update.info.releaseUrl && (
-                            <button
-                                className="settings-action-button settings-action-button--small"
-                                onClick={() => void openUrl(update.info!.releaseUrl!)}
-                            >
-                                {t("download_update")}
-                            </button>
-                        )}
+                        <button
+                            className="settings-action-button settings-action-button--small"
+                            disabled={update.busy}
+                            onClick={() => void (update.canInstall ? update.install() : update.info?.releaseUrl && openUrl(update.info.releaseUrl))}
+                        >
+                            {update.canInstall ? t("update_install_now") : t("download_update")}
+                        </button>
                     </div>
                 )}
-                {update.info && !update.info.available && (
+                {update.phase === "up-to-date" && (
                     <div className="settings-panel-meta" style={{ marginBottom: "6px" }}>
                         {t("update_up_to_date")}
                     </div>

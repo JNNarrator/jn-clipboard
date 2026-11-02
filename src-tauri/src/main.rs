@@ -94,6 +94,10 @@ fn main() -> AppResult<()> {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
+        // In-place updates: the updater checks GitHub, the process plugin lets
+        // the app restart itself once the new bundle is in place.
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(|app, shortcut, event| {

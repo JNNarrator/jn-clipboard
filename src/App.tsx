@@ -30,7 +30,7 @@ import { useToastListener } from "./shared/hooks/useToastListener";
 import { useAppBootstrap } from "./shared/hooks/useAppBootstrap";
 import { useAppActions } from "./shared/hooks/useAppActions";
 import { useNavigationSync } from "./shared/hooks/useNavigationSync";
-import type { UpdateInfo } from "./shared/hooks/useUpdateCheck";
+import { useUpdateCheck } from "./shared/hooks/useUpdateCheck";
 import { useManualSync } from "./shared/hooks/useManualSync";
 import { formatError } from "./shared/lib/errorMessage";
 import { useContextMenuBlock } from "./shared/hooks/useContextMenuBlock";
@@ -1003,29 +1003,26 @@ const App = () => {
   // One update check per launch. Delayed so it does not compete with the
   // startup work, and silent on failure: being offline is not news. The
   // settings footer has a button for on-demand checks.
-  const [updateChecking, setUpdateChecking] = useState(false);
-  // The launch check stays silent; this one answers out loud, because the user
-  // asked. GitHub's unauthenticated limit makes a button preferable to polling.
+  const update = useUpdateCheck();
+  // The launch check stays silent about failure; this one answers out loud,
+  // because the user asked.
   const handleCheckUpdate = useCallback(() => {
     void (async () => {
-      setUpdateChecking(true);
-      try {
-        const info = await invoke<UpdateInfo>("check_update");
-        if (info.available && info.latestVersion) {
-          pushToast(
-            t("update_available").replace("{version}", `v${info.latestVersion}`),
-            6000
-          );
-        } else {
-          pushToast(t("update_up_to_date"), 2200);
-        }
-      } catch (error) {
+      const { phase, info, error } = await update.check();
+      if (error) {
         pushToast(formatError(error, t), 4000);
-      } finally {
-        setUpdateChecking(false);
+        return;
+      }
+      if (phase === "ready" && info?.latestVersion) {
+        pushToast(
+          t("update_available").replace("{version}", `v${info.latestVersion}`),
+          6000
+        );
+      } else if (phase === "up-to-date") {
+        pushToast(t("update_up_to_date"), 2200);
       }
     })();
-  }, [pushToast, t]);
+  }, [pushToast, t, update]);
 
   const handleSyncPush = useCallback(() => void runManualSync("push"), [runManualSync]);
   const handleSyncPull = useCallback(() => void runManualSync("pull"), [runManualSync]);
@@ -1034,23 +1031,31 @@ const App = () => {
     let cancelled = false;
     const timer = window.setTimeout(() => {
       void (async () => {
-        try {
-          const info = await invoke<UpdateInfo>("check_update");
-          if (cancelled || !info.available || !info.latestVersion) return;
-          pushToast(
-            t("update_available").replace("{version}", `v${info.latestVersion}`),
-            6000
-          );
-        } catch {
-          // No network, or GitHub rate-limited us. Either way, nothing to say.
+        const checked = await update.check();
+        if (cancelled) return;
+        const { phase, info } = checked;
+        if (phase !== "ready" || !info?.latestVersion) return;
+        if (update.canInstall) {
+          // Desktop: fetch and stage it now, so the next launch is already the
+          // new build. Announcing first and downloading on demand would leave
+          // the machine on the old version until someone read the toast.
+          const installed = await update.install();
+          if (cancelled) return;
+          if (installed.phase === "installing") {
+            pushToast(t("update_ready_to_restart"), 8000);
+          }
+          return;
         }
-      })();
+        pushToast(t("update_available").replace("{version}", `v${info.latestVersion}`), 6000);
+      })().catch(() => {
+        // Offline, rate-limited, or no release yet: nothing worth saying.
+      });
     }, 4000);
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [pushToast, t]);
+  }, [pushToast, t, update]);
 
   const cycleCategory = useCallback((step: 1 | -1) => {
     setTypeFilter((current) => cycleTypeFilter(current, step));
@@ -1181,7 +1186,7 @@ const App = () => {
         onSyncPull={syncAvailable ? handleSyncPull : undefined}
         syncBusy={syncBusy}
         onCheckUpdate={handleCheckUpdate}
-        updateChecking={updateChecking}
+        updateChecking={update.busy}
       />
 
       {/* Web build only: a browser cannot watch the clipboard, so capture is manual. */}

@@ -1,7 +1,7 @@
 {
   "name": "jn-clipboard",
   "private": true,
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Clipboard history manager for macOS, Windows and the browser",
   "type": "module",
   "scripts": {
@@ -47,6 +47,8 @@
     "@tauri-apps/api": "^2.11.1",
     "@tauri-apps/plugin-dialog": "^2.7.2",
     "@tauri-apps/plugin-opener": "^2",
+    "@tauri-apps/plugin-process": "^2.4.0",
+    "@tauri-apps/plugin-updater": "^2.14.1",
     "dexie": "^4.4.7",
     "framer-motion": "^12.25.0",
     "lucide-react": "^0.562.0",

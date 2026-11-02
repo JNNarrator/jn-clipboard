@@ -73,6 +73,9 @@ jobs:
       # Bumps the version from versions.json and validates the release
       # metadata before it hands over to `tauri build`.
       - name: Build installers
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: node scripts/build-release.mjs ${{ matrix.platform }} stable --bundles ${{ matrix.bundles }}
 
       - name: Upload macOS bundles
