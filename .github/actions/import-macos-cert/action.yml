@@ -1,0 +1,63 @@
+name: Import macOS signing certificate
+description: >
+  Imports the macOS signing identity into a throwaway keychain and exports
+  APPLE_SIGNING_IDENTITY for the build step. Does nothing when the secret is
+  absent, so the workflow still produces usable (ad-hoc signed) builds on forks
+  and before the certificate is configured.
+
+inputs:
+  certificate:
+    description: Base64 of the .p12 containing the signing identity and its key.
+    required: false
+  password:
+    description: Password the .p12 was exported with.
+    required: false
+
+runs:
+  using: composite
+  steps:
+    - name: Import certificate
+      if: inputs.certificate != ''
+      shell: bash
+      env:
+        CERT_P12_BASE64: ${{ inputs.certificate }}
+        CERT_P12_PASSWORD: ${{ inputs.password }}
+      run: |
+        set -euo pipefail
+        KEYCHAIN_PATH="$RUNNER_TEMP/signing.keychain-db"
+        KEYCHAIN_PASSWORD="$(uuidgen)"
+
+        echo "$CERT_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+
+        security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+        security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+        security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+        security import "$RUNNER_TEMP/certificate.p12" \
+          -k "$KEYCHAIN_PATH" \
+          -P "$CERT_P12_PASSWORD" \
+          -T /usr/bin/codesign
+        # codesign may not pop a UI: allow it to use the key without prompting.
+        security set-key-partition-list \
+          -S apple-tool:,apple:,codesign: \
+          -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+        # The default keychain list is replaced, not extended, by CI runners.
+        security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | tr -d '"')
+
+        rm -f "$RUNNER_TEMP/certificate.p12"
+
+        IDENTITY="$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" \
+          | sed -n 's/.*"\(.*\)"/\1/p' | head -1)"
+        if [ -z "$IDENTITY" ]; then
+          echo "::error::The imported certificate has no code signing identity"
+          exit 1
+        fi
+        echo "APPLE_SIGNING_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
+        echo "Signing macOS builds as: $IDENTITY"
+
+    - name: Explain the unsigned fallback
+      if: inputs.certificate == ''
+      shell: bash
+      run: |
+        echo "::warning::No macOS signing certificate configured; building ad-hoc signed."
+        echo "Accessibility and Keychain grants will not survive an update until"
+        echo "MACOS_SIGNING_CERTIFICATE / MACOS_SIGNING_CERTIFICATE_PASSWORD are set."

@@ -1,9 +1,11 @@
 name: Build desktop apps
 
-# Produces the macOS and Windows installers for the desktop app. Unsigned:
-# there is no Apple Developer ID nor a Windows code-signing certificate, so
-# both platforms ship as-is and Gatekeeper/SmartScreen will warn on first
-# launch. Tagged builds live in release-desktop.yml.
+# Produces the macOS and Windows installers for the desktop app. macOS builds
+# are signed with whatever identity MACOS_SIGNING_CERTIFICATE holds; without it
+# they fall back to ad-hoc, which makes every update look like a new program to
+# macOS (the Accessibility grant has to be given again). Windows builds are
+# still unsigned, so SmartScreen warns on first launch. Tagged builds live in
+# release-desktop.yml.
 
 on:
   workflow_dispatch:
@@ -60,6 +62,13 @@ jobs:
 
       - name: Install frontend dependencies
         run: npm ci
+
+      - name: Import macOS signing certificate
+        if: matrix.platform == 'macos'
+        uses: ./.github/actions/import-macos-cert
+        with:
+          certificate: ${{ secrets.MACOS_SIGNING_CERTIFICATE }}
+          password: ${{ secrets.MACOS_SIGNING_CERTIFICATE_PASSWORD }}
 
       # Bumps the version from versions.json and validates the release
       # metadata before it hands over to `tauri build`.

@@ -56,6 +56,13 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      - name: Import macOS signing certificate
+        if: matrix.platform == 'macos'
+        uses: ./.github/actions/import-macos-cert
+        with:
+          certificate: ${{ secrets.MACOS_SIGNING_CERTIFICATE }}
+          password: ${{ secrets.MACOS_SIGNING_CERTIFICATE_PASSWORD }}
+
       - name: Build installers
         run: node scripts/build-release.mjs ${{ matrix.platform }} stable --bundles ${{ matrix.bundles }}
 
