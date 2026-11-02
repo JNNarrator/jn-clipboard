@@ -166,6 +166,14 @@ jobs:
       - name: Show the manifest
         run: cat assets/latest.json
 
+      - name: Drop the internal files
+        run: |
+          # The fragments are inputs to latest.json and the un-suffixed tarball
+          # is the duplicate both macOS jobs produced; neither belongs in a
+          # release anyone downloads from.
+          rm -f assets/updater-*.json assets/jn-clipboard.app.tar.gz assets/jn-clipboard.app.tar.gz.sig
+          ls -la assets
+
       - name: Create draft release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
