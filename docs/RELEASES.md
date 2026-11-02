@@ -53,9 +53,17 @@ pre-release 的版本不会被 `releases/latest` 返回，正式版用户不会�
 
 ## 签名与更新
 
-- 安装包**未签名**：没有 Apple Developer ID，也没有 Windows 代码签名证书。
-  macOS 首次运行需在「系统设置 → 隐私与安全性」里放行，Windows 会弹
-  SmartScreen 警告。
+- macOS 用 repo secret `MACOS_SIGNING_CERTIFICATE`（.p12 的 base64）与
+  `MACOS_SIGNING_CERTIFICATE_PASSWORD` 签名，身份从证书里读，不需要额外写死
+  名称；secret 缺失时回落到 ad-hoc，构建照样能出，只是权限不保留。
+- **为什么必须签名**：ad-hoc 签名的「指定要求」是代码哈希，每次构建都不同，
+  macOS 的 TCC 会把它当成另一个程序——辅助功能、钥匙串的授权每次升级都要
+  重新给，而且旧记录会留下一个开关看着是开的、实际不生效的条目。换成证书
+  签名后指定要求变成「bundle id + 团队证书」，一次授权跨版本有效。
+- 换证书或证书过期后签名身份会变，同样需要重新授权一次；也可用
+  `tccutil reset Accessibility com.jnarrator.jnclipboard` 清掉旧记录再重给。
+- 没有 Apple Developer ID（只有 Apple Development 证书），因此**未公证**：
+  Gatekeeper 仍会在首次运行时拦一次，需要手动放行；Windows 仍弹 SmartScreen。
 - 不生成 updater 制品，也没有原地升级：`tauri-plugin-updater` 已移除。
 - 更新检查只是查询 GitHub 的 `/releases/latest` 并与当前版本比较
   （见 `src-tauri/src/app/commands/update_cmd.rs`），发现新版本时给出跳转
