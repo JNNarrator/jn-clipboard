@@ -1409,6 +1409,45 @@ mod tests {
         assert_eq!(fetched, png, "the bytes came back changed");
     }
 
+    /// The desktop keeps images as files, so the push path reads the file
+    /// rather than a data URL. That branch is the one that runs in production.
+    #[tokio::test]
+    #[ignore = "needs a running JNClub and JNCLUB_TEST_TOKEN"]
+    async fn live_server_round_trips_an_image_file() {
+        let base_url = std::env::var("JNCLUB_TEST_BASE_URL")
+            .unwrap_or_else(|_| "http://localhost:19005".to_string());
+        let token = std::env::var("JNCLUB_TEST_TOKEN").expect("JNCLUB_TEST_TOKEN must be set");
+        let config = Config { base_url, token };
+        let client = http_client().expect("build client");
+
+        let png: Vec<u8> = vec![
+            0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48,
+            0x44, 0x52, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x02, 0x08, 0x02, 0x00, 0x00,
+            0x00, 0xFD, 0xD4, 0x9A, 0x73, 0x00, 0x00, 0x00, 0x16, 0x49, 0x44, 0x41, 0x54, 0x78,
+            0x9C, 0x63, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x00,
+            0x00, 0x00, 0x1D, 0x00, 0x11, 0x00, 0x01, 0x89, 0x5B, 0x0C, 0x0B, 0x00, 0x00, 0x00,
+            0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
+        ];
+        let path = std::env::temp_dir().join("jnclub-live-image-probe.png");
+        std::fs::write(&path, &png).expect("write the probe file");
+
+        let (bytes, mime) =
+            read_local_image(path.to_str().unwrap()).expect("read the probe file back");
+        assert_eq!(mime, "image/png");
+        let sha = upload_blob(&client, &config, bytes, &mime)
+            .await
+            .expect("upload the image");
+        assert_eq!(sha.len(), 64);
+
+        let fetched = download_blob(&client, &config, &sha)
+            .await
+            .expect("download the image")
+            .expect("the image is on the server");
+        assert_eq!(fetched, png, "the bytes came back changed");
+
+        let _ = std::fs::remove_file(&path);
+    }
+
     #[test]
     fn an_unknown_remote_record_is_inserted_once() {
         let conn = fixture();
