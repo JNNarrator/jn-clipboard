@@ -29,6 +29,7 @@ import HotkeySettingsGroup from "./groups/HotkeySettingsGroup";
 import AdvancedSettingsGroup from "./groups/AdvancedSettingsGroup";
 import AppearanceSettingsGroup from "./groups/AppearanceSettingsGroup";
 import CloudSyncSettingsGroup, { type CloudSyncStatusPayload } from "./groups/CloudSyncSettingsGroup";
+import JnclubSyncGroup from "./groups/JnclubSyncGroup";
 import DefaultAppsSettingsGroup from "./groups/DefaultAppsSettingsGroup";
 import DataSettingsGroup from "./groups/DataSettingsGroup";
 import { useUnreadableSecrets } from "../useUnreadableSecrets";
@@ -38,7 +39,7 @@ import SecureTransfer from "./SecureTransfer";
 import { useWideWindow } from "../../../shared/hooks/useWideWindow";
 import { usePaneWidth } from "../../../shared/hooks/usePaneWidth";
 import PaneDivider from "../../../shared/components/PaneDivider";
-import { CLOUD_SYNC_ENABLED } from "../../../shared/config/edition";
+import { CLOUD_SYNC_ENABLED, WEBDAV_SYNC_UI } from "../../../shared/config/edition";
 import { getReleaseBuildInfo, type ReleaseBuildInfo } from "../../../shared/lib/releaseBuild";
 
 interface SettingsPanelProps {
@@ -250,6 +251,7 @@ const SECTION_ICONS: Record<string, LucideIcon> = {
     default_apps: AppWindow,
     cloud_sync: Cloud,
     web_sync: Cloud,
+    jnclub_sync: Cloud,
     secure_transfer: ShieldCheck,
     data: Database
 };
@@ -257,9 +259,13 @@ const SECTION_ICONS: Record<string, LucideIcon> = {
 const NAV_GROUPS: { labelKey: string; ids: string[] }[] = [
     { labelKey: "settings_nav_group_basic", ids: ["general", "appearance"] },
     { labelKey: "settings_nav_group_clipboard", ids: ["clipboard", "hotkeys", ADVANCED_ENTRY, "default_apps"] },
-    // The browser build syncs through the JNClub API, so it swaps the WebDAV
-    // group for its own rather than offering settings it cannot act on.
-    { labelKey: "settings_nav_group_sync", ids: [WebSyncPanel ? "web_sync" : "cloud_sync"] },
+    // The browser build syncs through the JNClub API directly; the desktop
+    // shows the JNClub row. WebDAV is retired and hidden unless explicitly
+    // opted back in (see edition.ts).
+    {
+        labelKey: "settings_nav_group_sync",
+        ids: [WebSyncPanel ? "web_sync" : WEBDAV_SYNC_UI ? "cloud_sync" : "jnclub_sync"]
+    },
     { labelKey: "settings_nav_group_data", ids: ["secure_transfer", "data"] }
 ];
 
@@ -332,7 +338,7 @@ const SettingsPanel = (props: SettingsPanelProps) => {
     });
 
     const handleCloudSyncNow = async () => {
-        if (!CLOUD_SYNC_ENABLED) return;
+        if (!WEBDAV_SYNC_UI || !CLOUD_SYNC_ENABLED) return;
         setCloudSyncNowRunning(true);
         try {
             const status = await invoke<CloudSyncStatusPayload>("cloud_sync_now");
@@ -355,7 +361,7 @@ const SettingsPanel = (props: SettingsPanelProps) => {
         getReleaseBuildInfo().then(setReleaseBuildInfo);
 
         let unlistenCloud: Promise<() => void> | null = null;
-        if (CLOUD_SYNC_ENABLED) {
+        if (WEBDAV_SYNC_UI && CLOUD_SYNC_ENABLED) {
             unlistenCloud = listen<CloudSyncStatusPayload>("cloud-sync-status", (event) => {
                 setCloudSyncStatus(event.payload);
             });
@@ -568,8 +574,20 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                     </Suspense>
                 )
             }]
-            : CLOUD_SYNC_ENABLED
-            ? [{
+            : // The JNClub group is the desktop's sync surface; WebDAV is
+              // retired and only comes back behind an explicit build flag.
+              WEBDAV_SYNC_UI
+            ? []
+            : [{
+                id: "jnclub_sync",
+                label: t("jnclub_sync_title"),
+                node: (
+                    <JnclubSyncGroup t={t} {...groupState('jnclub_sync')} />
+                )
+            }]),
+        ...(WebSyncPanel || !WEBDAV_SYNC_UI
+            ? []
+            : [{
                 id: "cloud_sync",
                 label: t("cloud_sync_settings"),
                 node: (
@@ -601,8 +619,7 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                         onSyncNow={handleCloudSyncNow}
                     />
                 )
-            }]
-            : []),
+            }]),
         {
             id: "default_apps",
             label: t("default_apps"),

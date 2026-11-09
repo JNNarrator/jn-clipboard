@@ -1,7 +1,7 @@
 import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, test } from "vitest";
 import { db } from "../backend/db";
-import { captureEntry, deleteEntry, listHistory, setNote } from "../backend/history";
+import { captureEntry, deleteEntry, listHistory, markUsed, setNote } from "../backend/history";
 import { syncNow, lastSeq } from "./engine";
 import type { PullResponse, PushResponse, RecordDto, SettingDto } from "./types";
 
@@ -189,6 +189,86 @@ describe("push", () => {
     expect(server.settings.get("app.theme")?.value).toBe("mica");
     expect((await db.settings.get("app.theme"))?.dirty).toBe(0);
   });
+
+  test("marking a clip used stays device-local", async () => {
+    // A paste bumps use_count / last_used_at / sort_at and nothing else. That
+    // must not re-ship the record: the counters would fight the other
+    // devices' counters and image rows would re-upload their bytes forever.
+    const server = new FakeServer();
+    const id = await captureEntry({ content: "pasted often" });
+    await run(server);
+    expect(server.pushCalls).toBe(1);
+
+    await markUsed(id);
+
+    const row = (await db.entries.get(id))!;
+    expect(row.use_count).toBe(1); // the stats themselves still move
+    expect(row.rev).toBe(1); // no version bump
+    expect(row.dirty).toBe(0); // nothing queued
+
+    await run(server);
+    expect(server.pushCalls).toBe(1);
+    expect([...server.records.values()][0].rev).toBe(1);
+  });
+
+  test("an image with a known digest is referenced, not re-uploaded", async () => {
+    const server = new FakeServer();
+    let uploads = 0;
+    const countingFetch: typeof fetch = async (input, init) => {
+      if (new URL(String(input)).pathname === "/api/clipboard/blob") {
+        uploads += 1;
+      }
+      return server.fetch(input, init);
+    };
+
+    const digest = "a".repeat(64);
+    // A row a previous round already uploaded (sync_blob names the digest) and
+    // that is dirty again for a reason unrelated to its content: pinned.
+    await db.entries.add({
+      content_type: "image",
+      content: "data:image/png;base64,AAAA",
+      preview: "图片",
+      source_app: "Web",
+      created_at: 1,
+      last_used_at: 1,
+      sort_at: 2,
+      is_pinned: true,
+      tags: [],
+      use_count: 0,
+      sync_blob: digest,
+    });
+
+    const outcome = await syncNow(CONFIG, { fetchImpl: countingFetch });
+    expect(uploads).toBe(0);
+    expect(outcome.pushed).toBeGreaterThanOrEqual(1);
+    const [stored] = [...server.records.values()];
+    expect(stored.content).toBe(digest);
+    expect((await db.entries.where("dirty").equals(1).count())).toBe(0);
+  });
+
+  test("a large backlog travels in batches", async () => {
+    const server = new FakeServer();
+    for (let i = 0; i < 150; i += 1) {
+      await db.entries.add({
+        content_type: "text",
+        content: `clip ${i}`,
+        preview: `clip ${i}`,
+        source_app: "Web",
+        created_at: i,
+        last_used_at: i,
+        sort_at: i,
+        is_pinned: false,
+        tags: [],
+        use_count: 0,
+      });
+    }
+
+    const outcome = await run(server);
+    expect(outcome.pushed).toBe(150);
+    // 150 rows at 100 per request: two bodies, not one the server might refuse.
+    expect(server.pushCalls).toBe(2);
+    expect(await db.entries.where("dirty").equals(1).count()).toBe(0);
+  });
 });
 
 describe("pull", () => {
@@ -300,6 +380,117 @@ describe("conflicts", () => {
     expect(row?.content).toBe("server truth");
     expect(row?.rev).toBe(5);
     expect(row?.dirty).toBe(0);
+  });
+});
+
+describe("duplicate merge", () => {
+  test("a later remote copy of the same text merges, and its identity is tombstoned", async () => {
+    // 本地 10:00 复制、已同步；另一台设备 10:05 复制了同一句话。
+    // 本地行更早 → 保留身份，远端身份排墓碑。
+    const server = new FakeServer();
+    const id = await captureEntry({ content: "shared snippet" });
+    await run(server);
+    const localSyncId = (await db.entries.get(id))!.sync_id;
+
+    server.seq += 1;
+    server.records.set("remote-copy", {
+      syncId: "remote-copy",
+      contentType: "text",
+      content: "shared snippet",
+      preview: "shared snippet",
+      sourceApp: "Phone",
+      isPinned: false,
+      tags: [],
+      useCount: 0,
+      createdAt: Date.now() + 1000,
+      lastUsedAt: Date.now() + 1000,
+      sortAt: Date.now() + 1000,
+      rev: 1,
+      seq: server.seq,
+    });
+
+    const outcome = await run(server);
+    expect(outcome.pulled).toBeGreaterThanOrEqual(1);
+
+    // 没有可见的重复行
+    expect(await listHistory(10, 0)).toHaveLength(1);
+    // 远端身份进墓碑，下一轮 push 把它带到服务器
+    const tombstone = await db.entries.where("sync_id").equals("remote-copy").first();
+    expect(tombstone?.deleted_at).toBeTruthy();
+    expect(tombstone?.dirty).toBe(1);
+
+    await run(server);
+    expect(server.records.get("remote-copy")?.deletedAt).toBeTruthy();
+    // 本地行身份未变
+    expect((await db.entries.get(id))!.sync_id).toBe(localSyncId);
+  });
+
+  test("an earlier remote copy adopts the local row's identity swap", async () => {
+    // 手机更早复制：远端身份胜出 → 本地行改挂远端 syncId，旧身份排墓碑。
+    const server = new FakeServer();
+    const id = await captureEntry({ content: "same words" });
+    await run(server);
+    const oldSyncId = (await db.entries.get(id))!.sync_id;
+
+    server.seq += 1;
+    const remoteCreated = Date.now() - 60_000;
+    server.records.set("remote-first", {
+      syncId: "remote-first",
+      contentType: "text",
+      content: "same words",
+      preview: "same words",
+      sourceApp: "Phone",
+      isPinned: false,
+      tags: [],
+      useCount: 0,
+      createdAt: remoteCreated,
+      lastUsedAt: remoteCreated,
+      sortAt: remoteCreated,
+      rev: 3,
+      seq: server.seq,
+    });
+
+    const outcome = await run(server);
+    expect(outcome.pulled).toBeGreaterThanOrEqual(1);
+
+    const merged = await db.entries.get(id);
+    expect(merged?.sync_id).toBe("remote-first");
+    expect(merged?.rev).toBe(3);
+    expect(merged?.dirty).toBe(0, "内容没变，不需要重推");
+    // 收录时间取更早的（首次复制语义）
+    expect(merged?.created_at).toBe(remoteCreated);
+
+    // 旧身份的墓碑行已在库中等待下一轮
+    const tombstone = await db.entries.where("sync_id").equals(oldSyncId).first();
+    expect(tombstone?.deleted_at).toBeTruthy();
+    expect(await listHistory(10, 0)).toHaveLength(1);
+  });
+
+  test("a copy older than the merge window is kept as a second entry", async () => {
+    // 超出窗口：两边都保留两条，至少两台设备不会做出相反决定。
+    const server = new FakeServer();
+    const id = await captureEntry({ content: "weekly report" });
+    await run(server);
+
+    server.seq += 1;
+    server.records.set("remote-ancient", {
+      syncId: "remote-ancient",
+      contentType: "text",
+      content: "weekly report",
+      preview: "weekly report",
+      sourceApp: "Phone",
+      isPinned: false,
+      tags: [],
+      useCount: 0,
+      createdAt: Date.now() - 30 * 24 * 60 * 60 * 1000,
+      lastUsedAt: Date.now() - 30 * 24 * 60 * 60 * 1000,
+      sortAt: Date.now() - 30 * 24 * 60 * 60 * 1000,
+      rev: 1,
+      seq: server.seq,
+    });
+
+    await run(server);
+    expect(await listHistory(10, 0)).toHaveLength(2);
   });
 });
 

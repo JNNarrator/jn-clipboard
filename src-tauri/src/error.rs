@@ -9,6 +9,9 @@ pub enum AppError {
     Internal(String),
     Validation(String),
     Encryption(String),
+    /// Rejected by the server's login state (expired or missing token). The
+    /// UI turns this into a one-click re-login affordance.
+    Auth(String),
 }
 
 impl std::error::Error for AppError {}
@@ -23,6 +26,7 @@ impl fmt::Display for AppError {
             AppError::Internal(e) => write!(f, "[internal] {}", e),
             AppError::Validation(e) => write!(f, "[validation] {}", e),
             AppError::Encryption(e) => write!(f, "[encryption] {}", e),
+            AppError::Auth(e) => write!(f, "[auth] {}", e),
         }
     }
 }
@@ -97,6 +101,10 @@ mod tests {
             (
                 AppError::Encryption("bad key".into()),
                 "[encryption] bad key",
+            ),
+            (
+                AppError::Auth("token expired".into()),
+                "[auth] token expired",
             ),
         ];
         for (err, expected) in cases {

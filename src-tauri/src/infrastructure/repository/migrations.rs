@@ -460,6 +460,67 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
         conn.execute("INSERT INTO schema_migrations (version) VALUES (21)", [])?;
     }
 
+    // Migration 22: the index also remembers which server blob an image row's
+    // bytes were last uploaded as. Without it, every pin, tag edit or note
+    // change on an image row would re-read and re-upload the whole screenshot.
+    // Both columns stay NULL for text rows and for images that never travelled.
+    if current_version < 22 {
+        if !has_column(conn, "jnclub_sync_index", "blob_sha")? {
+            conn.execute("ALTER TABLE jnclub_sync_index ADD COLUMN blob_sha TEXT", [])?;
+        }
+        if !has_column(conn, "jnclub_sync_index", "blob_source")? {
+            conn.execute("ALTER TABLE jnclub_sync_index ADD COLUMN blob_source TEXT", [])?;
+        }
+        conn.execute("INSERT INTO schema_migrations (version) VALUES (22)", [])?;
+    }
+
+    // Migration 23: incremental change detection for the JNClub engine.
+    // `jnclub_sync_index.digest` answers "what did we last send", but finding
+    // the rows whose digest changed used to mean rescanning the whole table
+    // every 30 seconds. The triggers here flag exactly the rows any write path
+    // touched, so a tick reads a handful of rows instead of the library:
+    // the trigger fires on the engine's own writes too (pull-apply, merge),
+    // which is harmless — a flagged row whose digest matches the index gets
+    // unflagged on the next scan. The created_at index serves the pull-side
+    // duplicate search (same content within a time window).
+    if current_version < 23 {
+        conn.execute_batch(
+            "
+            CREATE TABLE IF NOT EXISTS jnclub_dirty (local_id INTEGER PRIMARY KEY);
+            CREATE TRIGGER IF NOT EXISTS jnclub_dirty_after_insert
+            AFTER INSERT ON clipboard_history
+            BEGIN
+                INSERT OR IGNORE INTO jnclub_dirty (local_id) VALUES (new.id);
+            END;
+            CREATE TRIGGER IF NOT EXISTS jnclub_dirty_after_update
+            AFTER UPDATE ON clipboard_history
+            BEGIN
+                INSERT OR IGNORE INTO jnclub_dirty (local_id) VALUES (new.id);
+            END;
+            CREATE TRIGGER IF NOT EXISTS jnclub_dirty_after_delete
+            AFTER DELETE ON clipboard_history
+            BEGIN
+                DELETE FROM jnclub_dirty WHERE local_id = old.id;
+            END;
+            ",
+        )?;
+        // 部分旧库（和手工搭的测试库）可能还没走到带 created_at 的版本；
+        // 索引只为查重加速，列缺失时跳过而不是让整个迁移失败。
+        if has_column(conn, "clipboard_history", "created_at")? {
+            conn.execute_batch(
+                "
+                CREATE INDEX IF NOT EXISTS idx_clipboard_history_created
+                    ON clipboard_history (created_at);
+                ",
+            )?;
+        }
+        // 首次接入：已有行一次性全部标记，相当于一次基线扫描
+        conn.execute_batch(
+            "INSERT OR IGNORE INTO jnclub_dirty (local_id) SELECT id FROM clipboard_history;",
+        )?;
+        conn.execute("INSERT INTO schema_migrations (version) VALUES (23)", [])?;
+    }
+
     Ok(())
 }
 
@@ -528,7 +589,7 @@ mod tests {
                 row.get(0)
             })
             .expect("read schema version");
-        assert_eq!(version, 21);
+        assert_eq!(version, 23);
     }
 
     #[test]

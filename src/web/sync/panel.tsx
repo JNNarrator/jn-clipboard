@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
+import { db } from "../backend/db";
 import { SettingSwitch } from "../../features/settings/components/SettingControls";
 import { LabelWithHint } from "../../features/settings/components/SettingsHint";
 import { formatError } from "../../shared/lib/errorMessage";
@@ -47,6 +48,7 @@ export default function WebSyncPanel({ t, collapsed, onToggle }: WebSyncPanelPro
   const [token, setToken] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastError, setLastError] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<SyncOutcome | null>(null);
   const [lastSyncAt, setLastSyncAt] = useState<number | null>(null);
 
@@ -56,9 +58,15 @@ export default function WebSyncPanel({ t, collapsed, onToggle }: WebSyncPanelPro
     let cancelled = false;
     void (async () => {
       const settings = (await invoke("get_settings")) as Record<string, string>;
+      // The background loop records its failures here; without reading them
+      // back, a signed-in profile whose token expired looks perfectly healthy
+      // while silently syncing nothing.
+      const meta = await db.meta.get("sync");
       if (cancelled) return;
       setEnabled(settings[ENABLED_KEY] === "true");
       setBaseUrl(settings[SERVER_KEY] || defaultBaseUrl());
+      setLastError(meta?.last_error ?? null);
+      setLastSyncAt(meta?.last_sync_at ?? null);
       refreshToken();
     })();
     return () => {
@@ -90,6 +98,9 @@ export default function WebSyncPanel({ t, collapsed, onToggle }: WebSyncPanelPro
       notifyIfChanged(result);
       setOutcome(result);
       setLastSyncAt(Date.now());
+      // A completed round trip clears the recorded failure.
+      setLastError(null);
+      await db.meta.update("sync", { last_error: undefined });
       if (result.conflicts > 0) setError(`${t("web_sync_conflicts")}: ${result.conflicts}`);
     } catch (syncError) {
       setError(formatError(syncError));
@@ -193,10 +204,15 @@ export default function WebSyncPanel({ t, collapsed, onToggle }: WebSyncPanelPro
               </span>
             </div>
             <div className="settings-panel-meta">
-              {t("web_sync_last_sync")}:{" "}
+              {t("web_sync_last_sync")}: {" "}
               {lastSyncAt ? new Date(lastSyncAt).toLocaleString() : t("web_sync_never")}
             </div>
             {error && <div className="settings-panel-meta is-error">{error}</div>}
+            {lastError && !error && (
+              <div className="settings-panel-meta is-error">
+                {t("web_sync_last_error")}: {lastError}
+              </div>
+            )}
           </div>
         </div>
       )}

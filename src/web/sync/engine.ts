@@ -32,6 +32,111 @@ const META_KEY = "sync";
 /** Largest page the server will return; asking for more is clamped anyway. */
 const PULL_PAGE = 200;
 
+/** Records per push request: a first sync of a full history must not have to
+ * land as one body, or a large library will keep timing out and retrying. */
+const PUSH_BATCH = 100;
+
+/** How far apart two copies of the same content can have been captured and
+ * still merge. Must match the desktop engine: the merge decision is a pure
+ * function of the two records' created_at, so a scope mismatch would have one
+ * device merging while the other keeps both. */
+const DEDUPE_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** Build the per-page duplicate lookup: one scan instead of one scan per
+ * incoming record. */
+function buildDuplicateLookup(): Promise<{
+  byContent: Map<string, StoredEntry>;
+  byBlob: Map<string, StoredEntry>;
+}> {
+  return db.entries
+    .filter((row) => !row.deleted_at)
+    .toArray()
+    .then((rows) => {
+      const byContent = new Map<string, StoredEntry>();
+      const byBlob = new Map<string, StoredEntry>();
+      for (const row of rows) {
+        if (row.content_type === "image") {
+          if (row.sync_blob && BLOB_REF.test(row.sync_blob)) byBlob.set(row.sync_blob, row);
+        } else {
+          byContent.set(`${row.content_type}|${row.content}`, row);
+        }
+      }
+      return { byContent, byBlob };
+    });
+}
+
+/** The local row saying the same thing as an incoming record, if any.
+ * Windows on created_at match the desktop engine, so both platforms reach
+ * the same survivor without coordination. */
+function findDuplicateEntry(
+  lookup: { byContent: Map<string, StoredEntry>; byBlob: Map<string, StoredEntry> },
+  dto: RecordDto,
+): StoredEntry | undefined {
+  const candidate =
+    dto.contentType === "image" && BLOB_REF.test(dto.content)
+      ? lookup.byBlob.get(dto.content)
+      : lookup.byContent.get(`${dto.contentType}|${dto.content}`);
+  if (!candidate) return undefined;
+  // The row the record already refers to is not a duplicate — it is the same
+  // record arriving at a higher rev.
+  if (candidate.sync_id === dto.syncId) return undefined;
+  const remoteCreated = dto.createdAt ?? Date.now();
+  if (Math.abs((candidate.created_at ?? 0) - remoteCreated) > DEDUPE_WINDOW_MS) {
+    return undefined;
+  }
+  return candidate;
+}
+
+/**
+ * Merge an incoming record into the local row that already holds its content.
+ *
+ * The survivor is decided by (created_at, syncId), the same rule the desktop
+ * uses — the earlier capture keeps "first copy" semantics, the tie-break is
+ * content-free so every device computes the same answer. The loser's server
+ * identity is written out as a tombstone row: the next push ships it, the
+ * other devices drop their copies on the next pull, and one record survives
+ * everywhere.
+ */
+async function mergeDuplicate(dup: StoredEntry, dto: RecordDto): Promise<boolean> {
+  if (dup.id === undefined) return false;
+  const now = Date.now();
+  const remoteCreated = dto.createdAt ?? now;
+  const survivorRemote =
+    dup.sync_id == null ||
+    [remoteCreated, dto.syncId] < [dup.created_at ?? 0, dup.sync_id as string];
+
+  await db.entries.update(dup.id, {
+    created_at: Math.min(dup.created_at ?? now, remoteCreated),
+    use_count: Math.max(dup.use_count ?? 0, dto.useCount ?? 0),
+    last_used_at: Math.max(dup.last_used_at ?? 0, dto.lastUsedAt ?? now),
+    ...(survivorRemote
+      ? { sync_id: dto.syncId, rev: Math.max(dup.rev ?? 1, dto.rev ?? 1) }
+      : {}),
+  });
+
+  const loserId = survivorRemote ? dup.sync_id : dto.syncId;
+  const loserRev = survivorRemote ? (dup.rev ?? 1) : (dto.rev ?? 1);
+  if (loserId != null) {
+    await db.entries.add({
+      content_type: "text",
+      content: "",
+      preview: "",
+      source_app: "sync",
+      created_at: now,
+      last_used_at: now,
+      sort_at: 0,
+      is_pinned: false,
+      tags: [],
+      use_count: 0,
+      sync_id: loserId,
+      rev: loserRev + 1,
+      dirty: 1,
+      deleted_at: now,
+    } as StoredEntry);
+  }
+  return true;
+}
+
 export interface SyncOutcome {
   /** Entries and settings the server took from this device. */
   pushed: number;
@@ -60,31 +165,49 @@ export async function lastSyncError(): Promise<string | undefined> {
 }
 
 /**
- * A push sends every dirty row. Guarding on `rev` when clearing the flag means
- * a write that lands while the request is in flight stays dirty and goes out
- * again next time instead of being silently marked as acknowledged.
+ * A push sends the dirty rows, in batches. Guarding on `rev` when clearing the
+ * flag means a write that lands while the request is in flight stays dirty and
+ * goes out again next time instead of being silently marked as acknowledged.
  */
-async function push(api: SyncApi): Promise<{ pushed: number; conflicts: number }> {
-  const pendingEntries = await db.entries.where("dirty").equals(1).toArray();
-  const pendingSettings = await db.settings.where("dirty").equals(1).toArray();
+async function pushOneBatch(
+  api: SyncApi,
+  pendingEntries: StoredEntry[],
+  pendingSettings: SettingRow[],
+): Promise<{ pushed: number; conflicts: number }> {
   if (pendingEntries.length === 0 && pendingSettings.length === 0) {
     return { pushed: 0, conflicts: 0 };
   }
 
   // An image row holds a data URL here; the server stores bytes and the record
-  // carries the digest. Uploading first means the row that goes out names
-  // content the peer can actually fetch.
+  // carries the digest. A row that already has a digest from an earlier round
+  // (its own push, or the pull that brought it) is referenced instead of
+  // re-uploaded: a pin or a tag edit must not ship the screenshot again.
   const uploaded = new Map<number, string>();
+  const entries: StoredEntry[] = [];
   for (const row of pendingEntries) {
-    if (row.content_type !== "image" || row.id === undefined) continue;
-    if (BLOB_REF.test(row.content)) continue;
+    if (row.content_type !== "image" || row.id === undefined) {
+      entries.push(row);
+      continue;
+    }
+    if (row.sync_blob && BLOB_REF.test(row.sync_blob)) {
+      entries.push(row);
+      continue;
+    }
     const sha = await uploadImage(api, row.content);
-    if (sha) uploaded.set(row.id, sha);
+    if (sha) {
+      uploaded.set(row.id, sha);
+      entries.push(row);
+    }
+    // else: dropped from this round. Pushing the data URL inline would put a
+    // multi-megabyte string on the record; a row that shows up later beats
+    // a record the peers cannot render.
   }
 
-  const dtos = pendingEntries.map((row) => {
+  const dtos = entries.map((row) => {
     const dto = entryToDto(row);
-    const sha = row.id === undefined ? undefined : uploaded.get(row.id);
+    const sha =
+      (row.id !== undefined ? uploaded.get(row.id) : undefined) ??
+      (row.sync_blob && BLOB_REF.test(row.sync_blob) ? row.sync_blob : undefined);
     if (sha) {
       dto.content = sha;
       if (!dto.preview || !dto.preview.trim()) dto.preview = "图片";
@@ -97,10 +220,21 @@ async function push(api: SyncApi): Promise<{ pushed: number; conflicts: number }
   const accepted = new Set(response.accepted ?? []);
   const rejected = new Set(response.rejectedSettings ?? []);
 
+  // Conflicts carry the server's version, which names an image by digest;
+  // resolve them to renderable data URLs before the transaction, since Dexie
+  // commits a transaction as soon as it sees a non-Dexie promise.
+  const conflictRows: Array<{ id: number; dto: RecordDto }> = [];
+  for (const conflict of response.conflicts ?? []) {
+    const local = await db.entries.where("sync_id").equals(conflict.syncId).first();
+    if (local?.id === undefined) continue;
+    const server = await localiseRecord(api, conflict.serverRecord);
+    conflictRows.push({ id: local.id, dto: server });
+  }
+
   setApplyingRemote(true);
   try {
     await db.transaction("rw", db.entries, db.settings, async () => {
-      for (const row of pendingEntries) {
+      for (const row of entries) {
         if (!accepted.has(row.sync_id) || row.id === undefined) continue;
         const sha = uploaded.get(row.id);
         await db.entries.where(":id").equals(row.id).modify((current: StoredEntry) => {
@@ -123,11 +257,8 @@ async function push(api: SyncApi): Promise<{ pushed: number; conflicts: number }
         });
       }
 
-      // Conflicts carry the server's version, which is authoritative by rev.
-      for (const conflict of response.conflicts ?? []) {
-        const local = await db.entries.where("sync_id").equals(conflict.syncId).first();
-        if (local?.id === undefined) continue;
-        await db.entries.update(local.id, dtoToEntry(conflict.serverRecord));
+      for (const { id, dto } of conflictRows) {
+        await db.entries.update(id, dtoToEntry(dto));
       }
     });
   } finally {
@@ -135,6 +266,29 @@ async function push(api: SyncApi): Promise<{ pushed: number; conflicts: number }
   }
 
   return { pushed: accepted.size, conflicts: (response.conflicts ?? []).length };
+}
+
+async function push(api: SyncApi): Promise<{ pushed: number; conflicts: number }> {
+  const pendingEntries = await db.entries.where("dirty").equals(1).toArray();
+  const pendingSettings = await db.settings.where("dirty").equals(1).toArray();
+  if (pendingEntries.length === 0 && pendingSettings.length === 0) {
+    return { pushed: 0, conflicts: 0 };
+  }
+
+  let pushed = 0;
+  let conflicts = 0;
+  for (let i = 0; i < pendingEntries.length; i += PUSH_BATCH) {
+    const batch = pendingEntries.slice(i, i + PUSH_BATCH);
+    const result = await pushOneBatch(api, batch, i === 0 ? pendingSettings : []);
+    pushed += result.pushed;
+    conflicts += result.conflicts;
+  }
+  if (pendingEntries.length === 0 && pendingSettings.length > 0) {
+    const result = await pushOneBatch(api, [], pendingSettings);
+    pushed += result.pushed;
+    conflicts += result.conflicts;
+  }
+  return { pushed, conflicts };
 }
 
 /**
@@ -267,7 +421,7 @@ async function localiseRecord(api: SyncApi, dto: RecordDto): Promise<RecordDto> 
   if (!url) return dto;
   // The digest stays in sync_blob so the row can still be re-uploaded or
   // re-fetched later; `content` is what the UI consumes.
-  return { ...dto, content: url };
+  return { ...dto, content: url, syncBlob: dto.content };
 }
 
 /** Which half of a round trip to run; the header buttons ask for one at a time. */
@@ -294,17 +448,35 @@ export async function syncNow(
     for (;;) {
       const page = await api.pull(since, PULL_PAGE);
 
-      // Images are fetched before the transaction opens: Dexie commits a
-      // transaction as soon as it sees a non-Dexie promise, so awaiting a
-      // network call inside one silently loses the writes that follow it.
+      // Duplicates merge without ever fetching bytes: for an image, the
+      // digest both identities were uploaded under is the comparison. The
+      // lookup is one scan per page, and must happen before the transaction:
+      // Dexie commits a transaction as soon as it sees a non-Dexie promise.
+      const lookup = await buildDuplicateLookup();
+      const merges: Array<{ dup: StoredEntry; dto: RecordDto }> = [];
       const localised: RecordDto[] = [];
       for (const dto of page.records) {
+        const existing = await db.entries.where("sync_id").equals(dto.syncId).first();
+        if (existing && (dto.rev ?? 1) <= (existing.rev ?? 0)) continue; // our own echo
+        if (!existing) {
+          // Only an untracked record can be a duplicate: an update to a record
+          // this device already knows must land on its own row, never on a
+          // neighbouring copy of the same content.
+          const dup = findDuplicateEntry(lookup, dto);
+          if (dup) {
+            merges.push({ dup, dto });
+            continue;
+          }
+        }
         localised.push(await localiseRecord(api, dto));
       }
 
       setApplyingRemote(true);
       try {
         await db.transaction("rw", db.entries, db.settings, db.meta, async () => {
+          for (const { dup, dto } of merges) {
+            if (await mergeDuplicate(dup, dto)) pulled += 1;
+          }
           for (const dto of localised) {
             if (await applyRecord(dto)) pulled += 1;
           }

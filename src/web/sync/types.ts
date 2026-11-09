@@ -27,6 +27,9 @@ export interface RecordDto {
   deletedAt?: number | null;
   rev?: number | null;
   seq?: number | null;
+  /** Not on the wire: the digest an image record arrived with, carried so the
+   * local row can reference it again without re-uploading. */
+  syncBlob?: string | null;
 }
 
 export interface SettingDto {
@@ -117,5 +120,6 @@ export function dtoToEntry(dto: RecordDto): Omit<StoredEntry, "id"> {
     created_at: dto.createdAt ?? Date.now(),
     last_used_at: dto.lastUsedAt ?? Date.now(),
     sort_at: dto.sortAt ?? Date.now(),
+    sync_blob: dto.syncBlob ?? undefined,
   };
 }

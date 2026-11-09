@@ -124,6 +124,16 @@ export function isApplyingRemote(): boolean {
 export type EntryInsert = Omit<StoredEntry, keyof SyncColumns> & Partial<SyncColumns>;
 export type SettingInsert = Omit<SettingRow, keyof SyncColumns> & Partial<SyncColumns>;
 
+/** Deep-enough equality for the hook's change filter: identity, or a
+ * shallow array comparison (Dexie may clone the array it re-injects). */
+function isUnchanged(value: unknown, current: unknown): boolean {
+  if (value === current) return true;
+  if (Array.isArray(value) && Array.isArray(current)) {
+    return value.length === current.length && value.every((item, i) => item === current[i]);
+  }
+  return false;
+}
+
 export class WebDatabase extends Dexie {
   entries!: Table<StoredEntry, number, EntryInsert>;
   settings!: Table<SettingRow, string, SettingInsert>;
@@ -158,6 +168,13 @@ export class WebDatabase extends Dexie {
    * forget to, including ones added later.
    */
   private registerSyncHooks(): void {
+    // A pure stats bump (paste a clip, move it back to the top) is
+    // device-local: marking the row dirty would re-ship the whole record —
+    // image bytes included — on every paste, and the counters would fight the
+    // other devices' counters forever. These fields still travel with a
+    // record the first time it is created or genuinely edited.
+    const VOLATILE_ENTRY_FIELDS = new Set(["use_count", "last_used_at", "sort_at"]);
+
     this.entries.hook("creating", (_primKey, obj) => {
       if (applyingRemote) return;
       const row = obj as StoredEntry;
@@ -168,6 +185,20 @@ export class WebDatabase extends Dexie {
 
     this.entries.hook("updating", (mods, _primaryKey, existing) => {
       if (applyingRemote) return undefined;
+      // Returning `undefined` leaves the caller's modifications as they are;
+      // the row just does not get queued for upload.
+      //
+      // The decision is made on what actually *changed*, not on the keys of
+      // `mods`: Dexie injects touched index properties (the `*tags` multiEntry
+      // index, most visibly) into the change set, so a three-field stats bump
+      // arrives looking like four.
+      const changed = Object.entries(mods as Record<string, unknown>)
+        .filter(([key, value]) =>
+          !isUnchanged(value, (existing as unknown as Record<string, unknown>)[key]))
+        .map(([key]) => key);
+      if (changed.length > 0 && changed.every((key) => VOLATILE_ENTRY_FIELDS.has(key))) {
+        return undefined;
+      }
       const row = existing as unknown as StoredEntry;
       // `mods` wins over the stored row, so a caller that explicitly clears a
       // tombstone (or sets one) keeps that decision; everything else is the

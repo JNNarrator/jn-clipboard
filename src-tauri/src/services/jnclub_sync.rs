@@ -17,7 +17,7 @@
 //! tag rename and a bulk cleanup therefore all become "dirty" without any of
 //! them knowing this module exists.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
 use std::time::Duration;
@@ -47,6 +47,9 @@ const DEFAULT_LIMIT: u32 = 200;
 const MAX_BLOB_BYTES: usize = 20 * 1024 * 1024;
 /// A pull that never reports `hasMore == false` must not spin forever.
 const MAX_PAGES: usize = 500;
+/// Records per push request: a first sync of a full history must not have to
+/// land as one body, or a large library will keep timing out and retrying.
+const PUSH_BATCH: usize = 100;
 
 /// Which half of a round trip to run.
 ///
@@ -158,6 +161,11 @@ struct PushRequest {
 struct PushResponse {
     accepted: Option<Vec<String>>,
     conflicts: Option<Vec<ConflictDto>>,
+    /// The server's *global* cursor after this push. Kept on the struct so
+    /// the trap stays visible and testable, but deliberately never written to
+    /// LAST_SEQ: it includes other devices' records this device has not
+    /// pulled yet, so adopting it would skip them forever.
+    #[allow(dead_code)]
     next_seq: Option<i64>,
 }
 
@@ -201,6 +209,11 @@ struct LocalRow {
 
 impl LocalRow {
     fn digest(&self) -> String {
+        // `use_count` / `last_used_at` / `sort_at` are deliberately absent:
+        // they change on every paste, would re-ship the whole record (image
+        // bytes included) each time, and would fight the other devices'
+        // counters forever. They still travel with a record the first time
+        // it is created or genuinely edited.
         [
             self.content_type.clone(),
             self.content.clone(),
@@ -211,10 +224,7 @@ impl LocalRow {
             self.pinned_order.to_string(),
             self.tags.join("\u{1e}"),
             self.note.clone(),
-            self.use_count.to_string(),
-            self.created_at.to_string(),
-            self.last_used_at.to_string(),
-            self.sort_at.to_string(),
+            self.content_hash.to_string(),
         ]
         .join("\u{1f}")
     }
@@ -243,12 +253,19 @@ impl LocalRow {
     }
 }
 
+/// The local half of the index: which server record a row corresponds to,
+/// and — for images — which server blob its bytes were last uploaded as.
 #[derive(Debug, Clone)]
 struct IndexRow {
     local_id: i64,
     sync_id: String,
     rev: i64,
     digest: String,
+    blob_sha: Option<String>,
+    /// The row's `content` at upload time; when it changes (a data URL being
+    /// externalised to a file, say), the reference is stale and the bytes
+    /// travel once more.
+    blob_source: Option<String>,
 }
 
 // ---------------------------------------------------------------------------
@@ -365,37 +382,42 @@ pub fn set_credentials(app: &AppHandle, base_url: &str, token: &str) -> AppResul
 // Database reads/writes
 // ---------------------------------------------------------------------------
 
-fn load_local_rows(conn: &rusqlite::Connection) -> AppResult<Vec<LocalRow>> {
-    let mut stmt = conn
-        .prepare(
-            "SELECT id, content_type, content, preview, source_app, html_content, is_pinned,
-                    pinned_order, tags, note, use_count, created_at, last_used_at, sort_at,
-                    content_hash
-             FROM clipboard_history
-             ORDER BY id ASC",
-        )
-        .map_err(|e| AppError::Database(e.to_string()))?;
+fn map_local_row(row: &rusqlite::Row) -> rusqlite::Result<LocalRow> {
+    let tags_raw: String = row.get(8)?;
+    Ok(LocalRow {
+        id: row.get(0)?,
+        content_type: row.get(1)?,
+        content: row.get(2)?,
+        preview: row.get(3)?,
+        source_app: row.get(4)?,
+        html_content: row.get(5)?,
+        is_pinned: row.get::<_, i64>(6)? != 0,
+        pinned_order: row.get(7)?,
+        tags: serde_json::from_str::<Vec<String>>(&tags_raw).unwrap_or_default(),
+        note: row.get(9)?,
+        use_count: row.get(10)?,
+        created_at: row.get(11)?,
+        last_used_at: row.get(12)?,
+        sort_at: row.get(13)?,
+        content_hash: row.get(14)?,
+    })
+}
+
+const LOCAL_ROW_COLUMNS: &str = "id, content_type, content, preview, source_app, html_content, is_pinned,
+         pinned_order, tags, note, use_count, created_at, last_used_at, sort_at, content_hash";
+
+/// Rows the dirty triggers flagged since the last acknowledged state. The
+/// write triggers keep this set at "what changed", so a tick reads a handful
+/// of rows instead of the whole library.
+fn load_flagged_rows(conn: &rusqlite::Connection) -> AppResult<Vec<LocalRow>> {
+    let sql = format!(
+        "SELECT {LOCAL_ROW_COLUMNS} FROM clipboard_history c
+         JOIN jnclub_dirty d ON d.local_id = c.id
+         ORDER BY c.id ASC"
+    );
+    let mut stmt = conn.prepare(&sql).map_err(|e| AppError::Database(e.to_string()))?;
     let rows = stmt
-        .query_map([], |row| {
-            let tags_raw: String = row.get(8)?;
-            Ok(LocalRow {
-                id: row.get(0)?,
-                content_type: row.get(1)?,
-                content: row.get(2)?,
-                preview: row.get(3)?,
-                source_app: row.get(4)?,
-                html_content: row.get(5)?,
-                is_pinned: row.get::<_, i64>(6)? != 0,
-                pinned_order: row.get(7)?,
-                tags: serde_json::from_str::<Vec<String>>(&tags_raw).unwrap_or_default(),
-                note: row.get(9)?,
-                use_count: row.get(10)?,
-                created_at: row.get(11)?,
-                last_used_at: row.get(12)?,
-                sort_at: row.get(13)?,
-                content_hash: row.get(14)?,
-            })
-        })
+        .query_map([], map_local_row)
         .map_err(|e| AppError::Database(e.to_string()))?;
     let mut out = Vec::new();
     for row in rows {
@@ -404,9 +426,36 @@ fn load_local_rows(conn: &rusqlite::Connection) -> AppResult<Vec<LocalRow>> {
     Ok(out)
 }
 
+/// Index rows whose local row vanished — user deletions plus the negative-id
+/// tombstone queue (see `queue_tombstone`). No full history load required.
+fn load_vanished_index_rows(
+    conn: &rusqlite::Connection,
+) -> AppResult<Vec<(i64, String, i64)>> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT i.local_id, i.sync_id, i.rev FROM jnclub_sync_index i
+             WHERE NOT EXISTS (SELECT 1 FROM clipboard_history c WHERE c.id = i.local_id)",
+        )
+        .map_err(|e| AppError::Database(e.to_string()))?;
+    let rows = stmt
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+        .map_err(|e| AppError::Database(e.to_string()))?;
+    let mut out = Vec::new();
+    for row in rows {
+        out.push(row.map_err(|e| AppError::Database(e.to_string()))?);
+    }
+    Ok(out)
+}
+
+fn clear_dirty_flag(conn: &rusqlite::Connection, local_id: i64) -> AppResult<()> {
+    conn.execute("DELETE FROM jnclub_dirty WHERE local_id = ?1", [local_id])
+        .map_err(|e| AppError::Database(e.to_string()))?;
+    Ok(())
+}
+
 fn load_index(conn: &rusqlite::Connection) -> AppResult<Vec<IndexRow>> {
     let mut stmt = conn
-        .prepare("SELECT local_id, sync_id, rev, digest FROM jnclub_sync_index")
+        .prepare("SELECT local_id, sync_id, rev, digest, blob_sha, blob_source FROM jnclub_sync_index")
         .map_err(|e| AppError::Database(e.to_string()))?;
     let rows = stmt
         .query_map([], |row| {
@@ -415,6 +464,8 @@ fn load_index(conn: &rusqlite::Connection) -> AppResult<Vec<IndexRow>> {
                 sync_id: row.get(1)?,
                 rev: row.get(2)?,
                 digest: row.get(3)?,
+                blob_sha: row.get(4)?,
+                blob_source: row.get(5)?,
             })
         })
         .map_err(|e| AppError::Database(e.to_string()))?;
@@ -431,13 +482,24 @@ fn upsert_index(
     sync_id: &str,
     rev: i64,
     digest: &str,
+    blob: Option<(&str, &str)>,
 ) -> AppResult<()> {
     conn.execute(
-        "INSERT INTO jnclub_sync_index (local_id, sync_id, rev, digest) VALUES (?1, ?2, ?3, ?4)
+        "INSERT INTO jnclub_sync_index (local_id, sync_id, rev, digest, blob_sha, blob_source)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)
          ON CONFLICT(local_id) DO UPDATE SET sync_id = excluded.sync_id,
-                                             rev = excluded.rev,
-                                             digest = excluded.digest",
-        rusqlite::params![local_id, sync_id, rev, digest],
+                                              rev = excluded.rev,
+                                              digest = excluded.digest,
+                                              blob_sha = COALESCE(excluded.blob_sha, jnclub_sync_index.blob_sha),
+                                              blob_source = COALESCE(excluded.blob_source, jnclub_sync_index.blob_source)",
+        rusqlite::params![
+            local_id,
+            sync_id,
+            rev,
+            digest,
+            blob.map(|(sha, _)| sha),
+            blob.map(|(_, source)| source)
+        ],
     )
     .map_err(|e| AppError::Database(e.to_string()))?;
     Ok(())
@@ -616,7 +678,7 @@ async fn pull_page(
 /// status alone would make a refused push look like an empty one.
 async fn decode_envelope<T: for<'de> Deserialize<'de>>(response: reqwest::Response) -> AppResult<T> {
     if response.status().as_u16() == 401 {
-        return Err(AppError::Network("token expired".into()));
+        return Err(AppError::Auth("token expired".into()));
     }
     let status = response.status();
     let body = response
@@ -775,68 +837,156 @@ async fn localise_record(
     Ok(out)
 }
 
-/// Everything that has to travel: new rows, edited rows, deleted rows.
-fn collect_changes(
-    conn: &rusqlite::Connection,
-) -> AppResult<(Vec<(i64, RecordDto)>, Vec<String>, usize)> {
-    let rows = load_local_rows(conn)?;
-    let index = load_index(conn)?;
-    let by_local: HashMap<i64, IndexRow> = index.iter().cloned().map(|r| (r.local_id, r)).collect();
-    let live: HashMap<i64, &LocalRow> = rows.iter().map(|r| (r.id, r)).collect();
-
-    let mut pending: Vec<(i64, RecordDto)> = Vec::new();
-    // Rows that vanished locally: push a tombstone, then forget them.
-    let mut tombstones: Vec<String> = Vec::new();
-    let now = now_ms();
-
-    for row in &rows {
-        match by_local.get(&row.id) {
-            Some(entry) => {
-                if entry.digest != row.digest() {
-                    pending.push((row.id, row.to_dto(&entry.sync_id, entry.rev + 1)));
-                }
-            }
-            None => {
-                let sync_id = Uuid::new_v4().to_string();
-                pending.push((row.id, row.to_dto(&sync_id, 1)));
-            }
-        }
-    }
-
-    for entry in &index {
-        if !live.contains_key(&entry.local_id) {
-            tombstones.push(entry.sync_id.clone());
-            pending.push((
-                entry.local_id,
-                RecordDto {
-                    sync_id: entry.sync_id.clone(),
-                    content_type: "text".into(),
-                    content: String::new(),
-                    content_hash: None,
-                    html_content: None,
-                    preview: None,
-                    source_app: None,
-                    is_pinned: None,
-                    pinned_order: None,
-                    tags: None,
-                    note: None,
-                    use_count: None,
-                    created_at: None,
-                    last_used_at: None,
-                    sort_at: None,
-                    deleted_at: Some(now),
-                    rev: Some(entry.rev + 1),
-                    seq: None,
-                },
-            ));
-        }
-    }
-
-    Ok((pending, tombstones, rows.len()))
+/// One pending row, ready for the push loop.
+///
+/// `raw_content` is the row's `content` exactly as stored (a file path,
+/// possibly an encrypted one). The index compares it against
+/// `blob_source` to know whether this image still needs its bytes uploaded
+/// or can be referenced by digest.
+#[derive(Debug, Clone)]
+struct PushItem {
+    local_id: i64,
+    dto: RecordDto,
+    raw_content: String,
 }
 
+/// A pending image resolved to a server blob, plus what the index should
+/// remember about it when the server accepts the record.
+#[derive(Debug)]
+struct PreparedItem {
+    local_id: i64,
+    dto: RecordDto,
+    /// `(sha, raw_content)` when this round sent fresh bytes; `None` when
+    /// the reference was reused (the index already knows it) or the row is
+    /// not an image.
+    blob: Option<(String, String)>,
+}
+
+/// Everything the push loop needs for one round of `collect_changes`.
+#[derive(Default)]
+struct PendingPush {
+    items: Vec<PushItem>,
+    /// Sync ids whose local row vanished; they ride along as tombstones.
+    tombstone_sync_ids: HashSet<String>,
+    /// The index as of collection time, for blob-reference reuse.
+    index_by_local: HashMap<i64, IndexRow>,
+}
+
+/// Everything that has to travel: new rows, edited rows, deleted rows.
+///
+/// Only rows the `jnclub_dirty` triggers flagged are examined — a tick costs
+/// a handful of rows instead of the whole library. A flag whose row turns out
+/// to match the acknowledged digest is absorbed here (the engine's own writes
+/// — pull-apply, merge, re-encryption — trigger flags too, and this is how
+/// they settle).
+///
+/// DTOs are produced here already decrypted: sensitive rows are encrypted at
+/// rest with this device's Keychain/DPAPI key, an envelope no other device
+/// can open. A row whose stored value fails to decrypt (key access denied on
+/// macOS, a migrated DPAPI blob on the wrong OS) is dropped from this round
+/// rather than sent as ciphertext the peer would render as noise.
+fn collect_changes(conn: &rusqlite::Connection) -> AppResult<PendingPush> {
+    let index = load_index(conn)?;
+    let by_local: HashMap<i64, IndexRow> = index.iter().cloned().map(|r| (r.local_id, r)).collect();
+
+    let mut items: Vec<PushItem> = Vec::new();
+    // Rows that vanished locally: push a tombstone, then forget them.
+    let mut tombstone_sync_ids: HashSet<String> = HashSet::new();
+    let now = now_ms();
+
+    for row in load_flagged_rows(conn)? {
+        let (sync_id, rev) = match by_local.get(&row.id) {
+            Some(entry) => {
+                if entry.digest == row.digest() {
+                    // Back to the acknowledged state: absorb the flag.
+                    clear_dirty_flag(conn, row.id)?;
+                    continue;
+                }
+                (entry.sync_id.clone(), entry.rev + 1)
+            }
+            None => (Uuid::new_v4().to_string(), 1),
+        };
+        let Some(dto) = decrypted_dto(&row, &sync_id, rev) else {
+            crate::logger::log(&format!(
+                "jnclub sync: row {} stays local this round: its stored value cannot be decrypted on this device",
+                row.id
+            ));
+            continue;
+        };
+        items.push(PushItem {
+            local_id: row.id,
+            dto,
+            raw_content: row.content.clone(),
+        });
+    }
+
+    // Tombstones: index rows with no local row — user deletions plus the
+    // negative-id queue written by the pull-side duplicate merge.
+    for (local_id, sync_id, rev) in load_vanished_index_rows(conn)? {
+        tombstone_sync_ids.insert(sync_id.clone());
+        items.push(PushItem {
+            local_id,
+            dto: RecordDto {
+                sync_id,
+                content_type: "text".into(),
+                content: String::new(),
+                content_hash: None,
+                html_content: None,
+                preview: None,
+                source_app: None,
+                is_pinned: None,
+                pinned_order: None,
+                tags: None,
+                note: None,
+                use_count: None,
+                created_at: None,
+                last_used_at: None,
+                sort_at: None,
+                deleted_at: Some(now),
+                rev: Some(rev + 1),
+                seq: None,
+            },
+            raw_content: String::new(),
+        });
+    }
+
+    Ok(PendingPush {
+        items,
+        tombstone_sync_ids,
+        index_by_local: by_local,
+    })
+}
+
+/// `to_dto` plus decryption of the three fields the capture pipeline may have
+/// encrypted. Returns `None` when any of them cannot be opened here.
+fn decrypted_dto(row: &LocalRow, sync_id: &str, rev: i64) -> Option<RecordDto> {
+    let mut dto = row.to_dto(sync_id, rev);
+    let content = crate::infrastructure::encryption::decrypt_stored_value(&row.content).ok()?;
+    let preview = crate::infrastructure::encryption::decrypt_stored_value(&row.preview).ok()?;
+    let html = match &row.html_content {
+        Some(value) => {
+            Some(crate::infrastructure::encryption::decrypt_stored_value(value).ok()?)
+        }
+        None => None,
+    };
+    dto.content = content;
+    dto.preview = Some(preview);
+    dto.html_content = html;
+    Some(dto)
+}
+
+/// Guard against two round trips racing each other (the background loop and
+/// the header buttons both call here). Both apply and index records, so an
+/// overlap could insert the same `sync_id` twice; a second caller just sees
+/// an empty outcome and the next tick continues.
+static SYNC_IN_FLIGHT: AtomicBool = AtomicBool::new(false);
+
 pub async fn sync_now(app: &AppHandle, direction: SyncDirection) -> AppResult<SyncOutcome> {
+    if SYNC_IN_FLIGHT.swap(true, Ordering::Relaxed) {
+        return Ok(SyncOutcome::default());
+    }
     let result = sync_inner(app, direction).await;
+    SYNC_IN_FLIGHT.store(false, Ordering::Relaxed);
     // Record the failure where the UI can read it. Without this the row would
     // say "已同步" right up until the token expired, and then silently stop.
     {
@@ -888,6 +1038,10 @@ pub fn start_sync_loop(app: AppHandle) {
         return;
     }
     let signal = SYNC_WAKE.get_or_init(tokio::sync::Notify::new);
+    // The change stream turns "wait out a tick" into "wake up now". A broken
+    // or missing stream never blocks correctness: the 30-second loop above is
+    // the floor, the stream only accelerates it.
+    let stream_app = app.clone();
 
     tauri::async_runtime::spawn(async move {
         loop {
@@ -902,6 +1056,88 @@ pub fn start_sync_loop(app: AppHandle) {
             let _ = tokio::time::timeout(TICK, signal.notified()).await;
         }
     });
+
+    tauri::async_runtime::spawn(async move {
+        run_stream(stream_app).await;
+    });
+}
+
+/// A client without the ordinary 30-second total timeout: an SSE connection's
+/// lifetime is the stream's lifetime, and the server heartbeats every 30s.
+fn stream_client() -> AppResult<reqwest::Client> {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    reqwest::Client::builder()
+        // 不设总超时（reqwest 默认无）：流的生命周期就是请求的生命周期
+        .connect_timeout(Duration::from_secs(10))
+        .build()
+        .map_err(|e| AppError::Network(e.to_string()))
+}
+
+/// Stay subscribed to the server's change stream; every `sync` event wakes
+/// the loop for an immediate round trip. Reconnects with exponential backoff
+/// — the loop keeps its own cadence the whole time, so this task failing is
+/// invisible except to latency.
+async fn run_stream(app: AppHandle) {
+    use futures::StreamExt;
+
+    let mut backoff_secs: u64 = 5;
+    loop {
+        let Some(config) = read_config(&app).ok().flatten() else {
+            tokio::time::sleep(Duration::from_secs(60)).await;
+            continue;
+        };
+        let Ok(client) = stream_client() else {
+            tokio::time::sleep(Duration::from_secs(60)).await;
+            continue;
+        };
+        let url = format!("{}/api/clipboard/sync/stream", config.base_url);
+
+        let response = client
+            .get(&url)
+            .header("jn-token", &config.token)
+            .send()
+            .await;
+
+        let mut event_name = String::new();
+        let mut buffer = String::new();
+        match response {
+            Ok(response) if response.status().is_success() => {
+                backoff_secs = 5;
+                // Reconnecting means events may have been missed: catch up
+                // before consuming anything the stream says.
+                wake();
+                let mut stream = response.bytes_stream();
+                while let Some(chunk) = stream.next().await {
+                    let Ok(bytes) = chunk else { break };
+                    buffer.push_str(&String::from_utf8_lossy(&bytes));
+                    // Consume complete lines; an empty line closes an SSE event.
+                    while let Some(pos) = buffer.find('\n') {
+                        let line: String = buffer[..pos].trim_end_matches('\r').to_string();
+                        buffer.drain(..pos + 1);
+                        if line.is_empty() {
+                            if event_name == "sync" {
+                                wake();
+                            }
+                            event_name.clear();
+                        } else if let Some(value) = line.strip_prefix("event:") {
+                            event_name = value.trim().to_string();
+                        }
+                    }
+                }
+                crate::logger::log("jnclub sync: change stream ended; reconnecting");
+            }
+            Ok(response) if response.status().as_u16() == 401 => {
+                // Not signed in (or expired): sync_now records the reason where
+                // the UI can read it; retry slowly rather than hammering.
+                tokio::time::sleep(Duration::from_secs(60)).await;
+                continue;
+            }
+            _ => {}
+        }
+
+        tokio::time::sleep(Duration::from_secs(backoff_secs)).await;
+        backoff_secs = (backoff_secs * 2).min(60);
+    }
 }
 
 /// Called by the login and sign-out commands so the loop reacts immediately.
@@ -911,127 +1147,74 @@ pub fn nudge(app: &AppHandle) {
     emit_status(app);
 }
 
-/// Replace every pending image's local content with its server-side digest.
-///
-/// A row whose bytes cannot be read is dropped from this round rather than
-/// pushed as a path: the peer would render nothing, and a wrong-looking record
-/// is harder to notice than a row that simply shows up on the next tick.
-async fn upload_pending_images(
-    client: &reqwest::Client,
-    config: &Config,
-    pending: Vec<(i64, RecordDto)>,
-) -> AppResult<Vec<(i64, RecordDto)>> {
-    let mut out = Vec::with_capacity(pending.len());
-    for (local_id, mut dto) in pending {
-        let needs_upload = dto.content_type == "image"
-            && dto.deleted_at.is_none()
-            && !is_blob_ref(&dto.content);
-        if !needs_upload {
-            out.push((local_id, dto));
-            continue;
-        }
-        let Some((bytes, mime)) = read_local_image(&dto.content) else {
-            crate::logger::log(&format!(
-                "jnclub sync: skipping image {} because its bytes are unreadable",
-                local_id
-            ));
-            continue;
-        };
-        match upload_blob(client, config, bytes, &mime).await {
-            Ok(sha) => {
-                dto.content = sha;
-                // The peer shows this text under the thumbnail; a path would be
-                // meaningless there too.
-                if dto.preview.as_deref().is_none_or(|p| p.trim().is_empty()) {
-                    dto.preview = Some("图片".into());
-                }
-                out.push((local_id, dto));
-            }
-            Err(err) => {
-                crate::logger::log(&format!(
-                    "jnclub sync: image {} upload failed: {err}",
-                    local_id
-                ));
-            }
-        }
-    }
-    Ok(out)
-}
-
 async fn sync_inner(app: &AppHandle, direction: SyncDirection) -> AppResult<SyncOutcome> {
     let config = match read_config(app)? {
         Some(config) => config,
         None => return Err(AppError::Validation("sync is not configured".into())),
     };
     let client = http_client()?;
-
-    // 1. Push. The connection guard is dropped before any await.
-    let (pending, tombstones): (Vec<(i64, RecordDto)>, Vec<String>) = if direction.pushes() {
-        let conn = lock_db(app)?;
-        let (pending, tombstones, _) = collect_changes(&conn)?;
-        (pending, tombstones)
-    } else {
-        (Vec::new(), Vec::new())
-    };
     let mut outcome = SyncOutcome::default();
-    // Images travel by reference: the bytes go up first, and the record then
-    // carries the digest the server answered with. A local row's `content` is a
-    // file path, which means nothing on the other side of the wire.
-    let pending = upload_pending_images(&client, &config, pending).await?;
-    if !pending.is_empty() {
-        let payload: Vec<RecordDto> = pending.iter().map(|(_, dto)| dto.clone()).collect();
-        let accepted_count = payload.len();
-        let response = push(&client, &config, payload).await?;
-        let accepted = response.accepted.unwrap_or_default();
-        let conflicts = response.conflicts.unwrap_or_default();
 
-        {
+    // 1. Push, in batches. The connection guard is dropped before any await.
+    //
+    // The response's `next_seq` is deliberately *not* adopted here: it is the
+    // server's global maximum, which includes other devices' records this
+    // device has not pulled yet. Writing it to LAST_SEQ would skip them
+    // forever — the pull would resume from the new cursor while those rows
+    // keep their lower, already-passed seq. The cursor only ever advances
+    // through pulls; our own accepted writes therefore come back on the next
+    // round trip and are skipped there by the rev gate below.
+    if direction.pushes() {
+        let pending = {
             let conn = lock_db(app)?;
-            let by_sync_id: HashMap<String, i64> =
-                pending.iter().map(|(id, dto)| (dto.sync_id.clone(), *id)).collect();
-            for sync_id in &accepted {
-                let Some(local_id) = by_sync_id.get(sync_id) else { continue };
-                let Some((_, dto)) = pending.iter().find(|(_, dto)| &dto.sync_id == sync_id) else {
-                    continue;
-                };
-                if tombstones.contains(sync_id) {
-                    delete_index(&conn, *local_id)?;
-                    continue;
-                }
-                if let Some(digest) = digest_of(&conn, *local_id)? {
-                    upsert_index(&conn, *local_id, sync_id, dto.rev.unwrap_or(1), &digest)?;
-                }
-            }
-            // A conflict means the server version is newer; adopt it so the
-            // next pull converges instead of pushing the same row forever.
-            for conflict in &conflicts {
-                let Some(server) = conflict.server_record.as_ref() else { continue };
-                if let Some(local_id) = by_sync_id.get(&server.sync_id).copied() {
-                    if server.deleted_at.is_some() {
-                        delete_history(&conn, local_id)?;
-                        delete_index(&conn, local_id)?;
-                    } else {
-                        update_remote(&conn, local_id, server)?;
-                        if let Some(digest) = digest_of(&conn, local_id)? {
-                            upsert_index(
-                                &conn,
-                                local_id,
-                                &server.sync_id,
-                                conflict.server_rev.or(server.rev).unwrap_or(1),
-                                &digest,
-                            )?;
-                        }
-                    }
+            collect_changes(&conn)?
+        };
+
+        for chunk in pending.items.chunks(PUSH_BATCH) {
+            // Blob references are resolved (and bytes uploaded) outside the
+            // database lock.
+            let mut prepared: Vec<PreparedItem> = Vec::with_capacity(chunk.len());
+            for item in chunk {
+                if let Some(item) =
+                    prepare_item(&client, &config, &pending.index_by_local, item.clone()).await
+                {
+                    prepared.push(item);
                 }
             }
-            outcome.pushed = accepted.len();
-            outcome.conflicts = conflicts.len();
-            outcome.tombstones = tombstones.len();
-            let _ = accepted_count;
-            if let Some(next) = response.next_seq {
-                write_setting(&conn, LAST_SEQ_KEY, &next.to_string())?;
+            if prepared.is_empty() {
+                continue;
             }
+
+            let payload: Vec<RecordDto> = prepared.iter().map(|item| item.dto.clone()).collect();
+            let response = push(&client, &config, payload).await?;
+
+            // A conflict carries the server's copy, whose image content is a
+            // digest — localise it before the lock so the adopted row keeps a
+            // usable local path instead of a 64-char string.
+            let mut localised_conflicts: Vec<ConflictDto> = Vec::new();
+            for conflict in response.conflicts.clone().unwrap_or_default() {
+                let mut conflict = conflict;
+                if let Some(record) = conflict.server_record.as_ref() {
+                    conflict.server_record =
+                        Some(localise_record(app, &client, &config, record).await?);
+                }
+                localised_conflicts.push(conflict);
+            }
+
+            {
+                let conn = lock_db(app)?;
+                apply_push_response(
+                    &conn,
+                    &prepared,
+                    &pending.tombstone_sync_ids,
+                    &response,
+                    &localised_conflicts,
+                )?;
+            }
+            outcome.pushed += response.accepted.as_ref().map(|a| a.len()).unwrap_or(0);
+            outcome.conflicts += localised_conflicts.len();
         }
+        outcome.tombstones = pending.tombstone_sync_ids.len();
     }
 
     // 2. Pull until the server says there is nothing left.
@@ -1045,6 +1228,19 @@ async fn sync_inner(app: &AppHandle, direction: SyncDirection) -> AppResult<Sync
             .unwrap_or(0)
     };
 
+    // Cheap probe first: most ticks have nothing new on the server, and one
+    // number beats pulling an empty page. When the probe cannot be reached,
+    // fall through and pull anyway — the probe is an optimisation, not a
+    // gate.
+    if let Ok(state) = remote_state(&client, &config).await {
+        if state <= since {
+            let conn = lock_db(app)?;
+            write_setting(&conn, LAST_AT_KEY, &now_ms().to_string())?;
+            outcome.next_seq = since;
+            return Ok(outcome);
+        }
+    }
+
     for _ in 0..MAX_PAGES {
         let page = pull_page(&client, &config, since, DEFAULT_LIMIT).await?;
         let records = page.records.unwrap_or_default();
@@ -1052,21 +1248,63 @@ async fn sync_inner(app: &AppHandle, direction: SyncDirection) -> AppResult<Sync
         let has_more = page.has_more.unwrap_or(false);
 
         if !records.is_empty() {
-            // Fetch any images before taking the database guard: awaiting under
-            // a `MutexGuard` would make this future `!Send`.
-            let mut localised: Vec<RecordDto> = Vec::with_capacity(records.len());
-            for record in &records {
-                localised.push(localise_record(app, &client, &config, record).await?);
+            // Skip records this device already knows: our own accepted writes
+            // come back through the pull, and re-applying them would rewrite
+            // the row (and re-download an image) for nothing. Records that
+            // duplicate a local row by content merge into it instead of
+            // landing a second copy (see `absorb_duplicate`).
+            let (to_merge, to_apply): (Vec<(RecordDto, DuplicateRow)>, Vec<RecordDto>) = {
+                let conn = lock_db(app)?;
+                let by_sync: HashMap<String, IndexRow> = load_index(&conn)?
+                    .into_iter()
+                    .map(|entry| (entry.sync_id.clone(), entry))
+                    .collect();
+                let mut to_merge: Vec<(RecordDto, DuplicateRow)> = Vec::new();
+                let mut to_apply: Vec<RecordDto> = Vec::new();
+                for record in &records {
+                    match by_sync.get(&record.sync_id) {
+                        // Known and already at this revision: our own echo.
+                        Some(entry) if entry.rev >= record.rev.unwrap_or(1) => continue,
+                        _ => {}
+                    }
+                    match find_duplicate(&conn, record)? {
+                        Some(dup) => to_merge.push((record.clone(), dup)),
+                        None => to_apply.push(record.clone()),
+                    }
+                }
+                (to_merge, to_apply)
+            };
+
+            if !to_merge.is_empty() {
+                // Merging is pure bookkeeping — even an image duplicate needs
+                // no download, the digest already names the bytes — so it runs
+                // under the same guard it was found with.
+                let conn = lock_db(app)?;
+                for (record, dup) in &to_merge {
+                    absorb_duplicate(&conn, record, dup)?;
+                    outcome.pulled += 1;
+                }
             }
 
-            let conn = lock_db(app)?;
-            let mut by_sync: HashMap<String, IndexRow> = HashMap::new();
-            for entry in load_index(&conn)? {
-                by_sync.insert(entry.sync_id.clone(), entry);
-            }
-            for record in &localised {
-                apply_remote(&conn, record, &by_sync)?;
-                outcome.pulled += 1;
+            if !to_apply.is_empty() {
+                // Fetch any images before taking the database guard: awaiting
+                // under a `MutexGuard` would make this future `!Send`.
+                let mut localised: Vec<RecordDto> = Vec::with_capacity(to_apply.len());
+                for record in &to_apply {
+                    localised.push(localise_record(app, &client, &config, record).await?);
+                }
+
+                let conn = lock_db(app)?;
+                let by_sync: HashMap<String, IndexRow> = load_index(&conn)?
+                    .into_iter()
+                    .map(|entry| (entry.sync_id.clone(), entry))
+                    .collect();
+                for (record, localised_record) in to_apply.iter().zip(&localised) {
+                    let blob = image_blob_link(record, localised_record);
+                    let blob = blob.as_ref().map(|(sha, source)| (sha.as_str(), source.as_str()));
+                    apply_remote(&conn, localised_record, &by_sync, blob)?;
+                    outcome.pulled += 1;
+                }
             }
         }
 
@@ -1085,16 +1323,393 @@ async fn sync_inner(app: &AppHandle, direction: SyncDirection) -> AppResult<Sync
     Ok(outcome)
 }
 
+/// The `(sha, content)` pair a pulled image row should be indexed with: the
+/// digest names the bytes on the server, the localised content is the file
+/// path that digest resolved to. `None` for everything else.
+fn image_blob_link(original: &RecordDto, localised: &RecordDto) -> Option<(String, String)> {
+    let is_fresh_image = localised.content_type == "image"
+        && localised.deleted_at.is_none()
+        && is_blob_ref(&original.content)
+        && original.content != localised.content;
+    is_fresh_image.then(|| (original.content.clone(), localised.content.clone()))
+}
+
+// ---------------------------------------------------------------------------
+// Pull-side duplicate merge
+// ---------------------------------------------------------------------------
+
+/// How far apart two copies of the same content can have been captured and
+/// still merge. Both platforms must use the same value: the merge decision is
+/// a pure function of the two records' created_at, so a scope mismatch would
+/// have one device merging while the other keeps both.
+const DEDUPE_WINDOW_MS: i64 = 7 * 24 * 60 * 60 * 1000;
+
+/// A local row that says the same thing as a record coming off the wire.
+#[derive(Debug, Clone)]
+struct DuplicateRow {
+    local_id: i64,
+    /// The row's index sync_id when it ever travelled; `None` for a local row
+    /// the server has never seen.
+    sync_id: Option<String>,
+    /// The index rev of `sync_id` (0 when untracked).
+    rev: i64,
+    created_at: i64,
+    use_count: i64,
+    last_used_at: i64,
+}
+
+/// Look for a live local row with the same content as an incoming record.
+///
+/// Text rows match by exact content or by `content_hash` (a locally stored
+/// sensitive row is ciphertext, so only its plaintext hash can be compared).
+/// Image rows match by the blob digest both identities were uploaded under —
+/// no bytes are read or downloaded to make the comparison.
+fn find_duplicate(
+    conn: &rusqlite::Connection,
+    dto: &RecordDto,
+) -> AppResult<Option<DuplicateRow>> {
+    if dto.deleted_at.is_some() || dto.content_type.is_empty() {
+        return Ok(None);
+    }
+    let anchor = dto.created_at.unwrap_or_else(now_ms);
+    let mut dup: Option<DuplicateRow> = None;
+
+    if dto.content_type == "image" {
+        if !is_blob_ref(&dto.content) {
+            return Ok(None);
+        }
+        let mut stmt = conn
+            .prepare(
+                "SELECT i.local_id, i.sync_id, i.rev, c.created_at, c.use_count, c.last_used_at
+                 FROM jnclub_sync_index i
+                 JOIN clipboard_history c ON c.id = i.local_id
+                 WHERE i.local_id > 0
+                   AND i.blob_sha = ?1
+                   AND ABS(c.created_at - ?2) <= ?3
+                 LIMIT 1",
+            )
+            .map_err(|e| AppError::Database(e.to_string()))?;
+        let row = stmt
+            .query_row(
+                rusqlite::params![dto.content, anchor, DEDUPE_WINDOW_MS],
+                |row| {
+                    Ok(DuplicateRow {
+                        local_id: row.get(0)?,
+                        sync_id: row.get(1)?,
+                        rev: row.get(2)?,
+                        created_at: row.get(3)?,
+                        use_count: row.get(4)?,
+                        last_used_at: row.get(5)?,
+                    })
+                },
+            )
+            .map(Some)
+            .or_else(|e| match e {
+                rusqlite::Error::QueryReturnedNoRows => Ok(None),
+                other => Err(AppError::Database(other.to_string())),
+            })?;
+        dup = row;
+    } else {
+        let mut stmt = conn
+            .prepare(
+                "SELECT c.id, i.sync_id, COALESCE(i.rev, 0), c.created_at, c.use_count, c.last_used_at
+                 FROM clipboard_history c
+                 LEFT JOIN jnclub_sync_index i ON i.local_id = c.id
+                 WHERE c.content_type = ?1
+                   AND ABS(c.created_at - ?2) <= ?3
+                   AND ((?4 <> 0 AND c.content_hash = ?4) OR c.content = ?5)",
+            )
+            .map_err(|e| AppError::Database(e.to_string()))?;
+        let mut rows = stmt
+            .query_map(
+                rusqlite::params![
+                    dto.content_type,
+                    anchor,
+                    DEDUPE_WINDOW_MS,
+                    dto.content_hash.unwrap_or(0),
+                    dto.content
+                ],
+                |row| {
+                    Ok(DuplicateRow {
+                        local_id: row.get(0)?,
+                        sync_id: row.get(1)?,
+                        rev: row.get(2)?,
+                        created_at: row.get(3)?,
+                        use_count: row.get(4)?,
+                        last_used_at: row.get(5)?,
+                    })
+                },
+            )
+            .map_err(|e| AppError::Database(e.to_string()))?;
+        for candidate in rows {
+            let candidate = candidate.map_err(|e| AppError::Database(e.to_string()))?;
+            // The row the record already refers to is not a duplicate — it is
+            // the same record, arriving at a higher rev.
+            if candidate.sync_id.as_deref() == Some(dto.sync_id.as_str()) {
+                continue;
+            }
+            dup = Some(candidate);
+            break;
+        }
+    }
+
+    Ok(dup)
+}
+
+/// Merge an incoming record into the local row that already holds its
+/// content. Both platforms decide the survivor with the same rule — earlier
+/// `created_at` wins, ties broken by the smaller `sync_id` — so every device
+/// reaches the same single record without coordination. The loser's server
+/// identity is queued as a tombstone (a negative-id index row that
+/// `collect_changes` picks up as "vanished locally").
+fn absorb_duplicate(
+    conn: &rusqlite::Connection,
+    dto: &RecordDto,
+    dup: &DuplicateRow,
+) -> AppResult<()> {
+    let remote_created = dto.created_at.unwrap_or_else(now_ms);
+    let survivor_remote = match &dup.sync_id {
+        None => true, // the local row never travelled: let the remote identity take over
+        Some(local_sync_id) => (remote_created, dto.sync_id.as_str()) < (dup.created_at, local_sync_id.as_str()),
+    };
+
+    // Stats fold into the surviving row: the earlier capture time keeps "first
+    // copy" semantics, counters take the max of both. None of this affects
+    // the digest (batch 1 removed the volatile fields from it).
+    conn.execute(
+        "UPDATE clipboard_history SET
+            created_at = MIN(created_at, ?2),
+            use_count = MAX(use_count, ?3),
+            last_used_at = MAX(last_used_at, ?4)
+         WHERE id = ?1",
+        rusqlite::params![
+            dup.local_id,
+            remote_created,
+            dto.use_count.unwrap_or(0),
+            dto.last_used_at.unwrap_or(0)
+        ],
+    )
+    .map_err(|e| AppError::Database(e.to_string()))?;
+
+    if survivor_remote {
+        let digest = digest_of(conn, dup.local_id)?;
+        if let Some(digest) = digest {
+            // The image row keeps its local file; the index just learns the
+            // digest the server already has, so future pushes reference it.
+            let blob = if dto.content_type == "image" && is_blob_ref(&dto.content) {
+                let local_content: String = conn
+                    .query_row("SELECT content FROM clipboard_history WHERE id = ?1", [dup.local_id], |row| row.get(0))
+                    .map_err(|e| AppError::Database(e.to_string()))?;
+                Some((dto.content.clone(), local_content))
+            } else {
+                None
+            };
+            upsert_index(
+                conn,
+                dup.local_id,
+                &dto.sync_id,
+                dto.rev.unwrap_or(1),
+                &digest,
+                blob.as_ref().map(|(sha, source)| (sha.as_str(), source.as_str())),
+            )?;
+        }
+        if let Some(old_sync_id) = &dup.sync_id {
+            if old_sync_id != &dto.sync_id {
+                queue_tombstone(conn, old_sync_id, dup.rev)?;
+            }
+        }
+    } else {
+        // The local row keeps its identity; the remote record's identity dies
+        // on the server, and the other devices drop their copies on the next
+        // pull — leaving one copy everywhere.
+        queue_tombstone(conn, &dto.sync_id, dto.rev.unwrap_or(1))?;
+    }
+    Ok(())
+}
+
+/// Queue a tombstone for a server identity this device no longer wants. The
+/// row is keyed by a negative `local_id`, which matches no clipboard_history
+/// row, so `collect_changes` reports it as vanished and pushes a tombstone;
+/// the queue row is deleted once the server accepts.
+fn queue_tombstone(conn: &rusqlite::Connection, sync_id: &str, rev: i64) -> AppResult<()> {
+    let next: i64 = conn
+        .query_row(
+            "SELECT COALESCE(MIN(local_id), 0) - 1 FROM jnclub_sync_index",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|e| AppError::Database(e.to_string()))?;
+    conn.execute(
+        "INSERT OR IGNORE INTO jnclub_sync_index (local_id, sync_id, rev, digest)
+         VALUES (?1, ?2, ?3, '')",
+        rusqlite::params![next, sync_id, rev.max(1)],
+    )
+    .map_err(|e| AppError::Database(e.to_string()))?;
+    Ok(())
+}
+
+/// Land the server's answer to one push batch: index the accepted records,
+/// adopt the server's version for anything it refused.
+///
+/// Note what is *not* here: no write to LAST_SEQ. See `sync_inner`.
+fn apply_push_response(
+    conn: &rusqlite::Connection,
+    prepared: &[PreparedItem],
+    tombstone_sync_ids: &HashSet<String>,
+    response: &PushResponse,
+    conflicts: &[ConflictDto],
+) -> AppResult<()> {
+    let by_sync_id: HashMap<String, &PreparedItem> = prepared
+        .iter()
+        .map(|item| (item.dto.sync_id.clone(), item))
+        .collect();
+
+    for sync_id in response.accepted.clone().unwrap_or_default() {
+        let Some(item) = by_sync_id.get(&sync_id) else { continue };
+        if tombstone_sync_ids.contains(&sync_id) {
+            delete_index(conn, item.local_id)?;
+            continue;
+        }
+        if let Some(digest) = digest_of(conn, item.local_id)? {
+            upsert_index(
+                conn,
+                item.local_id,
+                &sync_id,
+                item.dto.rev.unwrap_or(1),
+                &digest,
+                item.blob.as_ref().map(|(sha, source)| (sha.as_str(), source.as_str())),
+            )?;
+            // Acknowledged: absorb the dirty flag the write path raised. Safe
+            // under the connection lock — no other writer can slip in between
+            // the digest check and the delete.
+            clear_dirty_flag(conn, item.local_id)?;
+        }
+    }
+
+    // A conflict means the server version is newer; adopt it so the next pull
+    // converges instead of pushing the same row forever.
+    for conflict in conflicts {
+        let Some(server) = conflict.server_record.as_ref() else { continue };
+        let Some(item) = by_sync_id.get(&server.sync_id) else { continue };
+        if server.deleted_at.is_some() {
+            delete_history(conn, item.local_id)?;
+            delete_index(conn, item.local_id)?;
+        } else {
+            update_remote(conn, item.local_id, server)?;
+            apply_local_encryption_policy(conn, item.local_id, server);
+            if let Some(digest) = digest_of(conn, item.local_id)? {
+                upsert_index(
+                    conn,
+                    item.local_id,
+                    &server.sync_id,
+                    conflict.server_rev.or(server.rev).unwrap_or(1),
+                    &digest,
+                    None,
+                )?;
+                clear_dirty_flag(conn, item.local_id)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Turn one pending item into something the wire can carry: image bytes are
+/// uploaded (or referenced by digest when they already have been), everything
+/// else passes through. An item whose image cannot be read or uploaded is
+/// dropped from this round rather than pushed as a content string the peer
+/// cannot render.
+async fn prepare_item(
+    client: &reqwest::Client,
+    config: &Config,
+    index_by_local: &HashMap<i64, IndexRow>,
+    item: PushItem,
+) -> Option<PreparedItem> {
+    let PushItem { local_id, mut dto, raw_content } = item;
+
+    let needs_upload = dto.content_type == "image"
+        && dto.deleted_at.is_none()
+        && !is_blob_ref(&dto.content);
+
+    let mut blob: Option<(String, String)> = None;
+
+    if needs_upload {
+        // A pin, a tag edit or a note on an image row must not ship the
+        // screenshot again: if the bytes (and their storage slot) have not
+        // moved since the last acknowledged upload, reference the digest.
+        let reused = index_by_local
+            .get(&local_id)
+            .filter(|entry| {
+                entry
+                    .blob_sha
+                    .as_deref()
+                    .is_some_and(|sha| !sha.is_empty())
+                    && entry.blob_source.as_deref() == Some(raw_content.as_str())
+            })
+            .and_then(|entry| entry.blob_sha.clone());
+
+        match reused {
+            Some(sha) => {
+                dto.content = sha;
+            }
+            None => {
+                let Some((bytes, mime)) = read_local_image(&dto.content) else {
+                    crate::logger::log(&format!(
+                        "jnclub sync: skipping image {local_id} because its bytes are unreadable"
+                    ));
+                    return None;
+                };
+                match upload_blob(client, config, bytes, &mime).await {
+                    Ok(sha) => {
+                        dto.content = sha.clone();
+                        blob = Some((sha, raw_content));
+                    }
+                    Err(err) => {
+                        crate::logger::log(&format!(
+                            "jnclub sync: image {local_id} upload failed: {err}"
+                        ));
+                        return None;
+                    }
+                }
+            }
+        }
+        // The peer shows this text under the thumbnail; a path would be
+        // meaningless there too.
+        if dto.preview.as_deref().is_none_or(|p| p.trim().is_empty()) {
+            dto.preview = Some("图片".into());
+        }
+    }
+
+    Some(PreparedItem { local_id, dto, blob })
+}
+
+/// The server's current maximum seq. One number that says whether a pull is
+/// worth starting.
+async fn remote_state(client: &reqwest::Client, config: &Config) -> AppResult<i64> {
+    let url = format!("{}/api/clipboard/sync/state", config.base_url);
+    let response = client
+        .get(&url)
+        .header("jn-token", &config.token)
+        .send()
+        .await
+        .map_err(|e| AppError::Network(e.to_string()))?;
+    decode_envelope::<i64>(response).await
+}
+
 /// Land one server record locally.
 ///
 /// Local edits that have not been pushed yet lose to the server copy: the
 /// server already resolved the conflict by `rev`, and keeping the local text
 /// would make the next push fail the same way forever. Surfacing the loss is a
 /// UI concern that does not exist yet.
+///
+/// `blob` is the `(sha, path)` link for an image whose digest resolved to a
+/// local file, so the index can reference the digest again without another
+/// upload.
 fn apply_remote(
     conn: &rusqlite::Connection,
     dto: &RecordDto,
     by_sync: &HashMap<String, IndexRow>,
+    blob: Option<(&str, &str)>,
 ) -> AppResult<()> {
     let existing = by_sync.get(&dto.sync_id);
     let rev = dto.rev.unwrap_or(1);
@@ -1114,9 +1729,59 @@ fn apply_remote(
         }
         None => insert_remote(conn, dto)?,
     };
+    // The record travelled as plaintext (the origin device's key would not
+    // open here); re-apply this device's at-rest policy so a sensitive row is
+    // stored exactly like a locally captured one.
+    apply_local_encryption_policy(conn, local_id, dto);
     if let Some(digest) = digest_of(conn, local_id)? {
-        upsert_index(conn, local_id, &dto.sync_id, rev, &digest)?;
+        upsert_index(conn, local_id, &dto.sync_id, rev, &digest, blob)?;
+        // This row is at its acknowledged state — the trigger flag raised by
+        // the apply itself settles here instead of on the next scan.
+        clear_dirty_flag(conn, local_id)?;
     }
+    Ok(())
+}
+
+/// Encrypt one row's text fields with this device's master key — the mirror
+/// of the capture pipeline's behaviour for sensitive rows. A failure (Keychain
+/// access denied) leaves the row plaintext: the data still works locally, it
+/// just is not protected at rest.
+fn apply_local_encryption_policy(conn: &rusqlite::Connection, local_id: i64, dto: &RecordDto) {
+    let tags = dto.tags.clone().unwrap_or_default();
+    if !crate::database::has_sensitive_tag(&tags) {
+        return;
+    }
+    if let Err(err) = encrypt_row_at_rest(conn, local_id) {
+        crate::logger::log(&format!(
+            "jnclub sync: row {local_id} stays plaintext at rest: {err}"
+        ));
+    }
+}
+
+fn encrypt_row_at_rest(conn: &rusqlite::Connection, local_id: i64) -> AppResult<()> {
+    let (content, preview, html): (String, String, Option<String>) = conn
+        .query_row(
+            "SELECT content, preview, html_content FROM clipboard_history WHERE id = ?1",
+            [local_id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .map_err(|e| AppError::Database(e.to_string()))?;
+    let content = crate::infrastructure::encryption::encrypt_for_storage(&content)
+        .map_err(AppError::Encryption)?;
+    let preview = crate::infrastructure::encryption::encrypt_for_storage(&preview)
+        .map_err(AppError::Encryption)?;
+    let html = match html {
+        Some(value) => Some(
+            crate::infrastructure::encryption::encrypt_for_storage(&value)
+                .map_err(AppError::Encryption)?,
+        ),
+        None => None,
+    };
+    conn.execute(
+        "UPDATE clipboard_history SET content = ?2, preview = ?3, html_content = ?4 WHERE id = ?1",
+        rusqlite::params![local_id, content, preview, html],
+    )
+    .map_err(|e| AppError::Database(e.to_string()))?;
     Ok(())
 }
 
@@ -1152,8 +1817,27 @@ mod tests {
                 local_id INTEGER PRIMARY KEY,
                 sync_id TEXT NOT NULL UNIQUE,
                 rev INTEGER NOT NULL DEFAULT 1,
-                digest TEXT NOT NULL DEFAULT ''
+                digest TEXT NOT NULL DEFAULT '',
+                blob_sha TEXT,
+                blob_source TEXT
             );
+            CREATE TABLE jnclub_dirty (local_id INTEGER PRIMARY KEY);
+            CREATE TRIGGER jnclub_dirty_after_insert
+            AFTER INSERT ON clipboard_history
+            BEGIN
+                INSERT OR IGNORE INTO jnclub_dirty (local_id) VALUES (new.id);
+            END;
+            CREATE TRIGGER jnclub_dirty_after_update
+            AFTER UPDATE ON clipboard_history
+            BEGIN
+                INSERT OR IGNORE INTO jnclub_dirty (local_id) VALUES (new.id);
+            END;
+            CREATE TRIGGER jnclub_dirty_after_delete
+            AFTER DELETE ON clipboard_history
+            BEGIN
+                DELETE FROM jnclub_dirty WHERE local_id = old.id;
+            END;
+            CREATE INDEX idx_clipboard_history_created ON clipboard_history (created_at);
             ",
         )
         .expect("create schema");
@@ -1175,58 +1859,76 @@ mod tests {
     fn an_untracked_row_is_pushed_as_new() {
         let conn = fixture();
         insert_row(&conn, "hello");
-        let (pending, tombstones, _) = collect_changes(&conn).unwrap();
-        assert_eq!(pending.len(), 1);
-        assert!(tombstones.is_empty());
-        assert_eq!(pending[0].1.rev, Some(1));
+        let pending = collect_changes(&conn).unwrap();
+        assert_eq!(pending.items.len(), 1);
+        assert!(pending.tombstone_sync_ids.is_empty());
+        assert_eq!(pending.items[0].dto.rev, Some(1));
         // A fresh sync id is minted per row, not reused between rows.
-        assert_eq!(Uuid::parse_str(&pending[0].1.sync_id).is_ok(), true);
+        assert_eq!(Uuid::parse_str(&pending.items[0].dto.sync_id).is_ok(), true);
     }
 
     #[test]
     fn an_unchanged_row_is_not_pushed_again() {
         let conn = fixture();
         let id = insert_row(&conn, "hello");
-        let (pending, _, _) = collect_changes(&conn).unwrap();
+        let pending = collect_changes(&conn).unwrap();
         let digest = digest_of(&conn, id).unwrap().unwrap();
-        upsert_index(&conn, id, &pending[0].1.sync_id, 1, &digest).unwrap();
+        upsert_index(&conn, id, &pending.items[0].dto.sync_id, 1, &digest, None).unwrap();
 
-        let (second, _, _) = collect_changes(&conn).unwrap();
-        assert!(second.is_empty(), "digest matched but the row was queued again");
+        let second = collect_changes(&conn).unwrap();
+        assert!(second.items.is_empty(), "digest matched but the row was queued again");
+    }
+
+    #[test]
+    fn a_stats_bump_is_not_pushed() {
+        let conn = fixture();
+        let id = insert_row(&conn, "hello");
+        let pending = collect_changes(&conn).unwrap();
+        let digest = digest_of(&conn, id).unwrap().unwrap();
+        upsert_index(&conn, id, &pending.items[0].dto.sync_id, 1, &digest, None).unwrap();
+
+        // Every paste does this: counters up, row back to the top.
+        conn.execute(
+            "UPDATE clipboard_history SET use_count = use_count + 1, last_used_at = 42, sort_at = 99 WHERE id = ?1",
+            [id],
+        )
+        .unwrap();
+        let second = collect_changes(&conn).unwrap();
+        assert!(second.items.is_empty(), "a paste must not re-ship the record");
     }
 
     #[test]
     fn an_edited_row_is_pushed_with_a_bumped_rev() {
         let conn = fixture();
         let id = insert_row(&conn, "hello");
-        let (pending, _, _) = collect_changes(&conn).unwrap();
-        let sync_id = pending[0].1.sync_id.clone();
+        let pending = collect_changes(&conn).unwrap();
+        let sync_id = pending.items[0].dto.sync_id.clone();
         let digest = digest_of(&conn, id).unwrap().unwrap();
-        upsert_index(&conn, id, &sync_id, 3, &digest).unwrap();
+        upsert_index(&conn, id, &sync_id, 3, &digest, None).unwrap();
 
         conn.execute("UPDATE clipboard_history SET note = 'later' WHERE id = ?1", [id])
             .unwrap();
-        let (second, _, _) = collect_changes(&conn).unwrap();
-        assert_eq!(second.len(), 1);
-        assert_eq!(second[0].1.rev, Some(4));
-        assert_eq!(second[0].1.sync_id, sync_id);
+        let second = collect_changes(&conn).unwrap();
+        assert_eq!(second.items.len(), 1);
+        assert_eq!(second.items[0].dto.rev, Some(4));
+        assert_eq!(second.items[0].dto.sync_id, sync_id);
     }
 
     #[test]
     fn a_row_deleted_locally_becomes_a_tombstone() {
         let conn = fixture();
         let id = insert_row(&conn, "hello");
-        let (pending, _, _) = collect_changes(&conn).unwrap();
-        let sync_id = pending[0].1.sync_id.clone();
+        let pending = collect_changes(&conn).unwrap();
+        let sync_id = pending.items[0].dto.sync_id.clone();
         let digest = digest_of(&conn, id).unwrap().unwrap();
-        upsert_index(&conn, id, &sync_id, 1, &digest).unwrap();
+        upsert_index(&conn, id, &sync_id, 1, &digest, None).unwrap();
         delete_history(&conn, id).unwrap();
 
-        let (second, tombstones, _) = collect_changes(&conn).unwrap();
-        assert_eq!(tombstones, vec![sync_id.clone()]);
-        assert_eq!(second.len(), 1);
-        assert!(second[0].1.deleted_at.is_some());
-        assert_eq!(second[0].1.rev, Some(2));
+        let second = collect_changes(&conn).unwrap();
+        assert!(second.tombstone_sync_ids.contains(&sync_id));
+        assert_eq!(second.items.len(), 1);
+        assert!(second.items[0].dto.deleted_at.is_some());
+        assert_eq!(second.items[0].dto.rev, Some(2));
     }
 
     #[test]
@@ -1252,7 +1954,7 @@ mod tests {
             rev: Some(1),
             seq: Some(7),
         };
-        apply_remote(&conn, &dto, &HashMap::new()).unwrap();
+        apply_remote(&conn, &dto, &HashMap::new(), None).unwrap();
 
         let (content, pinned, tags): (String, i64, String) = conn
             .query_row(
@@ -1266,23 +1968,30 @@ mod tests {
         assert_eq!(tags, r#"["work"]"#);
 
         // Tracked, so the next push does not echo it back.
-        let (pending, _, _) = collect_changes(&conn).unwrap();
-        assert!(pending.is_empty());
+        let pending = collect_changes(&conn).unwrap();
+        assert!(pending.items.is_empty());
     }
 
     #[test]
     fn a_remote_tombstone_removes_the_local_copy() {
         let conn = fixture();
         let id = insert_row(&conn, "gone soon");
-        let (pending, _, _) = collect_changes(&conn).unwrap();
-        let sync_id = pending[0].1.sync_id.clone();
+        let pending = collect_changes(&conn).unwrap();
+        let sync_id = pending.items[0].dto.sync_id.clone();
         let digest = digest_of(&conn, id).unwrap().unwrap();
-        upsert_index(&conn, id, &sync_id, 1, &digest).unwrap();
+        upsert_index(&conn, id, &sync_id, 1, &digest, None).unwrap();
 
         let mut by_sync = HashMap::new();
         by_sync.insert(
             sync_id.clone(),
-            IndexRow { local_id: id, sync_id: sync_id.clone(), rev: 1, digest },
+            IndexRow {
+                local_id: id,
+                sync_id: sync_id.clone(),
+                rev: 1,
+                digest,
+                blob_sha: None,
+                blob_source: None,
+            },
         );
         let tombstone = RecordDto {
             sync_id,
@@ -1304,7 +2013,7 @@ mod tests {
             rev: Some(2),
             seq: None,
         };
-        apply_remote(&conn, &tombstone, &by_sync).unwrap();
+        apply_remote(&conn, &tombstone, &by_sync, None).unwrap();
 
         let rows: i64 = conn
             .query_row("SELECT COUNT(*) FROM clipboard_history", [], |row| row.get(0))
@@ -1337,14 +2046,18 @@ mod tests {
         let marker = format!("rust round trip {}", Uuid::new_v4());
         insert_row(&conn, &marker);
 
-        let (pending, tombstones, _) = collect_changes(&conn).unwrap();
-        assert_eq!(pending.len(), 1);
-        assert!(tombstones.is_empty());
-        let sync_id = pending[0].1.sync_id.clone();
+        let pending = collect_changes(&conn).unwrap();
+        assert_eq!(pending.items.len(), 1);
+        assert!(pending.tombstone_sync_ids.is_empty());
+        let sync_id = pending.items[0].dto.sync_id.clone();
 
-        let pushed = push(&client, &config, pending.iter().map(|(_, dto)| dto.clone()).collect())
-            .await
-            .expect("push to the live server");
+        let pushed = push(
+            &client,
+            &config,
+            pending.items.iter().map(|item| item.dto.clone()).collect(),
+        )
+        .await
+        .expect("push to the live server");
         let accepted = pushed.accepted.unwrap_or_default();
         assert!(
             accepted.contains(&sync_id),
@@ -1471,10 +2184,319 @@ mod tests {
             rev: Some(1),
             seq: Some(1),
         };
-        apply_remote(&conn, &dto, &HashMap::new()).unwrap();
+        apply_remote(&conn, &dto, &HashMap::new(), None).unwrap();
         let rows: i64 = conn
             .query_row("SELECT COUNT(*) FROM clipboard_history", [], |row| row.get(0))
             .unwrap();
         assert_eq!(rows, 1);
+    }
+
+    #[test]
+    fn an_accepted_push_does_not_advance_the_pull_cursor() {
+        // A push response reports the server's *global* maximum seq, which
+        // includes records other devices wrote and this device has not pulled
+        // yet. Accepting that value as the pull cursor would skip those
+        // records forever — pull only ever returns `seq > since`.
+        let conn = fixture();
+        write_setting(&conn, LAST_SEQ_KEY, "100").unwrap();
+        let id = insert_row(&conn, "hello");
+        let pending = collect_changes(&conn).unwrap();
+
+        let prepared = [PreparedItem {
+            local_id: id,
+            dto: pending.items[0].dto.clone(),
+            blob: None,
+        }];
+        let response = PushResponse {
+            accepted: Some(vec![pending.items[0].dto.sync_id.clone()]),
+            conflicts: Some(Vec::new()),
+            // The server's global maximum, not "our" records: the trap itself.
+            next_seq: Some(203),
+        };
+        apply_push_response(&conn, &prepared, &pending.tombstone_sync_ids, &response, &[]).unwrap();
+
+        let cursor = read_setting(&conn, LAST_SEQ_KEY);
+        assert_eq!(
+            cursor.as_deref(),
+            Some("100"),
+            "a push must never move the pull cursor"
+        );
+        // The record is indexed though, so the next round does not re-ship it.
+        let indexed: i64 = conn
+            .query_row("SELECT COUNT(*) FROM jnclub_sync_index", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(indexed, 1);
+    }
+
+    #[tokio::test]
+    async fn an_unchanged_image_is_referenced_by_its_cached_digest() {
+        // Pinning or retagging an image row must not ship the screenshot
+        // again. The reuse path is pure bookkeeping: no network call at all,
+        // which the deliberately unreachable client below proves.
+        let conn = fixture();
+        let path = "/tmp/attachments/img_pinme.png";
+        let id = insert_row(&conn, path);
+        conn.execute("UPDATE clipboard_history SET content_type = 'image' WHERE id = ?1", [id])
+            .unwrap();
+        let digest = digest_of(&conn, id).unwrap().unwrap();
+        let sha = "a".repeat(64);
+        upsert_index(&conn, id, "sync-image", 1, &digest, Some((sha.as_str(), path))).unwrap();
+
+        // Any edit that is not a content move.
+        conn.execute("UPDATE clipboard_history SET is_pinned = 1 WHERE id = ?1", [id]).unwrap();
+        let pending = collect_changes(&conn).unwrap();
+        assert_eq!(pending.items.len(), 1);
+
+        let config = Config {
+            base_url: "http://127.0.0.1:1".into(),
+            token: String::new(),
+        };
+        let client = http_client().unwrap();
+        let prepared =
+            prepare_item(&client, &config, &pending.index_by_local, pending.items[0].clone())
+                .await
+                .expect("reuse needs no network");
+        assert_eq!(prepared.dto.content, sha);
+        assert!(prepared.blob.is_none(), "nothing was uploaded");
+    }
+
+    #[test]
+    fn a_pulled_image_row_remembers_its_blob_reference() {
+        let conn = fixture();
+        let sha = "b".repeat(64);
+        let original = RecordDto {
+            sync_id: "img-pull".into(),
+            content_type: "image".into(),
+            content: sha.clone(),
+            content_hash: Some(0),
+            html_content: None,
+            preview: Some("图片".into()),
+            source_app: Some("Web".into()),
+            is_pinned: None,
+            pinned_order: None,
+            tags: None,
+            note: None,
+            use_count: None,
+            created_at: Some(1),
+            last_used_at: None,
+            sort_at: None,
+            deleted_at: None,
+            rev: Some(4),
+            seq: Some(9),
+        };
+        let mut localised = original.clone();
+        let local_path = "/tmp/attachments/img_pulled.png".to_string();
+        localised.content = local_path.clone();
+
+        let blob = image_blob_link(&original, &localised)
+            .expect("a resolved image reference is linkable");
+        assert_eq!(blob, (sha.clone(), local_path.clone()));
+        apply_remote(&conn, &localised, &HashMap::new(), Some((&sha, &local_path))).unwrap();
+
+        let (stored_sha, stored_source): (Option<String>, Option<String>) = conn
+            .query_row(
+                "SELECT blob_sha, blob_source FROM jnclub_sync_index WHERE sync_id = 'img-pull'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(stored_sha.as_deref(), Some(sha.as_str()));
+        assert_eq!(stored_source.as_deref(), Some(local_path.as_str()));
+    }
+
+    // ------------------------------------------------ pull-side duplicate merge
+
+    fn remote_text_dto(sync_id: &str, rev: i64, content: &str, created_at: i64) -> RecordDto {
+        RecordDto {
+            sync_id: sync_id.into(),
+            content_type: "text".into(),
+            content: content.into(),
+            content_hash: None,
+            html_content: None,
+            preview: Some(content.into()),
+            source_app: Some("Web".into()),
+            is_pinned: None,
+            pinned_order: None,
+            tags: None,
+            note: None,
+            use_count: Some(1),
+            created_at: Some(created_at),
+            last_used_at: None,
+            sort_at: None,
+            deleted_at: None,
+            rev: Some(rev),
+            seq: None,
+        }
+    }
+
+    fn index_count(conn: &Connection, sync_id: &str) -> i64 {
+        conn.query_row(
+            "SELECT COUNT(*) FROM jnclub_sync_index WHERE sync_id = ?1",
+            [sync_id],
+            |row| row.get(0),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn a_later_remote_duplicate_of_a_local_row_loses_to_it() {
+        // 电脑 10:00 复制的 "hello" 已同步；手机 10:05 复制了同一句话。
+        // 本地行更早，应当保留自己的身份；远端身份排一份墓碑。
+        let conn = fixture();
+        let id = insert_row(&conn, "hello");
+        conn.execute("UPDATE clipboard_history SET created_at = 200, use_count = 0 WHERE id = ?1", [id])
+            .unwrap();
+        let changes = collect_changes(&conn).unwrap();
+        let digest = digest_of(&conn, id).unwrap().unwrap();
+        upsert_index(&conn, id, "local-old", 1, &digest, None).unwrap();
+        let _ = changes;
+
+        let dto = remote_text_dto("remote-1", 1, "hello", 500);
+        let dup = find_duplicate(&conn, &dto).unwrap().expect("the local copy matches");
+        assert_eq!(dup.local_id, id);
+        absorb_duplicate(&conn, &dto, &dup).unwrap();
+
+        // 本地行的索引没动，远端身份进了墓碑队列
+        let identity: String = conn
+            .query_row(
+                "SELECT sync_id FROM jnclub_sync_index WHERE local_id = ?1",
+                [id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(identity, "local-old");
+        assert_eq!(index_count(&conn, "remote-1"), 1, "远端身份应排进墓碑队列");
+
+        // 下一轮 collect_changes 把墓碑推出去
+        let changes = collect_changes(&conn).unwrap();
+        assert!(changes.tombstone_sync_ids.contains("remote-1"));
+        let tombstone = changes
+            .items
+            .iter()
+            .find(|item| item.dto.sync_id == "remote-1")
+            .expect("the tombstone is queued for the next push");
+        assert!(tombstone.dto.deleted_at.is_some());
+    }
+
+    #[test]
+    fn an_earlier_remote_duplicate_takes_over_a_newer_local_row() {
+        // 反过来：手机更早复制，电脑后复制。远端身份胜出，本地行改挂到它，
+        // 本地旧身份排墓碑——所有设备最终都收敛到同一条记录。
+        let conn = fixture();
+        let id = insert_row(&conn, "hello");
+        conn.execute("UPDATE clipboard_history SET created_at = 500, use_count = 3 WHERE id = ?1", [id])
+            .unwrap();
+        let changes = collect_changes(&conn).unwrap();
+        let digest = digest_of(&conn, id).unwrap().unwrap();
+        upsert_index(&conn, id, "local-new", 1, &digest, None).unwrap();
+        let _ = changes;
+
+        let dto = remote_text_dto("remote-1", 2, "hello", 100);
+        let dup = find_duplicate(&conn, &dto).unwrap().expect("the local copy matches");
+        absorb_duplicate(&conn, &dto, &dup).unwrap();
+
+        // 本地行改挂远端身份，rev 取远端的
+        let (identity, rev): (String, i64) = conn
+            .query_row(
+                "SELECT sync_id, rev FROM jnclub_sync_index WHERE local_id = ?1",
+                [id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(identity, "remote-1");
+        assert_eq!(rev, 2);
+        // 旧身份排墓碑，且不再重推这一行（它已被重指）
+        assert_eq!(index_count(&conn, "local-new"), 1);
+        let changes = collect_changes(&conn).unwrap();
+        assert!(changes.tombstone_sync_ids.contains("local-new"));
+        assert!(
+            !changes.items.iter().any(|item| item.dto.sync_id == "remote-1"),
+            "胜出的身份不能再被推一次"
+        );
+
+        // 收录时间取更早的（首次复制语义）
+        let created_at: i64 = conn
+            .query_row("SELECT created_at FROM clipboard_history WHERE id = ?1", [id], |row| row.get(0))
+            .unwrap();
+        assert_eq!(created_at, 100);
+        // 计数取两者较大值
+        let use_count: i64 = conn
+            .query_row("SELECT use_count FROM clipboard_history WHERE id = ?1", [id], |row| row.get(0))
+            .unwrap();
+        assert_eq!(use_count, 3);
+    }
+
+    #[test]
+    fn an_image_duplicate_merges_by_digest_without_reading_bytes() {
+        // 两台设备各贴过同一张截图：字节相同 → digest 相同。合并按
+        // digest 判断，不需要读文件、更不需要下载。
+        let conn = fixture();
+        let path = "/tmp/attachments/img_dup.png";
+        let id = insert_row(&conn, path);
+        conn.execute("UPDATE clipboard_history SET content_type = 'image', created_at = 200 WHERE id = ?1", [id])
+            .unwrap();
+        let digest = "a".repeat(64);
+        let row_digest = digest_of(&conn, id).unwrap().unwrap();
+        upsert_index(&conn, id, "img-old", 1, &row_digest, Some((digest.as_str(), path))).unwrap();
+
+        let dto = RecordDto {
+            sync_id: "img-remote".into(),
+            content_type: "image".into(),
+            content: digest.clone(),
+            content_hash: Some(0),
+            html_content: None,
+            preview: Some("图片".into()),
+            source_app: Some("Web".into()),
+            is_pinned: None,
+            pinned_order: None,
+            tags: None,
+            note: None,
+            use_count: None,
+            created_at: Some(100),
+            last_used_at: None,
+            sort_at: None,
+            deleted_at: None,
+            rev: Some(1),
+            seq: None,
+        };
+        let dup = find_duplicate(&conn, &dto).unwrap().expect("the digest matches");
+        absorb_duplicate(&conn, &dto, &dup).unwrap();
+
+        // 远端更早 → 接管本地行的索引；本地旧身份排墓碑
+        let identity: String = conn
+            .query_row(
+                "SELECT sync_id FROM jnclub_sync_index WHERE local_id = ?1",
+                [id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(identity, "img-remote");
+        assert_eq!(index_count(&conn, "img-old"), 1);
+        // 图片引用跟着换到远端 digest 上，本地路径不变
+        let (blob_sha, blob_source): (Option<String>, Option<String>) = conn
+            .query_row(
+                "SELECT blob_sha, blob_source FROM jnclub_sync_index WHERE local_id = ?1",
+                [id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(blob_sha.as_deref(), Some(digest.as_str()));
+        assert_eq!(blob_source.as_deref(), Some(path));
+    }
+
+    #[test]
+    fn a_record_older_than_the_merge_window_is_not_a_duplicate() {
+        // 两周前在别处复制的同一句话：不合并。两边都会保留两条记录，
+        // 但至少不会两台设备各自做出相反的决定。
+        let conn = fixture();
+        let id = insert_row(&conn, "hello");
+        conn.execute("UPDATE clipboard_history SET created_at = 500 WHERE id = ?1", [id])
+            .unwrap();
+
+        let dto = remote_text_dto("remote-1", 1, "hello", 500 - DEDUPE_WINDOW_MS - 1);
+        assert!(
+            find_duplicate(&conn, &dto).unwrap().is_none(),
+            "超出合并窗口的记录不该被判重"
+        );
     }
 }

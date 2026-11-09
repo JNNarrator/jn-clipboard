@@ -70,7 +70,11 @@ const JnclubSyncRow = ({ t }: JnclubSyncRowProps) => {
     };
 
     const configured = status?.configured ?? false;
-    const failed = Boolean(error ?? status?.lastError);
+    const failureText = error ?? status?.lastError ?? null;
+    // The engine reports an expired token as "[auth] token expired"; the one
+    // recovery is another SSO round trip, so offer it inline instead of
+    // leaving a red line the user has to interpret.
+    const authExpired = failureText !== null && failureText.includes("[auth]");
 
     return (
         <>
@@ -94,9 +98,21 @@ const JnclubSyncRow = ({ t }: JnclubSyncRowProps) => {
                         : configured ? t("jnclub_sync_sign_out") : t("jnclub_sync_sign_in")}
                 </button>
             </div>
-            {failed && (
-                <div className="settings-panel-meta is-error">
-                    {formatError(String(error ?? status?.lastError), t)}
+            {failureText && (
+                <div className={`setting-item ${authExpired ? "is-child" : ""}`}>
+                    <div className="settings-panel-meta is-error">
+                        {formatError(failureText, t)}
+                    </div>
+                    {authExpired && (
+                        <button
+                            type="button"
+                            className="settings-action-button settings-action-button--small"
+                            onClick={signIn}
+                            disabled={busy}
+                        >
+                            {t("jnclub_sync_relogin")}
+                        </button>
+                    )}
                 </div>
             )}
         </>

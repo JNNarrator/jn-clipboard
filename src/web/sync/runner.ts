@@ -10,6 +10,7 @@
  */
 import { invoke } from "@tauri-apps/api/core";
 import { db } from "../backend/db";
+import { SyncApi } from "./api";
 import { syncNow } from "./engine";
 import { notifyIfChanged } from "./notify";
 import { adoptTokenFromUrl, readToken } from "./token";
@@ -19,7 +20,7 @@ const SERVER_KEY = "web.sync_base_url";
 
 /** How often an idle tab checks whether there is anything to do. */
 const TICK_MS = 30_000;
-/** An idle tab still pulls this often: another device may have written. */
+/** Fallback cadence for pulling when the cheap state probe cannot be reached. */
 const PULL_EVERY_MS = 5 * 60_000;
 
 function defaultBaseUrl(): string {
@@ -55,7 +56,20 @@ export function startWebSync(): () => void {
 
     if (!force && !(await hasPendingPush())) {
       const meta = await db.meta.get("sync");
-      if (Date.now() - (meta?.last_sync_at ?? 0) < PULL_EVERY_MS) return;
+      // One number decides whether a pull is worth starting, two orders of
+      // magnitude cheaper than pulling a page would be: most ticks another
+      // device has written nothing.
+      try {
+        const state = await new SyncApi({
+          baseUrl: settings[SERVER_KEY] || defaultBaseUrl(),
+          token,
+        }).state();
+        if (state <= (meta?.last_seq ?? 0)) return;
+      } catch {
+        // The probe is an optimisation, not a gate: offline or unhappy, fall
+        // back to the old timer.
+        if (Date.now() - (meta?.last_sync_at ?? 0) < PULL_EVERY_MS) return;
+      }
     }
 
     running = true;

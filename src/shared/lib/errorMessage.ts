@@ -13,6 +13,7 @@ const KIND_KEYS: Record<string, string> = {
   internal: "error_kind_internal",
   validation: "error_kind_validation",
   encryption: "error_kind_encryption",
+  auth: "error_kind_auth",
 };
 
 // Builds before the tagged format used fixed Chinese prefixes.
@@ -25,7 +26,7 @@ const LEGACY_PREFIXES: Record<string, string> = {
   加密错误: "encryption",
 };
 
-const TAG_RE = /\[(db|io|network|internal|validation|encryption)\]\s*/g;
+const TAG_RE = /\[(db|io|network|internal|validation|encryption|auth)\]\s*/g;
 const LEGACY_RE = new RegExp(`(${Object.keys(LEGACY_PREFIXES).join("|")}):\\s*`, "g");
 
 export const MAX_ERROR_CHARS = 200;
