@@ -1,6 +1,6 @@
 [package]
 name = "jn-clipboard"
-version = "1.0.7"
+version = "1.0.8"
 description = "Clipboard history manager for macOS, Windows and the browser"
 authors = ["you"]
 edition = "2021"
@@ -64,7 +64,12 @@ ring = "0.17"
 zip = { version = "4", default-features = false, features = ["deflate-flate2", "time"] }
 flate2 = "1"
 encoding_rs = "0.8"
-tauri-plugin-updater = "2.12"
+# `system-proxy` makes the updater's HTTP client honour the OS proxy settings
+# (macOS System Settings › Network › Proxies, e.g. a local Clash/V2Ray listener).
+# Without it the client only reads HTTP(S)_PROXY env vars — which a GUI launch
+# from Finder/launchd has none of — so behind a proxy every check and every
+# download dials github.com directly and dies on a timeout.
+tauri-plugin-updater = { version = "2.12", features = ["system-proxy"] }
 tauri-plugin-process = "2.3"
 
 [target.'cfg(target_os = "macos")'.dependencies]
