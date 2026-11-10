@@ -28,6 +28,16 @@ export class SyncError extends Error {
   }
 }
 
+/**
+ * Whether a failure text means "the session is gone" — a 401-shaped
+ * `SyncError` stringified with its message, or one of the recorded
+ * `last_error` strings. The settings panel turns this into a one-click
+ * re-login instead of a red line the user has to interpret.
+ */
+export function isAuthExpired(text: string): boolean {
+  return /登录已过期|session expired|401/iu.test(text);
+}
+
 interface Envelope<T> {
   code: number;
   message: string;

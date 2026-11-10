@@ -8,6 +8,7 @@ import { formatError } from "../../shared/lib/errorMessage";
 import { syncNow, type SyncOutcome } from "./engine";
 import { notifyIfChanged } from "./notify";
 import { readToken } from "./token";
+import { isAuthExpired } from "./api";
 
 /** Both keys are device-private, so the sync server rejects them on push. */
 const ENABLED_KEY = "web.sync_enabled";
@@ -84,6 +85,16 @@ export default function WebSyncPanel({ t, collapsed, onToggle }: WebSyncPanelPro
     void invoke("save_setting", { key, value });
   };
 
+  // A stored token that no longer opens the session is worse than none:
+  // the badge says "signed in" while every request bounces. The exact test is
+  // on the failure text the engine/engine errors carry (`SyncError` with a
+  // 401 status, or the recorded `last_error`).
+  const signInUrl = () =>
+    `${baseUrl.replace(/\/+$/u, "")}/sso/login?web_path=${encodeURIComponent(selfPath())}`;
+  const openSignIn = () => window.open(signInUrl(), "_blank", "noopener");
+  const authExpired =
+    (error !== null && isAuthExpired(error)) || (lastError !== null && isAuthExpired(lastError));
+
   const runSync = async () => {
     const activeToken = readToken();
     setToken(activeToken);
@@ -152,30 +163,35 @@ export default function WebSyncPanel({ t, collapsed, onToggle }: WebSyncPanelPro
             />
           </div>
 
-          <div className="setting-item">
-            <LabelWithHint
-              label={t("web_sync_account")}
-              hint={t("web_sync_account_hint")}
-              hintKey="web_sync_account"
-            />
-            {token ? (
-              <span className="settings-badge">{t("web_sync_signed_in")}</span>
-            ) : (
-              <button
-                type="button"
-                className="settings-action-button"
-                onClick={() =>
-                  window.open(
-                    `${baseUrl.replace(/\/+$/u, "")}/sso/login?web_path=${encodeURIComponent(selfPath())}`,
-                    "_blank",
-                    "noopener",
-                  )
-                }
-              >
-                {t("web_sync_sign_in")}
-              </button>
+            <div className="setting-item">
+              <LabelWithHint
+                label={t("web_sync_account")}
+                hint={t("web_sync_account_hint")}
+                hintKey="web_sync_account"
+              />
+              {token && !authExpired ? (
+                <span className="settings-badge">{t("web_sync_signed_in")}</span>
+              ) : (
+                <button
+                  type="button"
+                  className="settings-action-button"
+                  onClick={openSignIn}
+                >
+                  {token ? t("web_sync_relogin") : t("web_sync_sign_in")}
+                </button>
+              )}
+            </div>
+
+            {token && authExpired && (
+              <div className="setting-item">
+                <div className="settings-panel-meta is-error">
+                  {t("web_sync_session_expired")}
+                </div>
+                <button type="button" className="settings-action-button settings-action-button--small" onClick={openSignIn}>
+                  {t("web_sync_relogin")}
+                </button>
+              </div>
             )}
-          </div>
 
           <div className="setting-item">
             <div className="item-label-group">
