@@ -8,7 +8,7 @@ import { reconcileHistoryTags } from "../lib/historyState";
 
 interface UseClipboardActionsOptions {
   t: (key: string) => string;
-  pushToast: (msg: string, duration?: number) => number;
+  pushToast: (msg: string, duration?: number, action?: import("../types").ToastAction) => number;
   deleteAfterPaste: boolean;
   moveToTopAfterPaste: boolean;
   /** Clicking (or Enter on) an item only copies it; the user pastes (#175). */
@@ -17,6 +17,10 @@ interface UseClipboardActionsOptions {
   setSearch: (val: string) => void;
   setHistory: Dispatch<SetStateAction<ClipboardEntry[]>>;
   virtualListRef: RefObject<VirtualClipboardListHandle | null>;
+  /** Latest history without entering the deps of deleteEntryById. */
+  historyRef: RefObject<ClipboardEntry[]>;
+  /** Refetch after an undo restored a row out-of-band. */
+  fetchHistory: () => void;
 }
 
 // Files and media are read by id on the backend; sending their content is waste.
@@ -34,7 +38,9 @@ export const useClipboardActions = ({
   isWindowPinned,
   setSearch,
   setHistory,
-  virtualListRef
+  virtualListRef,
+  historyRef,
+  fetchHistory
 }: UseClipboardActionsOptions) => {
   const copyToClipboard = useCallback(
     async (
@@ -148,9 +154,47 @@ export const useClipboardActions = ({
 
   const deleteEntryById = useCallback(
     async (id: number): Promise<boolean> => {
+      // Snapshot before the row vanishes: text kinds restore losslessly via
+      // add_manual_item + tag/note/pin write-back. Image/video/file rows are
+      // not offered an undo — the backend already swept their attachment
+      // files by the time a toast could run, and a restored row with a dead
+      // path is worse than no row.
+      const snapshot = historyRef.current.find((item) => item.id === id);
+      const restorable =
+        !!snapshot &&
+        snapshot.id > 0 &&
+        ["text", "code", "url", "rich_text"].includes(snapshot.content_type);
       try {
         await invoke("delete_clipboard_entry", { id });
         setHistory((prev) => prev.filter((item) => item.id !== id));
+        if (restorable && snapshot) {
+          pushToast(t("entry_deleted"), 5000, {
+            label: t("undo"),
+            onClick: () => {
+              void (async () => {
+                try {
+                  const newId = await invoke<number>("add_manual_item", {
+                    content: snapshot.content,
+                    contentType: snapshot.content_type,
+                    tags: snapshot.tags ?? [],
+                  });
+                  // add_manual_item stamps "now" and Manual as source; put
+                  // the entry's own identity back where it can be.
+                  if (snapshot.note) {
+                    await invoke("update_entry_note", { id: newId, note: snapshot.note });
+                  }
+                  if (snapshot.is_pinned) {
+                    await invoke("toggle_clipboard_pin", { id: newId, isPinned: true });
+                  }
+                  pushToast(t("entry_restored"), 2500);
+                  fetchHistory();
+                } catch {
+                  pushToast(t("restore_failed"), 3000);
+                }
+              })();
+            },
+          });
+        }
         return true;
       } catch (err) {
         const errorMsg = t("delete_failed") + ": " + (err?.toString() || "");
@@ -158,7 +202,7 @@ export const useClipboardActions = ({
         return false;
       }
     },
-    [pushToast, setHistory, t]
+    [fetchHistory, historyRef, pushToast, setHistory, t]
   );
 
   const deleteEntry = useCallback(

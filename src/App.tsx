@@ -359,6 +359,9 @@ const App = () => {
   const tagColors = useTagColors();
   const virtualListRef = useRef<VirtualClipboardListHandle | null>(null);
   const appContainerRef = useRef<HTMLDivElement | null>(null);
+  // Latest history for callbacks that must not re-create on every capture.
+  const historyRef = useRef(history);
+  historyRef.current = history;
   const [showScrollTop, setShowScrollTop] = useState(false);
   const listIsFiltered = typeFilter !== null || debouncedSearch.trim() !== "";
   const quickPasteHintsById = useMemo(
@@ -872,7 +875,9 @@ const App = () => {
       isWindowPinned,
       setSearch,
       setHistory,
-      virtualListRef
+      virtualListRef,
+      historyRef,
+      fetchHistory: () => void fetchHistory(true, true)
     });
 
   const { saveCloudSync, clearHistory, handleResetSettings } = useAppActions({

@@ -12,9 +12,11 @@ import {
     Info,
     ListFilter,
     Palette,
+    Search,
     Settings2,
     ShieldCheck,
     Keyboard,
+    X,
     type LucideIcon
 } from "lucide-react";
 import type { Locale } from "../../../shared/types";
@@ -319,6 +321,20 @@ const SettingsPanel = (props: SettingsPanelProps) => {
     // Removed updateModalData
     const [privacyKindsOpen, setPrivacyKindsOpen] = useState(false);
     const [privacyRulesOpen, setPrivacyRulesOpen] = useState(false);
+    /** Settings search: filters rows and unfolds groups while non-empty. */
+    const [settingsQuery, setSettingsQuery] = useState("");
+    const settingsRootRef = useRef<HTMLDivElement | null>(null);
+    // Exiting a search restores the profile's collapsed groups: the accordion's
+    // `collapsed` class comes from React state, and the DOM-only unfold during
+    // search must not win over it. Remounting the content (not the input)
+    // redraws from the model.
+    const searchWasActive = useRef(false);
+    const [searchEpoch, setSearchEpoch] = useState(0);
+    const searchActive = settingsQuery.trim().length > 0;
+    if (searchActive !== searchWasActive.current) {
+        searchWasActive.current = searchActive;
+        if (!searchActive) setSearchEpoch((n) => n + 1);
+    }
     const isWide = useWideWindow();
     const wideLayout = splitViewEnabled && isWide;
     const [activeSection, setActiveSection] = useState("general");
@@ -336,6 +352,86 @@ const SettingsPanel = (props: SettingsPanelProps) => {
         max: 320,
         minRest: 360
     });
+
+    // Settings search: while the query is non-empty, every `.setting-item`
+    // (and `.group-header`) whose visible text misses it is hidden, groups
+    // unfold, and sections with no surviving row collapse out entirely. The
+    // alternative — filtering the `sections` model — would mean teaching ten
+    // group components to expose their rows; the DOM already has the
+    // translated labels rendered, so it is the cheapest source of truth.
+    useEffect(() => {
+        const root = settingsRootRef.current;
+        if (!root) return;
+        const query = settingsQuery.trim().toLowerCase();
+        const items = Array.from(root.querySelectorAll<HTMLElement>(".setting-item"));
+        if (!query) {
+            for (const el of items) el.classList.remove("settings-search-hidden");
+            root.querySelectorAll<HTMLElement>(".settings-narrow-group").forEach((el) => {
+                el.classList.remove("settings-search-hidden");
+                el.classList.remove("settings-search-empty");
+            });
+            return;
+        }
+        const groupsWithHits = new Set<HTMLElement>();
+        for (const el of items) {
+            const hit = (el.textContent ?? "").toLowerCase().includes(query);
+            el.classList.toggle("settings-search-hidden", !hit);
+            if (hit) {
+                // Unfold the accordion group this row lives in.
+                const group = el.closest<HTMLElement>(".settings-group");
+                if (group) group.classList.remove("collapsed");
+                const section = el.closest<HTMLElement>(".settings-section");
+                if (section) groupsWithHits.add(section);
+            }
+        }
+        root.querySelectorAll<HTMLElement>(".settings-narrow-group").forEach((groupEl) => {
+            const anyVisible = groupEl.querySelectorAll<HTMLElement>(".settings-section").length > 0
+                ? Array.from(groupEl.querySelectorAll<HTMLElement>(".settings-section")).some((s) => groupsWithHits.has(s))
+                : true;
+            groupEl.classList.toggle("settings-search-hidden", !anyVisible);
+        });
+    }, [settingsQuery, settingsSubpage, wideLayout, activeSection]);
+
+    // While searching, the narrow accordion's collapsed groups would hide
+    // hits: force every group open for the duration of the query.
+    useEffect(() => {
+        if (!settingsQuery.trim() || !settingsRootRef.current) return;
+        const root = settingsRootRef.current;
+        const apply = () => root.querySelectorAll<HTMLElement>(".settings-group.collapsed").forEach((g) => {
+            g.classList.remove("collapsed");
+            g.dataset.searchForcedOpen = "1";
+        });
+        apply();
+        // Groups render after async settings load; catch late mounts too.
+        const observer = new MutationObserver(apply);
+        observer.observe(root, { childList: true, subtree: true });
+        return () => observer.disconnect();
+    }, [settingsQuery]);
+
+    const renderSettingsSearch = () => (
+        <div className="settings-search-row">
+            <Search size={13} className="settings-search-icon" aria-hidden="true" />
+            <input
+                type="text"
+                className="settings-search-input"
+                value={settingsQuery}
+                onChange={(e) => setSettingsQuery(e.target.value)}
+                placeholder={t("settings_search_placeholder")}
+                aria-label={t("settings_search_placeholder")}
+                spellCheck={false}
+            />
+            {settingsQuery && (
+                <button
+                    type="button"
+                    className="settings-search-clear"
+                    aria-label={t("settings_search_clear")}
+                    onClick={() => setSettingsQuery("")}
+                >
+                    <X size={12} aria-hidden="true" />
+                </button>
+            )}
+        </div>
+    );
 
     const handleCloudSyncNow = async () => {
         if (!WEBDAV_SYNC_UI || !CLOUD_SYNC_ENABLED) return;
@@ -769,6 +865,7 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                 {/* Keyed so switching sections starts at the top. */}
                 <div className="settings-wide-content" key={activeSection}>
                     <div className="settings-wide-inner">
+                        {settingsSubpage !== "advanced" && renderSettingsSearch()}
                         {activeSection === ABOUT_SECTION ? footer : (current ?? sections[0]).node}
                     </div>
                 </div>
@@ -778,7 +875,10 @@ const SettingsPanel = (props: SettingsPanelProps) => {
 
     return (
         <SettingsHintProvider>
-            <div className="settings-panel-root">
+            <div className="settings-panel-root" ref={settingsRootRef}>
+                {/* The advanced subpage is a separate window's worth of content;
+                    search lives on the main page only. */}
+                {settingsSubpage !== "advanced" && !wideLayout && renderSettingsSearch()}
                 {settingsSubpage === "advanced" ? (
                     <AdvancedSettingsGroup
                         t={t}
@@ -792,9 +892,10 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                     renderWide()
                 ) : (
                     <>
-                        {/* The wide layout's sidebar groups, as an inset list:
+                    <div key={`accordion-${searchEpoch}`}>
+                    {/* The wide layout's sidebar groups, as an inset list:
                             a flat run of a dozen equal cards was hard to scan. */}
-                        {NAV_GROUPS.map((group) => {
+                    {NAV_GROUPS.map((group) => {
                             const items = group.ids.flatMap((id) => {
                                 const Icon = SECTION_ICONS[id] ?? Info;
                                 const icon = <Icon className="settings-section-icon" size={16} strokeWidth={1.75} aria-hidden="true" />;
@@ -841,6 +942,7 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                         })}
 
                         {footer}
+                    </div>
                     </>
                 )}
                 {modals}

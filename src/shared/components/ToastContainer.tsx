@@ -17,6 +17,17 @@ const ToastContainer = ({ toasts }: ToastContainerProps) => (
           className="toast-item"
         >
           <span className="toast-text">{toast.msg}</span>
+          {toast.action && (
+            <button
+              type="button"
+              className="toast-action"
+              onClick={() => {
+                toast.action?.onClick();
+              }}
+            >
+              {toast.action.label}
+            </button>
+          )}
         </motion.div>
       ))}
     </AnimatePresence>

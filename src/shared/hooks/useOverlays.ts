@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import type { ConfirmDialogState, ToastItem } from "../types";
+import type { ConfirmDialogState, ToastAction, ToastItem } from "../types";
 import { formatError } from "../lib/errorMessage";
 
 const emptyConfirm: ConfirmDialogState = {
@@ -17,18 +17,37 @@ export const useOverlays = (t?: (key: string) => string) => {
   const tRef = useRef(t);
   tRef.current = t;
 
+  const dismissToast = useCallback((id: number) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== id));
+  }, []);
+
   // Every toast goes through formatError, so raw backend errors, HTML error
   // pages or multi-KB strings are translated, stripped and shortened here.
-  const pushToast = useCallback((msg: string, duration = 3000) => {
-    const id = nextToastId++;
-    setToasts((prev) => [...prev, { id, msg: formatError(msg, tRef.current) }]);
-    if (duration > 0) {
-      window.setTimeout(() => {
-        setToasts((prev) => prev.filter((toast) => toast.id !== id));
-      }, duration);
-    }
-    return id;
-  }, []);
+  const pushToast = useCallback(
+    (msg: string, duration = 3000, action?: ToastAction) => {
+      const id = nextToastId++;
+      const wrappedAction: ToastAction | undefined = action
+        ? {
+            label: action.label,
+            onClick: () => {
+              action.onClick();
+              setToasts((prev) => prev.filter((toast) => toast.id !== id));
+            },
+          }
+        : undefined;
+      setToasts((prev) => [
+        ...prev,
+        { id, msg: formatError(msg, tRef.current), action: wrappedAction },
+      ]);
+      if (duration > 0) {
+        window.setTimeout(() => {
+          setToasts((prev) => prev.filter((toast) => toast.id !== id));
+        }, duration);
+      }
+      return id;
+    },
+    []
+  );
 
   const openConfirm = useCallback(
     (opts: { title: string; message: string; danger?: boolean; onConfirm: () => void }) => {
@@ -50,6 +69,7 @@ export const useOverlays = (t?: (key: string) => string) => {
   return {
     toasts,
     pushToast,
+    dismissToast,
     confirmDialog,
     openConfirm,
     closeConfirm

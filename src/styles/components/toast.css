@@ -40,3 +40,24 @@
   overflow: hidden;
   overflow-wrap: anywhere;
 }
+
+/* Inline action inside a toast: the undo affordance. Reads as a quiet
+   text button tied to the accent, so it invites a tap without shouting. */
+.toast-action {
+  flex: none;
+  margin-left: 10px;
+  padding: 2px 8px;
+  border: none;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--accent-color);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.toast-action:hover,
+.toast-action:focus-visible {
+  background: var(--accent-soft);
+}
+npx tsc --noEmit 2>&1 | head -6; echo TSC-OK

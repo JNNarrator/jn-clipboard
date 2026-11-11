@@ -46,6 +46,8 @@ export const translations = {
         search: "搜索",
 
         // Settings - Headers
+        settings_search_placeholder: "搜索设置项…",
+        settings_search_clear: "清除搜索",
         general_settings: "常规设置",
         clipboard_settings: "剪贴板设置",
         sync_settings: "验证码同步",
@@ -643,6 +645,10 @@ export const translations = {
         sticker_image_load_failed: "图片无法加载",
         edit: "编辑",
         delete_failed: "删除失败",
+        entry_deleted: "已删除",
+        undo: "撤销",
+        entry_restored: "已恢复",
+        restore_failed: "恢复失败",
         keyboard_delete_pinned: "已固定的记录不能用快捷键删除，请先取消固定。",
         pin_failed: "固定失败",
         unpin_failed: "取消固定失败，请重试。",
@@ -714,6 +720,8 @@ export const translations = {
         clear_confirm_message: "Pinned and tagged items are kept; everything else will be removed.",
 
         // Settings - Headers
+        settings_search_placeholder: "Search settings…",
+        settings_search_clear: "Clear search",
         general_settings: "General Settings",
         clipboard_settings: "Clipboard",
         sync_settings: "Verification Code Sync (MQTT)",
@@ -1310,6 +1318,10 @@ export const translations = {
         sticker_image_load_failed: "Image failed to load",
         edit: "Edit",
         delete_failed: "Delete failed",
+        entry_deleted: "Deleted",
+        undo: "Undo",
+        entry_restored: "Restored",
+        restore_failed: "Restore failed",
         keyboard_delete_pinned: "Pinned items can't be deleted with a key. Unpin it first.",
         pin_failed: "Pin failed",
         unpin_failed: "Unpin failed",
@@ -1378,6 +1390,8 @@ export const translations = {
         search: "搜尋",
 
         // Settings - Headers
+        settings_search_placeholder: "搜尋設定項…",
+        settings_search_clear: "清除搜尋",
         general_settings: "常規設定",
         clipboard_settings: "剪貼簿設定",
         sync_settings: "驗證碼同步",
@@ -1974,6 +1988,10 @@ export const translations = {
         sticker_image_load_failed: "圖片無法載入",
         edit: "編輯",
         delete_failed: "刪除失敗",
+        entry_deleted: "已刪除",
+        undo: "撤銷",
+        entry_restored: "已恢復",
+        restore_failed: "恢復失敗",
         keyboard_delete_pinned: "已固定的記錄不能用快速鍵刪除，請先取消固定。",
         pin_failed: "固定失敗",
         unpin_failed: "取消固定失敗，請重試。",
