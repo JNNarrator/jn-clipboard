@@ -17,6 +17,12 @@ export interface ClipboardItemProps {
   isDetailFocused?: boolean;
   /** Search-hit ranges in `item.preview`; present only while a search is active. */
   highlightRanges?: HighlightRange[];
+  /** Multi-select: this row is picked. */
+  isMultiSelected?: boolean;
+  /** Multi-select is armed (some row is picked): rows show their checkbox. */
+  multiSelectActive?: boolean;
+  /** Toggle this row in the multi-select (range = shift-click). */
+  onMultiToggle?: (range: boolean) => void;
   windowPinned: boolean;
   isSensitiveHidden: boolean;
   isRevealed: boolean;

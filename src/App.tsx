@@ -43,6 +43,7 @@ import { useKeyboardNavigation } from "./shared/hooks/useKeyboardNavigation";
 import { cycleTypeFilter } from "./shared/lib/typeFilters";
 import { hasSensitiveTag } from "./shared/lib/sensitiveTags";
 import { useListSelectionReset } from "./shared/hooks/useListSelectionReset";
+import { useMultiSelect, renderOrderOf } from "./shared/hooks/useMultiSelect";
 import { useSearchFetchTrigger } from "./shared/hooks/useSearchFetchTrigger";
 import { useScrollToSelection } from "./shared/hooks/useScrollToSelection";
 import { useClipboardItemRenderer } from "./shared/hooks/useClipboardItemRenderer";
@@ -924,6 +925,17 @@ const App = () => {
     setHistory
   });
 
+  // Multi-select lives at the App level so the bulk bar and the rows see the
+  // same set. Order follows what the list renders (pinned first).
+  const multiSelect = useMultiSelect();
+  useEffect(() => {
+    multiSelect.setOrder(renderOrderOf(pinnedItems, unpinnedItems));
+  }, [multiSelect, pinnedItems, unpinnedItems]);
+  const multiSelectedEntries = useMemo(
+    () => history.filter((item) => multiSelect.selectedIds.has(item.id)),
+    [history, multiSelect.selectedIds]
+  );
+
   // The mouse and the arrow keys share one selection: a row the pointer moves
   // onto becomes it, and the keys go on from there.
   const selectRowUnderPointer = useCallback((index: number, id: number) => {
@@ -1093,6 +1105,7 @@ const App = () => {
 
   const { renderItemContent } = useClipboardItemRenderer({
     searchParsed,
+    multiSelect,
     privacyProtection,
     revealedIds,
     isKeyboardMode,
@@ -1219,6 +1232,10 @@ const App = () => {
             t={t}
             theme={theme}
             appReady={settingsLoaded}
+            multiSelectedEntries={multiSelectedEntries}
+            onMultiClear={multiSelect.clear}
+            onMultiChanged={() => void fetchHistory(true, true)}
+            pushToast={pushToast}
             privacyProtection={privacyProtection}
             showSettings={showSettings}
             showTagManager={effectiveShowTagManager}

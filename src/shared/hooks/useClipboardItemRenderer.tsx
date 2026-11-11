@@ -8,6 +8,7 @@ import { isKeyboardSelectedItem } from "../../features/clipboard/lib/itemInterac
 import { hasSensitiveTag } from "../lib/sensitiveTags";
 import { findHighlightRanges } from "../lib/searchHighlight";
 import type { ParsedSearchQuery } from "../lib/searchQuery";
+import type { MultiSelect } from "./useMultiSelect";
 import type { QuickPasteHint } from "../../features/clipboard/types";
 import type { ClipboardEntry } from "../types";
 import type { Locale } from "../types";
@@ -15,6 +16,8 @@ import type { Locale } from "../types";
 interface UseClipboardItemRendererOptions {
   /** The parsed search the list is filtered by, for hit highlighting. */
   searchParsed: ParsedSearchQuery;
+  /** Multi-select state; rows toggle membership instead of pasting. */
+  multiSelect: MultiSelect;
   privacyProtection: boolean;
   revealedIds: Set<number>;
   isKeyboardMode: boolean;
@@ -69,6 +72,7 @@ type RenderItemContent = (
 
 export const useClipboardItemRenderer = ({
   searchParsed,
+  multiSelect,
   privacyProtection,
   revealedIds,
   isKeyboardMode,
@@ -126,6 +130,9 @@ export const useClipboardItemRenderer = ({
           isSelected={isKeyboardSelectedItem(item.id, selectedItemId, isKeyboardMode)}
           isDetailFocused={detailFocusedId === item.id}
           highlightRanges={isSensitiveHidden ? undefined : highlightRanges}
+          isMultiSelected={multiSelect.selectedIds.has(item.id)}
+          multiSelectActive={!multiSelect.isEmpty}
+          onMultiToggle={(range) => multiSelect.toggle(item.id, { range })}
           windowPinned={isWindowPinned}
           isSensitiveHidden={!!isSensitiveHidden}
           isRevealed={revealedIds.has(item.id)}
@@ -256,6 +263,7 @@ export const useClipboardItemRenderer = ({
       handleUpdateTags,
       handleUpdateNote,
       searchParsed,
+      multiSelect,
     ]
   );
 

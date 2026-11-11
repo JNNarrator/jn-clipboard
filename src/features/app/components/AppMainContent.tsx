@@ -6,6 +6,7 @@ import SettingsPanel from "../../settings/components/SettingsPanel";
 import { VirtualClipboardList } from "../../clipboard/components/VirtualClipboardList";
 import TagManager from "../../tag/components/TagManager";
 import MacAccessibilityBanner from "../../../shared/components/MacAccessibilityBanner";
+import MultiSelectBar from "../../../shared/components/MultiSelectBar";
 import type { ClipboardEntry } from "../../../shared/types";
 import type { VirtualClipboardListHandle } from "../../clipboard/types";
 
@@ -18,10 +19,15 @@ type RenderItem = (
 ) => ReactNode;
 
 interface AppMainContentProps {
-  t: (key: string) => string;
+  t: (key: string, ...args: string[]) => string;
   theme: string;
   /** Settings loaded — the banner may query permissions only after that. */
   appReady: boolean;
+  /** Multi-select rows + the bulk action bar above the list. */
+  multiSelectedEntries: ClipboardEntry[];
+  onMultiClear: () => void;
+  onMultiChanged: () => void;
+  pushToast: (msg: string, duration?: number, action?: import("../../../shared/types").ToastAction) => number;
   privacyProtection: boolean;
   showSettings: boolean;
   showTagManager: boolean;
@@ -92,6 +98,10 @@ const AppMainContent = ({
   t,
   theme,
   appReady,
+  multiSelectedEntries,
+  onMultiClear,
+  onMultiChanged,
+  pushToast,
   privacyProtection,
   showSettings,
   showTagManager,
@@ -183,6 +193,15 @@ const AppMainContent = ({
 
   return (
     <>
+      {multiSelectedEntries.length > 0 && (
+        <MultiSelectBar
+          entries={multiSelectedEntries}
+          t={t}
+          pushToast={pushToast}
+          onClear={onMultiClear}
+          onChanged={onMultiChanged}
+        />
+      )}
       {filteredHistory.length > 0 && (
         <MacAccessibilityBanner ready={appReady} t={t} />
       )}

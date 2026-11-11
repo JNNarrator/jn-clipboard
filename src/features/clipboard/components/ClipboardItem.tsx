@@ -774,6 +774,9 @@ const ClipboardItem = ({
     isSelected,
     isDetailFocused,
     highlightRanges,
+    isMultiSelected,
+    multiSelectActive,
+    onMultiToggle,
     isSensitiveHidden,
     isRevealed,
     canReveal,
@@ -1926,7 +1929,7 @@ const ClipboardItem = ({
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.1 }}
             draggable={!isEditingTags && !isEditingNote && !isReordering}
-            className={`history-item ${isInteractionActive ? "selected" : ""} ${isDetailFocused ? "detail-focused" : ""} ${compactMode ? "compact" : ""} ${item.is_pinned ? "pinned" : ""} ${isDragging ? "is-dragging" : ""} ${isEditingTags ? "editing-tags" : ""} ${isEditingNote ? "editing-note" : ""} ${className || ''}`}
+            className={`history-item ${isInteractionActive ? "selected" : ""} ${isDetailFocused ? "detail-focused" : ""} ${compactMode ? "compact" : ""} ${item.is_pinned ? "pinned" : ""} ${isDragging ? "is-dragging" : ""} ${isEditingTags ? "editing-tags" : ""} ${isEditingNote ? "editing-note" : ""} ${isMultiSelected ? "multi-selected" : ""} ${multiSelectActive ? "multi-select-active" : ""} ${className || ''}`}
             onPointerDownCapture={(e) => {
                 if (dragReleaseTimerRef.current) {
                     clearTimeout(dragReleaseTimerRef.current);
@@ -2100,6 +2103,22 @@ const ClipboardItem = ({
                 }
                 if (target.closest('a')) return;
 
+                // Multi-select clicks never paste: Cmd-click anywhere toggles
+                // the row; once any row is picked, plain clicks toggle too
+                // (treats single-click-on-selected as extend, not launch).
+                if ((e.metaKey || e.ctrlKey) && onMultiToggle) {
+                    e.preventDefault();
+                    void hideCompactPreview();
+                    onMultiToggle(e.shiftKey);
+                    return;
+                }
+                if (multiSelectActive && onMultiToggle) {
+                    e.preventDefault();
+                    void hideCompactPreview();
+                    onMultiToggle(e.shiftKey);
+                    return;
+                }
+
                 if (pointerDownPosRef.current) {
                     const dx = Math.abs(e.clientX - pointerDownPosRef.current.x);
                     const dy = Math.abs(e.clientY - pointerDownPosRef.current.y);
@@ -2127,6 +2146,13 @@ const ClipboardItem = ({
                 }
                 if (target.closest('a')) {
                     e.preventDefault();
+                }
+
+                // Same multi-select intercept as the mouseup path: one
+                // semantic, two event paths (see onMouseUpCapture).
+                if ((e.metaKey || e.ctrlKey || multiSelectActive) && onMultiToggle) {
+                    e.preventDefault();
+                    return;
                 }
 
                 if (pointerDownPosRef.current) {
@@ -2250,6 +2276,29 @@ const ClipboardItem = ({
                 void hideCompactPreview();
             }}
         >
+            {(multiSelectActive || isMultiSelected) && (
+                <button
+                    type="button"
+                    className={`multi-select-check${isMultiSelected ? " is-checked" : ""}`}
+                    // Same behaviour as Cmd-clicking the row; the checkbox is
+                    // the visible affordance of an already-armed interaction.
+                    onPointerDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        canExportDragRef.current = false;
+                    }}
+                    onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onMultiToggle?.(e.shiftKey);
+                    }}
+                    aria-pressed={isMultiSelected}
+                    aria-label={t("multi_select_toggle")}
+                    title={t("multi_select_toggle")}
+                >
+                    {isMultiSelected && <Check size={11} strokeWidth={3} aria-hidden="true" />}
+                </button>
+            )}
             <div className="item-meta">
                 <div className="item-meta-left">
                     {dragControls && (
