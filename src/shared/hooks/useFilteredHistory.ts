@@ -3,6 +3,7 @@ import type { ClipboardEntry } from "../types";
 import type { ClipboardSortMode } from "../../features/app/types";
 import { parseSearchQuery } from "../lib/searchQuery";
 import { entryMatchesSearch } from "../lib/searchMatch";
+import type { ParsedSearchQuery } from "../lib/searchQuery";
 
 interface UseFilteredHistoryOptions {
   history: ClipboardEntry[];
@@ -55,7 +56,7 @@ export const useFilteredHistory = ({
   search,
   typeFilter,
   sortMode
-}: UseFilteredHistoryOptions) => {
+}: UseFilteredHistoryOptions): { filtered: ClipboardEntry[]; parsed: ParsedSearchQuery } => {
   return useMemo(() => {
     const parsed = parseSearchQuery(search);
 
@@ -70,6 +71,9 @@ export const useFilteredHistory = ({
       return entryMatchesSearch(item, parsed, { isServerSearchResult });
     });
 
-    return filtered.sort((a, b) => compareClipboardEntries(a, b, sortMode));
+    return {
+      filtered: filtered.sort((a, b) => compareClipboardEntries(a, b, sortMode)),
+      parsed
+    };
   }, [history, search, typeFilter, sortMode]);
 };

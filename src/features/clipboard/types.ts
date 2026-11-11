@@ -1,6 +1,7 @@
 import type { MouseEvent, ReactNode } from "react";
 import type { DragControls } from "framer-motion";
 import type { ClipboardEntry, Locale } from "../../shared/types";
+import type { HighlightRange } from "../../shared/lib/searchHighlight";
 
 export interface QuickPasteHint {
   slot: number;
@@ -14,6 +15,8 @@ export interface ClipboardItemProps {
   isSelected: boolean;
   /** Shown in the wide layout's detail pane, whose action bar targets it. */
   isDetailFocused?: boolean;
+  /** Search-hit ranges in `item.preview`; present only while a search is active. */
+  highlightRanges?: HighlightRange[];
   windowPinned: boolean;
   isSensitiveHidden: boolean;
   isRevealed: boolean;

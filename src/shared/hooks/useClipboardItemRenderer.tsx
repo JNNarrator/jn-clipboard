@@ -6,11 +6,15 @@ import type { DragControls } from "framer-motion";
 import ClipboardItem from "../../features/clipboard/components/ClipboardItem";
 import { isKeyboardSelectedItem } from "../../features/clipboard/lib/itemInteraction";
 import { hasSensitiveTag } from "../lib/sensitiveTags";
+import { findHighlightRanges } from "../lib/searchHighlight";
+import type { ParsedSearchQuery } from "../lib/searchQuery";
 import type { QuickPasteHint } from "../../features/clipboard/types";
 import type { ClipboardEntry } from "../types";
 import type { Locale } from "../types";
 
 interface UseClipboardItemRendererOptions {
+  /** The parsed search the list is filtered by, for hit highlighting. */
+  searchParsed: ParsedSearchQuery;
   privacyProtection: boolean;
   revealedIds: Set<number>;
   isKeyboardMode: boolean;
@@ -64,6 +68,7 @@ type RenderItemContent = (
 ) => ReactNode;
 
 export const useClipboardItemRenderer = ({
+  searchParsed,
   privacyProtection,
   revealedIds,
   isKeyboardMode,
@@ -107,6 +112,10 @@ export const useClipboardItemRenderer = ({
       const isSensitiveHidden = canReveal && !revealedIds.has(item.id);
       const isEditingTags = !splitActive && editingTagsId === item.id;
       const isEditingNote = !splitActive && editingNoteId === item.id;
+      // A masked preview shows placeholders, so there is nothing to mark.
+      const highlightRanges = searchParsed.raw
+        ? findHighlightRanges(item, searchParsed)
+        : undefined;
 
       return (
         <ClipboardItem
@@ -116,6 +125,7 @@ export const useClipboardItemRenderer = ({
           navigationIndex={index}
           isSelected={isKeyboardSelectedItem(item.id, selectedItemId, isKeyboardMode)}
           isDetailFocused={detailFocusedId === item.id}
+          highlightRanges={isSensitiveHidden ? undefined : highlightRanges}
           windowPinned={isWindowPinned}
           isSensitiveHidden={!!isSensitiveHidden}
           isRevealed={revealedIds.has(item.id)}
@@ -245,6 +255,7 @@ export const useClipboardItemRenderer = ({
       setTagInput,
       handleUpdateTags,
       handleUpdateNote,
+      searchParsed,
     ]
   );
 

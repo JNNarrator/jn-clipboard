@@ -849,3 +849,49 @@ select.search-input option {
   user-select: none;
   pointer-events: none;
 }
+
+/* Session banner: reminds that pasting is degraded after the first-run
+   dialog was dismissed. One line, quiet border, dismissable; never a modal. */
+.accessibility-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 6px;
+  padding: 6px 10px;
+  border: 1px solid rgba(var(--status-warning-rgb, 245, 158, 11), 0.35);
+  border-radius: var(--radius-md);
+  background: rgba(var(--status-warning-rgb, 245, 158, 11), 0.08);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  text-align: left;
+}
+
+.accessibility-banner-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.accessibility-banner-close {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-xs);
+  color: var(--text-muted);
+  font-size: var(--font-size-base);
+  line-height: 1;
+}
+
+.accessibility-banner-close:hover,
+.accessibility-banner-close:focus-visible {
+  background: var(--bg-element);
+  color: var(--text-primary);
+}

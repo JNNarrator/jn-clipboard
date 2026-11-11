@@ -895,7 +895,7 @@ const App = () => {
   };
   */
 
-  const filteredHistory = useFilteredHistory({
+  const { filtered: filteredHistory, parsed: searchParsed } = useFilteredHistory({
     history,
     search: deferredSearch,
     typeFilter,
@@ -1087,6 +1087,7 @@ const App = () => {
 
 
   const { renderItemContent } = useClipboardItemRenderer({
+    searchParsed,
     privacyProtection,
     revealedIds,
     isKeyboardMode,
@@ -1212,6 +1213,7 @@ const App = () => {
           <AppMainContent
             t={t}
             theme={theme}
+            appReady={settingsLoaded}
             privacyProtection={privacyProtection}
             showSettings={showSettings}
             showTagManager={effectiveShowTagManager}

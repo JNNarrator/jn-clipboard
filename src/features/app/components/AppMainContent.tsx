@@ -5,6 +5,7 @@ import { ArrowUp, Clipboard } from "lucide-react";
 import SettingsPanel from "../../settings/components/SettingsPanel";
 import { VirtualClipboardList } from "../../clipboard/components/VirtualClipboardList";
 import TagManager from "../../tag/components/TagManager";
+import MacAccessibilityBanner from "../../../shared/components/MacAccessibilityBanner";
 import type { ClipboardEntry } from "../../../shared/types";
 import type { VirtualClipboardListHandle } from "../../clipboard/types";
 
@@ -19,6 +20,8 @@ type RenderItem = (
 interface AppMainContentProps {
   t: (key: string) => string;
   theme: string;
+  /** Settings loaded — the banner may query permissions only after that. */
+  appReady: boolean;
   privacyProtection: boolean;
   showSettings: boolean;
   showTagManager: boolean;
@@ -88,6 +91,7 @@ const SortableItem = memo(({
 const AppMainContent = ({
   t,
   theme,
+  appReady,
   privacyProtection,
   showSettings,
   showTagManager,
@@ -179,6 +183,9 @@ const AppMainContent = ({
 
   return (
     <>
+      {filteredHistory.length > 0 && (
+        <MacAccessibilityBanner ready={appReady} t={t} />
+      )}
       {filteredHistory.length > 0 && (
         <div className="history-list-container">
           <VirtualClipboardList

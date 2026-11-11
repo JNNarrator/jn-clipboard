@@ -629,3 +629,15 @@ body.hide-unselected-item-actions .history-item:hover:not(.keyboard-owns-list *)
   line-height: 1;
   opacity: 1;
 }
+
+/* Search hit highlighting. `mark` browsers style themselves; pin it to the
+   accent so the hit reads as "this is why the row matched" in every theme
+   and both modes, without inventing a new color role. */
+.history-item .content-preview .search-hit {
+  background: var(--accent-soft);
+  color: inherit;
+  border-radius: var(--radius-2xs);
+  padding: 0 1px;
+  font-weight: 600;
+  box-shadow: inset 0 -1px 0 rgba(var(--accent-color-rgb), 0.45);
+}

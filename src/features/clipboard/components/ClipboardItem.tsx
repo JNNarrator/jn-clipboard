@@ -38,6 +38,7 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { isItemInteractionActive } from "../lib/itemInteraction";
+import { HighlightText } from "../../../shared/components/HighlightText";
 import type { ClipboardItemProps } from "../types";
 import {
     formatSensitivePreview,
@@ -772,6 +773,7 @@ const ClipboardItem = ({
     windowPinned,
     isSelected,
     isDetailFocused,
+    highlightRanges,
     isSensitiveHidden,
     isRevealed,
     canReveal,
@@ -2725,6 +2727,12 @@ const ClipboardItem = ({
                                 </span>
                             </div>
                         )
+                        : highlightRanges && highlightRanges.length > 0 ? (
+                            <HighlightText
+                                text={item.preview}
+                                ranges={highlightRanges}
+                            />
+                        )
                         : item.preview
                 )}
                 </div>
@@ -2758,6 +2766,11 @@ const ClipboardItem = ({
 export default memo(ClipboardItem, (prevProps, nextProps) => {
     return prevProps.isSelected === nextProps.isSelected &&
         prevProps.isDetailFocused === nextProps.isDetailFocused &&
+        (prevProps.highlightRanges ?? []).length === (nextProps.highlightRanges ?? []).length &&
+        (prevProps.highlightRanges ?? []).every((range, i) => {
+            const other = nextProps.highlightRanges?.[i];
+            return !!other && range.start === other.start && range.end === other.end;
+        }) &&
         prevProps.navigationIndex === nextProps.navigationIndex &&
         prevProps.item.id === nextProps.item.id &&
         prevProps.item.content_type === nextProps.item.content_type &&
