@@ -9,37 +9,57 @@
 <p align="center">
   <a href="https://github.com/JNNarrator/jn-clipboard/releases"><img src="https://img.shields.io/github/v/release/JNNarrator/jn-clipboard?label=VERSION&style=for-the-badge&color=2196F3" alt="Version" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/LICENSE-GPL--3.0-FF9800?style=for-the-badge" alt="License" /></a>
-  <img src="https://img.shields.io/badge/PLATFORM-macOS%20%7C%20Windows%20%7C%20Web-f44336?style=for-the-badge" alt="macOS, Windows and the web" />
+  <img src="https://img.shields.io/badge/PLATFORM-macOS%20%7C%20Windows%20%7C%20Web-43A047?style=for-the-badge" alt="macOS, Windows and the web" />
 </p>
 
 <p align="center">
-  <a href="./README.md">English</a> | <a href="./README.zh-CN.md">简体中文</a>
+  <a href="./README.md">English</a> · <a href="./README.zh-CN.md">简体中文</a>
 </p>
 
 ---
 
-`jn-clipboard` keeps what you copy — text, rich text, images and file paths — in
-a local database and puts it back on the clipboard the moment you need it. It is
-one application in three shapes: a menu-bar app on macOS, a tray app on Windows,
-and an installable web app you can add to your phone's home screen.
+`jn-clipboard` keeps what you copy — text, rich text, images and file paths — in a
+local database and puts it back on the clipboard the moment you need it. It is one
+application in three shapes: a menu-bar app on macOS, a tray app on Windows, and
+an installable web app that lives on your phone's home screen.
 
-The two builds share the same interface and, through a self-hosted server, the
-same history: copy something on the desktop and paste it on your phone.
+All three share one interface and, through a self-hosted backend, one history:
+copy on the desktop, paste on the phone — usually before you've switched apps.
+
+---
+
+## Why this one
+
+- **Everything travels, including images.** Screenshots are stored once by content
+  digest and streamed to whichever device opens them — a pin or a tag edit never
+  re-uploads the bytes.
+- **Deletes stay deleted.** A delete is a tombstone that wins over concurrent
+  edits from an offline device; a clip you removed does not come back when an old
+  laptop catches up.
+- **Duplicates resolve themselves.** Copy the same text on two devices and they
+  converge to one entry, using a deterministic rule every device agrees on without
+  talking to each other.
+- **Near-instant propagation.** Desktop clients hold a live change stream to the
+  server; the web build probes a one-number endpoint. Sync latency is one network
+  round trip, not a polling interval.
+- **Local first, private by design.** The database is SQLite/IndexedDB on your own
+  disk. Nothing leaves the device until you sign in to a server you host, and
+  sensitive entries stay encrypted at rest on each device.
 
 ---
 
 ## Features
 
-|  |  |
+| | |
 | :--- | :--- |
 | **Capture** | Text, rich text (HTML), images and file paths, collected automatically. Duplicates collapse into one entry, and per-app rules can ignore an app or rewrite what it contributes. |
 | **Find** | Full-text search, plus filters by content type, source app, tag and date. Pinned entries stay on top. |
 | **Paste** | One keystroke pastes straight into the app you came from. Or copy without pasting, paste as plain text, or queue several entries and paste them in order. |
 | **Organize** | Multi-colour tags, pinning with a manual order, and a note on any entry. |
 | **Look** | Three native-material themes — Mica and Acrylic on Windows, macOS vibrancy on macOS — each in light and dark. Edge docking, a compact preview window, and a resizable panel. |
-| **Privacy** | IDs, phone numbers and e-mail addresses are masked in previews. Settings that hold credentials are encrypted at rest. Nothing is sent anywhere by default. |
-| **Sync** | WebDAV against a server you own, or a JNClub account against a backend you host. |
-| **Updates** | Asks this repository's GitHub releases on launch and on demand in the settings footer. No silent auto-update. |
+| **Privacy** | IDs, phone numbers and e-mail addresses are masked in previews. Sensitive entries are encrypted at rest with a device-local key. Nothing is sent anywhere by default. |
+| **Sync** | A JNClub account against a backend you host: history, tags, notes, pins — and images — across macOS, Windows and the web. |
+| **Updates** | Checks for new releases on launch and on demand; the update feed carries a fallback mirror for networks where GitHub is unreachable. |
 
 ---
 
@@ -47,7 +67,7 @@ same history: copy something on the desktop and paste it on your phone.
 
 | Platform | Requirement | Download |
 | :--- | :--- | :--- |
-| **macOS** | 10.15 or newer, Apple Silicon or Intel | `.dmg` / `.app` |
+| **macOS** | 10.13 or newer, Apple Silicon or Intel | `.dmg` / `.app` |
 | **Windows** | 10 or newer, x64 | `.exe` installer, `.msi`, or a portable `.zip` |
 | **Browser** | Any current browser; installable as a PWA | [jiangnan.88933.vip/clipboard](https://jiangnan.88933.vip/clipboard/) |
 
@@ -82,7 +102,7 @@ The web build runs the same UI on top of IndexedDB. A page cannot watch the
 system clipboard, so it has a capture bar instead: paste or type, press
 ⌘/Ctrl+Enter. Everything else — search, tags, pinning, notes — behaves as it
 does on the desktop, and with a JNClub account signed in it sees the same
-history as your desktop.
+history as your desktop, pictures included.
 
 ---
 
@@ -103,22 +123,43 @@ to the platform default on upgrade.
 
 ## Sync
 
-Both paths are optional and off until you configure one.
+Sync is optional and off until you sign in. When you do, it is **JNClub** —
+sign in with a JNClub account and the desktop and web builds share one history
+through a backend you host. The sign-in flow opens your browser, and the token
+comes back to a loopback port the app is listening on for that one request.
 
-**WebDAV** — point the app at a WebDAV directory you control. History,
-attachments and settings are written there as ordinary files, so you can inspect
-or back them up with any tool. Use this when you already run Nextcloud,
-ownCloud, or a plain WebDAV server.
+What the protocol guarantees:
 
-**JNClub** — sign in with a JNClub account and the desktop and the web build
-share one history through the backend you host. The sign-in flow opens your
-browser, and the token comes back to a loopback port the app is listening on for
-that one request. Text, tags, notes and pin state travel; images stay on the
-device that captured them.
+- **Server-assigned sequence numbers** drive incremental pull; a cursor never
+  skips another device's writes, and every record carries a revision for
+  optimistic locking.
+- **Deletes are tombstones** and delete-wins: an edit racing a delete loses, so
+  removing a clip is final on every device.
+- **Duplicate copies merge deterministically** — earliest capture wins, ties
+  break on the entry id, and the losing identity ships out as a tombstone — so
+  all devices converge on the same single entry.
+- **Attachments are content-addressed** by SHA-256 and reference-counted; a
+  nightly sweep reclaims storage only after a week with zero references.
+- **Device-private settings never travel.** Window sizes, cursors and tokens stay
+  on the machine they belong to; usage counters are local, so pasting never
+  triggers network traffic.
+- **Sensitive entries** (tagged as such) are decrypted for transport over HTTPS
+  to your own server and re-encrypted at rest on each device.
 
 The server side is a module of [JNClub](https://github.com/JNNarrator) —
 `jnclub-module-clipboard` — and needs to be reachable over HTTPS from every
-device you sync.
+device you sync. The legacy WebDAV engine was retired in 1.0.8; a build flag
+(`VITE_WEBDAV_SYNC=1`) can still surface it for one-off migrations, but the UI
+ships with JNClub sync only.
+
+### A note on upgrades from ≤ 1.0.7
+
+Older builds had a cursor bug that could permanently skip records written by
+other devices while you were offline. Upgrading stops it from happening again;
+if entries are already missing on a device, reset its sync cursor
+(`jnclub.sync_last_seq` → `0` in the local database) with the app closed, and
+the next sync re-pulls the full history — duplicates merge, known entries are
+skipped, nothing is lost.
 
 ---
 
@@ -166,7 +207,7 @@ src/                 React UI, shared by the desktop and browser builds
   shared/            hooks, platform abstraction, design tokens
   web/               browser-only: IndexedDB storage, sync engine, service worker
 src-tauri/           Rust core and Tauri shell
-  src/services/      clipboard capture, WebDAV sync, JNClub sync client
+  src/services/      clipboard capture, JNClub sync client
   src/infrastructure/ platform APIs (macOS panels, Windows hooks, storage)
 e2e/                 Playwright suite that drives the real UI in a browser
 ```
@@ -180,8 +221,9 @@ which dispatch commands into the IndexedDB backend instead of the Rust one.
 ## Privacy
 
 No analytics, no telemetry, no identifiers sent anywhere. The only outbound
-requests are the ones you turn on yourself — WebDAV, JNClub — plus the GitHub
-release check, which happens once at launch and when you ask for it.
+requests are the ones you turn on yourself — JNClub sync — plus the release
+check, which happens once at launch and when you ask for it, and falls back to
+a self-hosted mirror when GitHub cannot be reached.
 
 ---
 
@@ -198,7 +240,8 @@ importers and emoji panel were removed, six cosmetic themes were dropped, the
 built-in updater and the calls to the upstream announcement and theme-store
 services were taken out, a check against this repository's GitHub releases
 replaced them, and a browser/PWA build plus a self-hosted sync backend were
-added.
+added — later hardened with a delete-wins protocol, deterministic dedupe,
+content-addressed attachments and a live change stream.
 
 If you want to support the original project, do it
 [upstream](https://github.com/jimuzhe/tiez-clipboard).
