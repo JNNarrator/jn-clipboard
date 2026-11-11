@@ -60,4 +60,3 @@
 .toast-action:focus-visible {
   background: var(--accent-soft);
 }
-npx tsc --noEmit 2>&1 | head -6; echo TSC-OK
