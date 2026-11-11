@@ -677,3 +677,22 @@ body.hide-unselected-item-actions .history-item:hover:not(.keyboard-owns-list *)
   box-shadow: inset 3px 0 0 var(--accent-color);
   background: rgba(var(--accent-color-rgb), 0.05);
 }
+
+/* Code preview coloring (see shared/lib/codeHighlight.ts). Token classes are
+   semantic; colors come from the --syntax-* roles so themes and both modes
+   keep their contrast promises. */
+.tok-key { color: var(--syntax-key); }
+.tok-string { color: var(--syntax-string); }
+.tok-number { color: var(--syntax-number); }
+.tok-literal { color: var(--syntax-literal); }
+.tok-comment { color: var(--syntax-comment); }
+.tok-text { color: inherit; }
+
+/* The list row's code preview keeps the row's font but inherits the token
+   colors; monospace stays for the detail pane's is-code rules. */
+.code-preview {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  white-space: pre-wrap;
+  word-break: break-word;
+}

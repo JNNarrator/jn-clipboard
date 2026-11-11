@@ -978,3 +978,94 @@ select.search-input option {
   background: var(--bg-element);
   color: var(--text-primary);
 }
+
+/* First-launch tour: one quiet card at the top of the empty list. No dim
+   layer, no focus trap — the list behind stays visible and usable. */
+.onboarding-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 16px;
+  margin-bottom: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-element);
+}
+
+.onboarding-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.onboarding-icon {
+  color: var(--accent-color);
+}
+
+.onboarding-count {
+  flex: 1;
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.onboarding-skip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.onboarding-skip:hover,
+.onboarding-skip:focus-visible {
+  background: var(--bg-element);
+  color: var(--text-primary);
+}
+
+.onboarding-title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--font-size-base);
+  font-weight: 700;
+}
+
+.onboarding-body {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
+.onboarding-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.onboarding-back,
+.onboarding-skip-text {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.onboarding-back:hover,
+.onboarding-back:focus-visible,
+.onboarding-skip-text:hover,
+.onboarding-skip-text:focus-visible {
+  color: var(--text-primary);
+}
+
+.onboarding-spacer {
+  flex: 0 1 8px;
+}

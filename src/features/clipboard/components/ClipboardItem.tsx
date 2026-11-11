@@ -39,6 +39,7 @@ import {
 import { motion } from "framer-motion";
 import { isItemInteractionActive } from "../lib/itemInteraction";
 import { HighlightText } from "../../../shared/components/HighlightText";
+import { CodeHighlightText } from "../../../shared/components/CodeHighlightText";
 import type { ClipboardItemProps } from "../types";
 import {
     formatSensitivePreview,
@@ -1924,6 +1925,9 @@ const ClipboardItem = ({
             data-clipboard-item-id={String(item.id)}
             role="listitem"
             aria-current={isSelected ? "true" : undefined}
+            // Reads as "<preview> from <source app>" — the same line the eyes
+            // get. Sensitive entries read their masked placeholder instead.
+            aria-label={isSensitiveHidden ? sensitivePreview : `${item.preview}, ${item.source_app}`}
             initial={false}
             animate={{ marginBottom: 0 }}
             exit={{ opacity: 0, scale: 0.95 }}
@@ -2781,6 +2785,11 @@ const ClipboardItem = ({
                                 text={item.preview}
                                 ranges={highlightRanges}
                             />
+                        )
+                        : item.content_type === "code" ? (
+                            <span className="code-preview">
+                                <CodeHighlightText text={item.preview} />
+                            </span>
                         )
                         : item.preview
                 )}

@@ -6,7 +6,13 @@ interface ToastContainerProps {
 }
 
 const ToastContainer = ({ toasts }: ToastContainerProps) => (
-  <div className="toast-container">
+  <div
+    className="toast-container"
+    // Polite, not assertive: toasts supplement an action the user just took;
+    // they should queue behind what the screen reader is already saying.
+    role="status"
+    aria-live="polite"
+  >
     <AnimatePresence>
       {toasts.map((toast) => (
         <motion.div

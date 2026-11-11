@@ -7,6 +7,8 @@ import { VirtualClipboardList } from "../../clipboard/components/VirtualClipboar
 import TagManager from "../../tag/components/TagManager";
 import MacAccessibilityBanner from "../../../shared/components/MacAccessibilityBanner";
 import MultiSelectBar from "../../../shared/components/MultiSelectBar";
+import OnboardingCard, { hasSeenOnboarding } from "../../../shared/components/OnboardingCard";
+import { useState } from "react";
 import type { ClipboardEntry } from "../../../shared/types";
 import type { VirtualClipboardListHandle } from "../../clipboard/types";
 
@@ -131,6 +133,11 @@ const AppMainContent = ({
   const orderedPinnedIds = pinnedOrderIds;
 
   // Hooks must run before the view-specific early returns below.
+  /** Set by the onboarding card's own finish: hides it without a remount. */
+  const [onboardingDismissed, setOnboardingDismissed] = useState(
+    typeof window !== "undefined" && hasSeenOnboarding()
+  );
+  const showOnboarding = !onboardingDismissed && !isLoadingMore;
   // Same wrapper for every row so the top card does not remount when a new
   // copy pushes it down to index 1.
   const renderVirtualItem = useCallback((item: ClipboardEntry, index: number, isFirst?: boolean) => {
@@ -167,8 +174,15 @@ const AppMainContent = ({
   }
 
   if (filteredHistory.length === 0) {
+    // First run only: someone with existing history is not "learning the
+    // app", and a fresh dev profile is not a first run either.
     return (
       <div className="empty-state">
+        {showOnboarding && (
+          <div className="onboarding-wrap">
+            <OnboardingCard t={t} onDone={() => setOnboardingDismissed(true)} />
+          </div>
+        )}
         <Clipboard size={40} opacity={0.2} style={{ marginBottom: "12px" }} />
         {search ? (
           <p>{t("no_records")}</p>

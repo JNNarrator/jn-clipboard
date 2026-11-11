@@ -13,6 +13,14 @@
   --text-primary: #182235;
   --text-secondary: #536179;
   --text-muted: #646d7d;
+  /* Syntax colors for code previews. Derived from the text roles so both
+     modes stay readable: keys carry the accent, strings/literals distinct
+     hues, comments sit at muted. */
+  --syntax-key: var(--accent-color);
+  --syntax-string: #0F8A5F;
+  --syntax-number: #B05C00;
+  --syntax-literal: #8250DF;
+  --syntax-comment: var(--text-muted);
 
   --accent-color: #2f6fed;
   --accent-color-rgb: 47, 111, 237;
@@ -349,6 +357,11 @@
     --bg-button: rgba(31, 37, 49, 0.86);
 
     --text-primary: #edf1f8;
+    /* Dark-mode syntax hues: lighter and slightly desaturated so they hold
+       contrast on the dark surface without shouting. */
+    --syntax-string: #4EC9A4;
+    --syntax-number: #E0A569;
+    --syntax-literal: #B392F0;
     --text-secondary: #a7b3c9;
     --text-muted: #848ea1;
 

@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import type { ClipboardEntry } from "../../../shared/types";
 import HtmlContent from "../../../shared/components/HtmlContent";
+import { CodeHighlightText } from "../../../shared/components/CodeHighlightText";
 import { toTauriLocalImageSrc } from "../../../shared/lib/localImageSrc";
 import { getSourceAppIcon, peekSourceAppIcon } from "../../../shared/lib/sourceAppIcon";
 import { isTauriRuntime } from "../../../shared/lib/tauriRuntime";
@@ -476,7 +477,7 @@ const ClipboardDetailPane = ({
   } else {
     preview = (
       <pre className={`detail-text${originalItem?.content_type === "code" ? " is-code" : ""}`}>
-        {displayText}
+        {originalItem?.content_type === "code" ? <CodeHighlightText text={displayText} /> : displayText}
         {text.length > MAX_DISPLAY_CHARS && (
           <span className="detail-truncated">{t("detail_truncated").replace("{n}", MAX_DISPLAY_CHARS.toLocaleString(locale))}</span>
         )}
