@@ -36,7 +36,32 @@ interface UpdateCheckState {
     /** 0-100, or null while the endpoint has not reported a length. */
     progress: number | null;
     error: string | null;
+    /** Why the last attempt failed; the raw text is for logs, this is for wording. */
+    errorKind?: UpdateErrorKind;
 }
+
+export type UpdateErrorKind = "network" | "signature" | "other";
+
+/**
+ * Reads the updater's failure and says which one it was.
+ *
+ * The plugin hands back reqwest's own text — "error sending request for url
+ * (https://github.com/…)" — which reads like a bug in the app rather than a
+ * network that cannot reach GitHub. Only the two cases worth telling the user
+ * apart are recognised; anything else keeps its original message.
+ */
+const classifyError = (error: unknown): UpdateErrorKind => {
+    const text = String(error ?? "").toLowerCase();
+    if (/signature|public key|minisign/.test(text)) return "signature";
+    if (
+        /error sending request|timed out|timeout|dns|failed to lookup|connect|connection|network|tls|ssl|handshake|unreachable|refused|reset|proxy/.test(
+            text,
+        )
+    ) {
+        return "network";
+    }
+    return "other";
+};
 
 /** What `check()` from the plugin resolves to, narrowed to what we use. */
 interface PluginUpdate {
@@ -130,6 +155,7 @@ export function useUpdateCheck() {
                 info: null,
                 progress: null,
                 error: String(error),
+                errorKind: classifyError(error),
             };
             setState(failed);
             return failed;
@@ -172,6 +198,7 @@ export function useUpdateCheck() {
                 info: null,
                 progress: null,
                 error: String(error),
+                errorKind: classifyError(error),
             };
             setState(failed);
             return failed;

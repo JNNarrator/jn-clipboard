@@ -144,8 +144,24 @@ const SettingsFooter = ({
                 {/* Update result. Stays empty until the user asks, so the footer
                     does not grow a second line for nothing. */}
                 {update.error && (
-                    <div className="settings-panel-meta is-error" style={{ marginBottom: "6px" }}>
-                        {formatError(update.error, t)}
+                    <div style={{ marginBottom: "6px" }}>
+                        <div className="settings-panel-meta is-error" style={{ marginBottom: "6px" }}>
+                            {update.errorKind === "network"
+                                ? t("update_error_network")
+                                : update.errorKind === "signature"
+                                  ? t("update_error_signature")
+                                  : formatError(update.error, t)}
+                        </div>
+                        {/* No install button when the check itself failed, so the
+                            only way forward is the release page. */}
+                        {update.errorKind === "network" && (
+                            <button
+                                className="settings-action-button settings-action-button--small"
+                                onClick={() => void openUrl(`${REPO_URL}/releases/latest`)}
+                            >
+                                {t("download_update")}
+                            </button>
+                        )}
                     </div>
                 )}
                 {update.phase === "downloading" && (
