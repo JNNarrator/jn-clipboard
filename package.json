@@ -1,7 +1,7 @@
 {
   "name": "jn-clipboard",
   "private": true,
-  "version": "1.0.9",
+  "version": "1.0.10",
   "description": "Clipboard history manager for macOS, Windows and the browser",
   "type": "module",
   "scripts": {
