@@ -86,3 +86,61 @@ pub fn set_enabled(enabled: bool) -> Result<(), String> {
     }
     Ok(())
 }
+
+/// Re-registers the item so launchd records the running bundle's signature.
+///
+/// The registration carries a Launch Constraint: the set of cdhashes launchd
+/// and AMFI accept for this item. It is filled in when the item is registered,
+/// and an in-place update replaces Contents without touching the registration,
+/// so the constraint keeps naming the binary that is already gone. Every login
+/// start is then killed at exec — SIGKILL "Code Signature Invalid",
+/// `CODESIGNING / Launch Constraint Violation` in the crash report — before any
+/// app code runs, which is why the app cannot report it itself. Unregistering
+/// and registering again writes a constraint for the binary that just started.
+///
+/// Returns `Ok(())` without touching anything when the item is off or was
+/// switched off in System Settings: nothing starts at login then, and
+/// registering again would undo the user's choice.
+pub fn refresh_registration() -> Result<(), String> {
+    let service = agent_service().ok_or("SMAppService unavailable")?;
+    if status(&service) != STATUS_ENABLED {
+        return Ok(());
+    }
+    // Ignored: the record may already be gone (booted out by hand), and what
+    // matters is the registration below.
+    let _: Result<(), Retained<NSError>> =
+        unsafe { msg_send![&service, unregisterAndReturnError: _] };
+    // The background-item store is written out of process, so an immediate
+    // register can land while the old record is still being torn down. Losing
+    // the registration would leave launch at login off, so retry briefly.
+    let mut last_error = String::new();
+    for attempt in 0..3 {
+        if attempt > 0 {
+            std::thread::sleep(std::time::Duration::from_millis(400));
+        }
+        let result: Result<(), Retained<NSError>> =
+            unsafe { msg_send![&service, registerAndReturnError: _] };
+        match result {
+            Ok(()) => return Ok(()),
+            Err(error) => last_error = error.localizedDescription().to_string(),
+        }
+    }
+    Err(last_error)
+}
+
+/// Identity of the bundle on disk, to tell whether the registration is stale.
+///
+/// The cdhash would be exact, but reading it means the Security framework;
+/// version, size and mtime of the executable move with every rebuilt bundle and
+/// cost nothing, which is enough to notice an in-place update.
+pub fn registration_fingerprint(version: &str) -> Option<String> {
+    let exe = std::env::current_exe().ok()?;
+    let metadata = std::fs::metadata(&exe).ok()?;
+    let mtime = metadata
+        .modified()
+        .ok()?
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()?
+        .as_secs();
+    Some(format!("{version}:{}:{mtime}", metadata.len()))
+}

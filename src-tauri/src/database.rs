@@ -283,6 +283,12 @@ pub(crate) const CHANGED_DEFAULTS: &[(&str, &str, &str)] = &[
 /// removes it (app/setup.rs). Existing installs keep their login item as is.
 pub const AUTOSTART_PENDING_KEY: &str = "app.autostart_pending";
 
+/// Fingerprint of the build the macOS login item was registered against. Startup
+/// re-registers when it no longer matches the bundle that is running, because a
+/// stale Launch Constraint gets every login start killed by AMFI (see
+/// `login_item::refresh_registration`).
+pub const LOGIN_ITEM_FINGERPRINT_KEY: &str = "app.login_item_fingerprint";
+
 pub fn seed_defaults(conn: &Connection) -> Result<()> {
     // Every release has seeded app.hotkey, so only a new (or reset) database
     // lacks it. (Migrations may already have written other keys.)

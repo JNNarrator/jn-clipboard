@@ -1157,6 +1157,50 @@ fn migrate_macos_login_item(app_handle: &AppHandle) {
     }
 }
 
+/// Re-registers the login item when the bundle on disk is not the one it was
+/// registered against.
+///
+/// The registration pins the binary's cdhash in a Launch Constraint. Updates
+/// install in place (c91d1a6), so the bundle changes while the registration
+/// stays, and from then on macOS kills every login start at exec — a
+/// `SIGKILL (Code Signature Invalid)` / `CODESIGNING / Launch Constraint
+/// Violation` crash report with empty frames, before any of this code runs.
+/// Nothing inside the app can see that crash, so the check lives here: it costs
+/// two stats per start and rebuilds the constraint whenever the binary moved.
+#[cfg(target_os = "macos")]
+fn refresh_login_item_after_update(app_handle: &AppHandle, db_state: &DbState) {
+    use crate::infrastructure::macos_api::login_item;
+    use crate::infrastructure::repository::settings_repo::SettingsRepository;
+    if cfg!(debug_assertions) || !login_item::available() || !login_item::is_enabled() {
+        return;
+    }
+    // Started from the DMG or a translocated copy: the path is temporary, and
+    // the registration belongs to the installed app.
+    if let Ok(exe) = std::env::current_exe() {
+        let path = exe.to_string_lossy();
+        if path.starts_with("/Volumes/") || path.contains("/AppTranslocation/") {
+            return;
+        }
+    }
+    let version = app_handle.package_info().version.to_string();
+    let Some(fingerprint) = login_item::registration_fingerprint(&version) else {
+        return;
+    };
+    let recorded = db_state.settings_repo.get(database::LOGIN_ITEM_FINGERPRINT_KEY).ok().flatten();
+    if recorded.as_deref() == Some(fingerprint.as_str()) {
+        return;
+    }
+    match login_item::refresh_registration() {
+        Ok(()) => {
+            let _ = db_state
+                .settings_repo
+                .set(database::LOGIN_ITEM_FINGERPRINT_KEY, &fingerprint);
+            eprintln!(">>> [STARTUP] re-registered the login item for {fingerprint}");
+        }
+        Err(error) => eprintln!(">>> [STARTUP] refreshing the login item failed: {error}"),
+    }
+}
+
 fn start_services(app: &App, s: &StartupSettings, app_handle: AppHandle) {
     #[cfg(target_os = "macos")]
     crate::infrastructure::macos_api::window_tracker::start_window_tracking(app_handle.clone());
@@ -1179,6 +1223,10 @@ fn start_services(app: &App, s: &StartupSettings, app_handle: AppHandle) {
     #[cfg(target_os = "macos")]
     migrate_macos_login_item(&app_handle);
     enable_autostart_on_first_run(&app_handle, &db_state);
+    // After the two above: both can register the item, and this records which
+    // build that registration belongs to.
+    #[cfg(target_os = "macos")]
+    refresh_login_item_after_update(&app_handle, &db_state);
     #[cfg(target_os = "windows")]
     if crate::app::commands::system_cmd::check_is_admin() {
         std::thread::spawn(crate::infrastructure::windows_api::elevated_autostart::refresh_outdated_task);
