@@ -1,29 +1,18 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capability for the main window",
-  "windows": [
-    "main",
-    "compact-preview"
-  ],
+  "description": "Single capability set for every app window (main, compact preview, pin stickers). tauri.conf.json references this file by identifier; keep all IPC permissions here — the config must not inline its own list, because a non-empty inline list makes Tauri ignore this file entirely.",
+  "windows": ["*"],
   "permissions": [
-    "core:default",
-    "core:app:allow-version",
-    "core:app:default",
-    "opener:default",
-    "opener:allow-open-url",
-    "updater:default",
-    "process:allow-restart",
-    "core:event:default",
-    "core:event:allow-listen",
-    "core:event:allow-unlisten",
-    "core:event:allow-emit",
     "core:window:allow-start-dragging",
     "core:window:allow-hide",
     "core:window:allow-show",
+    "core:window:allow-close",
     "core:window:allow-set-focus",
+    "core:window:allow-is-visible",
     "core:window:allow-inner-size",
     "core:window:allow-inner-position",
+    "core:window:allow-scale-factor",
     "core:window:allow-set-size",
     "core:window:allow-set-position",
     "core:window:allow-set-always-on-top",
@@ -35,12 +24,45 @@
     "core:webview:allow-create-webview-window",
     "core:window:allow-set-ignore-cursor-events",
     "core:window:allow-set-focusable",
-    "core:path:default",
-    "fs:default",
-    "fs:read-all",
-    "dialog:default",
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "core:event:allow-emit",
+    "core:app:allow-version",
+    "core:app:default",
+    "updater:default",
+    "process:allow-restart",
     "dialog:allow-open",
-    "window-state:default",
-    "notification:default"
+    "dialog:allow-save",
+    "dialog:default",
+    "fs:default",
+    {
+      "identifier": "fs:allow-read",
+      "allow": [
+        { "path": "**" },
+        { "path": "$HOME/**" },
+        { "path": "$APPDATA/**" },
+        { "path": "$APPLOCALDATA/**" },
+        { "path": "$PROFILE/**" }
+      ]
+    },
+    {
+      "identifier": "core:path:default",
+      "allow": [
+        { "path": "$HOME/**" },
+        { "path": "$APPDATA/**" },
+        { "path": "$APPLOCALDATA/**" },
+        { "path": "$PROFILE/**" }
+      ]
+    },
+    "opener:default",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [
+        { "url": "http://localhost:3000/**" },
+        { "url": "http://127.0.0.1:3000/**" },
+        { "url": "https://github.com/JNNarrator/jn-clipboard/**" }
+      ]
+    },
+    "window-state:default"
   ]
 }
