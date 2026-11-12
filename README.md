@@ -53,9 +53,9 @@ copy on the desktop, paste on the phone — usually before you've switched apps.
 | | |
 | :--- | :--- |
 | **Capture** | Text, rich text (HTML), images and file paths, collected automatically. Duplicates collapse into one entry, and per-app rules can ignore an app or rewrite what it contributes. |
-| **Find** | Full-text search, plus filters by content type, source app, tag and date. Pinned entries stay on top. |
+| **Find** | Full-text search with the hits marked right in the preview, plus filters by content type, source app, tag and date. Pinned entries stay on top. The settings page has its own search box too. |
 | **Paste** | One keystroke pastes straight into the app you came from. Or copy without pasting, paste as plain text, or queue several entries and paste them in order. |
-| **Organize** | Multi-colour tags, pinning with a manual order, and a note on any entry. |
+| **Organize** | Multi-colour tags, pinning with a manual order, and a note on any entry. Select several rows with Cmd/Ctrl-click or Shift-click and tag or delete them in bulk — deleting offers a short undo window. Code entries get light syntax colouring (JSON keys and strings stand out) in the list and the detail pane. |
 | **Look** | Three native-material themes — Mica and Acrylic on Windows, macOS vibrancy on macOS — each in light and dark. Edge docking, a compact preview window, and a resizable panel. |
 | **Privacy** | IDs, phone numbers and e-mail addresses are masked in previews. Sensitive entries are encrypted at rest with a device-local key. Nothing is sent anywhere by default. |
 | **Sync** | A JNClub account against a backend you host: history, tags, notes, pins — and images — across macOS, Windows and the web. |
@@ -74,6 +74,11 @@ copy on the desktop, paste on the phone — usually before you've switched apps.
 [**Download the latest release →**](https://github.com/JNNarrator/jn-clipboard/releases)
 
 ### First launch
+
+On a fresh install the app opens on a short, skippable four-step card —
+click-to-paste, the keyboard flow, the search syntax, and bulk organizing.
+It only appears once per device and never for a profile that already has
+history.
 
 The builds are ad-hoc signed but not notarized — there is no paid developer
 certificate behind them, so macOS and Windows both refuse them at first.
@@ -241,7 +246,10 @@ built-in updater and the calls to the upstream announcement and theme-store
 services were taken out, a check against this repository's GitHub releases
 replaced them, and a browser/PWA build plus a self-hosted sync backend were
 added — later hardened with a delete-wins protocol, deterministic dedupe,
-content-addressed attachments and a live change stream.
+content-addressed attachments and a live change stream. The interface gained
+search hit highlighting, a settings search, multi-select bulk actions with an
+undo window, light code colouring, an accessibility pass and a first-launch
+tour.
 
 If you want to support the original project, do it
 [upstream](https://github.com/jimuzhe/tiez-clipboard).
