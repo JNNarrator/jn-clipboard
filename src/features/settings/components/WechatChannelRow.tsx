@@ -8,14 +8,20 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 
+// 字段名与后端 WechatController 的返回保持一致（camelCase）。
+// 之前这里写成 snake_case，而服务端返回的是 camelCase——
+// 意味着 user_id / notify_on_copy / whitelist 一直是 undefined。
+// 目前 UI 只用到 state 与 connected，所以没暴露出来，但这种"类型撒谎"
+// 会在有人开始用它们是变成静默的 undefined。
 interface SyncStatus {
     state: string;
     connected: boolean;
-    user_id?: string | null;
+    userId?: string | null;
     error?: string | null;
-    waiting_scan: boolean;
-    notify_on_copy: boolean;
+    waitingScan: boolean;
+    notifyOnCopy: boolean;
     whitelist?: string | null;
+    enabled?: boolean;
 }
 
 interface QrcodeResult {

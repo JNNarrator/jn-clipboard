@@ -18,11 +18,12 @@ const SERVER_KEY = "web.sync_base_url";
 export interface WechatStatus {
     state: string;
     connected: boolean;
-    user_id?: string | null;
+    userId?: string | null;
     error?: string | null;
-    waiting_scan: boolean;
-    notify_on_copy: boolean;
+    waitingScan: boolean;
+    notifyOnCopy: boolean;
     whitelist?: string | null;
+    enabled?: boolean;
 }
 
 export interface QrcodeResult {
