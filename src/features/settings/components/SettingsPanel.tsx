@@ -267,7 +267,9 @@ const NAV_GROUPS: { labelKey: string; ids: string[] }[] = [
     // opted back in (see edition.ts).
     {
         labelKey: "settings_nav_group_sync",
-        ids: [WebSyncPanel ? "web_sync" : WEBDAV_SYNC_UI ? "cloud_sync" : "jnclub_sync"]
+        // 微信通道不参与上面这个三元的选择——它在桌面端和网页版都有，
+        // 所以单独列在同步组下，而不是挤进"三选一"里。
+        ids: [...(WebSyncPanel ? ["web_sync"] : WEBDAV_SYNC_UI ? ["cloud_sync"] : ["jnclub_sync"]), "wechat_channel"]
     },
     { labelKey: "settings_nav_group_data", ids: ["secure_transfer", "data"] }
 ];
@@ -681,16 +683,18 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                 node: (
                     <JnclubSyncGroup t={t} {...groupState('jnclub_sync')} />
                 )
-            }, {
-                // 微信通道与跨设备同步是两件独立的事：
-                // 同步让多台设备共用一份历史，通道让手机不装 App 也能传。
-                // 因此各自成组，各自可折叠。
-                id: "wechat_channel",
-                label: t("wechat_channel_title"),
-                node: (
-                    <WechatChannelGroup t={t} {...groupState('wechat_channel')} />
-                )
             }]),
+        // 微信通道独立于上面那个三元：它既不依赖桌面端的 JNClub 登录行，
+        // 也不属于网页版的 WebSyncPanel，而是两端共有的能力
+        // （桌面端经 Rust 代理，网页版直接 fetch）。放在三元里会让
+        // 网页版整组消失——这正是它一开始在 PWA 上看不到的原因。
+        {
+            id: "wechat_channel",
+            label: t("wechat_channel_title"),
+            node: (
+                <WechatChannelGroup t={t} {...groupState('wechat_channel')} />
+            )
+        },
         ...(WebSyncPanel || !WEBDAV_SYNC_UI
             ? []
             : [{
