@@ -8,6 +8,12 @@
  * than throwing: a missing optional feature must not blank the whole app.
  */
 import { isNewerVersion } from "../../shared/lib/version";
+import {
+  getWechatStatus,
+  requestWechatQrcode,
+  resumeWechatChannel,
+  stopWechatChannel,
+} from "./wechat";
 import { dispatchLocal } from "../shims/event";
 import { getAllSettings, resetSettings, saveSetting } from "./settings";
 import {
@@ -55,6 +61,14 @@ const handlers: Record<string, Handler> = {
   // Nothing on the web build is encrypted, so there is nothing undecryptable.
   get_undecryptable_settings: () => [],
   clear_undecryptable_settings: () => null,
+
+  // ---- wechat channel ----------------------------------------------------
+  // The desktop build routes these through Rust; a browser can call them
+  // directly, so they are implemented rather than left as no-ops.
+  get_wechat_status: () => getWechatStatus(),
+  request_wechat_qrcode: () => requestWechatQrcode(),
+  stop_wechat_channel: () => stopWechatChannel(),
+  resume_wechat_channel: () => resumeWechatChannel(),
 
   // ---- history -----------------------------------------------------------
   get_clipboard_history: async ({ limit, offset, contentType, sortMode }) =>

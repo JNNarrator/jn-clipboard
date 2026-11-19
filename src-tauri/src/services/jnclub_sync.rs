@@ -2500,3 +2500,24 @@ mod tests {
         );
     }
 }
+
+/// 供微信通道命令复用的凭据读取（见 `app/commands/wechat_cmd.rs`）。
+///
+/// 这些包装存在的唯一理由是可见性：`lock_db` / `base_url` / `read_setting`
+/// 都是模块私有的，而微信命令在另一个模块里。与其把三个内部函数全部
+/// `pub` 出去，不如只开三个语义明确的小口子。
+pub fn lock_db_for_wechat<'a>(
+    app: &'a AppHandle,
+) -> AppResult<std::sync::MutexGuard<'a, rusqlite::Connection>> {
+    lock_db(app)
+}
+
+/// 当前配置的同步服务地址（可能为空串）。
+pub fn base_url_for_wechat(conn: &rusqlite::Connection) -> String {
+    base_url(conn)
+}
+
+/// 当前保存的登录令牌（可能为空串）。
+pub fn token_for_wechat(conn: &rusqlite::Connection) -> String {
+    read_setting(conn, TOKEN_KEY).unwrap_or_default().trim().to_string()
+}

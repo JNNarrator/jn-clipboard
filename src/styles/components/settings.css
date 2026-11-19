@@ -2853,3 +2853,26 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
 .settings-search-hidden {
   display: none;
 }
+
+
+/* 微信通道：状态文字与按钮同一行，二维码在新的一行居中。
+   沿用 setting-item 的行结构，只补这一处布局——不改动既有的行样式，
+   避免影响其它设置项。 */
+.wechat-channel-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.wechat-qrcode {
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+/* 二维码在白底之外的主题里也要能扫：留一圈白边，不跟随主题色。 */
+.wechat-qrcode img {
+    border-radius: 8px;
+    background: #fff;
+    padding: 8px;
+}

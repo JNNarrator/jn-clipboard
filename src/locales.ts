@@ -55,6 +55,18 @@ export const translations = {
 
         // Settings - JNClub sync (one row: sign in, or "synced N minutes ago")
         jnclub_sync_title: "跨设备同步",
+        wechat_channel_title: "微信通道",
+        wechat_channel_label: "手机微信互传",
+        wechat_hint_connected: "手机在微信里发消息即可写入电脑剪贴板；电脑复制后会推送到微信。",
+        wechat_hint_disconnected: "扫码登录后，手机不装应用也能和电脑互传文本。",
+        wechat_state_connected: "已连接",
+        wechat_state_waiting: "等待扫码",
+        wechat_state_down: "未连接",
+        wechat_action_login: "扫码登录",
+        wechat_action_stop: "断开",
+        wechat_action_resume: "恢复",
+        wechat_scan_hint: "用微信扫描二维码完成登录",
+
         jnclub_sync_state_on: "已同步 · {when}",
         jnclub_sync_state_off: "未登录，历史只保存在本机",
         jnclub_sync_never: "尚未同步",
@@ -751,6 +763,18 @@ export const translations = {
 
         // Settings - JNClub sync (one row: sign in, or "synced N minutes ago")
         jnclub_sync_title: "Cross-device Sync",
+        wechat_channel_title: "WeChat Channel",
+        wechat_channel_label: "Phone ↔ computer",
+        wechat_hint_connected: "Send a message in WeChat to put it on this computer; what you copy here is pushed back to WeChat.",
+        wechat_hint_disconnected: "Scan to sign in and move text between your phone and this computer without installing an app.",
+        wechat_state_connected: "Connected",
+        wechat_state_waiting: "Waiting for scan",
+        wechat_state_down: "Not connected",
+        wechat_action_login: "Sign in",
+        wechat_action_stop: "Disconnect",
+        wechat_action_resume: "Resume",
+        wechat_scan_hint: "Scan the code with WeChat to sign in",
+
         jnclub_sync_state_on: "Synced · {when}",
         jnclub_sync_state_off: "Not signed in; history stays on this device",
         jnclub_sync_never: "never",
@@ -1443,6 +1467,18 @@ export const translations = {
 
         // Settings - JNClub sync (one row: sign in, or "synced N minutes ago")
         jnclub_sync_title: "跨裝置同步",
+        wechat_channel_title: "微信通道",
+        wechat_channel_label: "手機微信互傳",
+        wechat_hint_connected: "手機在微信裡傳訊息即可寫入電腦剪貼簿；電腦複製後會推送到微信。",
+        wechat_hint_disconnected: "掃碼登入後，手機不裝應用也能和電腦互傳文字。",
+        wechat_state_connected: "已連線",
+        wechat_state_waiting: "等待掃碼",
+        wechat_state_down: "未連線",
+        wechat_action_login: "掃碼登入",
+        wechat_action_stop: "中斷",
+        wechat_action_resume: "恢復",
+        wechat_scan_hint: "用微信掃描二維碼完成登入",
+
         jnclub_sync_state_on: "已同步 · {when}",
         jnclub_sync_state_off: "未登入，歷史只保存在本機",
         jnclub_sync_never: "尚未同步",

@@ -32,6 +32,7 @@ import AdvancedSettingsGroup from "./groups/AdvancedSettingsGroup";
 import AppearanceSettingsGroup from "./groups/AppearanceSettingsGroup";
 import CloudSyncSettingsGroup, { type CloudSyncStatusPayload } from "./groups/CloudSyncSettingsGroup";
 import JnclubSyncGroup from "./groups/JnclubSyncGroup";
+import WechatChannelGroup from "./groups/WechatChannelGroup";
 import DefaultAppsSettingsGroup from "./groups/DefaultAppsSettingsGroup";
 import DataSettingsGroup from "./groups/DataSettingsGroup";
 import { useUnreadableSecrets } from "../useUnreadableSecrets";
@@ -679,6 +680,15 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                 label: t("jnclub_sync_title"),
                 node: (
                     <JnclubSyncGroup t={t} {...groupState('jnclub_sync')} />
+                )
+            }, {
+                // 微信通道与跨设备同步是两件独立的事：
+                // 同步让多台设备共用一份历史，通道让手机不装 App 也能传。
+                // 因此各自成组，各自可折叠。
+                id: "wechat_channel",
+                label: t("wechat_channel_title"),
+                node: (
+                    <WechatChannelGroup t={t} {...groupState('wechat_channel')} />
                 )
             }]),
         ...(WebSyncPanel || !WEBDAV_SYNC_UI
