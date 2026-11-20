@@ -21,16 +21,21 @@ pub struct WechatStatus {
     pub state: String,
     #[serde(default)]
     pub connected: bool,
-    #[serde(default)]
+    // 字段名必须与后端返回的 camelCase 一致。此前这里写的是 snake_case，
+    // 而服务端返回 userId / waitingScan / notifyOnCopy —— serde 匹配不上，
+    // 这些字段会静默变成默认值，UI 上表现为"一直显示未连接"。
+    #[serde(default, rename = "userId")]
     pub user_id: Option<String>,
     #[serde(default)]
     pub error: Option<String>,
-    #[serde(default)]
+    #[serde(default, rename = "waitingScan")]
     pub waiting_scan: bool,
-    #[serde(default)]
+    #[serde(default, rename = "notifyOnCopy")]
     pub notify_on_copy: bool,
     #[serde(default)]
     pub whitelist: Option<String>,
+    #[serde(default)]
+    pub enabled: bool,
 }
 
 /// 后端统一响应外壳 `{ code, message, data }`。
@@ -123,6 +128,10 @@ pub struct QrcodeResult {
     pub connected: bool,
     #[serde(default, rename = "qrcodeContent")]
     pub qrcode_content: Option<String>,
+    /// 后端渲染好的 `data:image/png;base64,...`，前端直接塞进 img 即可。
+    /// 少了这个字段桌面端就拿不到二维码图片，扫码登录无从谈起。
+    #[serde(default, rename = "qrcodeImage")]
+    pub qrcode_image: Option<String>,
     #[serde(default)]
     pub message: Option<String>,
 }
