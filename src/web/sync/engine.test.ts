@@ -510,3 +510,55 @@ describe("failures", () => {
     expect(row.dirty).toBe(1);
   });
 });
+
+/**
+ * 回归：push 失败不得阻断 pull。
+ *
+ * 真实故障：网页端持续 push（200）、却再也不 pull，手机发来的内容永远
+ * 进不了网页版。原因是 syncNow 里 push 抛出的异常会中断整个往返，
+ * 而 runner 的 catch 又是空的——两个静默叠加，界面上什么都看不出来。
+ */
+describe("resilience", () => {
+  test("pull still runs when push throws", async () => {
+    // 服务端已有别人写的一条记录
+    const dto: RecordDto = {
+      syncId: "remote-1",
+      contentType: "text",
+      content: "手机发来的内容",
+      rev: 1,
+      seq: 1,
+      createdAt: 1000,
+      sortAt: 1000,
+    };
+
+    let pulled = 0;
+    const fetchImpl = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/sync/push")) {
+        throw new Error("push 故意失败");
+      }
+      if (url.includes("/sync/pull")) {
+        pulled += 1;
+        return json({
+          code: 200,
+          message: "success",
+          data: {
+            records: pulled === 1 ? [dto] : [],
+            settings: [],
+            nextSeq: 1,
+            hasMore: false,
+          },
+        });
+      }
+      throw new Error("unexpected call " + url);
+    }) as unknown as typeof fetch;
+
+    const outcome = await syncNow(CONFIG, { fetchImpl });
+
+    expect(pulled).toBeGreaterThan(0);
+    expect(outcome.pulled).toBeGreaterThan(0);
+    // 记录真的落地了，而不是"没报错但也没写入"
+    const stored = await listHistory(10, 0);
+    expect(stored.some((row) => row.content === "手机发来的内容")).toBe(true);
+  });
+});

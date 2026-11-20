@@ -75,8 +75,25 @@ export function startWebSync(): () => void {
     running = true;
     try {
       notifyIfChanged(await syncNow({ baseUrl: settings[SERVER_KEY] || defaultBaseUrl(), token }));
-    } catch {
-      // Recorded in `meta` by the engine; the next tick retries.
+    } catch (error) {
+      // 这里曾经是空的 catch：引擎在 push 之后、pull 之前抛任何异常，
+      // 都会被彻底吞掉——网页端于是永远只推不拉，而且没有任何可见迹象。
+      // 实测就是靠这个"静默失败"让手机发来的内容一直进不了网页版：
+      // push 每轮 200、pull 再也不发生，界面和日志都看不出问题。
+      // 至少要让它出现在控制台和 meta 里，否则下一次仍然无从查起。
+      console.warn("clipboard sync: round trip failed", error);
+      const message = error instanceof Error ? error.message : String(error);
+      try {
+        const meta = await db.meta.get("sync");
+        await db.meta.put({
+          key: "sync",
+          last_seq: meta?.last_seq ?? 0,
+          last_sync_at: meta?.last_sync_at ?? 0,
+          last_error: message,
+        });
+      } catch {
+        // meta 写不进不影响下一轮重试。
+      }
     } finally {
       running = false;
     }

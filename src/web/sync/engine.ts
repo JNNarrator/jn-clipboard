@@ -436,10 +436,25 @@ export async function syncNow(
   const direction = options.direction ?? "both";
 
   try {
-    const pushResult = direction === "pull" ? { pushed: 0, conflicts: 0 } : await push(api);
+    let pushResult = { pushed: 0, conflicts: 0 };
+    if (direction !== "pull") {
+      try {
+        pushResult = await push(api);
+      } catch (error) {
+        // 见下方注释：推送失败不该让我们连"收"也做不了。
+        console.warn("clipboard sync: push failed, pulling anyway", error);
+      }
+    }
     if (direction === "push") {
       return { pushed: pushResult.pushed, conflicts: pushResult.conflicts, pulled: 0, lastSeq: meta.last_seq };
     }
+    // push 与 pull 必须相互独立。
+    //
+    // 之前 push 抛出的异常会让整个 syncNow 中断，于是"拉"永远轮不到执行：
+    // 网页端表现为持续 push 200、却再也不 pull，手机发来的内容永远进不来。
+    // 推送失败只该影响"我发出去的还没到"，不该影响"别人发来的收不到"——
+    // 后者才是用户真正会注意到的症状。所以这里把 push 的失败降级为
+    // 一次告警，让 pull 继续跑。
 
     let pulled = 0;
     let since = meta.last_seq;
