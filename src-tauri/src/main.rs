@@ -176,6 +176,7 @@ fn main() -> AppResult<()> {
             app::commands::wechat_cmd::request_wechat_qrcode,
             app::commands::wechat_cmd::stop_wechat_channel,
             app::commands::wechat_cmd::resume_wechat_channel,
+            app::commands::wechat_cmd::update_wechat_settings,
             app::commands::get_clipboard_history,
             app::commands::read_text_file_preview,
             app::commands::export_secure_transfer,

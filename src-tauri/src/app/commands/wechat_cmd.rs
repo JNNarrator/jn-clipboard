@@ -168,3 +168,58 @@ pub async fn resume_wechat_channel(app: AppHandle) -> AppResult<WechatStatus> {
         ..Default::default()
     })
 }
+
+/// 更新当前用户的通道设置（白名单 / 复制提醒开关）。
+///
+/// 白名单在这里是"允许哪些微信号给这个 bot 发消息"。默认只有扫码登录者本人，
+/// 想授权家人朋友时把对方的微信 userId 加进来。
+#[tauri::command]
+pub async fn update_wechat_settings(
+    app: AppHandle,
+    whitelist: Option<String>,
+    notify_on_copy: Option<bool>,
+) -> AppResult<WechatStatus> {
+    let (base_url, token) = credentials(&app)?;
+    let mut url = format!("{}/api/wechat/settings", base_url);
+    let mut query: Vec<String> = Vec::new();
+    if let Some(value) = whitelist {
+        query.push(format!("whitelist={}", urlencode(&value)));
+    }
+    if let Some(value) = notify_on_copy {
+        query.push(format!("notifyOnCopy={}", value));
+    }
+    if !query.is_empty() {
+        url = format!("{}?{}", url, query.join("&"));
+    }
+
+    let client = reqwest::Client::new();
+    let response = client
+        .post(&url)
+        .header("jn-token", token)
+        .send()
+        .await
+        .map_err(|e| AppError::Network(format!("无法连接同步服务: {e}")))?;
+    let status = response.status();
+    let body = response.text().await.unwrap_or_default();
+    if status.as_u16() == 401 {
+        return Err(AppError::Auth("登录已过期，请重新登录".into()));
+    }
+    if !status.is_success() {
+        return Err(AppError::Network(format!("同步服务返回 {status}")));
+    }
+    unwrap_envelope(&body)
+}
+
+/// 最小的 URL 编码：白名单里可能出现 @ 与空格，直接拼进 query 会坏掉。
+fn urlencode(value: &str) -> String {
+    let mut out = String::with_capacity(value.len());
+    for byte in value.as_bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                out.push(*byte as char)
+            }
+            _ => out.push_str(&format!("%{:02X}", byte)),
+        }
+    }
+    out
+}

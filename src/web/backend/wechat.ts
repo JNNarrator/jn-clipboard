@@ -75,3 +75,20 @@ export const stopWechatChannel = async (): Promise<null> => {
 
 export const resumeWechatChannel = (): Promise<{ resumed: boolean; state: string }> =>
     call("POST", "/api/wechat/resume");
+
+/**
+ * 更新当前用户的通道设置。
+ *
+ * 参数走 query string，与后端 @RequestParam 对应；白名单里的 @ 与空格
+ * 必须编码，否则会被当成 query 分隔符。
+ */
+export const updateWechatSettings = async (
+    whitelist?: string,
+    notifyOnCopy?: boolean,
+): Promise<WechatStatus> => {
+    const params = new URLSearchParams();
+    if (whitelist !== undefined) params.set("whitelist", whitelist);
+    if (notifyOnCopy !== undefined) params.set("notifyOnCopy", String(notifyOnCopy));
+    const suffix = params.toString() ? `?${params.toString()}` : "";
+    return call("POST", `/api/wechat/settings${suffix}`);
+};

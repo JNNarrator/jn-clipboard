@@ -66,6 +66,9 @@ export const translations = {
         wechat_action_stop: "断开",
         wechat_action_resume: "恢复",
         wechat_scan_hint: "用微信扫描二维码完成登录",
+        wechat_whitelist_label: "允许使用的微信号",
+        wechat_whitelist_hint: "默认只有扫码的本人。想让他人也能发消息，把对方的微信 ID 加进来，用逗号分隔。",
+        wechat_whitelist_save: "保存",
 
         jnclub_sync_state_on: "已同步 · {when}",
         jnclub_sync_state_off: "未登录，历史只保存在本机",
@@ -774,6 +777,9 @@ export const translations = {
         wechat_action_stop: "Disconnect",
         wechat_action_resume: "Resume",
         wechat_scan_hint: "Scan the code with WeChat to sign in",
+        wechat_whitelist_label: "Allowed WeChat accounts",
+        wechat_whitelist_hint: "By default only the account that scanned the code. To let someone else send, add their WeChat ID here, comma-separated.",
+        wechat_whitelist_save: "Save",
 
         jnclub_sync_state_on: "Synced · {when}",
         jnclub_sync_state_off: "Not signed in; history stays on this device",
@@ -1478,6 +1484,9 @@ export const translations = {
         wechat_action_stop: "中斷",
         wechat_action_resume: "恢復",
         wechat_scan_hint: "用微信掃描二維碼完成登入",
+        wechat_whitelist_label: "允許使用的微信號",
+        wechat_whitelist_hint: "預設只有掃碼的本人。想讓他人也能傳訊息，把對方的微信 ID 加進來，用逗號分隔。",
+        wechat_whitelist_save: "儲存",
 
         jnclub_sync_state_on: "已同步 · {when}",
         jnclub_sync_state_off: "未登入，歷史只保存在本機",

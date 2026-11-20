@@ -47,6 +47,8 @@ const WechatChannelRow = ({ t }: WechatChannelRowProps) => {
     const [qrcode, setQrcode] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    // 白名单编辑：保存前是本地草稿，避免每敲一个字就打一次后端
+    const [whitelistDraft, setWhitelistDraft] = useState<string | null>(null);
 
     const refresh = async () => {
         try {
@@ -111,6 +113,21 @@ const WechatChannelRow = ({ t }: WechatChannelRowProps) => {
         }
     };
 
+    const saveWhitelist = async () => {
+        if (whitelistDraft === null) return;
+        setBusy(true);
+        setError(null);
+        try {
+            await invoke("update_wechat_settings", { whitelist: whitelistDraft });
+            setWhitelistDraft(null);
+            await refresh();
+        } catch (err) {
+            setError(String(err));
+        } finally {
+            setBusy(false);
+        }
+    };
+
     const state = status?.state ?? "DOWN";
     const stateKey = STATE_LABEL[state] ?? "wechat_state_down";
 
@@ -166,6 +183,34 @@ const WechatChannelRow = ({ t }: WechatChannelRowProps) => {
                 <div className="setting-item is-child wechat-qrcode">
                     <img src={qrcode} alt={t("wechat_scan_hint")} width={220} height={220} />
                     <span className="settings-panel-meta">{t("wechat_scan_hint")}</span>
+                </div>
+            )}
+
+            {status?.connected && (
+                <div className="setting-item is-child">
+                    <div className="item-label-group">
+                        <span className="item-label">{t("wechat_whitelist_label")}</span>
+                        <span className="settings-panel-meta">{t("wechat_whitelist_hint")}</span>
+                    </div>
+                    <input
+                        type="text"
+                        className="settings-text-input wechat-whitelist-input"
+                        spellCheck={false}
+                        autoComplete="off"
+                        placeholder="xxx@im.wechat, yyy@im.wechat"
+                        value={whitelistDraft ?? status?.whitelist ?? ""}
+                        onChange={(event) => setWhitelistDraft(event.target.value)}
+                    />
+                    <div className="wechat-channel-actions">
+                        <button
+                            type="button"
+                            className="settings-action-button settings-action-button--small"
+                            disabled={busy || whitelistDraft === null}
+                            onClick={saveWhitelist}
+                        >
+                            {t("wechat_whitelist_save")}
+                        </button>
+                    </div>
                 </div>
             )}
         </div>

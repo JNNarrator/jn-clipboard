@@ -13,6 +13,7 @@ import {
   requestWechatQrcode,
   resumeWechatChannel,
   stopWechatChannel,
+  updateWechatSettings,
 } from "./wechat";
 import { dispatchLocal } from "../shims/event";
 import { getAllSettings, resetSettings, saveSetting } from "./settings";
@@ -69,6 +70,11 @@ const handlers: Record<string, Handler> = {
   request_wechat_qrcode: () => requestWechatQrcode(),
   stop_wechat_channel: () => stopWechatChannel(),
   resume_wechat_channel: () => resumeWechatChannel(),
+  update_wechat_settings: ({ whitelist, notifyOnCopy }) =>
+    updateWechatSettings(
+      typeof whitelist === "string" ? whitelist : undefined,
+      typeof notifyOnCopy === "boolean" ? notifyOnCopy : undefined,
+    ),
 
   // ---- history -----------------------------------------------------------
   get_clipboard_history: async ({ limit, offset, contentType, sortMode }) =>

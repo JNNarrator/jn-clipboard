@@ -2876,3 +2876,12 @@ html.platform-macos .advanced-rule-list:focus-within::-webkit-scrollbar-thumb:ho
     background: #fff;
     padding: 8px;
 }
+
+
+/* 白名单输入框：占满一行，等宽字体便于核对 userId 这种长串。 */
+.wechat-whitelist-input {
+    width: 100%;
+    box-sizing: border-box;
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 12px;
+}
